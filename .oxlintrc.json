@@ -1,0 +1,12 @@
+   {
+     "$schema": "./node_modules/oxlint/configuration_schema.json",
+     "plugins": ["react", "typescript", "oxc", "unicorn", "import"],
+     "env": {
+       "browser": true
+     },
+     "ignorePatterns": ["dist"],
+     "rules": {
+       "react/rules-of-hooks": "error",
+       "react/only-export-components": ["warn", { "allowConstantExport": true }]
+     }
+   }
