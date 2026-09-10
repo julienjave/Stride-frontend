@@ -2,34 +2,37 @@
 // filter produces (see docs/api/03-conventions.md). "message" is ALWAYS an
 // array of strings — normalized at the backend itself specifically so a
 // frontend never has to branch on whether it got a string or an array.
+// The index signature accounts for the filter's "extra" mechanism: some
+// exceptions (e.g. the multi-role login case) attach additional custom
+// fields like `roles` alongside the standard ones.
 interface BackendErrorBody {
   statusCode: number
   message: string[]
   error: string
   timestamp: string
   path: string
+  [key: string]: unknown
 }
 
-// A custom Error subclass, rather than throwing the raw backend JSON or a
-// generic Error("request failed"). Extending Error means it still behaves
-// like a real JS error (has a .message, works with try/catch, shows a
-// sensible stack trace) — but we attach the extra fields callers actually
-// need to make decisions (statusCode, the full messages array, Retry-After
-// when present), so calling code never has to re-parse a response body.
 export class ApiError extends Error {
   readonly statusCode: number
   readonly messages: string[]
   readonly retryAfterSeconds?: number
+  // The full parsed error body, kept around so callers can read a custom
+  // field (e.g. `error.body.roles` for the multi-role login case) without
+  // ApiError needing a dedicated property for every possible backend-
+  // specific extra that might ever exist. Typed as unknown per key — the
+  // caller is responsible for narrowing before use, same as reading
+  // anything else off a network response.
+  readonly body: BackendErrorBody
 
   constructor(body: BackendErrorBody, retryAfterSeconds?: number) {
-    // super(...) sets the standard Error.message to the first real message
-    // — good enough for anywhere that just does err.message without
-    // knowing about our custom fields (e.g. a generic logging call).
     super(body.message[0] ?? 'Request failed')
     this.name = 'ApiError'
     this.statusCode = body.statusCode
     this.messages = body.message
     this.retryAfterSeconds = retryAfterSeconds
+    this.body = body
   }
 }
 

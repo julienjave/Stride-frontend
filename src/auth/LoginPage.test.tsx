@@ -88,6 +88,63 @@ describe('LoginPage', () => {
     expect(screen.queryByLabelText('Email')).not.toBeInTheDocument()
   })
 
+  it('shows a role picker when the backend reports a multi-role account, and resubmits with the chosen role', async () => {
+  fetchMock.mockResolvedValueOnce(
+    new Response(
+      JSON.stringify({
+        statusCode: 400,
+        message: ['This account has multiple roles. Specify which one to log in as.'],
+        error: 'BadRequestException',
+        timestamp: '2026-08-05T14:22:03.101Z',
+        path: '/auth/login',
+        roles: ['practitioner', 'admin'],
+      }),
+      { status: 400 },
+    ),
+  )
+
+  const user = userEvent.setup()
+  renderLoginPage()
+
+  await user.type(screen.getByLabelText('Email'), 'a@b.com')
+  await user.type(screen.getByLabelText('Password'), 'password123')
+  await user.click(screen.getByRole('button', { name: 'Log in' }))
+
+  const practitionerButton = await screen.findByRole('button', {
+    name: 'practitioner',
+  })
+  expect(screen.getByRole('button', { name: 'admin' })).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'patient' })).not.toBeInTheDocument()
+
+  fetchMock.mockResolvedValueOnce(
+    new Response(
+      JSON.stringify({
+        id: 1,
+        email: 'a@b.com',
+        activeRole: 'practitioner',
+        roles: ['practitioner', 'admin'],
+      }),
+      { status: 201 },
+    ),
+  )
+
+  await user.click(practitionerButton)
+
+  await waitFor(() =>
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      expect.stringContaining('/auth/login'),
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          email: 'a@b.com',
+          password: 'password123',
+          role: 'practitioner',
+        }),
+      }),
+    ),
+  )
+})
+
   it('shows a client-side validation error without calling the API for an invalid email', async () => {
     const user = userEvent.setup()
     renderLoginPage()

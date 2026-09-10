@@ -13,20 +13,32 @@ import {
   mfaCodeSchema,
   type LoginFormValues,
   type MfaCodeFormValues,
+  type UserRole,
 } from './schemas'
 import { ApiError } from '@/api/client'
 
-// The real state machine, as an actual TypeScript
-// union — not a boolean bolted onto the component. A step can ONLY be one
-// of these three named states, and TypeScript will complain if code tries
-// to read MFA-step-only data while in the credentials step, etc. This is
-// the same "make the illegal state unrepresentable" idea as the
-// LoginResponse union in api.ts, just applied to UI state instead of an
-// API response.
-type LoginStep = 'credentials' | 'mfa-pending' | 'authenticated'
+// A fourth state added to the original three: 'role-pending' sits between
+// 'credentials' and either end state, for exactly the case the backend's
+// 400 (with its new `roles` field) exists to support — a multi-role
+// account that hasn't yet told us which role to log in as.
+type LoginStep = 'credentials' | 'role-pending' | 'mfa-pending' | 'authenticated'
+
+// A small, local helper — not exported, not reused elsewhere — for the one
+// specific thing we need to detect: "did this failure come with a roles
+// list attached?" Kept as its own function rather than inlined in the
+// onError callback below, purely so that callback reads as one clear
+// sentence rather than a nested condition full of casts.
+function getMultiRoleOptions(error: unknown): UserRole[] | null {
+  if (!(error instanceof ApiError)) return null
+  if (error.statusCode !== 400) return null
+  const { roles } = error.body
+  if (!Array.isArray(roles)) return null
+  return roles as UserRole[]
+}
 
 export function LoginPage() {
   const [step, setStep] = useState<LoginStep>('credentials')
+  const [roleOptions, setRoleOptions] = useState<UserRole[]>([])
   const queryClient = useQueryClient()
   const navigate = useNavigate()
 
@@ -38,36 +50,31 @@ export function LoginPage() {
     resolver: zodResolver(mfaCodeSchema),
   })
 
-  // useMutation (unlike useQuery) is for actions that CHANGE something on
-  // the server, triggered by an event (a form submit) rather than fetched
-  // automatically on render. It gives us isPending (disable the submit
-  // button while in flight) and onSuccess/onError callbacks to react to
-  // the result, without hand-rolling try/catch + useState for loading and
-  // error tracking ourselves.
   const loginMutation = useMutation({
     mutationFn: login,
     onSuccess: (result) => {
-      // 'mfaRequired' in result — NOT result.mfaRequired — because
-      // CurrentUser doesn't declare that property at all (not even as
-      // false); TypeScript's `in` operator narrows a union based on
-      // property PRESENCE, which is exactly the check we need here, while
-      // reading result.mfaRequired directly would be a compile error
-      // (confirmed: TS2339, "Property does not exist on type CurrentUser").
       if ('mfaRequired' in result) {
-        // Login succeeded, but the session isn't authenticated yet (see
-        // api.ts's comment on LoginResponse) — move to the next step
-        // rather than treating this as "done."
         setStep('mfa-pending')
         return
       }
-      // No MFA on this account — login fully completed in one step.
-      // setQueryData seeds the cache directly with data we already have,
-      // rather than invalidateQueries (which would trigger a SECOND
-      // network request to /auth/me we don't actually need — we already
-      // have the exact same data right here in `result`).
       queryClient.setQueryData(currentUserQueryKey, result)
       setStep('authenticated')
       void navigate('/')
+    },
+    // NEW: onError runs whenever the mutation's promise rejects — which,
+    // for an ApiError, means any non-2xx response. This is the one place
+    // we check for the specific "multiple roles" shape and branch the UI
+    // accordingly, rather than letting it fall through to the generic
+    // error message every other failure gets.
+    onError: (error) => {
+      const roles = getMultiRoleOptions(error)
+      if (roles) {
+        setRoleOptions(roles)
+        setStep('role-pending')
+      }
+      // Any other error (wrong password, throttled, etc.) needs no extra
+      // handling here — loginMutation.isError/.error, read directly in the
+      // JSX below, already covers displaying it.
     },
   })
 
@@ -79,6 +86,41 @@ export function LoginPage() {
       void navigate('/')
     },
   })
+
+  // Called when the user clicks one of the role buttons. We deliberately
+  // don't ask them to retype email/password — credentialsForm still holds
+  // those values internally (RHF doesn't discard them just because we
+  // stopped rendering its inputs), and getValues() reads them back without
+  // triggering validation or a re-render.
+  function submitWithRole(role: UserRole) {
+    loginMutation.mutate({ ...credentialsForm.getValues(), role })
+  }
+
+  if (step === 'role-pending') {
+    return (
+      <div className="mx-auto mt-24 max-w-sm space-y-4">
+        <h1 className="text-xl font-semibold">Which role do you want to log in as?</h1>
+        <div className="flex flex-col gap-2">
+          {roleOptions.map((role) => (
+            <Button
+              key={role}
+              onClick={() => submitWithRole(role)}
+              disabled={loginMutation.isPending}
+            >
+              {role}
+            </Button>
+          ))}
+        </div>
+        {loginMutation.isError && !getMultiRoleOptions(loginMutation.error) && (
+          <p className="text-sm text-destructive">
+            {loginMutation.error instanceof ApiError
+              ? loginMutation.error.messages.join(', ')
+              : 'Something went wrong'}
+          </p>
+        )}
+      </div>
+    )
+  }
 
   if (step === 'mfa-pending') {
     return (
@@ -161,7 +203,7 @@ export function LoginPage() {
           )}
         </div>
 
-        {loginMutation.isError && (
+        {loginMutation.isError && !getMultiRoleOptions(loginMutation.error) && (
           <p className="text-sm text-destructive">
             {loginMutation.error instanceof ApiError
               ? loginMutation.error.messages.join(', ')

@@ -116,6 +116,30 @@ describe('apiRequest', () => {
     }
   })
 
+  it('exposes custom fields (e.g. roles on the multi-role login error) via .body', async () => {
+  fetchMock.mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        statusCode: 400,
+        message: ['This account has multiple roles. Specify which one to log in as.'],
+        error: 'BadRequestException',
+        timestamp: '2026-08-05T14:22:03.101Z',
+        path: '/auth/login',
+        roles: ['practitioner', 'admin'],
+      }),
+      { status: 400 },
+    ),
+  )
+
+  try {
+    await apiRequest('/auth/login', { method: 'POST', body: {} })
+    expect.unreachable('apiRequest should have thrown')
+  } catch (err) {
+    expect(err).toBeInstanceOf(ApiError)
+    expect((err as ApiError).body.roles).toEqual(['practitioner', 'admin'])
+  }
+})
+
   it('sends a JSON body and Content-Type header only when a body is actually provided', async () => {
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify({ id: 1 }), { status: 201 }),
