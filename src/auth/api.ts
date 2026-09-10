@@ -39,3 +39,11 @@ export function verifyMfaCode(payload: MfaCodeFormValues) {
     body: payload,
   })
 }
+
+// POST /auth/logout returns a 204 — apiRequest already handles that case
+// (returns undefined without trying to parse an empty body), so this
+// function's return type is effectively Promise<void>. Nothing to send:
+// the backend destroys whatever session the cookie currently points to.
+export function logout() {
+  return apiRequest<void>('/auth/logout', { method: 'POST' })
+}
