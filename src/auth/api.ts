@@ -1,6 +1,41 @@
 import { apiRequest } from '@/api/client'
 import type { CurrentUser } from './types'
+import type { LoginFormValues, MfaCodeFormValues } from './schemas'
 
 export function fetchCurrentUser() {
   return apiRequest<CurrentUser>('/auth/me')
+}
+
+// POST /auth/login genuinely returns one of two different shapes at the
+// SAME 201 status — a plain boolean flag bolted onto CurrentUser would
+// obscure that these are two distinct outcomes with nothing else in
+// common. Modeling it as a real union means TypeScript forces every
+// caller to check `mfaRequired` before it'll let you access any
+// CurrentUser-only field — the type system enforces the branch, rather
+// than trusting every call site to remember to check.
+interface MfaRequiredResponse {
+  mfaRequired: true
+}
+
+export type LoginResponse = CurrentUser | MfaRequiredResponse
+
+export function login(credentials: LoginFormValues) {
+  return apiRequest<LoginResponse>('/auth/login', {
+    method: 'POST',
+    body: credentials,
+  })
+}
+
+// The second step of the MFA flow. Note this does NOT need to send back
+// which user is logging in — the backend already knows, via
+// req.session.mfaPending (set during the login call above, riding on the
+// SAME session cookie apiRequest already sends on every request via
+// credentials: 'include'). This is exactly the "session, not token"
+// consequence: nothing client-side needs to track or
+// re-send a user/session identifier here.
+export function verifyMfaCode(payload: MfaCodeFormValues) {
+  return apiRequest<CurrentUser>('/auth/mfa/verify', {
+    method: 'POST',
+    body: payload,
+  })
 }

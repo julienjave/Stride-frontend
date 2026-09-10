@@ -18,5 +18,9 @@ export default defineConfig({
     // DOM to render against. jsdom provides exactly that, entirely in
     // memory — no real browser involved.
     environment: 'jsdom',
+    // Runs once before every test FILE (not once total) — this is what
+    // registers jest-dom's matchers and the automatic DOM cleanup, without
+    // every single test file needing its own copy of that boilerplate.
+    setupFiles: ['./src/test-setup.ts'],
   },
 })
