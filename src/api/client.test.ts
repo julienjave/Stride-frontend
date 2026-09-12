@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { apiRequest, ApiError } from './client'
+import { apiRequest, ApiError, setUnauthorizedHandler } from './client'
 
 // Replace the real global fetch with a mock we control for every test —
 // this is what lets us test client.ts's OWN logic (how it builds a
@@ -117,28 +117,28 @@ describe('apiRequest', () => {
   })
 
   it('exposes custom fields (e.g. roles on the multi-role login error) via .body', async () => {
-  fetchMock.mockResolvedValue(
-    new Response(
-      JSON.stringify({
-        statusCode: 400,
-        message: ['This account has multiple roles. Specify which one to log in as.'],
-        error: 'BadRequestException',
-        timestamp: '2026-08-05T14:22:03.101Z',
-        path: '/auth/login',
-        roles: ['practitioner', 'admin'],
-      }),
-      { status: 400 },
-    ),
-  )
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          statusCode: 400,
+          message: ['This account has multiple roles. Specify which one to log in as.'],
+          error: 'BadRequestException',
+          timestamp: '2026-08-05T14:22:03.101Z',
+          path: '/auth/login',
+          roles: ['practitioner', 'admin'],
+        }),
+        { status: 400 },
+      ),
+    )
 
-  try {
-    await apiRequest('/auth/login', { method: 'POST', body: {} })
-    expect.unreachable('apiRequest should have thrown')
-  } catch (err) {
-    expect(err).toBeInstanceOf(ApiError)
-    expect((err as ApiError).body.roles).toEqual(['practitioner', 'admin'])
-  }
-})
+    try {
+      await apiRequest('/auth/login', { method: 'POST', body: {} })
+      expect.unreachable('apiRequest should have thrown')
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError)
+      expect((err as ApiError).body.roles).toEqual(['practitioner', 'admin'])
+    }
+  })
 
   it('sends a JSON body and Content-Type header only when a body is actually provided', async () => {
     fetchMock.mockResolvedValue(
@@ -159,5 +159,59 @@ describe('apiRequest', () => {
     expect(requestInit!.body).toBe(
       JSON.stringify({ email: 'a@b.com', password: 'secret123' }),
     )
+  })
+
+  it('calls the registered unauthorized handler on a mid-session 401, with the current path', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          statusCode: 401,
+          message: ['Unauthorized'],
+          error: 'Unauthorized',
+          timestamp: '2026-08-05T14:22:03.101Z',
+          path: '/exercises',
+        }),
+        { status: 401 },
+      ),
+    )
+
+    const handler = vi.fn()
+    setUnauthorizedHandler(handler)
+
+    // jsdom's window.location defaults to http://localhost:3000/ — good
+    // enough to confirm the handler receives A path, without needing to
+    // fake a navigation to some other URL first.
+    await expect(apiRequest('/exercises')).rejects.toThrow(ApiError)
+
+    expect(handler).toHaveBeenCalledWith('/')
+
+    // Reset the handler so this test doesn't leak into others — module-
+    // level registration state persists across tests in this file
+    // otherwise.
+    setUnauthorizedHandler(() => {})
+  })
+
+  it('does NOT call the unauthorized handler for /auth/me\'s own 401 — that is the routine bootstrap check, not a session expiring', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          statusCode: 401,
+          message: ['Unauthorized'],
+          error: 'Unauthorized',
+          timestamp: '2026-08-05T14:22:03.101Z',
+          path: '/auth/me',
+        }),
+        { status: 401 },
+      ),
+    )
+
+    const handler = vi.fn()
+    setUnauthorizedHandler(handler)
+
+    await expect(apiRequest('/auth/me')).rejects.toThrow(ApiError)
+
+    expect(handler).not.toHaveBeenCalled()
+
+    setUnauthorizedHandler(() => {})
   })
 })

@@ -49,6 +49,19 @@ interface RequestOptions {
   body?: unknown
 }
 
+// A registration slot, not a direct import of react-router or the auth
+// query cache — client.ts stays a plain module with zero React/Router
+// dependencies. Whoever composes the app (app/routes.tsx, where the
+// router itself is created) registers a real handler here once; client.ts
+// just knows "call this function when a mid-session 401 happens," without
+// needing to know WHAT that function does.
+type UnauthorizedHandler = (currentPath: string) => void
+let unauthorizedHandler: UnauthorizedHandler | null = null
+
+export function setUnauthorizedHandler(handler: UnauthorizedHandler) {
+  unauthorizedHandler = handler
+}
+
 // The one function every feature folder's API calls should go through.
 // Never call fetch() directly anywhere else in this app — see FRONTEND.md's
 // "single funnel" principle (the same discipline the backend applies to
@@ -101,6 +114,17 @@ export async function apiRequest<TResponse>(
     // every error response (docs/api/03-conventions.md) — a documented,
     // load-bearing contract, not a guess.
     const body = (await response.json()) as BackendErrorBody
+
+    // A 401 from /auth/me is excluded deliberately — that's the routine,
+    // EXPECTED "not logged in yet" bootstrap check every page load does,
+    // not a session expiring mid-use. Triggering a "you were logged out"
+    // redirect flow for that case would be noise, not a real event. Every
+    // OTHER 401 (a session that expired or was invalidated while the user
+    // was actively doing something) genuinely needs to be handled.
+    if (body.statusCode === 401 && path !== '/auth/me') {
+      unauthorizedHandler?.(window.location.pathname + window.location.search)
+    }
+
     throw new ApiError(body, retryAfterSeconds)
   }
 

@@ -1,19 +1,26 @@
-import { Navigate, Outlet } from 'react-router'
+import { Navigate, Outlet, useLocation } from 'react-router'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 
-// Outlet renders whichever nested route actually matched — this component
-// itself isn't a page, it's a gate that decides WHETHER the matched page
-// gets to render at all. This is how a layout-style guard works in React
-// Router's data-router model: wrap a group of routes, and every route
-// inside that group passes through this check first.
 export function RequireAuth() {
   const { data: user } = useCurrentUser()
+  const location = useLocation()
 
-  // By the time any route renders, App.tsx has already waited out the
-  // initial /auth/me check (isLoading gate) — so `user` here is either a
-  // real CurrentUser or null, never the "still checking" undefined state.
   if (!user) {
-    return <Navigate to="/login" replace />
+    // state.from is read by LoginPage after a successful login, so someone
+    // who tried to visit e.g. /admin directly while logged out lands back
+    // on /admin afterward — not always dumped at the dashboard regardless
+    // of where they were actually headed. Storing pathname + search (a
+    // plain string) rather than the whole location OBJECT keeps this
+    // simple and matches exactly what the mid-session 401 handler (in
+    // app/routes.tsx, outside React entirely) can produce too — one
+    // shared shape, from two different trigger points.
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: location.pathname + location.search }}
+      />
+    )
   }
 
   return <Outlet />

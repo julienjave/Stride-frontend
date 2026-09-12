@@ -6,6 +6,9 @@ import { RequireAuth } from './RequireAuth'
 import { RequireGuest } from './RequireGuest'
 import { RequireRole } from './RequireRole'
 import { AdminPlaceholderPage } from './AdminPlaceholderPage'
+import { setUnauthorizedHandler } from '@/api/client'
+import { queryClient } from '@/api/queryClient'
+import { currentUserQueryKey } from '@/auth/useCurrentUser'
 
 // createBrowserRouter takes a plain array describing every route as data
 // (path + which component renders there), rather than the older pattern of
@@ -44,3 +47,23 @@ export const router = createBrowserRouter([
     ],
   },
 ])
+
+// This is the composition root for the mid-session 401 handler —
+// client.ts stays a plain module with no knowledge of React Router or the
+// query cache; this is the one place that wires the two together, right
+// where the router itself already lives.
+setUnauthorizedHandler((currentPath) => {
+  // Without this, the CACHED current-user data would still say "logged
+  // in" even though the session just expired server-side — RequireGuest
+  // would then immediately bounce the user straight back out of /login,
+  // since it would see stale, still-truthy user data. Clearing this
+  // FIRST is what lets /login actually render once we navigate there.
+  queryClient.setQueryData(currentUserQueryKey, null)
+  // router.navigate is React Router's own documented way to navigate
+  // imperatively from OUTSIDE a React component/hook — exactly what's
+  // needed here, since client.ts's handler runs from a plain fetch
+  // call, nowhere near a component. The state shape (`{ from }`) matches
+  // RequireAuth's own redirect exactly, so LoginPage only needs to handle
+  // ONE shape regardless of which of the two triggered it.
+  void router.navigate('/login', { state: { from: currentPath } })
+})
