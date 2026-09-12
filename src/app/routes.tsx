@@ -1,5 +1,6 @@
 import { createBrowserRouter } from 'react-router'
 import { LoginPage } from '@/auth/LoginPage'
+import { RegisterPage } from '@/auth/RegisterPage'
 import { DashboardPage } from '@/app/DashboardPage'
 
 // createBrowserRouter takes a plain array describing every route as data
@@ -21,5 +22,9 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: <DashboardPage />,
+  },
+  {
+    path: '/register',
+    element: <RegisterPage />,
   },
 ])
