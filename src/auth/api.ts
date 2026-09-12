@@ -1,6 +1,11 @@
 import { apiRequest } from '@/api/client'
 import type { CurrentUser } from './types'
-import type { LoginFormValues, MfaCodeFormValues, RegisterFormValues } from './schemas'
+import type { 
+  LoginFormValues, 
+  MfaCodeFormValues, 
+  RegisterFormValues, 
+  UserRole, 
+} from './schemas'
 
 
 // --- AUTH/ME ---------------------------------------------------------------
@@ -76,5 +81,19 @@ export function register(values: RegisterFormValues) {
   return apiRequest<CurrentUser>('/auth/register', {
     method: 'POST',
     body: payload,
+  })
+}
+
+
+// --- SWITCHING ROLES -------------------------------------------------------------
+
+// Always returns a full CurrentUser (like login without MFA) — the
+// backend re-runs req.login() internally to mutate the session's
+// activeRole, but there's no separate intermediate state to model here,
+// unlike login's MFA branch.
+export function switchRole(role: UserRole) {
+  return apiRequest<CurrentUser>('/auth/switch-role', {
+    method: 'POST',
+    body: { role },
   })
 }

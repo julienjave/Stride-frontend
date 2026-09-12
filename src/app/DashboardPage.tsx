@@ -1,5 +1,6 @@
 import { useHealthCheck } from '@/common/useHealthCheck'
 import { useLogout } from '@/auth/useLogout'
+import { RoleSwitcher } from '@/auth/RoleSwitcher'
 import { Button } from '@/components/ui/button'
 
 export function DashboardPage() {
@@ -9,6 +10,7 @@ export function DashboardPage() {
   return (
     <div>
       <h1>Dashboard (placeholder)</h1>
+      <RoleSwitcher />
       {isLoading && <p>Checking backend…</p>}
       {isError && <p style={{ color: 'red' }}>Backend unreachable</p>}
       {data && <p style={{ color: 'green' }}>Backend status: {data.status}</p>}
