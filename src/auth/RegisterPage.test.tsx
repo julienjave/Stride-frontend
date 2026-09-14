@@ -75,6 +75,47 @@ describe('RegisterPage', () => {
     )
   })
 
+  it('includes phone and address in the request when the person fills them in', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 1,
+          email: 'jane@example.com',
+          firstName: 'Jane',
+          lastName: 'Doe',
+          activeRole: 'patient',
+          roles: ['patient'],
+        }),
+        { status: 201 },
+      ),
+    )
+
+    const user = userEvent.setup()
+    renderRegisterPage()
+    await fillValidForm(user)
+    await user.type(screen.getByLabelText('Phone (optional)'), '+1 555-0100')
+    await user.type(screen.getByLabelText('Address (optional)'), '123 Main St')
+    await user.click(screen.getByRole('button', { name: 'Create account' }))
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/auth/register'),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            email: 'jane@example.com',
+            password: 'password123',
+            firstName: 'Jane',
+            lastName: 'Doe',
+            dateOfBirth: '1990-01-01',
+            phone: '+1 555-0100',
+            address: '123 Main St',
+          }),
+        }),
+      ),
+    )
+  })
+
   it('shows a validation error and never calls the API when passwords do not match', async () => {
     const user = userEvent.setup()
     renderRegisterPage()

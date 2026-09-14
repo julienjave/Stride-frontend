@@ -63,7 +63,7 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler) {
 }
 
 // The one function every feature folder's API calls should go through.
-// Never call fetch() directly anywhere else in this app — see FRONTEND.md's
+// Never call fetch() directly anywhere else in this app — 
 // "single funnel" principle (the same discipline the backend applies to
 // itself via toPublic()/getAllowedOrigins()).
 export async function apiRequest<TResponse>(

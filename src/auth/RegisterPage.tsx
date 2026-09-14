@@ -100,6 +100,37 @@ export function RegisterPage() {
           )}
         </div>
 
+        {/* phone/address are optional everywhere in this form — no red
+            asterisk, no "required" validation, and the Label text itself
+            says so, since leaving these blank is an entirely normal path,
+            not an error state the way an empty firstName would be. */}
+        <div className="space-y-1">
+          <Label htmlFor="phone">Phone (optional)</Label>
+          <Input
+            id="phone"
+            type="tel"
+            autoComplete="tel"
+            aria-invalid={!!form.formState.errors.phone}
+            {...form.register('phone')}
+          />
+          {form.formState.errors.phone && (
+            <p className="text-sm text-destructive">{form.formState.errors.phone.message}</p>
+          )}
+        </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="address">Address (optional)</Label>
+          <Input
+            id="address"
+            autoComplete="street-address"
+            aria-invalid={!!form.formState.errors.address}
+            {...form.register('address')}
+          />
+          {form.formState.errors.address && (
+            <p className="text-sm text-destructive">{form.formState.errors.address.message}</p>
+          )}
+        </div>
+
         <div className="space-y-1">
           <Label htmlFor="password">Password</Label>
           <Input

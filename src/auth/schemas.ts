@@ -46,6 +46,17 @@ export const registerSchema = z
     firstName: z.string().min(1, 'First name is required'),
     lastName: z.string().min(1, 'Last name is required'),
     dateOfBirth: z.string().min(1, 'Date of birth is required'),
+    // Both genuinely optional, per RegisterDto — .optional() means the KEY
+    // may be absent from the parsed result, but note this does NOT stop an
+    // untouched form input from producing an empty string '' here: RHF
+    // reads whatever's currently in the DOM, and an empty text input's
+    // value is '', not undefined. z.string() (with no .min()) happily
+    // accepts '' as valid — so Zod alone can't tell "left blank" apart
+    // from "typed then deleted." That distinction is handled one layer up,
+    // in api.ts's register(), right before the request is sent — see the
+    // comment there for why it matters.
+    phone: z.string().max(50, 'Phone number is too long').optional(),
+    address: z.string().max(500, 'Address is too long').optional(),
   })
   // .refine runs AFTER the per-field checks above all pass — this is for a
   // check that depends on MORE THAN ONE field at once, which a single

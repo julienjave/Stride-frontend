@@ -77,10 +77,29 @@ export function register(values: RegisterFormValues) {
   // whole request outright if we sent it. Destructuring it out here, at
   // the API boundary, keeps that "this field is UI-only" knowledge in one
   // place rather than leaking into the component.
-  const { confirmPassword: _confirmPassword, ...payload } = values
+  const { confirmPassword: _confirmPassword, phone, address, ...rest } = values
+
+  // phone/address are optional on the backend, but an HTML text input that
+  // was simply never touched reads as '' (empty string), not undefined —
+  // the DOM has no concept of "this field was never filled in," only "this
+  // field currently contains zero characters." If we sent '' as-is,
+  // RegisterDto's @IsOptional() would NOT skip it (that decorator only
+  // treats undefined/null as "absent" — an empty string is a perfectly
+  // valid string, so it would sail through @IsString() and get stored as
+  // a literal empty string in the database. That's a different, worse
+  // outcome than the column genuinely being null: "we have a phone number
+  // and it's blank" vs. "we were never given one." Converting '' back to
+  // undefined here — right at the boundary before the request is built —
+  // means JSON.stringify (called inside apiRequest) drops the key
+  // entirely for an untouched field, which is what "optional" is actually
+  // supposed to mean.
   return apiRequest<CurrentUser>('/auth/register', {
     method: 'POST',
-    body: payload,
+    body: {
+      ...rest,
+      phone: phone === '' ? undefined : phone,
+      address: address === '' ? undefined : address,
+    },
   })
 }
 

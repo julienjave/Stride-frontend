@@ -73,4 +73,36 @@ describe('registerSchema', () => {
     })
     expect(result.success).toBe(false)
   })
+
+  it('accepts registration without phone or address (both optional)', () => {
+    // validBase already has neither — this test exists to make that
+    // omission an intentional, asserted behavior rather than an
+    // unexamined side effect of validBase's shape.
+    expect(registerSchema.safeParse(validBase).success).toBe(true)
+  })
+
+  it('accepts registration with phone and address provided', () => {
+    const result = registerSchema.safeParse({
+      ...validBase,
+      phone: '+1 555-0100',
+      address: '123 Main St, Springfield',
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects a phone number over 50 characters', () => {
+    const result = registerSchema.safeParse({
+      ...validBase,
+      phone: '5'.repeat(51),
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects an address over 500 characters', () => {
+    const result = registerSchema.safeParse({
+      ...validBase,
+      address: 'a'.repeat(501),
+    })
+    expect(result.success).toBe(false)
+  })
 })

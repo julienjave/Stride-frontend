@@ -42,7 +42,7 @@ export function LoginPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
 
-    const location = useLocation()
+  const location = useLocation()
 
   // location.state is typed as `unknown` by React Router (it can hold
   // literally anything a caller passed) — narrowing it here, once, rather
@@ -72,7 +72,7 @@ export function LoginPage() {
       setStep('authenticated')
       void navigate(redirectTo)
     },
-    // NEW: onError runs whenever the mutation's promise rejects — which,
+    // onError runs whenever the mutation's promise rejects — which,
     // for an ApiError, means any non-2xx response. This is the one place
     // we check for the specific "multiple roles" shape and branch the UI
     // accordingly, rather than letting it fall through to the generic
