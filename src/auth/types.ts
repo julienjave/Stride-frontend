@@ -42,3 +42,24 @@ export interface CurrentUser {
   patientProfile?: { dateOfBirth: string }
   adminProfile?: { position: string | null }
 }
+
+// The real shape POST /auth/register-clinic returns — same generated-type
+// gap CurrentUser above already closed for /auth/me, for the identical
+// reason: Nest's Swagger module can't introspect a plain-object-literal
+// controller return without an explicit @ApiResponse decorator, so
+// openapi-typescript generates AuthController_registerClinic's response as
+// an empty, unusable Record<string, never>.
+//
+// CurrentUser & { clinicId: number } is confirmed correct two ways, not
+// just assumed: (1) reading auth.service.ts's registerClinic() — it builds
+// its result by spreading the same attachProfile()/toPublic() helpers every
+// other CurrentUser-shaped response goes through, plus one extra field,
+// clinicId: clinic.id; and (2) an actual test run against that service
+// method confirmed columns like phone/address/mfaEnabled genuinely survive
+// into the result at runtime, even though auth.service.ts's OWN internal
+// RegisterClinicResult interface doesn't bother listing them — a TypeScript
+// interface only constrains what the compiler checks, it can never strip a
+// real property off an object at runtime, so that narrower backend-internal
+// type isn't actually a narrower real response. CurrentUser is the accurate
+// model here, not a guess.
+export type RegisterClinicResult = CurrentUser & { clinicId: number }

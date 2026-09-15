@@ -69,3 +69,56 @@ export const registerSchema = z
   })
 
 export type RegisterFormValues = z.infer<typeof registerSchema>
+
+
+// --- CLINIC BOOTSTRAP (register-clinic) -------------------------------------
+
+// Matches RegisterClinicDto — two logically distinct groups of fields living
+// in one flat object, same as the backend DTO itself: the clinic being
+// created (clinicName/clinicEmail/clinicPhone/clinicWebsite/clinicAddress)
+// and the founding admin account that gets created alongside it
+// (email/password/firstName/lastName/position). A separate schema from
+// registerSchema, not a shared/extended one — despite the overlapping field
+// NAMES (email, password, firstName, lastName), these mean something
+// different here (the admin's own account, always role=admin, created via a
+// one-time bootstrap endpoint) than they do for a self-registering patient,
+// and the two forms will keep diverging (this one will never grow a
+// dateOfBirth field, for instance). Sharing a base would couple two things
+// that only coincidentally look alike today.
+export const registerClinicSchema = z
+  .object({
+    // --- Clinic fields ---
+    clinicName: z.string().min(1, 'Clinic name is required').max(255, 'Clinic name is too long'),
+    clinicEmail: z.string().email('Enter a valid clinic email address'),
+    // All four of these are genuinely optional per RegisterClinicDto — same
+    // DOM-empty-string caveat as registerSchema's phone/address above
+    // applies to every one of them: Zod alone can't tell "left blank" apart
+    // from "typed then deleted," so the '' → undefined conversion still has
+    // to happen one layer up, in api.ts's registerClinic(), right before
+    // the request is built.
+    clinicPhone: z.string().max(50, 'Phone number is too long').optional(),
+    clinicWebsite: z.string().max(255, 'Website is too long').optional(),
+    clinicAddress: z.string().max(500, 'Address is too long').optional(),
+
+    // --- Founding admin fields ---
+    email: z.string().email('Enter a valid email address'),
+    // Mirrors RegisterClinicDto's own constraint (8–128 chars), same
+    // reasoning as registerSchema's password field: instant feedback
+    // instead of a round trip to learn the same thing.
+    password: z.string().min(8, 'Password must be at least 8 characters').max(128),
+    confirmPassword: z.string(),
+    firstName: z.string().min(1, 'First name is required'),
+    lastName: z.string().min(1, 'Last name is required'),
+    // Optional job-title field (e.g. "Practice Owner") — distinct from the
+    // phone/address fields deliberately left OFF this form entirely (see
+    // RegisterClinicPage): position is role/title information, not contact
+    // information, so it doesn't fall under the "defer contact details to a
+    // later profile-edit screen" decision the same way phone/address did.
+    position: z.string().max(100, 'Position is too long').optional(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['confirmPassword'],
+  })
+
+export type RegisterClinicFormValues = z.infer<typeof registerClinicSchema>

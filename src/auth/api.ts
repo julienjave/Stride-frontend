@@ -1,9 +1,10 @@
 import { apiRequest } from '@/api/client'
-import type { CurrentUser } from './types'
+import type { CurrentUser, RegisterClinicResult } from './types'
 import type { 
   LoginFormValues, 
   MfaCodeFormValues, 
   RegisterFormValues, 
+  RegisterClinicFormValues,
   UserRole, 
 } from './schemas'
 
@@ -99,6 +100,53 @@ export function register(values: RegisterFormValues) {
       ...rest,
       phone: phone === '' ? undefined : phone,
       address: address === '' ? undefined : address,
+    },
+  })
+}
+
+
+// --- CLINIC BOOTSTRAP (register-clinic) -------------------------------------
+
+// Same overall shape as register() just above — always a plain result
+// (never the login mfaRequired union, for the same reason: a bootstrap
+// endpoint building an account from scratch can't already have MFA on it),
+// and the backend logs the new admin in immediately (req.login() runs
+// server-side as part of this same request), so there's no separate login
+// call needed afterward here either.
+export function registerClinic(values: RegisterClinicFormValues) {
+  // confirmPassword is client-side-only validation (see schemas.ts) — same
+  // reasoning as register()'s identical destructure just above.
+  const { confirmPassword: _confirmPassword, clinicPhone, clinicWebsite, clinicAddress, position, ...rest } =
+    values
+
+  // Same '' → undefined conversion as register()'s phone/address, and for
+  // the identical reason: RegisterClinicDto's @IsOptional() only treats
+  // undefined/null as "this field is absent" — an empty string is a
+  // perfectly valid string that would sail through validation and land as
+  // a literal empty value in the database, which is a different (worse)
+  // outcome than the column genuinely being null. Every optional text
+  // input on this form needs this same treatment, which is why there are
+  // four fields handled identically below rather than just one or two.
+  //
+  // Note what's NOT here: RegisterClinicDto also accepts admin-level
+  // `phone`/`address` fields (separate from clinicPhone/clinicAddress —
+  // confirmed by reading the DTO), but RegisterClinicFormValues has no
+  // phone/address keys at all, because RegisterClinicPage deliberately
+  // never renders inputs for them (see that decision in schemas.ts's
+  // comment on the position field). With no form field to produce a value,
+  // `rest` simply never contains those keys, so JSON.stringify drops them
+  // exactly the same way the explicit '' → undefined conversion does below
+  // for the fields that DO have inputs — the end state (backend receives
+  // no phone/address for the admin) is identical either way, just reached
+  // by "never having the key" instead of "converting an empty one away."
+  return apiRequest<RegisterClinicResult>('/auth/register-clinic', {
+    method: 'POST',
+    body: {
+      ...rest,
+      clinicPhone: clinicPhone === '' ? undefined : clinicPhone,
+      clinicWebsite: clinicWebsite === '' ? undefined : clinicWebsite,
+      clinicAddress: clinicAddress === '' ? undefined : clinicAddress,
+      position: position === '' ? undefined : position,
     },
   })
 }
