@@ -121,6 +121,24 @@ describe('ClinicEditPage — real end-to-end edit flow', () => {
   })
 })
 
+describe('ClinicEditPage — deactivate section', () => {
+  it('shows the Deactivate button for an active clinic', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify(fullClinic), { status: 200 }))
+    renderAt('/admin/clinics/1')
+    expect(await screen.findByRole('button', { name: 'Deactivate clinic' })).toBeInTheDocument()
+    expect(screen.queryByText('This clinic is deactivated.')).not.toBeInTheDocument()
+  })
+
+  it('shows a status note instead of the button for an already-inactive clinic', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ ...fullClinic, isActive: false }), { status: 200 }),
+    )
+    renderAt('/admin/clinics/1')
+    expect(await screen.findByText('This clinic is deactivated.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Deactivate clinic' })).not.toBeInTheDocument()
+  })
+})
+
 describe('ClinicEditPage — navigation', () => {
   it('has a "Back to clinics" link', async () => {
     fetchMock.mockResolvedValue(new Response(JSON.stringify(fullClinic), { status: 200 }))

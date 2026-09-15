@@ -3,6 +3,9 @@ import { LoginPage } from '@/auth/LoginPage'
 import { RegisterPage } from '@/auth/RegisterPage'
 import { RegisterClinicPage } from '@/auth/RegisterClinicPage'
 import { DashboardPage } from '@/app/DashboardPage'
+import { ClinicsListPage } from '@/clinics/ClinicsListPage'
+import { CreateClinicPage } from '@/clinics/CreateClinicPage'
+import { ClinicEditPage } from '@/clinics/ClinicEditPage'
 import { RequireAuth } from './RequireAuth'
 import { RequireGuest } from './RequireGuest'
 import { RequireRole } from './RequireRole'
@@ -44,7 +47,19 @@ export const router = createBrowserRouter([
         // panel, practitioner core loop, etc.) will follow — a
         // RequireRole layer nested inside the RequireAuth one.
         element: <RequireRole allowedRoles={['admin']} />,
-        children: [{ path: '/admin', element: <AdminPlaceholderPage /> }],
+        children: [
+          { path: '/admin', element: <AdminPlaceholderPage /> },
+          // Bare /admin deliberately stays AdminPlaceholderPage rather
+          // than becoming a redirect or a hub page here — that call is
+          // better made once a second admin area (user management, the
+          // next Phase 2 item) actually exists to link alongside
+          // clinics, not invented ahead of need for one feature. This
+          // was flagged as an open assumption back when ClinicsListPage
+          // itself was built, and still hasn't needed resolving.
+          { path: '/admin/clinics', element: <ClinicsListPage /> },
+          { path: '/admin/clinics/new', element: <CreateClinicPage /> },
+          { path: '/admin/clinics/:id', element: <ClinicEditPage /> },
+        ],
       },
     ],
   },

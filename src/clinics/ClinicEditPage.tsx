@@ -1,6 +1,7 @@
 import { useParams, Link } from 'react-router'
 import { useClinic } from './useClinic'
 import { EditableClinicField } from './EditableClinicField'
+import { DeactivateClinicButton } from './DeactivateClinicButton'
 import {
   clinicNameSchema,
   clinicEmailSchema,
@@ -84,6 +85,19 @@ function ClinicEditView({ clinicId }: { clinicId: number }) {
           schema={clinicWebsiteSchema}
         />
       </div>
+
+      {/* No reactivate route exists yet (see deferred-improvements.md),
+          so once a clinic is inactive, the Deactivate button simply
+          isn't offered again — clicking DELETE /clinics/:id a second
+          time would technically succeed (it's just another UPDATE to the
+          same isActive: false), but there's nothing meaningful to
+          confirm at that point, and showing the button would imply an
+          action is available when it's really just a no-op. */}
+      {clinic.isActive ? (
+        <DeactivateClinicButton clinicId={clinicId} clinicName={clinic.name} />
+      ) : (
+        <p className="text-sm text-muted-foreground">This clinic is deactivated.</p>
+      )}
 
       <p className="text-sm text-muted-foreground">
         <Link to="/admin/clinics" className="underline">
