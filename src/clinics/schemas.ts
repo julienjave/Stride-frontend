@@ -47,3 +47,31 @@ export const createClinicSchema = z.object({
 })
 
 export type CreateClinicFormValues = z.infer<typeof createClinicSchema>
+
+// --- CLINIC LOGO UPLOAD --------------------------------------------------
+
+// Mirrors ALLOWED_MIME_TYPES and the 5MB limit in the backend's
+// image-upload.config.ts EXACTLY — deliberately duplicated, not imported,
+// since the frontend and backend are separate deployable projects with no
+// shared module between them. Keeping the two numbers/lists in sync is a
+// manual discipline (a comment on each side pointing at the other), not
+// something the type system can enforce across a network boundary.
+const MAX_LOGO_FILE_SIZE_BYTES = 5 * 1024 * 1024
+const ALLOWED_LOGO_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+
+// z.instanceof(File) is how Zod validates a value IS a browser File object
+// at all (as opposed to validating the shape of some plain data) — then
+// .refine() attaches an additional custom check beyond "is this the right
+// type," each with its own message shown directly to the person if it
+// fails. This exists purely so ClinicLogoUpload can reject an obviously
+// wrong file (a PDF, a 20MB photo) the instant it's selected, with a clear
+// message, rather than only finding out after a full upload round trip
+// fails with the backend's own (differently-worded) rejection.
+export const clinicLogoFileSchema = z
+  .instanceof(File)
+  .refine((file) => ALLOWED_LOGO_MIME_TYPES.includes(file.type), {
+    message: 'Only JPEG, PNG, and WebP images are allowed',
+  })
+  .refine((file) => file.size <= MAX_LOGO_FILE_SIZE_BYTES, {
+    message: 'Image must be 5MB or smaller',
+  })

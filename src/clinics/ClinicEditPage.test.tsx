@@ -32,7 +32,7 @@ const fullClinic = {
   phone: '555-1234',
   address: '1 Acme Way',
   website: 'https://acme.example',
-  logoPath: null,
+  logoUrl: null,
   isActive: true,
 }
 

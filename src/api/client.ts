@@ -70,6 +70,12 @@ export async function apiRequest<TResponse>(
   path: string,
   options: RequestOptions = {},
 ): Promise<TResponse> {
+  // FormData is the browser's built-in container for a multipart/form-data
+  // request body — the format file uploads use, since a file's raw bytes
+  // can't be embedded inside a JSON string the way every other request
+  // body in this app can. It needs different handling below, in two ways.
+  const isFormData = options.body instanceof FormData
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: options.method ?? 'GET',
     // THE single most important line in this whole file. Without this,
@@ -79,8 +85,22 @@ export async function apiRequest<TResponse>(
     // not just login, which is exactly why it lives here once instead of
     // being repeated (and potentially forgotten) at every call site.
     credentials: 'include',
-    headers: options.body ? { 'Content-Type': 'application/json' } : {},
-    body: options.body ? JSON.stringify(options.body) : undefined,
+    // A multipart/form-data request needs a Content-Type header with a
+    // "boundary" — a unique separator string marking where one field/file
+    // ends and the next begins. The browser generates that boundary and
+    // sets the header itself automatically whenever the body is a FormData
+    // object — but ONLY if we don't set Content-Type ourselves first. If
+    // we set it manually (even to the "correct-looking"
+    // 'multipart/form-data'), it would be missing that boundary, and the
+    // backend's Multer interceptor would fail to parse the request at all.
+    // So the rule here is: JSON bodies get an explicit Content-Type; a
+    // FormData body gets none, and lets the browser fill it in correctly.
+    headers: options.body && !isFormData ? { 'Content-Type': 'application/json' } : {},
+    body: isFormData
+      ? (options.body as FormData)
+      : options.body
+        ? JSON.stringify(options.body)
+        : undefined,
   })
 
   // Two genuinely different "no content to parse" cases, both real and

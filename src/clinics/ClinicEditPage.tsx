@@ -2,6 +2,7 @@ import { useParams, Link } from 'react-router'
 import { useClinic } from './useClinic'
 import { EditableClinicField } from './EditableClinicField'
 import { DeactivateClinicButton } from './DeactivateClinicButton'
+import { ClinicLogoUpload } from './ClinicLogoUpload'
 import {
   clinicNameSchema,
   clinicEmailSchema,
@@ -47,6 +48,8 @@ function ClinicEditView({ clinicId }: { clinicId: number }) {
   return (
     <div className="mx-auto mt-12 max-w-sm space-y-4">
       <h1 className="text-xl font-semibold">{clinic.name}</h1>
+
+      <ClinicLogoUpload clinicId={clinicId} logoUrl={clinic.logoUrl} />
 
       <div className="divide-y divide-border rounded-lg border px-4">
         <EditableClinicField

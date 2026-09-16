@@ -1,4 +1,4 @@
-import { afterEach } from 'vitest'
+import { afterEach, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 // This import has a side effect: it extends Vitest's `expect` with
 // jest-dom's matchers (toBeInTheDocument, toHaveTextContent, etc.) — an
@@ -15,3 +15,14 @@ import '@testing-library/jest-dom/vitest'
 afterEach(() => {
   cleanup()
 })
+
+// jsdom (the in-memory fake browser these tests run against) does not
+// implement URL.createObjectURL or URL.revokeObjectURL at all — confirmed
+// directly, not assumed: calling either throws "is not a function" in a
+// fresh jsdom environment. Every real browser has both. Rather than
+// leaving each test file that touches an object-URL-using component (like
+// ClinicLogoUpload) to work around this individually, they're stubbed
+// once here so every test gets a usable, fake implementation: a
+// predictable string in, a no-op for the revoke.
+URL.createObjectURL = vi.fn(() => 'blob:mock-object-url')
+URL.revokeObjectURL = vi.fn()

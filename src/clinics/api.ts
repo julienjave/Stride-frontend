@@ -75,3 +75,19 @@ export function updateClinic(id: number, payload: UpdateClinicPayload) {
 export function deactivateClinic(id: number) {
   return apiRequest<Clinic>(`/clinics/${id}`, { method: 'DELETE' })
 }
+
+// FormData is built here, not passed in as a raw File — this is the ONE
+// place that needs to know the multipart field name the backend expects.
+// POST /clinics/:id/logo reads it via @UseInterceptors(FileInterceptor
+// ('file', ...)) — 'file' has to match EXACTLY, on both sides, since
+// Multer identifies which part of the multipart body is the upload by
+// this field name, not by position or content type.
+export function uploadClinicLogo(id: number, file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  return apiRequest<Clinic>(`/clinics/${id}/logo`, {
+    method: 'POST',
+    body: formData,
+  })
+}

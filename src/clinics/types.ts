@@ -6,11 +6,21 @@
 // an explicit @ApiResponse decorator for Nest's Swagger module to read).
 //
 // Nullable-vs-optional convention, same one CurrentUser already
-// established: phone/address/website/logoPath are real, always-selected
-// DB columns that simply allow NULL — so `| null`, not `?`. The key is
-// always present in the JSON response; only the value is sometimes empty.
-// id/name/email/isActive are NOT NULL columns, so they're modeled as
-// plain required fields with no null case to represent at all.
+// established: phone/address/website/logoUrl are real, always-present
+// fields that simply allow an absent value — so `| null`, not `?`. The
+// key is always present in the JSON response; only the value is
+// sometimes empty. id/name/email/isActive are NOT NULL columns, so
+// they're modeled as plain required fields with no null case to
+// represent at all.
+//
+// logoUrl is NOT a database column — the backend never sends back
+// `logoPath` (the internal RustFS object key it actually stores). Every
+// clinic-returning endpoint computes a fresh, ready-to-load, temporary
+// presigned URL from that key server-side and sends THAT instead. This
+// matters for one practical reason: the URL expires (24 hours server-side)
+// — it's meant to be used more or less immediately (e.g. `<img src=...>`),
+// not stored, compared across requests, or assumed stable. `null` means
+// "this clinic has no logo uploaded," not "the URL failed to generate."
 export interface Clinic {
   id: number
   name: string
@@ -18,7 +28,7 @@ export interface Clinic {
   phone: string | null
   address: string | null
   website: string | null
-  logoPath: string | null
+  logoUrl: string | null
   isActive: boolean
 }
 
