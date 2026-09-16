@@ -2,13 +2,11 @@ import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { useClinics } from './useClinics'
 
-// URL scheme assumed for this feature (not yet wired into routes.tsx —
-// that's a later piece): /admin/clinics (this page), /admin/clinics/new
-// (create), /admin/clinics/:id (the per-field edit view). Bare /admin
-// itself is left alone for now, still AdminPlaceholderPage, rather than
-// redirecting it here or turning it into a hub page — that's a call
-// better made once a second admin area (user management) actually exists
-// to link to, not invented ahead of need for a single feature.
+// URL scheme for this feature: /admin/clinics (this page), /admin/clinics
+// /new (create), /admin/clinics/:id (the per-field edit view). Bare
+// /admin used to stay a static placeholder deliberately — see
+// AdminHomePage.tsx's own comment for why it's now a real hub linking
+// here and to user management, once that second admin area existed.
 export function ClinicsListPage() {
   const { data: clinics, isLoading, isError } = useClinics()
 

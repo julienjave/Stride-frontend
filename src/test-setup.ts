@@ -26,3 +26,17 @@ afterEach(() => {
 // predictable string in, a no-op for the revoke.
 URL.createObjectURL = vi.fn(() => 'blob:mock-object-url')
 URL.revokeObjectURL = vi.fn()
+
+// jsdom also doesn't implement a few pointer/scroll APIs that Radix UI's
+// interactive primitives (Select now; any future Dropdown, Popover, or
+// similar) call internally — confirmed directly: clicking a Radix Select
+// trigger throws "target.hasPointerCapture is not a function" without
+// this, before the click even finishes. Real browsers have all three;
+// jsdom just never implemented the pointer-capture APIs, and its
+// scrollIntoView is a no-op stub rather than missing outright, EXCEPT it
+// still needs a body here because jsdom's default throws "not
+// implemented" the same way createObjectURL did above.
+Element.prototype.hasPointerCapture = vi.fn(() => false)
+Element.prototype.setPointerCapture = vi.fn()
+Element.prototype.releasePointerCapture = vi.fn()
+Element.prototype.scrollIntoView = vi.fn()
