@@ -46,4 +46,11 @@ export interface User {
   }
   patientProfile?: { dateOfBirth: string }
   adminProfile?: { position: string | null }
+  // Every clinic this user currently belongs to — always an array, never
+  // absent, same "nullable/empty is a real value, not a missing field"
+  // reasoning as `roles` above. A user can belong to several clinics at
+  // once (and move between them over time) — see the backend's
+  // attachProfile()/attachProfilesToMany(), which join user_clinics ->
+  // clinics and group by userId rather than assuming one-clinic-per-user.
+  clinics: { id: number; name: string }[]
 }

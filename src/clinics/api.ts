@@ -91,3 +91,36 @@ export function uploadClinicLogo(id: number, file: File) {
     body: formData,
   })
 }
+
+// These two live HERE, not in users/api.ts, even though the UI that
+// calls them (a user's own edit page, letting an admin add/remove that
+// user's clinic memberships) lives in the users feature folder. The
+// organizing principle throughout this app has been "which backend
+// controller does this call," not "which page happens to use it" — these
+// hit POST/DELETE /clinics/:id/members, clinics' own routes, the exact
+// same way uploadClinicLogo above does for /clinics/:id/logo.
+
+// The backend's own response here is just the raw membership row
+// ({ id, clinicId, userId }) — not a full Clinic or the affected User,
+// so there's nothing meaningful to setQueryData with directly. The
+// caller is expected to invalidate that user's own cache entry
+// (userQueryKey(userId)) afterward, so the next read pulls the real,
+// authoritative clinics list (with names) from GET /users/:id — the
+// same "the mutation response doesn't carry a name, so don't try to
+// hand-build one" reasoning as any read-after-write case where the
+// write's own response is a thinner shape than what the UI displays.
+export function addClinicMember(clinicId: number, userId: number) {
+  return apiRequest<{ id: number; clinicId: number; userId: number }>(
+    `/clinics/${clinicId}/members`,
+    { method: 'POST', body: { userId } },
+  )
+}
+
+// DELETE here returns no body at all (removeMember() has no return
+// statement on the backend) — apiRequest's empty-body handling covers
+// this the same way it already does for logout/mfa-enable/etc.
+export function removeClinicMember(clinicId: number, userId: number) {
+  return apiRequest<void>(`/clinics/${clinicId}/members/${userId}`, {
+    method: 'DELETE',
+  })
+}

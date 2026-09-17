@@ -296,8 +296,8 @@ export function CreateUserPage() {
       </form>
 
       <p className="text-sm text-muted-foreground">
-        <Link to="/admin" className="underline">
-          Back to admin
+        <Link to="/admin/users" className="underline">
+          Back to users
         </Link>
       </p>
     </div>

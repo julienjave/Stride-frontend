@@ -148,5 +148,17 @@ export async function apiRequest<TResponse>(
     throw new ApiError(body, retryAfterSeconds)
   }
 
-  return response.json() as Promise<TResponse>
+  // Success can mean "no body" beyond the 204 case already handled above
+  // — DELETE /clinics/:id/members/:userId is a concrete real example: it
+  // returns 200, not 204 (confirmed via the generated OpenAPI spec:
+  // ClinicsController_removeMember's response is `200: { content?: never
+  // }`), simply because there's no @HttpCode override and the handler
+  // returns nothing. Calling response.json() directly on a genuinely
+  // empty body throws "Unexpected end of JSON input." Reading as text
+  // first and checking for emptiness handles this regardless of which
+  // status code a given route happens to use for "succeeded, nothing to
+  // send back" — rather than the 204 check above needing to anticipate
+  // every route that might do this.
+  const text = await response.text()
+  return (text ? JSON.parse(text) : undefined) as TResponse
 }

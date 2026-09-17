@@ -2,6 +2,31 @@ import { apiRequest } from '@/api/client'
 import type { User } from './types'
 import type { CreateUserFormValues } from './schemas'
 
+// --- QUERY KEYS --------------------------------------------------------
+
+// Same convention as clinics/api.ts: a plain exported constant for the
+// list, a function for the parameterized detail entry.
+export const usersQueryKey = ['users'] as const
+
+export function userQueryKey(id: number) {
+  return ['users', id] as const
+}
+
+// --- QUERIES -------------------------------------------------------------
+
+// GET /users — admin sees every account, a practitioner sees only their
+// own patients (the backend branches on activeRole; this function doesn't
+// need to know which, it just calls the one route either way).
+export function fetchUsers() {
+  return apiRequest<User[]>('/users')
+}
+
+export function fetchUser(id: number) {
+  return apiRequest<User>(`/users/${id}`)
+}
+
+// --- MUTATIONS -----------------------------------------------------------
+
 // Same '' → undefined story as createClinic() in clinics/api.ts: an
 // untouched optional text input reads as '' from the DOM, and
 // CreateUserDto's @IsOptional() fields only treat undefined as genuinely

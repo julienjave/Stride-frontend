@@ -7,6 +7,8 @@ import { ClinicsListPage } from '@/clinics/ClinicsListPage'
 import { CreateClinicPage } from '@/clinics/CreateClinicPage'
 import { ClinicEditPage } from '@/clinics/ClinicEditPage'
 import { CreateUserPage } from '@/users/CreateUserPage'
+import { UsersListPage } from '@/users/UsersListPage'
+import { UserEditPage } from '@/users/UserEditPage'
 import { RequireAuth } from './RequireAuth'
 import { RequireGuest } from './RequireGuest'
 import { RequireRole } from './RequireRole'
@@ -53,7 +55,9 @@ export const router = createBrowserRouter([
           { path: '/admin/clinics', element: <ClinicsListPage /> },
           { path: '/admin/clinics/new', element: <CreateClinicPage /> },
           { path: '/admin/clinics/:id', element: <ClinicEditPage /> },
+          { path: '/admin/users', element: <UsersListPage /> },
           { path: '/admin/users/new', element: <CreateUserPage /> },
+          { path: '/admin/users/:id', element: <UserEditPage /> },
         ],
       },
     ],

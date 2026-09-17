@@ -1,0 +1,136 @@
+import { useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { ApiError } from '@/api/client'
+import { useClinics } from '@/clinics/useClinics'
+import { addClinicMember, removeClinicMember } from '@/clinics/api'
+import { userQueryKey } from './api'
+
+interface UserClinicMembershipsProps {
+  userId: number
+  currentClinics: { id: number; name: string }[]
+}
+
+export function UserClinicMemberships({
+  userId,
+  currentClinics,
+}: UserClinicMembershipsProps) {
+  const queryClient = useQueryClient()
+  const { data: allClinics } = useClinics()
+  const [selectedClinicId, setSelectedClinicId] = useState<string>('')
+
+  // Neither addClinicMember() nor removeClinicMember() returns anything
+  // useful to write straight into the cache (the add response is just the
+  // raw membership row — no clinic name — and the remove response is
+  // empty). Both mutations invalidate this user's OWN cache entry
+  // instead, so the next read pulls the real, authoritative clinics list
+  // (with names) from GET /users/:id — the same reasoning as the comment
+  // on addClinicMember/removeClinicMember in clinics/api.ts.
+  const invalidateThisUser = () =>
+    queryClient.invalidateQueries({ queryKey: userQueryKey(userId), exact: true })
+
+  const addMutation = useMutation({
+    mutationFn: (clinicId: number) => addClinicMember(clinicId, userId),
+    onSuccess: () => {
+      setSelectedClinicId('')
+      void invalidateThisUser()
+    },
+  })
+
+  // One shared mutation for every "Remove" button, rather than each row
+  // owning its own — variables (the clinicId being removed) is what lets
+  // a specific row show its OWN pending state below, without needing N
+  // separate useMutation instances for what's fundamentally the same
+  // action repeated per row.
+  const removeMutation = useMutation({
+    mutationFn: (clinicId: number) => removeClinicMember(clinicId, userId),
+    onSuccess: () => void invalidateThisUser(),
+  })
+
+  // Only offer clinics the user ISN'T already in — both because adding a
+  // duplicate membership would just fail against the backend's own unique
+  // constraint (userId, clinicId), and because a dropdown that includes
+  // clinics already joined would be a confusing thing to click.
+  const currentClinicIds = new Set(currentClinics.map((c) => c.id))
+  const availableClinics = (allClinics ?? []).filter(
+    (clinic) => !currentClinicIds.has(clinic.id),
+  )
+
+  return (
+    <div className="space-y-2 py-2">
+      <p className="text-sm text-muted-foreground">Clinics</p>
+
+      {currentClinics.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Not a member of any clinic yet.</p>
+      ) : (
+        <ul className="space-y-1">
+          {currentClinics.map((clinic) => (
+            <li key={clinic.id} className="flex items-center justify-between text-sm">
+              <span>{clinic.name}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={removeMutation.isPending && removeMutation.variables === clinic.id}
+                onClick={() => removeMutation.mutate(clinic.id)}
+              >
+                {removeMutation.isPending && removeMutation.variables === clinic.id
+                  ? 'Removing…'
+                  : 'Remove'}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="flex items-center gap-2">
+        <Select value={selectedClinicId} onValueChange={setSelectedClinicId}>
+          <SelectTrigger className="w-full">
+            <SelectValue
+              placeholder={
+                availableClinics.length === 0 ? 'No other clinics to add' : 'Add a clinic'
+              }
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {availableClinics.map((clinic) => (
+              <SelectItem key={clinic.id} value={String(clinic.id)}>
+                {clinic.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          type="button"
+          size="sm"
+          disabled={!selectedClinicId || addMutation.isPending}
+          onClick={() => addMutation.mutate(Number(selectedClinicId))}
+        >
+          {addMutation.isPending ? 'Adding…' : 'Add'}
+        </Button>
+      </div>
+
+      {removeMutation.isError && (
+        <p className="text-sm text-destructive">
+          {removeMutation.error instanceof ApiError
+            ? removeMutation.error.messages.join(', ')
+            : 'Could not remove that clinic.'}
+        </p>
+      )}
+      {addMutation.isError && (
+        <p className="text-sm text-destructive">
+          {addMutation.error instanceof ApiError
+            ? addMutation.error.messages.join(', ')
+            : 'Could not add that clinic.'}
+        </p>
+      )}
+    </div>
+  )
+}

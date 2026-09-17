@@ -35,6 +35,22 @@ describe('apiRequest', () => {
     expect(result).toBeUndefined()
   })
 
+  // A DIFFERENT empty-body case from the 204 above — some routes (e.g.
+  // DELETE /clinics/:id/members/:userId, confirmed via the generated
+  // OpenAPI spec: `200: { content?: never }`) return a 200 with NO body
+  // at all, simply because the handler returns nothing and there's no
+  // @HttpCode override forcing 204. Real fetch Responses represent that
+  // as an empty string from .text() — this needs the same "don't try to
+  // JSON.parse nothing" handling as the 204 case, just triggered by an
+  // empty body rather than a specific status code.
+  it('returns undefined for a 200 with a genuinely empty body, not just a 204', async () => {
+    fetchMock.mockResolvedValue(new Response('', { status: 200 }))
+
+    const result = await apiRequest('/clinics/1/members/5', { method: 'DELETE' })
+
+    expect(result).toBeUndefined()
+  })
+
   it('parses and returns a successful JSON response', async () => {
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify({ id: 1, email: 'a@b.com' }), {
