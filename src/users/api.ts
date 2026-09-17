@@ -6,7 +6,17 @@ import type { CreateUserFormValues, GrantRoleFormValues } from './schemas'
 
 // Same convention as clinics/api.ts: a plain exported constant for the
 // list, a function for the parameterized detail entry.
-export const usersQueryKey = ['users'] as const
+// Distinct top-level key from userQueryKey(id) below (['users', id]) —
+// deliberately 'users-list', not 'users'. That separation matters here
+// specifically: invalidating every cached LIST variant after a
+// deactivate/reactivate (there are two: active-only and include-
+// inactive) needs a PREFIX match across both, which would otherwise also
+// sweep up individual userQueryKey(id) entries if they shared the same
+// top-level key — the exact prefix-matching gotcha this app already hit
+// once with invalidateQueries on clinics (see EditableClinicField).
+export function usersListQueryKey(includeInactive = false) {
+  return ['users-list', includeInactive] as const
+}
 
 export function userQueryKey(id: number) {
   return ['users', id] as const
@@ -17,8 +27,11 @@ export function userQueryKey(id: number) {
 // GET /users — admin sees every account, a practitioner sees only their
 // own patients (the backend branches on activeRole; this function doesn't
 // need to know which, it just calls the one route either way).
-export function fetchUsers() {
-  return apiRequest<User[]>('/users')
+// includeInactive is admin-only in effect (the backend ignores it entirely
+// for a practitioner caller — findPatientsForPractitioner takes no such
+// option), but the query string itself is harmless to send regardless.
+export function fetchUsers(includeInactive = false) {
+  return apiRequest<User[]>(`/users${includeInactive ? '?includeInactive=true' : ''}`)
 }
 
 export function fetchUser(id: number) {
@@ -111,4 +124,22 @@ export function grantRole(userId: number, values: GrantRoleFormValues) {
       ...(role === 'admin' && { position: emptyToUndefined(position) }),
     },
   })
+}
+
+// DELETE /users/:id is a soft delete (UsersService.softDelete() only ever
+// issues an UPDATE ... SET isActive = false, same as deactivateClinic())
+// — it returns the full updated User, roles/profile/clinics included, so
+// (unlike grantRole/addClinicMember/removeClinicMember above) the caller
+// CAN write this response straight into the cache with setQueryData
+// rather than needing to invalidate and refetch.
+export function deactivateUser(id: number) {
+  return apiRequest<User>(`/users/${id}`, { method: 'DELETE' })
+}
+
+// Admin-only, enforced server-side (@Roles(UserRole.ADMIN) on the
+// controller route) — no self-service or managing-practitioner path,
+// unlike deactivateUser above. Returns the full reactivated User, same
+// "the response IS the full authoritative state" shape as deactivateUser.
+export function reactivateUser(id: number) {
+  return apiRequest<User>(`/users/${id}/reactivate`, { method: 'POST' })
 }

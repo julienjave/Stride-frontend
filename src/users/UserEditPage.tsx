@@ -2,6 +2,8 @@ import { useParams, Link } from 'react-router'
 import { useUser } from './useUser'
 import { UserClinicMemberships } from './UserClinicMemberships'
 import { GrantRoleForm } from './GrantRoleForm'
+import { DeactivateUserButton } from './DeactivateUserButton'
+import { ReactivateUserButton } from './ReactivateUserButton'
 
 export function UserEditPage() {
   const { id } = useParams<{ id: string }>()
@@ -54,8 +56,19 @@ function UserEditView({ userId }: { userId: number }) {
         <GrantRoleForm userId={userId} currentRoles={user.roles} />
       </div>
 
-      {!user.isActive && (
-        <p className="text-sm text-muted-foreground">This account is deactivated.</p>
+      {user.isActive ? (
+        <DeactivateUserButton
+          userId={userId}
+          userName={`${user.firstName} ${user.lastName}`}
+        />
+      ) : (
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">This account is deactivated.</p>
+          <ReactivateUserButton
+            userId={userId}
+            userName={`${user.firstName} ${user.lastName}`}
+          />
+        </div>
       )}
 
       <p className="text-sm text-muted-foreground">

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
 import { UsersListPage } from './UsersListPage'
@@ -101,6 +102,25 @@ describe('UsersListPage', () => {
     expect(screen.getByRole('link', { name: 'Add user' })).toHaveAttribute(
       'href',
       '/admin/users/new',
+    )
+  })
+
+  it('refetches with includeInactive=true when the toggle is checked', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify([]), { status: 200 }))
+    const user = userEvent.setup()
+    renderUsersListPage()
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    // Off by default — the very first fetch should NOT already include
+    // the flag, or this test couldn't tell the toggle from a no-op.
+    expect(fetchMock.mock.calls[0][0]).not.toContain('includeInactive')
+
+    await user.click(screen.getByRole('checkbox', { name: 'Show deactivated users' }))
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('includeInactive=true'),
+        expect.anything(),
+      ),
     )
   })
 })

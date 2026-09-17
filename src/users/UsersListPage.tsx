@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { useUsers } from './useUsers'
@@ -6,7 +7,11 @@ import { useUsers } from './useUsers'
 // (this page), /admin/users/new (create, already built), /admin/users/:id
 // (the edit view, built alongside this page — see UserEditPage.tsx).
 export function UsersListPage() {
-  const { data: users, isLoading, isError } = useUsers()
+  // Off by default — findAll()'s own default matches (includeInactive
+  // defaults to false server-side too), so an admin's normal browsing
+  // view stays the same as before this feature existed.
+  const [includeInactive, setIncludeInactive] = useState(false)
+  const { data: users, isLoading, isError } = useUsers(includeInactive)
 
   return (
     <div className="mx-auto mt-12 max-w-2xl space-y-4">
@@ -16,6 +21,19 @@ export function UsersListPage() {
           <Link to="/admin/users/new">Add user</Link>
         </Button>
       </div>
+
+      {/* A plain native checkbox, not a shadcn/Radix component — unlike
+          Select, a checkbox doesn't meaningfully benefit from Radix's
+          extra machinery (no popover, no keyboard-nav list to manage),
+          so there's no reason to block on fetching one for this. */}
+      <label className="flex items-center gap-2 text-sm text-muted-foreground">
+        <input
+          type="checkbox"
+          checked={includeInactive}
+          onChange={(e) => setIncludeInactive(e.target.checked)}
+        />
+        Show deactivated users
+      </label>
 
       {isLoading && <p className="text-sm text-muted-foreground">Loading users…</p>}
 
