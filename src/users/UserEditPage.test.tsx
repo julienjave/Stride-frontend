@@ -123,4 +123,23 @@ describe('UserEditPage — rendering a loaded user', () => {
       '/admin/users',
     )
   })
+
+  it('renders GrantRoleForm, offering only roles this user does not already hold', async () => {
+    fetchMock.mockImplementation((input) => {
+      const url = urlOf(input)
+      if (url.includes('/users/1')) {
+        // This user already holds 'patient' — the grant-role dropdown
+        // should offer practitioner/admin, not patient again.
+        return Promise.resolve(new Response(JSON.stringify(fullUser), { status: 200 }))
+      }
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }))
+    })
+    renderAt('/admin/users/1')
+
+    // Two comboboxes exist on this page now: UserClinicMemberships' add-
+    // clinic dropdown, and GrantRoleForm's role dropdown. Scoping to the
+    // one labeled "Grant role" specifically confirms the RIGHT one shows
+    // up, not just that some dropdown somewhere does.
+    expect(await screen.findByRole('combobox', { name: 'Grant role' })).toBeInTheDocument()
+  })
 })

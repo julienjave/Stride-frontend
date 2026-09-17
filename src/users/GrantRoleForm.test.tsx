@@ -1,0 +1,148 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { GrantRoleForm } from './GrantRoleForm'
+import { userQueryKey } from './api'
+
+const fetchMock = vi.fn<typeof fetch>()
+vi.stubGlobal('fetch', fetchMock)
+
+beforeEach(() => {
+  fetchMock.mockReset()
+})
+
+function renderForm(
+  currentRoles: string[],
+  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) {
+  const utils = render(
+    <QueryClientProvider client={queryClient}>
+      <GrantRoleForm userId={7} currentRoles={currentRoles} />
+    </QueryClientProvider>,
+  )
+  return { ...utils, queryClient }
+}
+
+async function selectRole(user: ReturnType<typeof userEvent.setup>, roleLabel: string) {
+  await user.click(screen.getByRole('combobox', { name: 'Grant role' }))
+  await user.click(await screen.findByRole('option', { name: roleLabel }))
+}
+
+describe('GrantRoleForm — availability', () => {
+  it('shows a message instead of a form when the user already holds every role', () => {
+    renderForm(['patient', 'practitioner', 'admin'])
+
+    expect(screen.getByText('This user already holds every role.')).toBeInTheDocument()
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+  })
+
+  it('only offers roles the user does not already hold', async () => {
+    const user = userEvent.setup()
+    renderForm(['patient'])
+
+    await user.click(screen.getByRole('combobox', { name: 'Grant role' }))
+
+    expect(screen.queryByRole('option', { name: 'Patient' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: 'Practitioner' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Admin' })).toBeInTheDocument()
+  })
+
+  it('defaults to the first available role and shows its fields immediately', () => {
+    // Nothing held yet — 'patient' is first in ALL_ROLES, so its field
+    // (date of birth) should show without needing to touch the dropdown.
+    renderForm([])
+
+    expect(screen.getByLabelText('Date of birth')).toBeInTheDocument()
+  })
+})
+
+describe('GrantRoleForm — role-conditional fields', () => {
+  it('shows license/specialties/bio for practitioner, hides date of birth', async () => {
+    const user = userEvent.setup()
+    renderForm(['admin'])
+
+    await selectRole(user, 'Practitioner')
+
+    expect(screen.getByLabelText('License number')).toBeInTheDocument()
+    expect(screen.getByLabelText('Specialties (optional, comma-separated)')).toBeInTheDocument()
+    expect(screen.getByLabelText('Bio (optional)')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Date of birth')).not.toBeInTheDocument()
+  })
+
+  it('shows only position for admin', async () => {
+    const user = userEvent.setup()
+    renderForm(['patient'])
+
+    await selectRole(user, 'Admin')
+
+    expect(screen.getByLabelText('Position (optional)')).toBeInTheDocument()
+    expect(screen.queryByLabelText('License number')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Date of birth')).not.toBeInTheDocument()
+  })
+})
+
+describe('GrantRoleForm — validation', () => {
+  it('blocks submission without a license number for practitioner, never calling the API', async () => {
+    const user = userEvent.setup()
+    renderForm(['admin'])
+    await selectRole(user, 'Practitioner')
+
+    await user.click(screen.getByRole('button', { name: 'Grant role' }))
+
+    expect(
+      await screen.findByText('License number is required for practitioners'),
+    ).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('GrantRoleForm — successful submission', () => {
+  it('POSTs the correct payload for a practitioner and invalidates the user cache', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify(['admin', 'practitioner']), { status: 201 }),
+    )
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+    const user = userEvent.setup()
+    renderForm(['admin'], queryClient)
+
+    await selectRole(user, 'Practitioner')
+    await user.type(screen.getByLabelText('License number'), 'LIC-999')
+    await user.click(screen.getByRole('button', { name: 'Grant role' }))
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/users/7/roles'),
+        expect.objectContaining({ method: 'POST' }),
+      ),
+    )
+    const [, requestInit] = fetchMock.mock.calls[0]
+    const body = JSON.parse(requestInit?.body as string) as Record<string, unknown>
+    expect(body).toEqual({ role: 'practitioner', licenseNumber: 'LIC-999' })
+
+    await waitFor(() =>
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: userQueryKey(7),
+        exact: true,
+      }),
+    )
+  })
+
+  it('shows the backend error message on failure (e.g. role already held)', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({ statusCode: 409, message: ['User already has the "admin" role'] }),
+        { status: 409 },
+      ),
+    )
+    const user = userEvent.setup()
+    renderForm(['patient'])
+    await selectRole(user, 'Admin')
+    await user.click(screen.getByRole('button', { name: 'Grant role' }))
+
+    expect(
+      await screen.findByText('User already has the "admin" role'),
+    ).toBeInTheDocument()
+  })
+})

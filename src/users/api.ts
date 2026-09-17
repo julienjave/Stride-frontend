@@ -1,6 +1,6 @@
 import { apiRequest } from '@/api/client'
 import type { User } from './types'
-import type { CreateUserFormValues } from './schemas'
+import type { CreateUserFormValues, GrantRoleFormValues } from './schemas'
 
 // --- QUERY KEYS --------------------------------------------------------
 
@@ -79,6 +79,36 @@ export function createUser(values: CreateUserFormValues) {
       // could coincidentally... it can't, ids start at 1, but relying on
       // that fact would be fragile — checking the string directly isn't).
       clinicId: clinicId ? Number(clinicId) : undefined,
+    },
+  })
+}
+
+// POST /users/:id/roles returns a plain string[] (getRolesForUser's own
+// return shape — confirmed by reading UsersService.grantRole/
+// getRolesForUser directly, not guessed) — not a full User. That's too
+// thin to usefully write into the user's cache entry directly (no
+// profile data, no clinics), so the caller is expected to invalidate
+// userQueryKey(userId) afterward instead, same reasoning as
+// addClinicMember/removeClinicMember in clinics/api.ts.
+export function grantRole(userId: number, values: GrantRoleFormValues) {
+  const { role, licenseNumber, specialties, bio, dateOfBirth, position } = values
+
+  return apiRequest<string[]>(`/users/${userId}/roles`, {
+    method: 'POST',
+    body: {
+      role,
+      ...(role === 'practitioner' && {
+        licenseNumber,
+        specialties: specialties
+          ? specialties
+              .split(',')
+              .map((specialty) => specialty.trim())
+              .filter((specialty) => specialty !== '')
+          : undefined,
+        bio: emptyToUndefined(bio),
+      }),
+      ...(role === 'patient' && { dateOfBirth }),
+      ...(role === 'admin' && { position: emptyToUndefined(position) }),
     },
   })
 }

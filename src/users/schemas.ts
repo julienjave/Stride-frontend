@@ -17,9 +17,15 @@ const addressSchema = z.string().max(500, 'Address is too long')
 
 // --- ROLE-SPECIFIC FIELDS ------------------------------------------------
 
-const licenseNumberSchema = z.string().min(1).max(100, 'License number is too long')
+const licenseNumberSchema = z.string().max(100, 'License number is too long')
 const bioSchema = z.string().max(2000, 'Bio is too long')
-const dateOfBirthSchema = z.string().min(1, 'Date of birth is required')
+// No .min(1) here — deliberately. Requiredness for THIS field is entirely
+// superRefine's job below (it's only required for patients, and needs a
+// role-aware message: "Date of birth is required for patients," not a
+// generic one). A base-schema .min(1) would fire its OWN, less specific
+// error first, before superRefine's custom issue ever gets a chance to —
+// exactly the bug this comment is here to prevent someone re-introducing.
+const dateOfBirthSchema = z.string()
 const positionSchema = z.string().max(100, 'Position is too long')
 
 // --- THE CREATE FORM ------------------------------------------------------
@@ -115,3 +121,41 @@ export const createUserSchema = baseObjectSchema.superRefine((data, ctx) => {
 })
 
 export type CreateUserFormValues = z.infer<typeof createUserSchema>
+
+// --- GRANTING AN ADDITIONAL ROLE TO AN EXISTING USER ---------------------
+
+// Reuses licenseNumberSchema/bioSchema/dateOfBirthSchema/positionSchema
+// from above — same fields, same rules, same reason as always: one
+// source of truth per validation rule, not two copies that could drift.
+// No email/password/firstName/lastName here (this user already has
+// those), and deliberately no clinicId either — GrantRoleDto on the
+// backend has no such field at all. Granting a role and managing clinic
+// membership are cleanly separate concerns; this form doesn't reach into
+// UserClinicMemberships' territory.
+const grantRoleBaseSchema = z.object({
+  role: userRoleSchema,
+  licenseNumber: licenseNumberSchema.optional(),
+  specialties: z.string().optional(),
+  bio: bioSchema.optional(),
+  dateOfBirth: dateOfBirthSchema.optional(),
+  position: positionSchema.optional(),
+})
+
+export const grantRoleSchema = grantRoleBaseSchema.superRefine((data, ctx) => {
+  if (data.role === 'practitioner' && !data.licenseNumber) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['licenseNumber'],
+      message: 'License number is required for practitioners',
+    })
+  }
+  if (data.role === 'patient' && !data.dateOfBirth) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['dateOfBirth'],
+      message: 'Date of birth is required for patients',
+    })
+  }
+})
+
+export type GrantRoleFormValues = z.infer<typeof grantRoleSchema>

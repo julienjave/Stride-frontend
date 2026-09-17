@@ -1,6 +1,7 @@
 import { useParams, Link } from 'react-router'
 import { useUser } from './useUser'
 import { UserClinicMemberships } from './UserClinicMemberships'
+import { GrantRoleForm } from './GrantRoleForm'
 
 export function UserEditPage() {
   const { id } = useParams<{ id: string }>()
@@ -41,13 +42,16 @@ function UserEditView({ userId }: { userId: number }) {
         <p className="text-sm text-muted-foreground">{user.roles.join(', ')}</p>
       </div>
 
-      {/* Editing name/email and granting additional roles are separate,
-          later roadmap items (see stride-frontend-roadmap.md) — this page
+      {/* Editing name/email is a separate, later roadmap item — this page
           deliberately shows that information read-only for now, rather
-          than half-building an edit flow ahead of the piece actually
-          being built this session: clinic membership. */}
+          than half-building an edit flow ahead of the pieces actually
+          being built: clinic membership and granting roles. */}
       <div className="rounded-lg border px-4">
         <UserClinicMemberships userId={userId} currentClinics={user.clinics} />
+      </div>
+
+      <div className="rounded-lg border px-4 py-3">
+        <GrantRoleForm userId={userId} currentRoles={user.roles} />
       </div>
 
       {!user.isActive && (

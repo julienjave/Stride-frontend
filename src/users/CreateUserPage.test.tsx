@@ -152,6 +152,33 @@ describe('CreateUserPage — clinic requirement', () => {
   })
 })
 
+describe('CreateUserPage — role-specific required fields show the right message', () => {
+  // Regression coverage: licenseNumberSchema/dateOfBirthSchema used to
+  // carry their OWN bare .min(1) requiredness check, which fired its own
+  // generic Zod error ("Too small: expected string to have >=1
+  // characters") BEFORE superRefine's specific, role-aware message ever
+  // got a chance to show. Fixed in schemas.ts; this locks in the correct
+  // message actually being what's displayed.
+  it('shows the specific message for a practitioner with no license number, not a generic one', async () => {
+    mockClinicsAndUserCreation({})
+    const user = userEvent.setup()
+    renderCreateUserPage()
+    await selectRole(user, 'Practitioner')
+    await fillCommonFields(user)
+    await selectClinic(user, 'Acme Clinic')
+    await user.click(screen.getByRole('button', { name: 'Create user' }))
+
+    expect(
+      await screen.findByText('License number is required for practitioners'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Too small/)).not.toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      expect.stringContaining('/users'),
+      expect.anything(),
+    )
+  })
+})
+
 describe('CreateUserPage — successful submission payloads', () => {
   it('sends the exact patient payload, with clinicId coerced to a number', async () => {
     mockClinicsAndUserCreation({
