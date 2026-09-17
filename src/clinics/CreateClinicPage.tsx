@@ -5,7 +5,7 @@ import { useNavigate, Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { createClinic, clinicsQueryKey } from './api'
+import { createClinic } from './api'
 import { createClinicSchema, type CreateClinicFormValues } from './schemas'
 import { ApiError } from '@/api/client'
 
@@ -24,21 +24,20 @@ export function CreateClinicPage() {
       // the backend hands back the ENTIRE new "who am I" state and
       // there's only ever ONE such cache entry to keep in sync — this is
       // a LIST resource. The thing that needs to become correct is the
-      // cached array under clinicsQueryKey, not a single object. Hand-
+      // cached array under clinicsListQueryKey, not a single object. Hand-
       // merging the new clinic into whatever's currently cached would
       // mean re-implementing findAll()'s own filtering/ordering rules
       // client-side just to guess at the right result. invalidateQueries
-      // instead just marks the list stale; the next time anything reads
-      // clinicsQueryKey (e.g. navigating back to the list page), TanStack
-      // Query transparently refetches it — the list ends up reflecting
-      // the server's real state, not a client-side guess at it.
-      // exact: true — see EditableClinicField's identical comment for why
-      // this matters: without it, invalidating clinicsQueryKey
-      // (['clinics']) also invalidates every already-cached
-      // ['clinics', id] detail query, which is unrelated to "a new clinic
-      // was created" and would trigger unnecessary background refetches
-      // of every clinic anyone has viewed this session.
-      void queryClient.invalidateQueries({ queryKey: clinicsQueryKey, exact: true })
+      // instead just marks both cached list variants (active-only and
+      // include-inactive) stale via a prefix match on 'clinics-list' —
+      // the next time either is read, TanStack Query transparently
+      // refetches it, reflecting the server's real state rather than a
+      // client-side guess. This is a distinct top-level key from
+      // clinicQueryKey(id) (['clinics', id]) specifically so a prefix
+      // match here can never also sweep up an unrelated already-cached
+      // clinic detail entry — see EditableClinicField's identical
+      // reasoning for the bug this design avoids.
+      void queryClient.invalidateQueries({ queryKey: ['clinics-list'] })
       // Landing on the new clinic's own page, not back on the list —
       // someone who just created a clinic is very likely about to fill in
       // the optional fields they left blank, and this saves them finding

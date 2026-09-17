@@ -4,7 +4,7 @@ import type { ZodType } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ApiError } from '@/api/client'
-import { updateClinic, clinicQueryKey, clinicsQueryKey } from './api'
+import { updateClinic, clinicQueryKey } from './api'
 import type { UpdateClinicPayload } from './types'
 
 interface EditableClinicFieldProps {
@@ -55,17 +55,16 @@ export function EditableClinicField({
       // this clinic's name/email — invalidate it so it picks up the
       // change next time it's viewed, same reasoning as CreateClinicPage.
       //
-      // exact: true matters here more than it looks like it should.
-      // TanStack Query's invalidateQueries treats a given queryKey as a
-      // PREFIX by default — invalidating clinicsQueryKey (['clinics'])
-      // without this option also invalidates every ['clinics', id] query
-      // currently cached, INCLUDING clinicQueryKey(clinicId), the exact
+      // A prefix match on 'clinics-list' (not exact) sweeps BOTH cached
+      // list variants (active-only and include-inactive) — this used to
+      // be a real, tested-and-caught bug when the list key shared a
+      // prefix with clinicQueryKey(id): invalidating ['clinics'] without
+      // exact: true also invalidated clinicQueryKey(clinicId), the exact
       // entry setQueryData just wrote fresh data into two lines above.
-      // That triggered a real, wasted background refetch of the very
-      // clinic just being edited on every single field save — caught by
-      // an actual test watching the real number of fetch calls, not
-      // something that was obvious from reading this code in isolation.
-      void queryClient.invalidateQueries({ queryKey: clinicsQueryKey, exact: true })
+      // clinicsListQueryKey now lives under a DIFFERENT top-level key
+      // ('clinics-list', not 'clinics') specifically so that collision
+      // can't happen anymore, regardless of how this invalidation is written.
+      void queryClient.invalidateQueries({ queryKey: ['clinics-list'] })
       setIsEditing(false)
     },
   })

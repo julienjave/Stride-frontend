@@ -13,7 +13,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { ApiError } from '@/api/client'
-import { deactivateClinic, clinicQueryKey, clinicsQueryKey } from './api'
+import { deactivateClinic, clinicQueryKey } from './api'
 
 interface DeactivateClinicButtonProps {
   clinicId: number
@@ -21,10 +21,10 @@ interface DeactivateClinicButtonProps {
 }
 
 // Only ever rendered when the clinic is currently active (see
-// ClinicEditPage) — there is deliberately no equivalent "reactivate"
-// button anywhere, because no such route exists on the backend yet (see
-// deferred-improvements.md). Offering an action with nothing behind it
-// would be worse than not offering it at all.
+// ClinicEditPage, which renders ReactivateClinicButton instead once
+// isActive is false). A real reactivate path now exists — see
+// ClinicsService.reactivate() and ReactivateClinicButton — mirroring the
+// same capability built for users.
 export function DeactivateClinicButton({ clinicId, clinicName }: DeactivateClinicButtonProps) {
   const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
@@ -38,18 +38,18 @@ export function DeactivateClinicButton({ clinicId, clinicName }: DeactivateClini
       // cache means anything reading clinicQueryKey(clinicId) already
       // reflects isActive: false with no extra round trip.
       queryClient.setQueryData(clinicQueryKey(clinicId), updated)
-      // exact: true for the same reason it matters everywhere else in
-      // this feature — invalidating clinicsQueryKey without it would also
-      // invalidate the very clinicQueryKey(clinicId) entry just written
-      // above, undoing the point of setQueryData.
-      void queryClient.invalidateQueries({ queryKey: clinicsQueryKey, exact: true })
+      // Prefix match on 'clinics-list' (not exact) — sweeps BOTH cached
+      // list variants (this clinic needs to vanish from the active-only
+      // one and appear correctly in the include-inactive one). Safe from
+      // colliding with clinicQueryKey(clinicId) written just above:
+      // clinicsListQueryKey uses a distinct top-level key ('clinics-list',
+      // not 'clinics') specifically so this kind of prefix invalidation
+      // can never touch it.
+      void queryClient.invalidateQueries({ queryKey: ['clinics-list'] })
       setIsOpen(false)
-      // findAll() filters to isActive: true, so this clinic is about to
-      // vanish from the list — staying on its own now-orphaned detail
-      // page would be a dead end. Not staying to show a "deactivated"
-      // confirmation state either: the list is the correct place to see
-      // the clinic is gone, not a page for a clinic that no longer
-      // appears anywhere else in the app.
+      // The active-only list no longer shows this clinic, so staying on
+      // its own now-easy-to-lose-track-of detail page would be a dead
+      // end for anyone browsing the default (active-only) view.
       void navigate('/admin/clinics')
     },
   })
@@ -62,15 +62,13 @@ export function DeactivateClinicButton({ clinicId, clinicName }: DeactivateClini
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Deactivate {clinicName}?</DialogTitle>
-          {/* Honest, specific copy about the real, currently-deliberate
-              limitation — not vague "are you sure?" text. Someone
-              confirming this should know exactly what they're accepting:
-              not just "this clinic disappears from the list," but that
-              there is no undo button anywhere in the app for this today. */}
+          {/* Honest, specific copy — not vague "are you sure?" text.
+              Someone confirming this should know exactly what happens:
+              the clinic disappears from the active list, and reactivating
+              it is an admin action from this same page, not automatic. */}
           <DialogDescription>
-            This removes {clinicName} from the active clinics list. This can't currently be
-            undone from within the app — restoring a deactivated clinic requires direct database
-            access.
+            This removes {clinicName} from the active clinics list, until an admin
+            reactivates it from here.
           </DialogDescription>
         </DialogHeader>
 

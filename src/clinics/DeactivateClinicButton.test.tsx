@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { DeactivateClinicButton } from './DeactivateClinicButton'
-import { clinicQueryKey, clinicsQueryKey } from './api'
+import { clinicQueryKey, clinicsListQueryKey } from './api'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -44,7 +44,7 @@ describe('DeactivateClinicButton — opening the dialog', () => {
 
     expect(await screen.findByText('Deactivate Acme Clinic?')).toBeInTheDocument()
     expect(
-      screen.getByText(/can't currently be undone from within the app/),
+      screen.getByText(/until an admin reactivates it from here/),
     ).toBeInTheDocument()
   })
 })
@@ -75,7 +75,7 @@ describe('DeactivateClinicButton — confirming successfully', () => {
 
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     queryClient.setQueryData(clinicQueryKey(1), { id: 1, name: 'Acme Clinic', isActive: true })
-    queryClient.setQueryData(clinicsQueryKey, [{ id: 1, name: 'Acme Clinic', isActive: true }])
+    queryClient.setQueryData(clinicsListQueryKey(), [{ id: 1, name: 'Acme Clinic', isActive: true }])
 
     const user = userEvent.setup()
     const { router } = renderButton(queryClient)
@@ -101,7 +101,7 @@ describe('DeactivateClinicButton — confirming successfully', () => {
       name: 'Acme Clinic',
       isActive: false,
     })
-    expect(queryClient.getQueryState(clinicsQueryKey)?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(clinicsListQueryKey())?.isInvalidated).toBe(true)
   })
 })
 

@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { EditableClinicField } from './EditableClinicField'
 import { clinicNameSchema, clinicPhoneSchema } from './schemas'
-import { clinicQueryKey, clinicsQueryKey } from './api'
+import { clinicQueryKey, clinicsListQueryKey } from './api'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -82,7 +82,7 @@ describe('EditableClinicField — saving a real value', () => {
     // Pre-seed both caches, the way they'd realistically already be
     // populated by useClinic()/useClinics() before anyone starts editing.
     queryClient.setQueryData(clinicQueryKey(1), { id: 1, name: 'Acme', phone: '555-1234' })
-    queryClient.setQueryData(clinicsQueryKey, [{ id: 1, name: 'Acme', phone: '555-1234' }])
+    queryClient.setQueryData(clinicsListQueryKey(), [{ id: 1, name: 'Acme', phone: '555-1234' }])
 
     const user = userEvent.setup()
     renderField({ value: '555-1234' }, queryClient)
@@ -123,7 +123,7 @@ describe('EditableClinicField — saving a real value', () => {
     })
     // The LIST cache should be invalidated, not synchronously rewritten —
     // confirmed by checking its query state is marked stale.
-    expect(queryClient.getQueryState(clinicsQueryKey)?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(clinicsListQueryKey())?.isInvalidated).toBe(true)
   })
 })
 

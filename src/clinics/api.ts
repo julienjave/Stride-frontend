@@ -4,13 +4,15 @@ import type { CreateClinicFormValues } from './schemas'
 
 // --- QUERY KEYS --------------------------------------------------------
 
-// Same exported-constant convention as currentUserQueryKey (auth/
-// useCurrentUser.ts) — a shared constant, not inlined at each call site,
-// so every place that needs to invalidate or read the clinics list cache
-// (the list page, and after create/update/deactivate mutations) references
-// the exact same key, with no risk of a typo silently creating a second,
-// disconnected cache entry.
-export const clinicsQueryKey = ['clinics'] as const
+// Distinct top-level key from clinicQueryKey below (['clinics', id]) —
+// deliberately 'clinics-list', not 'clinics'. Mirrors usersListQueryKey's
+// reasoning exactly: invalidating every cached LIST variant (active-only
+// and include-inactive) after a deactivate/reactivate needs a PREFIX
+// match across both, which would otherwise also sweep up individual
+// clinicQueryKey(id) entries if they shared the same top-level key.
+export function clinicsListQueryKey(includeInactive = false) {
+  return ['clinics-list', includeInactive] as const
+}
 
 // A FUNCTION, not a constant, because this key is parameterized by WHICH
 // clinic — every clinic needs its own cache entry, so the key has to
@@ -23,8 +25,11 @@ export function clinicQueryKey(id: number) {
 
 // --- QUERIES -----------------------------------------------------------
 
-export function fetchClinics() {
-  return apiRequest<Clinic[]>('/clinics')
+// includeInactive is admin-only in effect (findAll() only honors it for
+// an admin caller server-side), but sending the query string is harmless
+// regardless of who's asking.
+export function fetchClinics(includeInactive = false) {
+  return apiRequest<Clinic[]>(`/clinics${includeInactive ? '?includeInactive=true' : ''}`)
 }
 
 export function fetchClinic(id: number) {
@@ -74,6 +79,12 @@ export function updateClinic(id: number, payload: UpdateClinicPayload) {
 // so this is typed the same way the other clinic-returning calls are.
 export function deactivateClinic(id: number) {
   return apiRequest<Clinic>(`/clinics/${id}`, { method: 'DELETE' })
+}
+
+// Admin-only, enforced server-side — mirrors reactivateUser's shape
+// exactly. Returns the full reactivated Clinic.
+export function reactivateClinic(id: number) {
+  return apiRequest<Clinic>(`/clinics/${id}/reactivate`, { method: 'POST' })
 }
 
 // FormData is built here, not passed in as a raw File — this is the ONE

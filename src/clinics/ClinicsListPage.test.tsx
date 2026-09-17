@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
 import { ClinicsListPage } from './ClinicsListPage'
@@ -60,7 +61,7 @@ describe('ClinicsListPage', () => {
   it('shows an empty state when there are no active clinics', async () => {
     fetchMock.mockResolvedValue(new Response(JSON.stringify([]), { status: 200 }))
     renderClinicsListPage()
-    expect(await screen.findByText('No active clinics yet.')).toBeInTheDocument()
+    expect(await screen.findByText('No clinics yet.')).toBeInTheDocument()
   })
 
   it('shows an error state when the fetch fails', async () => {
@@ -81,6 +82,23 @@ describe('ClinicsListPage', () => {
     expect(screen.getByRole('link', { name: 'Add clinic' })).toHaveAttribute(
       'href',
       '/admin/clinics/new',
+    )
+  })
+
+  it('refetches with includeInactive=true when the toggle is checked', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify([]), { status: 200 }))
+    const user = userEvent.setup()
+    renderClinicsListPage()
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    expect(fetchMock.mock.calls[0][0]).not.toContain('includeInactive')
+
+    await user.click(screen.getByRole('checkbox', { name: 'Show deactivated clinics' }))
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('includeInactive=true'),
+        expect.anything(),
+      ),
     )
   })
 })

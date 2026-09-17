@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ClinicLogoUpload } from './ClinicLogoUpload'
-import { clinicQueryKey, clinicsQueryKey } from './api'
+import { clinicQueryKey, clinicsListQueryKey } from './api'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -102,7 +102,7 @@ describe('ClinicLogoUpload — a successful upload', () => {
 
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     queryClient.setQueryData(clinicQueryKey(1), { id: 1, logoUrl: null })
-    queryClient.setQueryData(clinicsQueryKey, [{ id: 1, logoUrl: null }])
+    queryClient.setQueryData(clinicsListQueryKey(), [{ id: 1, logoUrl: null }])
 
     const user = userEvent.setup()
     renderUpload(null, queryClient)
@@ -134,7 +134,7 @@ describe('ClinicLogoUpload — a successful upload', () => {
         logoUrl: 'https://storage.example.com/signed/new-logo.png',
       }),
     )
-    expect(queryClient.getQueryState(clinicsQueryKey)?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(clinicsListQueryKey())?.isInvalidated).toBe(true)
   })
 })
 

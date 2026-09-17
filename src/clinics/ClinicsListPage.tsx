@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { useClinics } from './useClinics'
@@ -8,7 +9,11 @@ import { useClinics } from './useClinics'
 // AdminHomePage.tsx's own comment for why it's now a real hub linking
 // here and to user management, once that second admin area existed.
 export function ClinicsListPage() {
-  const { data: clinics, isLoading, isError } = useClinics()
+  // Off by default — findAll()'s own default matches (includeInactive
+  // defaults to false server-side too), so an admin's normal browsing
+  // view is unchanged from before this feature existed.
+  const [includeInactive, setIncludeInactive] = useState(false)
+  const { data: clinics, isLoading, isError } = useClinics(includeInactive)
 
   return (
     <div className="mx-auto mt-12 max-w-2xl space-y-4">
@@ -19,19 +24,27 @@ export function ClinicsListPage() {
         </Button>
       </div>
 
+      {/* A plain native checkbox, not a shadcn/Radix component — same
+          reasoning as UsersListPage's identical toggle: no popover or
+          keyboard-nav list to manage here, so Radix's extra machinery
+          buys nothing. */}
+      <label className="flex items-center gap-2 text-sm text-muted-foreground">
+        <input
+          type="checkbox"
+          checked={includeInactive}
+          onChange={(e) => setIncludeInactive(e.target.checked)}
+        />
+        Show deactivated clinics
+      </label>
+
       {isLoading && <p className="text-sm text-muted-foreground">Loading clinics…</p>}
 
       {isError && (
         <p className="text-sm text-destructive">Couldn't load clinics. Try refreshing.</p>
       )}
 
-      {/* findAll() only ever returns active clinics (WHERE is_active = true,
-          confirmed in ClinicsService) — a deactivated clinic simply
-          disappears from this list rather than showing with a "deactivated"
-          badge. That's a backend behavior this page reflects as-is, not
-          something worked around here. */}
       {clinics && clinics.length === 0 && (
-        <p className="text-sm text-muted-foreground">No active clinics yet.</p>
+        <p className="text-sm text-muted-foreground">No clinics yet.</p>
       )}
 
       {clinics && clinics.length > 0 && (
@@ -42,7 +55,12 @@ export function ClinicsListPage() {
                 to={`/admin/clinics/${clinic.id}`}
                 className="flex flex-col px-4 py-3 hover:bg-muted/50"
               >
-                <span className="font-medium">{clinic.name}</span>
+                <span className="font-medium">
+                  {clinic.name}
+                  {!clinic.isActive && (
+                    <span className="ml-2 text-xs text-muted-foreground">(deactivated)</span>
+                  )}
+                </span>
                 <span className="text-sm text-muted-foreground">{clinic.email}</span>
               </Link>
             </li>

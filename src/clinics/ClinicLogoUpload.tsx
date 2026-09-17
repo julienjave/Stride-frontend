@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ApiError } from '@/api/client'
-import { uploadClinicLogo, clinicQueryKey, clinicsQueryKey } from './api'
+import { uploadClinicLogo, clinicQueryKey } from './api'
 import { clinicLogoFileSchema } from './schemas'
 
 interface ClinicLogoUploadProps {
@@ -44,11 +44,12 @@ export function ClinicLogoUpload({ clinicId, logoUrl }: ClinicLogoUploadProps) {
       // signed URL, so writing it straight into the cache means the page
       // reflects it immediately, no extra re-fetch needed.
       queryClient.setQueryData(clinicQueryKey(clinicId), updated)
-      // exact: true for the same reason it matters everywhere else here —
-      // invalidateQueries treats a key as a PREFIX by default, so without
-      // this it would also invalidate (and trigger a wasted refetch of)
-      // the very clinicQueryKey(clinicId) entry setQueryData just wrote to.
-      void queryClient.invalidateQueries({ queryKey: clinicsQueryKey, exact: true })
+      // Prefix match on 'clinics-list' (not exact) — sweeps BOTH cached
+      // list variants (active-only and include-inactive). Safe from the
+      // old collision risk with clinicQueryKey(clinicId) entirely:
+      // clinicsListQueryKey lives under a different top-level key
+      // ('clinics-list', not 'clinics') specifically so this can't happen.
+      void queryClient.invalidateQueries({ queryKey: ['clinics-list'] })
       // The upload succeeded, so the real logoUrl now in the cache above
       // is the correct thing to show going forward — the temporary local
       // preview has done its job and should be released.
