@@ -44,12 +44,83 @@ describe('ClinicLogoUpload — no logo yet', () => {
 })
 
 describe('ClinicLogoUpload — an existing logo', () => {
-  it('shows the current logo image and a "Change logo" button', () => {
+  it('shows the current logo image, a "Change logo" button, and a "Remove logo" button', () => {
     renderUpload('https://storage.example.com/signed/logo.png')
 
     const image = screen.getByRole('img', { name: 'Clinic logo' })
     expect(image).toHaveAttribute('src', 'https://storage.example.com/signed/logo.png')
     expect(screen.getByRole('button', { name: 'Change logo' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove logo' })).toBeInTheDocument()
+  })
+})
+
+describe('ClinicLogoUpload — no logo yet, remove button', () => {
+  it('does not show a "Remove logo" button when there is nothing to remove', () => {
+    renderUpload(null)
+
+    expect(screen.queryByRole('button', { name: 'Remove logo' })).not.toBeInTheDocument()
+  })
+})
+
+describe('ClinicLogoUpload — removing the logo', () => {
+  it('DELETEs the logo and updates both caches with the response', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ id: 1, logoUrl: null }), { status: 200 }),
+    )
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    queryClient.setQueryData(clinicQueryKey(1), {
+      id: 1,
+      logoUrl: 'https://storage.example.com/signed/logo.png',
+    })
+    queryClient.setQueryData(clinicsListQueryKey(), [
+      { id: 1, logoUrl: 'https://storage.example.com/signed/logo.png' },
+    ])
+
+    const user = userEvent.setup()
+    renderUpload('https://storage.example.com/signed/logo.png', queryClient)
+
+    await user.click(screen.getByRole('button', { name: 'Remove logo' }))
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/clinics/1/logo'),
+        expect.objectContaining({ method: 'DELETE' }),
+      ),
+    )
+    await waitFor(() =>
+      expect(queryClient.getQueryData(clinicQueryKey(1))).toEqual({ id: 1, logoUrl: null }),
+    )
+    expect(queryClient.getQueryState(clinicsListQueryKey())?.isInvalidated).toBe(true)
+  })
+
+  it('shows the backend error message on a failed removal', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ statusCode: 500, message: ['Internal server error'] }), {
+        status: 500,
+      }),
+    )
+
+    const user = userEvent.setup()
+    renderUpload('https://storage.example.com/signed/logo.png')
+
+    await user.click(screen.getByRole('button', { name: 'Remove logo' }))
+
+    expect(await screen.findByText('Internal server error')).toBeInTheDocument()
+  })
+
+  it('disables both the upload and remove buttons while a removal is in flight', async () => {
+    // A promise that never resolves — lets the test inspect the
+    // "in flight" state without racing a real resolution.
+    fetchMock.mockReturnValue(new Promise(() => {}))
+
+    const user = userEvent.setup()
+    renderUpload('https://storage.example.com/signed/logo.png')
+
+    await user.click(screen.getByRole('button', { name: 'Remove logo' }))
+
+    expect(await screen.findByRole('button', { name: 'Removing…' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Change logo' })).toBeDisabled()
   })
 })
 

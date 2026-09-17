@@ -103,6 +103,13 @@ export function uploadClinicLogo(id: number, file: File) {
   })
 }
 
+// Idempotent on the backend — calling this on a clinic with no logo just
+// returns it unchanged, so there's nothing special this function needs
+// to do to handle that case itself.
+export function removeClinicLogo(id: number) {
+  return apiRequest<Clinic>(`/clinics/${id}/logo`, { method: 'DELETE' })
+}
+
 // These two live HERE, not in users/api.ts, even though the UI that
 // calls them (a user's own edit page, letting an admin add/remove that
 // user's clinic memberships) lives in the users feature folder. The

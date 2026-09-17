@@ -3,8 +3,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ApiError } from '@/api/client'
-import { uploadClinicLogo, clinicQueryKey } from './api'
+import { uploadClinicLogo, removeClinicLogo, clinicQueryKey } from './api'
 import { clinicLogoFileSchema } from './schemas'
+import type { Clinic } from './types'
 
 interface ClinicLogoUploadProps {
   clinicId: number
@@ -35,6 +36,20 @@ export function ClinicLogoUpload({ clinicId, logoUrl }: ClinicLogoUploadProps) {
   // while the real upload is still in flight in the background.
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
+  // Shared by both mutations below — uploading a new logo and removing
+  // the current one both return the full updated Clinic and need the
+  // exact same cache treatment, so this is written once rather than
+  // duplicated in two onSuccess handlers.
+  function applyUpdatedClinic(updated: Clinic) {
+    queryClient.setQueryData(clinicQueryKey(clinicId), updated)
+    // Prefix match on 'clinics-list' (not exact) — sweeps BOTH cached
+    // list variants (active-only and include-inactive). Safe from
+    // colliding with clinicQueryKey(clinicId) written just above:
+    // clinicsListQueryKey lives under a different top-level key
+    // ('clinics-list', not 'clinics') specifically so this can't happen.
+    void queryClient.invalidateQueries({ queryKey: ['clinics-list'] })
+  }
+
   const uploadMutation = useMutation({
     mutationFn: (file: File) => uploadClinicLogo(clinicId, file),
     onSuccess: (updated) => {
@@ -43,18 +58,17 @@ export function ClinicLogoUpload({ clinicId, logoUrl }: ClinicLogoUploadProps) {
       // DeactivateClinicButton) — updated.logoUrl is a real, ready-to-use
       // signed URL, so writing it straight into the cache means the page
       // reflects it immediately, no extra re-fetch needed.
-      queryClient.setQueryData(clinicQueryKey(clinicId), updated)
-      // Prefix match on 'clinics-list' (not exact) — sweeps BOTH cached
-      // list variants (active-only and include-inactive). Safe from the
-      // old collision risk with clinicQueryKey(clinicId) entirely:
-      // clinicsListQueryKey lives under a different top-level key
-      // ('clinics-list', not 'clinics') specifically so this can't happen.
-      void queryClient.invalidateQueries({ queryKey: ['clinics-list'] })
+      applyUpdatedClinic(updated)
       // The upload succeeded, so the real logoUrl now in the cache above
       // is the correct thing to show going forward — the temporary local
       // preview has done its job and should be released.
       revokePreview()
     },
+  })
+
+  const removeMutation = useMutation({
+    mutationFn: () => removeClinicLogo(clinicId),
+    onSuccess: applyUpdatedClinic,
   })
 
   // Object URLs are NOT automatically garbage-collected when you're done
@@ -117,16 +131,32 @@ export function ClinicLogoUpload({ clinicId, logoUrl }: ClinicLogoUploadProps) {
           </div>
         )}
 
-        <div>
+        <div className="flex flex-col gap-1">
           <Button
             type="button"
             variant="outline"
             size="sm"
-            disabled={uploadMutation.isPending}
+            disabled={uploadMutation.isPending || removeMutation.isPending}
             onClick={() => fileInputRef.current?.click()}
           >
             {uploadMutation.isPending ? 'Uploading…' : logoUrl ? 'Change logo' : 'Upload logo'}
           </Button>
+          {/* Only offered when there's a CONFIRMED existing logo — logoUrl
+              itself, not displayedUrl (which also covers the local
+              preview of a file that hasn't finished uploading yet).
+              Removing a preview that isn't saved anywhere yet doesn't
+              make sense as a server-side delete action. */}
+          {logoUrl && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={uploadMutation.isPending || removeMutation.isPending}
+              onClick={() => removeMutation.mutate()}
+            >
+              {removeMutation.isPending ? 'Removing…' : 'Remove logo'}
+            </Button>
+          )}
           {/* React 19 lets a function component accept `ref` directly as a
               prop (no forwardRef wrapper needed) — Input (components/ui/
               input.tsx) spreads its remaining props, ref included, onto
@@ -151,6 +181,13 @@ export function ClinicLogoUpload({ clinicId, logoUrl }: ClinicLogoUploadProps) {
           {uploadMutation.error instanceof ApiError
             ? uploadMutation.error.messages.join(', ')
             : 'Something went wrong'}
+        </p>
+      )}
+      {removeMutation.isError && (
+        <p className="text-sm text-destructive">
+          {removeMutation.error instanceof ApiError
+            ? removeMutation.error.messages.join(', ')
+            : 'Could not remove the logo.'}
         </p>
       )}
     </div>
