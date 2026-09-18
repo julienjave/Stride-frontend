@@ -14,8 +14,12 @@ import { RequireGuest } from './RequireGuest'
 import { RequireRole } from './RequireRole'
 import { AuthenticatedLayout } from './AuthenticatedLayout'
 import { AdminHomePage } from './AdminHomePage'
-import { PractitionerHomePage } from './PractitionerHomepage'
+import { PractitionerHomePage } from './PractitionerHomePage'
 import { PatientHomePage } from './PatientHomePage'
+import { MyProfilePage } from '@/users/MyProfilePage'
+import { PatientsListPage } from '@/patients/PatientsListPage'
+import { ExerciseLibraryPage } from '@/exercises/ExerciseLibraryPage'
+import { ProgramsPage } from '@/programs/ProgramsPage'
 import { setUnauthorizedHandler } from '@/api/client'
 import { queryClient } from '@/api/queryClient'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
@@ -83,6 +87,16 @@ export const router = createBrowserRouter([
             element: <RequireRole allowedRoles={['practitioner']} />,
             children: [
               { path: '/practitioner', element: <PractitionerHomePage /> },
+              { path: '/practitioner/profile', element: <MyProfilePage /> },
+              {
+                path: '/practitioner/patients',
+                element: <PatientsListPage />,
+              },
+              {
+                path: '/practitioner/library',
+                element: <ExerciseLibraryPage />,
+              },
+              { path: '/practitioner/programs', element: <ProgramsPage /> },
             ],
           },
           {
