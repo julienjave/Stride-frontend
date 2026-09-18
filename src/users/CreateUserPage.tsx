@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/select'
 import { ApiError } from '@/api/client'
 import { useClinics } from '@/clinics/useClinics'
-import { AddressFields } from '@/common/address/AdressFields'
+import { AddressFields } from '@/common/address/AddressFields'
 import { createUser } from './api'
 import { createUserSchema, type CreateUserFormValues } from './schemas'
 import type { User } from './types'

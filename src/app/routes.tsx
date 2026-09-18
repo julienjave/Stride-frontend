@@ -2,7 +2,7 @@ import { createBrowserRouter } from 'react-router'
 import { LoginPage } from '@/auth/LoginPage'
 import { RegisterPage } from '@/auth/RegisterPage'
 import { RegisterClinicPage } from '@/auth/RegisterClinicPage'
-import { DashboardPage } from '@/app/DashboardPage'
+import { DashboardRedirect } from '@/app/DashboardRedirect'
 import { ClinicsListPage } from '@/clinics/ClinicsListPage'
 import { CreateClinicPage } from '@/clinics/CreateClinicPage'
 import { ClinicEditPage } from '@/clinics/ClinicEditPage'
@@ -12,7 +12,10 @@ import { UserEditPage } from '@/users/UserEditPage'
 import { RequireAuth } from './RequireAuth'
 import { RequireGuest } from './RequireGuest'
 import { RequireRole } from './RequireRole'
+import { AuthenticatedLayout } from './AuthenticatedLayout'
 import { AdminHomePage } from './AdminHomePage'
+import { PractitionerHomePage } from './PractitionerHomepage'
+import { PatientHomePage } from './PatientHomePage'
 import { setUnauthorizedHandler } from '@/api/client'
 import { queryClient } from '@/api/queryClient'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
@@ -43,21 +46,50 @@ export const router = createBrowserRouter([
     // Everything else requires a real session.
     element: <RequireAuth />,
     children: [
-      { path: '/', element: <DashboardPage /> },
       {
-        // Nested one level further: authenticated AND the right role.
-        // This is the pattern every future role-scoped section (admin
-        // panel, practitioner core loop, etc.) will follow — a
-        // RequireRole layer nested inside the RequireAuth one.
-        element: <RequireRole allowedRoles={['admin']} />,
+        // AuthenticatedLayout sits BETWEEN RequireAuth and every actual
+        // page route — it's the one place the role switcher and logout
+        // button render, so they're visible no matter which page below
+        // it actually matched. This layer didn't exist before each role
+        // had its own home page; it used to be fine for that chrome to
+        // live directly on the single shared DashboardPage, since that
+        // WAS the only authenticated page every user saw first.
+        element: <AuthenticatedLayout />,
         children: [
-          { path: '/admin', element: <AdminHomePage /> },
-          { path: '/admin/clinics', element: <ClinicsListPage /> },
-          { path: '/admin/clinics/new', element: <CreateClinicPage /> },
-          { path: '/admin/clinics/:id', element: <ClinicEditPage /> },
-          { path: '/admin/users', element: <UsersListPage /> },
-          { path: '/admin/users/new', element: <CreateUserPage /> },
-          { path: '/admin/users/:id', element: <UserEditPage /> },
+          // `/` no longer renders content of its own — DashboardRedirect
+          // immediately sends the user on to whichever of the three role
+          // homes below actually matches their activeRole.
+          { path: '/', element: <DashboardRedirect /> },
+          {
+            // Nested one level further: authenticated AND the right role.
+            // This is the pattern every future role-scoped section (admin
+            // panel, practitioner core loop, etc.) will follow — a
+            // RequireRole layer nested inside the RequireAuth one.
+            element: <RequireRole allowedRoles={['admin']} />,
+            children: [
+              { path: '/admin', element: <AdminHomePage /> },
+              { path: '/admin/clinics', element: <ClinicsListPage /> },
+              { path: '/admin/clinics/new', element: <CreateClinicPage /> },
+              { path: '/admin/clinics/:id', element: <ClinicEditPage /> },
+              { path: '/admin/users', element: <UsersListPage /> },
+              { path: '/admin/users/new', element: <CreateUserPage /> },
+              { path: '/admin/users/:id', element: <UserEditPage /> },
+            ],
+          },
+          {
+            // Same shape as the admin block above, just for a role with
+            // exactly one route so far. Phase 3's roster/exercise-library/
+            // template routes will land here as siblings of /practitioner.
+            element: <RequireRole allowedRoles={['practitioner']} />,
+            children: [
+              { path: '/practitioner', element: <PractitionerHomePage /> },
+            ],
+          },
+          {
+            // Same shape again, for Phase 4's patient-facing routes.
+            element: <RequireRole allowedRoles={['patient']} />,
+            children: [{ path: '/patient', element: <PatientHomePage /> }],
+          },
         ],
       },
     ],

@@ -9,7 +9,7 @@ import { register } from './api'
 import { currentUserQueryKey } from './useCurrentUser'
 import { registerSchema, type RegisterFormValues } from './schemas'
 import { ApiError } from '@/api/client'
-import { AddressFields } from '@/common/address/AdressFields'
+import { AddressFields } from '@/common/address/AddressFields'
 
 export function RegisterPage() {
   const queryClient = useQueryClient()

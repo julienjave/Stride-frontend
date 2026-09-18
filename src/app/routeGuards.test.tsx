@@ -41,6 +41,12 @@ function renderWithGuardedRoutes(
             element: <RequireRole allowedRoles={['admin']} />,
             children: [{ path: '/admin', element: <div>Admin page</div> }],
           },
+          {
+            element: <RequireRole allowedRoles={['practitioner']} />,
+            children: [
+              { path: '/practitioner', element: <div>Practitioner page</div> },
+            ],
+          },
         ],
       },
     ],
@@ -93,5 +99,19 @@ describe('RequireRole', () => {
   it('redirects a logged-out visitor straight to login, never the admin page', () => {
     renderWithGuardedRoutes(null, '/admin')
     expect(screen.getByText('Login page')).toBeInTheDocument()
+  })
+
+  // Same guard component as the admin cases above, just proving it
+  // generalizes to a different allowedRoles value rather than having
+  // only ever been exercised against 'admin'.
+  it('renders the practitioner page for a user whose activeRole is practitioner', () => {
+    renderWithGuardedRoutes({ activeRole: 'practitioner' }, '/practitioner')
+    expect(screen.getByText('Practitioner page')).toBeInTheDocument()
+  })
+
+  it('redirects a non-practitioner user away from the practitioner page', () => {
+    renderWithGuardedRoutes({ activeRole: 'admin' }, '/practitioner')
+    expect(screen.getByText('Dashboard page')).toBeInTheDocument()
+    expect(screen.queryByText('Practitioner page')).not.toBeInTheDocument()
   })
 })
