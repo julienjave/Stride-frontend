@@ -1,3 +1,5 @@
+import type { Address } from '@/common/address/types'
+
 // The real shape GET /auth/me, POST /auth/login (post-MFA), and
 // POST /auth/switch-role all return — confirmed against the backend's own
 // documented worked example, not guessed. Notably NOT the same as what
@@ -6,7 +8,7 @@
 // document a response DTO, so the generated type was empty/unusable. We
 // hand-write this instead, matching the backend's own docs, rather than
 // relying on that generated (currently empty) type for this one endpoint.
-export interface CurrentUser {
+export interface CurrentUser extends Address {
   id: number
   email: string
   firstName: string
@@ -21,13 +23,12 @@ export interface CurrentUser {
   // already modeled above. The distinction matters: an optional key (`?`)
   // means the backend might not even send the property; `| null` means
   // the property is always present, but its value might genuinely be
-  // absent. phone/address are real, always-selected DB columns on every
-  // user row (nullable at the schema level) — the key is always there,
-  // its value just might be null. Modeling it as optional here would let
-  // code get away with skipping a null-check, on the false assumption a
-  // missing key and a null value can't both happen.
+  // absent. phone (and every Address field) are real, always-selected DB
+  // columns on every user row (nullable at the schema level) — the key is
+  // always there, its value just might be null. Modeling it as optional
+  // here would let code get away with skipping a null-check, on the false
+  // assumption a missing key and a null value can't both happen.
   phone: string | null
-  address: string | null
   // Present ONLY if the account actually holds that role — a multi-role
   // account can have more than one of these at once, which is exactly why
   // they're optional, nested, named sub-objects rather than flattened

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { userRoleSchema } from '@/auth/schemas'
+import { addressObjectShape, addAddressIssues } from '@/common/address/schemas'
 
 // --- BASE FIELDS (every role needs these) -------------------------------
 
@@ -13,7 +14,6 @@ const passwordSchema = z
 const firstNameSchema = z.string().min(1, 'First name is required').max(100, 'First name is too long')
 const lastNameSchema = z.string().min(1, 'Last name is required').max(100, 'Last name is too long')
 const phoneSchema = z.string().max(50, 'Phone number is too long')
-const addressSchema = z.string().max(500, 'Address is too long')
 
 // --- ROLE-SPECIFIC FIELDS ------------------------------------------------
 
@@ -50,7 +50,7 @@ const baseObjectSchema = z.object({
   firstName: firstNameSchema,
   lastName: lastNameSchema,
   phone: phoneSchema.optional(),
-  address: addressSchema.optional(),
+  ...addressObjectShape,
   licenseNumber: licenseNumberSchema.optional(),
   specialties: z.string().optional(), // raw comma-separated input; split into an array in api.ts, not here
   bio: bioSchema.optional(),
@@ -118,6 +118,12 @@ export const createUserSchema = baseObjectSchema.superRefine((data, ctx) => {
   // isn't clinic-scoped anywhere (every admin-bypass check in the backend
   // confirms this), so leaving clinicId blank for an admin is a normal,
   // supported case, not an oversight.
+
+  // Same core-fields-required-together rule as every other address-
+  // bearing form — see common/address/schemas.ts. Called from inside
+  // this existing superRefine, rather than a second chained one, since
+  // it needs no data this callback doesn't already have.
+  addAddressIssues(data, ctx)
 })
 
 export type CreateUserFormValues = z.infer<typeof createUserSchema>

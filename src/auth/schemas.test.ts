@@ -98,10 +98,10 @@ describe('registerSchema', () => {
     expect(result.success).toBe(false)
   })
 
-  it('rejects an address over 500 characters', () => {
+  it('rejects an address line 1 over 255 characters', () => {
     const result = registerSchema.safeParse({
       ...validBase,
-      address: 'a'.repeat(501),
+      addressLine1: 'a'.repeat(256),
     })
     expect(result.success).toBe(false)
   })

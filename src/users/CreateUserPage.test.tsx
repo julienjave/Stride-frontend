@@ -72,6 +72,11 @@ async function selectClinic(user: ReturnType<typeof userEvent.setup>, clinicName
   await user.click(await screen.findByRole('option', { name: clinicName }))
 }
 
+async function selectCountry(user: ReturnType<typeof userEvent.setup>, countryName: string) {
+  await user.click(screen.getByRole('combobox', { name: 'Country' }))
+  await user.click(await screen.findByRole('option', { name: countryName }))
+}
+
 async function fillCommonFields(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('Email'), 'new.user@example.com')
   await user.type(screen.getByLabelText('Temporary password'), 'a-strong-password')
@@ -221,6 +226,47 @@ describe('CreateUserPage — successful submission payloads', () => {
       role: 'patient',
       dateOfBirth: '2000-01-01',
       clinicId: 2,
+    })
+  })
+
+  it('includes address fields in the payload when filled in', async () => {
+    mockClinicsAndUserCreation({
+      id: 44,
+      firstName: 'Jamie',
+      lastName: 'Doe',
+      roles: ['patient'],
+    })
+    const user = userEvent.setup()
+    renderCreateUserPage()
+    await fillCommonFields(user)
+    await user.type(screen.getByLabelText('Date of birth'), '2000-01-01')
+    await selectClinic(user, 'Second Clinic')
+    await user.type(screen.getByLabelText('Address line 1'), '1 Acme Way')
+    await user.type(screen.getByLabelText('City'), 'Springfield')
+    await user.type(screen.getByLabelText('Postal code'), '62704')
+    await selectCountry(user, 'United States')
+    await user.click(screen.getByRole('button', { name: 'Create user' }))
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/users'),
+        expect.objectContaining({ method: 'POST' }),
+      ),
+    )
+    const [, requestInit] = fetchMock.mock.calls.find(([url]) => urlOf(url).includes('/users'))!
+    const body = JSON.parse(requestInit?.body as string) as Record<string, unknown>
+    expect(body).toEqual({
+      email: 'new.user@example.com',
+      password: 'a-strong-password',
+      firstName: 'Jamie',
+      lastName: 'Doe',
+      role: 'patient',
+      dateOfBirth: '2000-01-01',
+      clinicId: 2,
+      addressLine1: '1 Acme Way',
+      addressCity: 'Springfield',
+      addressPostalCode: '62704',
+      addressCountry: 'US',
     })
   })
 

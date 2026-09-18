@@ -9,6 +9,7 @@ import { register } from './api'
 import { currentUserQueryKey } from './useCurrentUser'
 import { registerSchema, type RegisterFormValues } from './schemas'
 import { ApiError } from '@/api/client'
+import { AddressFields } from '@/common/address/AdressFields'
 
 export function RegisterPage() {
   const queryClient = useQueryClient()
@@ -17,6 +18,7 @@ export function RegisterPage() {
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
   })
+  const watchedCountry = form.watch('addressCountry')
 
   // No state machine needed here, unlike LoginPage — registration only
   // ever has one outcome shape (a full CurrentUser, see api.ts's register()
@@ -100,10 +102,13 @@ export function RegisterPage() {
           )}
         </div>
 
-        {/* phone/address are optional everywhere in this form — no red
-            asterisk, no "required" validation, and the Label text itself
-            says so, since leaving these blank is an entirely normal path,
-            not an error state the way an empty firstName would be. */}
+        {/* phone is optional everywhere in this form — no red asterisk,
+            no "required" validation, and the Label text itself says so,
+            since leaving it blank is an entirely normal path, not an
+            error state the way an empty firstName would be. The address
+            block below has its own, different rule: optional as a whole,
+            but once started, its core fields become required together
+            — see AddressFields/common/address/schemas.ts. */}
         <div className="space-y-1">
           <Label htmlFor="phone">Phone (optional)</Label>
           <Input
@@ -118,18 +123,12 @@ export function RegisterPage() {
           )}
         </div>
 
-        <div className="space-y-1">
-          <Label htmlFor="address">Address (optional)</Label>
-          <Input
-            id="address"
-            autoComplete="street-address"
-            aria-invalid={!!form.formState.errors.address}
-            {...form.register('address')}
-          />
-          {form.formState.errors.address && (
-            <p className="text-sm text-destructive">{form.formState.errors.address.message}</p>
-          )}
-        </div>
+        <AddressFields
+          control={form.control}
+          register={form.register}
+          errors={form.formState.errors}
+          watchedCountry={watchedCountry}
+        />
 
         <div className="space-y-1">
           <Label htmlFor="password">Password</Label>

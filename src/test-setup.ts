@@ -12,6 +12,35 @@ import '@testing-library/jest-dom/vitest'
 // exactly the "Found multiple elements with role button" failure above).
 // afterEach here runs automatically, for every test in every file, without
 // each test file needing to remember to do it individually.
+// The real country-state-city package ships ~250 countries — rendering
+// that many real <SelectItem> options in jsdom is genuinely slow (one
+// affected test measured at ~4.5s, right at the edge of Vitest's default
+// 5s test timeout, and enough to time out outright on a slower machine).
+// No test here is ABOUT the real dataset (that it has all 250 countries,
+// or their exact real state lists) — every test just needs "pick a
+// country with states, pick one without," so a small, fixed fixture is
+// both faster and more deterministic than depending on a third-party
+// package's exact, changeable data. Covers every real country name used
+// across the address-bearing forms' test files (United States, with
+// states including Illinois/California; Aland Islands, with none).
+vi.mock('country-state-city', () => ({
+  Country: {
+    getAllCountries: () => [
+      { isoCode: 'US', name: 'United States' },
+      { isoCode: 'AX', name: 'Aland Islands' },
+    ],
+  },
+  State: {
+    getStatesOfCountry: (countryCode: string) =>
+      countryCode === 'US'
+        ? [
+            { isoCode: 'CA', name: 'California', countryCode: 'US' },
+            { isoCode: 'IL', name: 'Illinois', countryCode: 'US' },
+          ]
+        : [],
+  },
+}))
+
 afterEach(() => {
   cleanup()
 })

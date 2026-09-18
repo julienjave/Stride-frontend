@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { addressObjectShape, addAddressIssues } from '@/common/address/schemas'
 
 // Each of these five is the ONE place the corresponding field's validation
 // rule is written down — matching CreateClinicDto's own constraints
@@ -26,25 +27,27 @@ export const clinicEmailSchema = z.string().email('Enter a valid clinic email ad
 
 export const clinicPhoneSchema = z.string().max(50, 'Phone number is too long')
 
-export const clinicAddressSchema = z.string().max(500, 'Address is too long')
-
 export const clinicWebsiteSchema = z.string().max(255, 'Website is too long')
 
-// The create form's schema — the ONLY place these five get assembled into
-// a single object, because creating a clinic really is a single-submit
+// The create form's schema — the ONLY place these get assembled into a
+// single object, because creating a clinic really is a single-submit
 // action (there's nothing to edit piecemeal yet; the clinic doesn't exist
 // until this form succeeds). name/email are required here, matching
-// CreateClinicDto's own required fields; phone/address/website are
-// .optional() at this object-assembly step, same "no asterisk, no
-// required validation" treatment optional fields get everywhere else in
-// this app.
-export const createClinicSchema = z.object({
-  name: clinicNameSchema,
-  email: clinicEmailSchema,
-  phone: clinicPhoneSchema.optional(),
-  address: clinicAddressSchema.optional(),
-  website: clinicWebsiteSchema.optional(),
-})
+// CreateClinicDto's own required fields; phone/website are .optional() at
+// this object-assembly step, same "no asterisk, no required validation"
+// treatment optional fields get everywhere else in this app. The address
+// fields (...addressObjectShape) get their own core-required-together
+// rule from addAddressIssues, mirroring the backend's hasStartedAddress
+// exactly — see common/address/schema.ts.
+export const createClinicSchema = z
+  .object({
+    name: clinicNameSchema,
+    email: clinicEmailSchema,
+    phone: clinicPhoneSchema.optional(),
+    website: clinicWebsiteSchema.optional(),
+    ...addressObjectShape,
+  })
+  .superRefine(addAddressIssues)
 
 export type CreateClinicFormValues = z.infer<typeof createClinicSchema>
 

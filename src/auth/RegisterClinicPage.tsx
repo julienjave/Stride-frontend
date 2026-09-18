@@ -1,14 +1,27 @@
-import { useForm } from 'react-hook-form'
+import { useMemo } from 'react'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, Link } from 'react-router'
+import { Country, State } from 'country-state-city'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { registerClinic } from './api'
 import { currentUserQueryKey } from './useCurrentUser'
 import { registerClinicSchema, type RegisterClinicFormValues } from './schemas'
 import { ApiError } from '@/api/client'
+
+// Loaded once at module scope — same reasoning as AddressFields.tsx's
+// identical constant: the underlying dataset never changes at runtime.
+const ALL_COUNTRIES = Country.getAllCountries()
 
 export function RegisterClinicPage() {
   const queryClient = useQueryClient()
@@ -17,6 +30,7 @@ export function RegisterClinicPage() {
   const form = useForm<RegisterClinicFormValues>({
     resolver: zodResolver(registerClinicSchema),
   })
+  const watchedClinicCountry = form.watch('clinicAddressCountry')
 
   // Same "only one outcome shape" reasoning as RegisterPage's mutation —
   // registerClinic() always resolves to a plain RegisterClinicResult (see
@@ -37,6 +51,17 @@ export function RegisterClinicPage() {
   // produce), so there's no need to also inspect the message text.
   const error = registerClinicMutation.error
   const isSetupAlreadyDone = error instanceof ApiError && error.statusCode === 403
+
+  // Same cascading behavior as AddressFields.tsx's identical logic, just
+  // inlined here rather than shared — this is the ONLY consumer with
+  // clinicAddress*-prefixed fields, so a reusable component parameterized
+  // by a field-name prefix would add real generality for exactly one
+  // caller, which isn't worth the complexity it'd add for every OTHER
+  // consumer of AddressFields.
+  const statesForClinicCountry = useMemo(
+    () => (watchedClinicCountry ? State.getStatesOfCountry(watchedClinicCountry) : []),
+    [watchedClinicCountry],
+  )
 
   return (
     <div className="mx-auto mt-24 max-w-sm space-y-4">
@@ -122,17 +147,115 @@ export function RegisterClinicPage() {
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="clinicAddress">Address (optional)</Label>
+            <Label htmlFor="clinicAddressLine1">Address line 1 (optional)</Label>
             <Input
-              id="clinicAddress"
-              autoComplete="street-address"
-              aria-invalid={!!form.formState.errors.clinicAddress}
-              {...form.register('clinicAddress')}
+              id="clinicAddressLine1"
+              autoComplete="address-line1"
+              aria-invalid={!!form.formState.errors.clinicAddressLine1}
+              {...form.register('clinicAddressLine1')}
             />
-            {form.formState.errors.clinicAddress && (
+            {form.formState.errors.clinicAddressLine1 && (
               <p className="text-sm text-destructive">
-                {form.formState.errors.clinicAddress.message}
+                {form.formState.errors.clinicAddressLine1.message}
               </p>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="clinicAddressLine2">
+              Suite, floor, etc. (optional)
+            </Label>
+            <Input
+              id="clinicAddressLine2"
+              autoComplete="address-line2"
+              {...form.register('clinicAddressLine2')}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="clinicAddressCity">City (optional)</Label>
+            <Input
+              id="clinicAddressCity"
+              autoComplete="address-level2"
+              aria-invalid={!!form.formState.errors.clinicAddressCity}
+              {...form.register('clinicAddressCity')}
+            />
+            {form.formState.errors.clinicAddressCity && (
+              <p className="text-sm text-destructive">
+                {form.formState.errors.clinicAddressCity.message}
+              </p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="clinicAddressPostalCode">Postal code (optional)</Label>
+              <Input
+                id="clinicAddressPostalCode"
+                autoComplete="postal-code"
+                aria-invalid={!!form.formState.errors.clinicAddressPostalCode}
+                {...form.register('clinicAddressPostalCode')}
+              />
+              {form.formState.errors.clinicAddressPostalCode && (
+                <p className="text-sm text-destructive">
+                  {form.formState.errors.clinicAddressPostalCode.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="clinicAddressCountry">Country (optional)</Label>
+              <Controller
+                control={form.control}
+                name="clinicAddressCountry"
+                render={({ field }) => (
+                  <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                    <SelectTrigger id="clinicAddressCountry" className="w-full">
+                      <SelectValue placeholder="Select a country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ALL_COUNTRIES.map((country) => (
+                        <SelectItem key={country.isoCode} value={country.isoCode}>
+                          {country.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {form.formState.errors.clinicAddressCountry && (
+                <p className="text-sm text-destructive">
+                  {form.formState.errors.clinicAddressCountry.message}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="clinicAddressState">State/Province (if applicable)</Label>
+            {/* Same dropdown-with-text-fallback behavior as
+                AddressFields.tsx — see that file's comment for why. */}
+            {statesForClinicCountry.length > 0 ? (
+              <Controller
+                control={form.control}
+                name="clinicAddressState"
+                render={({ field }) => (
+                  <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                    <SelectTrigger id="clinicAddressState" className="w-full">
+                      <SelectValue placeholder="Select a state/province" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statesForClinicCountry.map((state) => (
+                        <SelectItem key={state.isoCode} value={state.name}>
+                          {state.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            ) : (
+              <Input id="clinicAddressState" {...form.register('clinicAddressState')} />
             )}
           </div>
         </div>

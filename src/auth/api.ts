@@ -1,4 +1,5 @@
 import { apiRequest } from '@/api/client'
+import { toAddressPayload } from '@/common/address/api'
 import type { CurrentUser, RegisterClinicResult } from './types'
 import type { 
   LoginFormValues, 
@@ -78,28 +79,46 @@ export function register(values: RegisterFormValues) {
   // whole request outright if we sent it. Destructuring it out here, at
   // the API boundary, keeps that "this field is UI-only" knowledge in one
   // place rather than leaking into the component.
-  const { confirmPassword: _confirmPassword, phone, address, ...rest } = values
+  const {
+    confirmPassword: _confirmPassword,
+    phone,
+    addressLine1,
+    addressLine2,
+    addressCity,
+    addressState,
+    addressPostalCode,
+    addressCountry,
+    ...rest
+  } = values
 
-  // phone/address are optional on the backend, but an HTML text input that
-  // was simply never touched reads as '' (empty string), not undefined —
-  // the DOM has no concept of "this field was never filled in," only "this
-  // field currently contains zero characters." If we sent '' as-is,
-  // RegisterDto's @IsOptional() would NOT skip it (that decorator only
-  // treats undefined/null as "absent" — an empty string is a perfectly
-  // valid string, so it would sail through @IsString() and get stored as
-  // a literal empty string in the database. That's a different, worse
-  // outcome than the column genuinely being null: "we have a phone number
-  // and it's blank" vs. "we were never given one." Converting '' back to
-  // undefined here — right at the boundary before the request is built —
-  // means JSON.stringify (called inside apiRequest) drops the key
-  // entirely for an untouched field, which is what "optional" is actually
-  // supposed to mean.
+  // phone (and every address field) is optional on the backend, but an
+  // HTML text input that was simply never touched reads as '' (empty
+  // string), not undefined — the DOM has no concept of "this field was
+  // never filled in," only "this field currently contains zero
+  // characters." If we sent '' as-is, RegisterDto's @IsOptional() would
+  // NOT skip it (that decorator only treats undefined/null as "absent" —
+  // an empty string is a perfectly valid string, so it would sail
+  // through @IsString() and get stored as a literal empty string in the
+  // database. That's a different, worse outcome than the column
+  // genuinely being null: "we have a phone number and it's blank" vs.
+  // "we were never given one." Converting '' back to undefined here —
+  // right at the boundary before the request is built — means
+  // JSON.stringify (called inside apiRequest) drops the key entirely for
+  // an untouched field, which is what "optional" is actually supposed to
+  // mean.
   return apiRequest<CurrentUser>('/auth/register', {
     method: 'POST',
     body: {
       ...rest,
       phone: phone === '' ? undefined : phone,
-      address: address === '' ? undefined : address,
+      ...toAddressPayload({
+        addressLine1,
+        addressLine2,
+        addressCity,
+        addressState,
+        addressPostalCode,
+        addressCountry,
+      }),
     },
   })
 }
@@ -116,36 +135,58 @@ export function register(values: RegisterFormValues) {
 export function registerClinic(values: RegisterClinicFormValues) {
   // confirmPassword is client-side-only validation (see schemas.ts) — same
   // reasoning as register()'s identical destructure just above.
-  const { confirmPassword: _confirmPassword, clinicPhone, clinicWebsite, clinicAddress, position, ...rest } =
-    values
+  const {
+    confirmPassword: _confirmPassword,
+    clinicPhone,
+    clinicWebsite,
+    clinicAddressLine1,
+    clinicAddressLine2,
+    clinicAddressCity,
+    clinicAddressState,
+    clinicAddressPostalCode,
+    clinicAddressCountry,
+    position,
+    ...rest
+  } = values
 
-  // Same '' → undefined conversion as register()'s phone/address, and for
-  // the identical reason: RegisterClinicDto's @IsOptional() only treats
-  // undefined/null as "this field is absent" — an empty string is a
-  // perfectly valid string that would sail through validation and land as
-  // a literal empty value in the database, which is a different (worse)
-  // outcome than the column genuinely being null. Every optional text
-  // input on this form needs this same treatment, which is why there are
-  // four fields handled identically below rather than just one or two.
-  //
+  // toAddressPayload expects the STANDARD addressLine1/addressCity/etc.
+  // keys (it's shared with every other address-bearing form), but this
+  // form's fields are clinicAddress*-prefixed — remapped in, then back
+  // out, rather than duplicating the same six-field '' → undefined
+  // conversion a second time just for a different prefix.
+  const clinicAddress = toAddressPayload({
+    addressLine1: clinicAddressLine1,
+    addressLine2: clinicAddressLine2,
+    addressCity: clinicAddressCity,
+    addressState: clinicAddressState,
+    addressPostalCode: clinicAddressPostalCode,
+    addressCountry: clinicAddressCountry,
+  })
+
   // Note what's NOT here: RegisterClinicDto also accepts admin-level
-  // `phone`/`address` fields (separate from clinicPhone/clinicAddress —
-  // confirmed by reading the DTO), but RegisterClinicFormValues has no
-  // phone/address keys at all, because RegisterClinicPage deliberately
-  // never renders inputs for them (see that decision in schemas.ts's
-  // comment on the position field). With no form field to produce a value,
-  // `rest` simply never contains those keys, so JSON.stringify drops them
-  // exactly the same way the explicit '' → undefined conversion does below
-  // for the fields that DO have inputs — the end state (backend receives
-  // no phone/address for the admin) is identical either way, just reached
-  // by "never having the key" instead of "converting an empty one away."
+  // address fields (separate from clinicAddress* — confirmed by reading
+  // the DTO), but RegisterClinicFormValues has no address keys for the
+  // admin at all, because RegisterClinicPage deliberately never renders
+  // inputs for them (see that decision in schemas.ts's comment on the
+  // position field). With no form field to produce a value, `rest`
+  // simply never contains those keys, so JSON.stringify drops them
+  // exactly the same way the explicit '' → undefined conversion does
+  // below for the fields that DO have inputs — the end state (backend
+  // receives no address for the admin) is identical either way, just
+  // reached by "never having the key" instead of "converting an empty
+  // one away."
   return apiRequest<RegisterClinicResult>('/auth/register-clinic', {
     method: 'POST',
     body: {
       ...rest,
       clinicPhone: clinicPhone === '' ? undefined : clinicPhone,
       clinicWebsite: clinicWebsite === '' ? undefined : clinicWebsite,
-      clinicAddress: clinicAddress === '' ? undefined : clinicAddress,
+      clinicAddressLine1: clinicAddress.addressLine1,
+      clinicAddressLine2: clinicAddress.addressLine2,
+      clinicAddressCity: clinicAddress.addressCity,
+      clinicAddressState: clinicAddress.addressState,
+      clinicAddressPostalCode: clinicAddress.addressPostalCode,
+      clinicAddressCountry: clinicAddress.addressCountry,
       position: position === '' ? undefined : position,
     },
   })

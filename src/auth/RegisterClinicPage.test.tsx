@@ -35,6 +35,11 @@ async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('Confirm password'), 'password123')
 }
 
+async function selectCountry(user: ReturnType<typeof userEvent.setup>, countryName: string) {
+  await user.click(screen.getByRole('combobox', { name: 'Country (optional)' }))
+  await user.click(await screen.findByRole('option', { name: countryName }))
+}
+
 function mockSuccessResponse() {
   fetchMock.mockResolvedValue(
     new Response(
@@ -83,7 +88,7 @@ describe('RegisterClinicPage', () => {
     )
   })
 
-  it('includes all four optional fields when the person fills them in', async () => {
+  it('includes all optional fields when the person fills them in', async () => {
     mockSuccessResponse()
 
     const user = userEvent.setup()
@@ -91,30 +96,39 @@ describe('RegisterClinicPage', () => {
     await fillValidForm(user)
     await user.type(screen.getByLabelText('Phone (optional)'), '555-1234')
     await user.type(screen.getByLabelText('Website (optional)'), 'https://acme-clinic.example')
-    await user.type(screen.getByLabelText('Address (optional)'), '1 Acme Way')
+    await user.type(screen.getByLabelText('Address line 1 (optional)'), '1 Acme Way')
+    await user.type(screen.getByLabelText('City (optional)'), 'Springfield')
+    await user.type(screen.getByLabelText('Postal code (optional)'), '62704')
+    await selectCountry(user, 'United States')
     await user.type(screen.getByLabelText('Position (optional)'), 'Practice Owner')
     await user.click(screen.getByRole('button', { name: 'Create clinic' }))
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining('/auth/register-clinic'),
-        expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify({
-            clinicName: 'Acme Clinic',
-            clinicEmail: 'clinic@example.com',
-            email: 'admin@example.com',
-            password: 'password123',
-            firstName: 'Jane',
-            lastName: 'Doe',
-            clinicPhone: '555-1234',
-            clinicWebsite: 'https://acme-clinic.example',
-            clinicAddress: '1 Acme Way',
-            position: 'Practice Owner',
-          }),
-        }),
+        expect.objectContaining({ method: 'POST' }),
       ),
     )
+    // Parsing and comparing with toEqual, not a raw JSON string — see
+    // CreateUserPage.test.tsx for why a string comparison is the wrong
+    // tool here (it's sensitive to key order, not to actual correctness).
+    const [, requestInit] = fetchMock.mock.calls[0]
+    const body = JSON.parse(requestInit?.body as string) as Record<string, unknown>
+    expect(body).toEqual({
+      clinicName: 'Acme Clinic',
+      clinicEmail: 'clinic@example.com',
+      email: 'admin@example.com',
+      password: 'password123',
+      firstName: 'Jane',
+      lastName: 'Doe',
+      clinicPhone: '555-1234',
+      clinicWebsite: 'https://acme-clinic.example',
+      clinicAddressLine1: '1 Acme Way',
+      clinicAddressCity: 'Springfield',
+      clinicAddressPostalCode: '62704',
+      clinicAddressCountry: 'US',
+      position: 'Practice Owner',
+    })
   })
 
   it('shows a validation error and never calls the API when passwords do not match', async () => {

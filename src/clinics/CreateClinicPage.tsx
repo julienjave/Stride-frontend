@@ -5,6 +5,7 @@ import { useNavigate, Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { AddressFields } from '@/common/address/AdressFields'
 import { createClinic } from './api'
 import { createClinicSchema, type CreateClinicFormValues } from './schemas'
 import { ApiError } from '@/api/client'
@@ -16,6 +17,7 @@ export function CreateClinicPage() {
   const form = useForm<CreateClinicFormValues>({
     resolver: zodResolver(createClinicSchema),
   })
+  const watchedCountry = form.watch('addressCountry')
 
   const createClinicMutation = useMutation({
     mutationFn: createClinic,
@@ -114,18 +116,12 @@ export function CreateClinicPage() {
           </div>
         </div>
 
-        <div className="space-y-1">
-          <Label htmlFor="address">Address (optional)</Label>
-          <Input
-            id="address"
-            autoComplete="street-address"
-            aria-invalid={!!form.formState.errors.address}
-            {...form.register('address')}
-          />
-          {form.formState.errors.address && (
-            <p className="text-sm text-destructive">{form.formState.errors.address.message}</p>
-          )}
-        </div>
+        <AddressFields
+          control={form.control}
+          register={form.register}
+          errors={form.formState.errors}
+          watchedCountry={watchedCountry}
+        />
 
         {createClinicMutation.isError && (
           <p className="text-sm text-destructive">

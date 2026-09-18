@@ -1,4 +1,5 @@
 import { apiRequest } from '@/api/client'
+import { toAddressPayload } from '@/common/address/api'
 import type { User } from './types'
 import type { CreateUserFormValues, GrantRoleFormValues } from './schemas'
 
@@ -50,8 +51,23 @@ function emptyToUndefined(value: string | undefined) {
 }
 
 export function createUser(values: CreateUserFormValues) {
-  const { role, phone, address, licenseNumber, specialties, bio, dateOfBirth, position, clinicId, ...rest } =
-    values
+  const {
+    role,
+    phone,
+    addressLine1,
+    addressLine2,
+    addressCity,
+    addressState,
+    addressPostalCode,
+    addressCountry,
+    licenseNumber,
+    specialties,
+    bio,
+    dateOfBirth,
+    position,
+    clinicId,
+    ...rest
+  } = values
 
   return apiRequest<User>('/users', {
     method: 'POST',
@@ -59,7 +75,14 @@ export function createUser(values: CreateUserFormValues) {
       ...rest,
       role,
       phone: emptyToUndefined(phone),
-      address: emptyToUndefined(address),
+      ...toAddressPayload({
+        addressLine1,
+        addressLine2,
+        addressCity,
+        addressState,
+        addressPostalCode,
+        addressCountry,
+      }),
 
       // Only the fields relevant to the SELECTED role get sent — not
       // because the backend would reject the others (CreateUserDto's

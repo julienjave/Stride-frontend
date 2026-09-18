@@ -1,3 +1,5 @@
+import type { Address } from '@/common/address/types'
+
 // The real shape POST /users, GET /users, and GET /users/:id all return —
 // confirmed directly against users.service.ts's toPublic() and
 // attachProfile() helpers, not trusted from the generated OpenAPI types.
@@ -20,14 +22,13 @@
 // URL — unlike Clinic.logoUrl, this hasn't been converted yet. That's a
 // deliberate, separate, later piece of work (see the roadmap's Phase 6
 // avatar-upload item), not an oversight here.
-export interface User {
+export interface User extends Address {
   id: number
   email: string
   firstName: string
   lastName: string
   avatarPath: string | null
   phone: string | null
-  address: string | null
   isActive: boolean
   createdAt: string
   mfaEnabled: boolean

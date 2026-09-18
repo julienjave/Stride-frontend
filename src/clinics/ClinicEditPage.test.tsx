@@ -30,7 +30,12 @@ const fullClinic = {
   name: 'Acme Clinic',
   email: 'acme@example.com',
   phone: '555-1234',
-  address: '1 Acme Way',
+  addressLine1: '1 Acme Way',
+  addressLine2: null,
+  addressCity: 'Springfield',
+  addressState: 'IL',
+  addressPostalCode: '62704',
+  addressCountry: 'US',
   website: 'https://acme.example',
   logoUrl: null,
   isActive: true,
@@ -62,18 +67,20 @@ describe('ClinicEditPage — loading and error states', () => {
   })
 })
 
-describe('ClinicEditPage — rendering all five fields', () => {
-  it('renders the clinic name as the heading and every field with its current value', async () => {
+describe('ClinicEditPage — rendering all four editable fields', () => {
+  it('renders the clinic name as the heading and every editable field with its current value', async () => {
     fetchMock.mockResolvedValue(new Response(JSON.stringify(fullClinic), { status: 200 }))
     renderAt('/admin/clinics/1')
 
     expect(await screen.findByRole('heading', { name: 'Acme Clinic' })).toBeInTheDocument()
     expect(screen.getByText('acme@example.com')).toBeInTheDocument()
     expect(screen.getByText('555-1234')).toBeInTheDocument()
-    expect(screen.getByText('1 Acme Way')).toBeInTheDocument()
     expect(screen.getByText('https://acme.example')).toBeInTheDocument()
-    // Five fields means five independent Edit buttons.
-    expect(screen.getAllByRole('button', { name: 'Edit' })).toHaveLength(5)
+    // Four editable fields (name, email, phone, website) means four
+    // independent Edit buttons — address is no longer one of them; see
+    // ClinicEditPage.tsx's own comment for why editing an existing
+    // address was deliberately deferred, not silently dropped.
+    expect(screen.getAllByRole('button', { name: 'Edit' })).toHaveLength(4)
   })
 
   it('shows "Not set" for a field that is genuinely null', async () => {
@@ -100,8 +107,8 @@ describe('ClinicEditPage — real end-to-end edit flow', () => {
 
     expect(await screen.findByText('555-1234')).toBeInTheDocument()
 
-    // There are five "Edit" buttons (one per field) — phone is the third
-    // field rendered (name, email, phone, address, website).
+    // There are four "Edit" buttons (one per editable field) — phone is
+    // the third field rendered (name, email, phone, website).
     const editButtons = screen.getAllByRole('button', { name: 'Edit' })
     await user.click(editButtons[2])
 

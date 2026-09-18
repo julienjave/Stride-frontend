@@ -30,6 +30,16 @@ async function fillRequiredFields(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('Clinic email'), 'clinic@example.com')
 }
 
+async function selectCountry(user: ReturnType<typeof userEvent.setup>, countryName: string) {
+  await user.click(screen.getByRole('combobox', { name: 'Country' }))
+  await user.click(await screen.findByRole('option', { name: countryName }))
+}
+
+async function selectState(user: ReturnType<typeof userEvent.setup>, stateName: string) {
+  await user.click(screen.getByRole('combobox', { name: 'State/Province (if applicable)' }))
+  await user.click(await screen.findByRole('option', { name: stateName }))
+}
+
 describe('CreateClinicPage', () => {
   it('submits the minimal required-only payload when no optional fields are filled in', async () => {
     fetchMock.mockResolvedValue(
@@ -62,24 +72,75 @@ describe('CreateClinicPage', () => {
     await fillRequiredFields(user)
     await user.type(screen.getByLabelText('Phone (optional)'), '555-1234')
     await user.type(screen.getByLabelText('Website (optional)'), 'https://acme.example')
-    await user.type(screen.getByLabelText('Address (optional)'), '1 Acme Way')
+    await user.type(screen.getByLabelText('Address line 1'), '1 Acme Way')
+    await user.type(
+      screen.getByLabelText('Apartment, suite, etc. (optional)'),
+      'Suite 200',
+    )
+    await user.type(screen.getByLabelText('City'), 'Springfield')
+    await user.type(screen.getByLabelText('Postal code'), '62704')
+    await selectCountry(user, 'United States')
+    await selectState(user, 'Illinois')
     await user.click(screen.getByRole('button', { name: 'Create clinic' }))
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining('/clinics'),
-        expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify({
-            name: 'Acme Clinic',
-            email: 'clinic@example.com',
-            phone: '555-1234',
-            address: '1 Acme Way',
-            website: 'https://acme.example',
-          }),
-        }),
+        expect.objectContaining({ method: 'POST' }),
       ),
     )
+    // Parsing and comparing with toEqual, not a raw JSON string — a
+    // string comparison is sensitive to key order, which has nothing to
+    // do with whether the payload is actually correct (this app already
+    // hit that exact false-failure once, see CreateUserPage.test.tsx).
+    const [, requestInit] = fetchMock.mock.calls[0]
+    const body = JSON.parse(requestInit?.body as string) as Record<string, unknown>
+    expect(body).toEqual({
+      name: 'Acme Clinic',
+      email: 'clinic@example.com',
+      phone: '555-1234',
+      website: 'https://acme.example',
+      addressLine1: '1 Acme Way',
+      addressLine2: 'Suite 200',
+      addressCity: 'Springfield',
+      addressState: 'Illinois',
+      addressPostalCode: '62704',
+      addressCountry: 'US',
+    })
+  })
+
+  it('shows the core-fields-required-together error when only city is filled in', async () => {
+    const user = userEvent.setup()
+    renderCreateClinicPage()
+    await fillRequiredFields(user)
+    await user.type(screen.getByLabelText('City'), 'Springfield')
+    await user.click(screen.getByRole('button', { name: 'Create clinic' }))
+
+    expect(await screen.findByText('Address line 1 is required')).toBeInTheDocument()
+    expect(screen.getByText('Postal code is required')).toBeInTheDocument()
+    expect(screen.getByText('Country is required')).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('shows a State/Province dropdown for a country with subdivisions', async () => {
+    const user = userEvent.setup()
+    renderCreateClinicPage()
+
+    await selectCountry(user, 'United States')
+
+    expect(screen.getByRole('combobox', { name: 'State/Province (if applicable)' })).toBeInTheDocument()
+  })
+
+  it('falls back to a plain text input for a country with no subdivision list', async () => {
+    const user = userEvent.setup()
+    renderCreateClinicPage()
+
+    await selectCountry(user, 'Aland Islands')
+
+    expect(
+      screen.queryByRole('combobox', { name: 'State/Province (if applicable)' }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByLabelText('State/Province (if applicable)')).toBeInTheDocument()
   })
 
   it('shows a validation error and never calls the API when the name is left blank', async () => {

@@ -8,7 +8,6 @@ import {
   clinicNameSchema,
   clinicEmailSchema,
   clinicPhoneSchema,
-  clinicAddressSchema,
   clinicWebsiteSchema,
 } from './schemas'
 
@@ -74,13 +73,17 @@ function ClinicEditView({ clinicId }: { clinicId: number }) {
           value={clinic.phone}
           schema={clinicPhoneSchema}
         />
-        <EditableClinicField
-          clinicId={clinicId}
-          fieldKey="address"
-          label="Address"
-          value={clinic.address}
-          schema={clinicAddressSchema}
-        />
+        {/* Editing an existing address is deliberately NOT here yet.
+            EditableClinicField's single-line-per-field pattern doesn't
+            fit a 6-field address (line1/line2/city/state/postal/country)
+            — that needs its own multi-field block component with the
+            same country-dropdown/cascading-state behavior the CREATE
+            form uses. That's real work, and it naturally belongs with
+            the Phase 3/4 profile-editing items already on the roadmap
+            (which need the exact same reusable address block), not a
+            one-off patch bolted on here. Until then, a clinic's address
+            can be set at creation time but not edited afterward through
+            this page. */}
         <EditableClinicField
           clinicId={clinicId}
           fieldKey="website"

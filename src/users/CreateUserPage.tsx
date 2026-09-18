@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select'
 import { ApiError } from '@/api/client'
 import { useClinics } from '@/clinics/useClinics'
+import { AddressFields } from '@/common/address/AdressFields'
 import { createUser } from './api'
 import { createUserSchema, type CreateUserFormValues } from './schemas'
 import type { User } from './types'
@@ -47,6 +48,7 @@ export function CreateUserPage() {
   // swap which extra fields are shown until something else happened to
   // trigger a re-render.
   const role = form.watch('role')
+  const watchedCountry = form.watch('addressCountry')
 
   const { data: clinics, isLoading: isLoadingClinics } = useClinics()
 
@@ -183,10 +185,12 @@ export function CreateUserPage() {
           <Input id="phone" type="tel" autoComplete="tel" {...form.register('phone')} />
         </div>
 
-        <div className="space-y-1">
-          <Label htmlFor="address">Address (optional)</Label>
-          <Input id="address" autoComplete="street-address" {...form.register('address')} />
-        </div>
+        <AddressFields
+          control={form.control}
+          register={form.register}
+          errors={form.formState.errors}
+          watchedCountry={watchedCountry}
+        />
 
         {/* clinicId is REQUIRED for practitioner/patient (see schemas.ts's
             superRefine for why), and not shown at all for admin — an

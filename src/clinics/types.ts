@@ -1,3 +1,5 @@
+import type { Address } from '@/common/address/types'
+
 // The real shape GET /clinics and GET /clinics/:id return — confirmed
 // directly against src/database/schema/clinics.schema.ts, column by
 // column, rather than trusted from the generated OpenAPI types (which
@@ -6,11 +8,11 @@
 // an explicit @ApiResponse decorator for Nest's Swagger module to read).
 //
 // Nullable-vs-optional convention, same one CurrentUser already
-// established: phone/address/website/logoUrl are real, always-present
-// fields that simply allow an absent value — so `| null`, not `?`. The
-// key is always present in the JSON response; only the value is
-// sometimes empty. id/name/email/isActive are NOT NULL columns, so
-// they're modeled as plain required fields with no null case to
+// established: phone/website/logoUrl (and every Address field) are real,
+// always-present fields that simply allow an absent value — so `| null`,
+// not `?`. The key is always present in the JSON response; only the
+// value is sometimes empty. id/name/email/isActive are NOT NULL columns,
+// so they're modeled as plain required fields with no null case to
 // represent at all.
 //
 // logoUrl is NOT a database column — the backend never sends back
@@ -21,12 +23,11 @@
 // — it's meant to be used more or less immediately (e.g. `<img src=...>`),
 // not stored, compared across requests, or assumed stable. `null` means
 // "this clinic has no logo uploaded," not "the URL failed to generate."
-export interface Clinic {
+export interface Clinic extends Address {
   id: number
   name: string
   email: string
   phone: string | null
-  address: string | null
   website: string | null
   logoUrl: string | null
   isActive: boolean
@@ -37,21 +38,22 @@ export interface Clinic {
 // PartialType(CreateClinicDto)-loses-Swagger-metadata gap RegisterClinicResult
 // already worked around elsewhere. Confirmed by reading create-clinic.dto.ts
 // and update-clinic.dto.ts directly: UpdateClinicDto really is just
-// CreateClinicDto's five fields, all optional.
+// CreateClinicDto's fields, all optional.
 //
-// phone/address/website are typed `string | null` here, NOT `string`, even
-// though the backend's own DTO types them as plain optional strings
-// (`phone?: string`). This is deliberate, not a mismatch: class-validator's
-// @IsOptional() treats an explicit `null` exactly like an absent key (both
-// skip validation), so sending `null` is accepted even though the DTO's
-// TypeScript type doesn't spell out that case. This type describes what
-// the edit UI is actually allowed to DO (send null to deliberately clear a
-// field), which is a real, working capability the DTO's declared type
-// just doesn't bother naming.
-export type UpdateClinicPayload = Partial<{
-  name: string
-  email: string
-  phone: string | null
-  address: string | null
-  website: string | null
-}>
+// phone/website/every Address field are typed `string | null` here, NOT
+// `string`, even though the backend's own DTO types them as plain
+// optional strings (e.g. `phone?: string`). This is deliberate, not a
+// mismatch: class-validator's @IsOptional() treats an explicit `null`
+// exactly like an absent key (both skip validation), so sending `null`
+// is accepted even though the DTO's TypeScript type doesn't spell out
+// that case. This type describes what the edit UI is actually allowed to
+// DO (send null to deliberately clear a field), which is a real, working
+// capability the DTO's declared type just doesn't bother naming.
+export type UpdateClinicPayload = Partial<
+  Address & {
+    name: string
+    email: string
+    phone: string | null
+    website: string | null
+  }
+>

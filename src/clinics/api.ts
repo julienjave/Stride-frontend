@@ -1,4 +1,5 @@
 import { apiRequest } from '@/api/client'
+import { toAddressPayload } from '@/common/address/api'
 import type { Clinic, UpdateClinicPayload } from './types'
 import type { CreateClinicFormValues } from './schemas'
 
@@ -44,15 +45,32 @@ export function fetchClinic(id: number) {
 // genuinely absent — an empty string would sail through validation and
 // land as a literal empty value in the database.
 export function createClinic(values: CreateClinicFormValues) {
-  const { phone, address, website, ...rest } = values
+  const {
+    phone,
+    website,
+    addressLine1,
+    addressLine2,
+    addressCity,
+    addressState,
+    addressPostalCode,
+    addressCountry,
+    ...rest
+  } = values
 
   return apiRequest<Clinic>('/clinics', {
     method: 'POST',
     body: {
       ...rest,
       phone: phone === '' ? undefined : phone,
-      address: address === '' ? undefined : address,
       website: website === '' ? undefined : website,
+      ...toAddressPayload({
+        addressLine1,
+        addressLine2,
+        addressCity,
+        addressState,
+        addressPostalCode,
+        addressCountry,
+      }),
     },
   })
 }

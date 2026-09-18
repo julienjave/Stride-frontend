@@ -34,6 +34,11 @@ async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('Confirm password'), 'password123')
 }
 
+async function selectCountry(user: ReturnType<typeof userEvent.setup>, countryName: string) {
+  await user.click(screen.getByRole('combobox', { name: 'Country' }))
+  await user.click(await screen.findByRole('option', { name: countryName }))
+}
+
 describe('RegisterPage', () => {
   it('submits the exact backend shape, WITHOUT confirmPassword, on valid input', async () => {
     fetchMock.mockResolvedValue(
@@ -94,26 +99,35 @@ describe('RegisterPage', () => {
     renderRegisterPage()
     await fillValidForm(user)
     await user.type(screen.getByLabelText('Phone (optional)'), '+1 555-0100')
-    await user.type(screen.getByLabelText('Address (optional)'), '123 Main St')
+    await user.type(screen.getByLabelText('Address line 1'), '123 Main St')
+    await user.type(screen.getByLabelText('City'), 'Springfield')
+    await user.type(screen.getByLabelText('Postal code'), '62704')
+    await selectCountry(user, 'United States')
     await user.click(screen.getByRole('button', { name: 'Create account' }))
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining('/auth/register'),
-        expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify({
-            email: 'jane@example.com',
-            password: 'password123',
-            firstName: 'Jane',
-            lastName: 'Doe',
-            dateOfBirth: '1990-01-01',
-            phone: '+1 555-0100',
-            address: '123 Main St',
-          }),
-        }),
+        expect.objectContaining({ method: 'POST' }),
       ),
     )
+    // Parsing and comparing with toEqual, not a raw JSON string — a
+    // string comparison is sensitive to key order, which this app has
+    // already hit as a false failure once (see CreateUserPage.test.tsx).
+    const [, requestInit] = fetchMock.mock.calls[0]
+    const body = JSON.parse(requestInit?.body as string) as Record<string, unknown>
+    expect(body).toEqual({
+      email: 'jane@example.com',
+      password: 'password123',
+      firstName: 'Jane',
+      lastName: 'Doe',
+      dateOfBirth: '1990-01-01',
+      phone: '+1 555-0100',
+      addressLine1: '123 Main St',
+      addressCity: 'Springfield',
+      addressPostalCode: '62704',
+      addressCountry: 'US',
+    })
   })
 
   it('shows a validation error and never calls the API when passwords do not match', async () => {
