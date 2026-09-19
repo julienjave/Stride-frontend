@@ -19,6 +19,8 @@ import { PatientHomePage } from './PatientHomePage'
 import { MyProfilePage } from '@/users/MyProfilePage'
 import { PatientsListPage } from '@/patients/PatientsListPage'
 import { ExerciseLibraryPage } from '@/exercises/ExerciseLibraryPage'
+import { ExerciseDetailPage } from '@/exercises/ExerciseDetailPage'
+import { NewExercisePage } from '@/exercises/NewExercisePage'
 import { ProgramsPage } from '@/programs/ProgramsPage'
 import { setUnauthorizedHandler } from '@/api/client'
 import { queryClient } from '@/api/queryClient'
@@ -95,6 +97,14 @@ export const router = createBrowserRouter([
               {
                 path: '/practitioner/library',
                 element: <ExerciseLibraryPage />,
+              },
+              {
+                path: '/practitioner/library/new',
+                element: <NewExercisePage />,
+              },
+              {
+                path: '/practitioner/library/:id',
+                element: <ExerciseDetailPage />,
               },
               { path: '/practitioner/programs', element: <ProgramsPage /> },
             ],
