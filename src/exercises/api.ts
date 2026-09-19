@@ -1,5 +1,6 @@
 import { apiRequest } from '@/api/client'
-import type { ExercisesPage } from './types'
+import type { Exercise, ExercisesPage } from './types'
+import type { CreateExerciseFormValues } from './schemas'
 
 // --- QUERY KEYS --------------------------------------------------------
 
@@ -54,4 +55,26 @@ export function fetchExercises(params: FetchExercisesParams = {}) {
   return apiRequest<ExercisesPage>(
     `/exercises${queryString ? `?${queryString}` : ''}`,
   )
+}
+
+// --- MUTATIONS -----------------------------------------------------------
+
+export function createExercise(values: CreateExerciseFormValues) {
+  // Flattens the { value: string }[] shape useFieldArray requires (see
+  // schemas.ts's own comment) back down to the plain string[] the
+  // backend's CreateExerciseDto actually expects — the backend has no
+  // concept of React Hook Form's row-identity requirement, so this
+  // conversion has to happen somewhere, and api.ts (the boundary between
+  // form state and the wire format) is the same place createClinic
+  // already does its own values -> payload shaping.
+  return apiRequest<Exercise>('/exercises', {
+    method: 'POST',
+    body: {
+      name: values.name,
+      primaryMuscles: values.primaryMuscles.map((item) => item.value),
+      secondaryMuscles: values.secondaryMuscles.map((item) => item.value),
+      equipment: values.equipment.map((item) => item.value),
+      instructions: values.instructions.map((item) => item.value),
+    },
+  })
 }
