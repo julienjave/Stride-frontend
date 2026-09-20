@@ -1,9 +1,9 @@
 import { Link } from 'react-router'
 import { Dumbbell } from 'lucide-react'
-import type { Exercise } from './types'
+import type { ExerciseListItem } from './types'
 
 interface ExerciseCardProps {
-  exercise: Exercise
+  exercise: ExerciseListItem
 }
 
 export function ExerciseCard({ exercise }: ExerciseCardProps) {

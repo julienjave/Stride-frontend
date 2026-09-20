@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
 import { ExerciseLibraryPage } from './ExerciseLibraryPage'
-import type { Exercise } from './types'
+import type { ExerciseListItem } from './types'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -30,7 +30,7 @@ function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status })
 }
 
-function makeExercise(overrides: Partial<Exercise> = {}): Exercise {
+function makeExercise(overrides: Partial<ExerciseListItem> = {}): ExerciseListItem {
   return {
     id: 1,
     externalId: null,
@@ -48,7 +48,7 @@ function makeExercise(overrides: Partial<Exercise> = {}): Exercise {
   }
 }
 
-function pageOf(data: Exercise[], meta: Partial<{ total: number; page: number; totalPages: number }> = {}) {
+function pageOf(data: ExerciseListItem[], meta: Partial<{ total: number; page: number; totalPages: number }> = {}) {
   return {
     data,
     meta: { total: data.length, page: 1, limit: 20, totalPages: 1, ...meta },

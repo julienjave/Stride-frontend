@@ -51,3 +51,51 @@ export const createExerciseSchema = z.object({
 })
 
 export type CreateExerciseFormValues = z.infer<typeof createExerciseSchema>
+
+// --- IMAGE UPLOAD VALIDATION ---------------------------------------------
+
+// Mirrors the backend's imageUploadOptions (common/config/image-upload.
+// config.ts) exactly — same MIME types, same 5MB-per-file limit. Defined
+// locally here rather than importing from clinics/schemas.ts (which has
+// its own near-identical clinicLogoFileSchema/constants): same
+// established convention as the User/CurrentUser type duplication
+// elsewhere in this codebase — separate feature folders, a small,
+// acknowledged duplication rather than a cross-cutting shared-file
+// refactor for two constants.
+const ALLOWED_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const MAX_IMAGE_FILE_SIZE_BYTES = 5 * 1024 * 1024
+
+// Matches the backend's FilesInterceptor("files", 5, ...) cap exactly
+// (exercises.controller.ts) — enforced here too so a rejection is
+// immediate and clear, not a generic 400 only discovered after a real
+// request round-trip.
+export const MAX_IMAGES_PER_UPLOAD = 5
+
+export const exerciseImageFileSchema = z
+  .instanceof(File)
+  .refine((file) => ALLOWED_IMAGE_MIME_TYPES.includes(file.type), {
+    message: 'Only JPEG, PNG, and WebP images are allowed',
+  })
+  .refine((file) => file.size <= MAX_IMAGE_FILE_SIZE_BYTES, {
+    message: 'Each image must be 5MB or smaller',
+  })
+
+// Validates a whole batch of files at once (a drop or a multi-select can
+// bring in several), rather than exposing just the single-file schema
+// above and making every caller loop over it by hand. Returns the first
+// problem found, or null if every file is fine — a single string is
+// enough here since ONE upload action either fully succeeds or shows ONE
+// clear reason it didn't, rather than a per-file error list the person
+// would have to cross-reference against filenames themselves.
+export function validateExerciseImageFiles(files: File[]): string | null {
+  if (files.length > MAX_IMAGES_PER_UPLOAD) {
+    return `You can upload up to ${MAX_IMAGES_PER_UPLOAD} images at a time`
+  }
+  for (const file of files) {
+    const result = exerciseImageFileSchema.safeParse(file)
+    if (!result.success) {
+      return result.error.issues[0]?.message ?? 'Invalid file'
+    }
+  }
+  return null
+}

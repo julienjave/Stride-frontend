@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { ExerciseCard } from './ExerciseCard'
-import type { Exercise } from './types'
+import type { ExerciseListItem } from './types'
 
-const baseExercise: Exercise = {
+const baseExercise: ExerciseListItem = {
   id: 42,
   externalId: null,
   name: 'Wall Slide',
@@ -19,7 +19,7 @@ const baseExercise: Exercise = {
   author: { firstName: 'Practitioner', lastName: 'A' },
 }
 
-function renderCard(exercise: Exercise) {
+function renderCard(exercise: ExerciseListItem) {
   return render(
     <MemoryRouter>
       <ExerciseCard exercise={exercise} />
