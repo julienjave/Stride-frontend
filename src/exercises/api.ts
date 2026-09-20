@@ -126,3 +126,33 @@ export function removeExerciseImage(id: number, objectKey: string) {
     body: { objectKey },
   })
 }
+
+// Partial<...> rather than a named type, since every field is
+// independently optional here in exactly the same way UpdateExerciseDto
+// is on the backend (PartialType(CreateExerciseDto)) — each
+// EditableExercise*Field instance patches ONLY the one field it owns,
+// never the whole exercise at once.
+export interface UpdateExercisePayload {
+  name?: string
+  primaryMuscles?: string[]
+  secondaryMuscles?: string[]
+  equipment?: string[]
+  instructions?: string[]
+}
+
+export function updateExercise(id: number, payload: UpdateExercisePayload) {
+  return apiRequest<ExerciseDetail>(`/exercises/${id}`, {
+    method: 'PATCH',
+    body: payload,
+  })
+}
+
+// Named archiveExercise, not deleteExercise — matches what actually
+// happens (isArchived: true, not a real row deletion) even though the
+// UI's own button is labeled "Delete" for the person using it. Unlike
+// clinics/users, there is currently no reverse "unarchive" endpoint for
+// exercises at all — worth knowing if this function's caller ever needs
+// to describe what this action does.
+export function archiveExercise(id: number) {
+  return apiRequest<ExerciseDetail>(`/exercises/${id}`, { method: 'DELETE' })
+}

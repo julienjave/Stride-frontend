@@ -99,3 +99,44 @@ export function validateExerciseImageFiles(files: File[]): string | null {
   }
   return null
 }
+
+// --- INLINE ARRAY-FIELD EDITING (exercise detail page) -------------------
+
+// A single, parameterized validator for all four array fields
+// (primaryMuscles/secondaryMuscles/equipment/instructions) on the detail
+// page's inline edit — rather than four near-identical zod schemas.
+// Deliberately separate from createExerciseSchema's array fields above:
+// those are wrapped as { value: string }[] specifically for
+// useFieldArray's benefit (see that schema's own comment), while inline
+// editing on the detail page uses plain string[] state instead — there's
+// no multi-field form to coordinate here, just one field's own draft
+// array, so plain useState is simpler than spinning up a whole separate
+// React Hook Form instance for a single field. The actual per-field
+// limits (100 vs 500 chars, 20 vs 50 entries) still mirror
+// CreateExerciseDto/UpdateExerciseDto exactly — only the shape of how
+// they're checked differs from the create form.
+export function validateStringListField(
+  values: string[],
+  options: {
+    itemMaxLength: number
+    minCount?: number
+    maxCount: number
+    itemLabel: string
+  },
+): string | null {
+  if (options.minCount && values.length < options.minCount) {
+    return `At least one ${options.itemLabel} is required`
+  }
+  if (values.length > options.maxCount) {
+    return `No more than ${options.maxCount} ${options.itemLabel}s allowed`
+  }
+  for (const value of values) {
+    if (value.trim().length === 0) {
+      return 'This field cannot be empty'
+    }
+    if (value.length > options.itemMaxLength) {
+      return `Must be ${options.itemMaxLength} characters or fewer`
+    }
+  }
+  return null
+}

@@ -22,6 +22,7 @@ import { ExerciseLibraryPage } from '@/exercises/ExerciseLibraryPage'
 import { ExerciseDetailPage } from '@/exercises/ExerciseDetailPage'
 import { NewExercisePage } from '@/exercises/NewExercisePage'
 import { ExercisePhotosPage } from '@/exercises/ExercisePhotosPage'
+import { ExerciseAssignPage } from '@/exercises/ExerciseAssignPage'
 import { ProgramsPage } from '@/programs/ProgramsPage'
 import { setUnauthorizedHandler } from '@/api/client'
 import { queryClient } from '@/api/queryClient'
@@ -110,6 +111,10 @@ export const router = createBrowserRouter([
               {
                 path: '/practitioner/library/:id/photos',
                 element: <ExercisePhotosPage />,
+              },
+              {
+                path: '/practitioner/library/:id/assign',
+                element: <ExerciseAssignPage />,
               },
               { path: '/practitioner/programs', element: <ProgramsPage /> },
             ],
