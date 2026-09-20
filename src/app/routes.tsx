@@ -24,6 +24,10 @@ import { NewExercisePage } from '@/exercises/NewExercisePage'
 import { ExercisePhotosPage } from '@/exercises/ExercisePhotosPage'
 import { ExerciseAssignPage } from '@/exercises/ExerciseAssignPage'
 import { ProgramsPage } from '@/programs/ProgramsPage'
+import { NewTemplatePage } from '@/programs/NewTemplatePage'
+import { TemplateDetailPage } from '@/programs/TemplateDetailPage'
+import { NewAssignedProgramPage } from '@/assigned-programs/NewAssignedProgramPage'
+import { AssignedProgramDetailPage } from '@/assigned-programs/AssignedProgramDetailPage'
 import { setUnauthorizedHandler } from '@/api/client'
 import { queryClient } from '@/api/queryClient'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
@@ -117,6 +121,22 @@ export const router = createBrowserRouter([
                 element: <ExerciseAssignPage />,
               },
               { path: '/practitioner/programs', element: <ProgramsPage /> },
+              {
+                path: '/practitioner/programs/templates/new',
+                element: <NewTemplatePage />,
+              },
+              {
+                path: '/practitioner/programs/templates/:id',
+                element: <TemplateDetailPage />,
+              },
+              {
+                path: '/practitioner/programs/assigned/new',
+                element: <NewAssignedProgramPage />,
+              },
+              {
+                path: '/practitioner/programs/assigned/:id',
+                element: <AssignedProgramDetailPage />,
+              },
             ],
           },
           {

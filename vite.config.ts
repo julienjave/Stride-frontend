@@ -22,5 +22,18 @@ export default defineConfig({
     // registers jest-dom's matchers and the automatic DOM cleanup, without
     // every single test file needing its own copy of that boilerplate.
     setupFiles: ['./src/test-setup.ts'],
+    // Vitest's own default is 5000ms. Several form tests (RegisterClinicPage,
+    // CreateUserPage, CreateClinicPage, RegisterPage) legitimately drive
+    // a dozen-plus sequential userEvent.type() calls across many fields in
+    // ONE test — each simulates realistic per-keystroke timing, so total
+    // wall-clock time scales with how many fields a form has, not with
+    // anything being wrong. That's comfortably under 5s on a fast machine,
+    // but RegisterClinicPage's "includes all optional fields" test
+    // genuinely timed out at the default on a slower one — a real
+    // environment-speed difference, not a flaky test or a bug either time.
+    // 10s doubles the margin for every test, not just that one file, since
+    // several others share the exact same shape and would hit the same
+    // wall eventually on a slow enough machine.
+    testTimeout: 10_000,
   },
 })
