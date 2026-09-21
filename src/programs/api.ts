@@ -1,5 +1,6 @@
 import { apiRequest } from '@/api/client'
 import type { ProgramTemplate, ProgramTemplateDetail } from './types'
+import type { CreateTemplateFormValues } from './schemas'
 
 // A distinct top-level key from a future programQueryKey(id), same
 // reasoning as exercisesListQueryKey/exerciseQueryKey — a list and a
@@ -31,5 +32,21 @@ export async function assignExerciseToProgram(
   return apiRequest(`/programs/${programId}/exercises`, {
     method: 'POST',
     body: { exerciseId, sortOrder: program.exercises.length },
+  })
+}
+
+export function createTemplate(values: CreateTemplateFormValues) {
+  return apiRequest<ProgramTemplate>('/programs', {
+    method: 'POST',
+    body: {
+      title: values.title,
+      // Empty string -> undefined (omitted from the request entirely),
+      // not sent as-is — same established convention as
+      // clinics/api.ts's createClinic for its own optional text fields
+      // (phone/website). CreateTemplateDto's description is
+      // @IsOptional(), and omitting the field entirely matches that
+      // more accurately than sending an explicit empty string would.
+      description: values.description === '' ? undefined : values.description,
+    },
   })
 }
