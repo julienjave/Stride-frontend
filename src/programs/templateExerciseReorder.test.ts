@@ -10,6 +10,8 @@ function row(id: number): TemplateExercise {
     sets: null,
     reps: null,
     durationInSeconds: null,
+    weight: null,
+    weightUnit: null,
     sortOrder: id,
     notes: null,
     exercise: null,

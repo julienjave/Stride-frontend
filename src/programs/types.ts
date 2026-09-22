@@ -28,6 +28,13 @@ export interface TemplateExercise {
   sets: number | null
   reps: number | null
   durationInSeconds: number | null
+  // A weight with no unit is genuinely ambiguous (50 of what?), so the
+  // backend enforces these two as both-or-neither together — see
+  // hasStartedWeight (backend/common/validators). Mirrored here as two
+  // independently-nullable fields rather than a combined object, since
+  // that's exactly what the wire format actually is.
+  weight: number | null
+  weightUnit: 'kg' | 'lbs' | null
   sortOrder: number
   notes: string | null
   exercise: TemplateExerciseDetails | null

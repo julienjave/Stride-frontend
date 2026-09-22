@@ -25,6 +25,8 @@ function makeRow(overrides: Partial<TemplateExercise> = {}): TemplateExercise {
     sets: null,
     reps: null,
     durationInSeconds: null,
+    weight: null,
+    weightUnit: null,
     sortOrder: 0,
     notes: null,
     exercise: { id: 5, name: 'Squat', primaryMuscles: ['legs'] },
@@ -155,6 +157,34 @@ describe('TemplateExercisesPage', () => {
 
     expect(await screen.findByText('legs, core')).toBeInTheDocument()
     expect(screen.getByText('3 sets · 10 reps')).toBeInTheDocument()
+  })
+
+  it('renders weight alongside sets/reps when set', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(
+        makeTemplate({
+          exercises: [makeRow({ sets: 3, reps: 10, weight: 62.5, weightUnit: 'kg' })],
+        }),
+      ),
+    )
+    renderAt('/practitioner/programs/templates/1/exercises')
+
+    expect(
+      await screen.findByText('3 sets · 10 reps · 62.5 kg'),
+    ).toBeInTheDocument()
+  })
+
+  it('renders a weight of exactly 0 — a real value, not the same as unset', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(
+        makeTemplate({
+          exercises: [makeRow({ weight: 0, weightUnit: 'kg' })],
+        }),
+      ),
+    )
+    renderAt('/practitioner/programs/templates/1/exercises')
+
+    expect(await screen.findByText('0 kg')).toBeInTheDocument()
   })
 
   it('falls back gracefully when a row has no exercise details', async () => {

@@ -42,6 +42,12 @@ export function TemplateExerciseCard({
   if (item.sets) detailParts.push(`${item.sets} sets`)
   if (item.reps) detailParts.push(`${item.reps} reps`)
   if (item.durationInSeconds) detailParts.push(`${item.durationInSeconds}s`)
+  // != null, not a truthy check — a weight of exactly 0 is a real,
+  // if unusual, value (matching the backend's own hasStartedWeight
+  // reasoning), not the same as "no weight set."
+  if (item.weight != null && item.weightUnit) {
+    detailParts.push(`${item.weight} ${item.weightUnit}`)
+  }
 
   return (
     <div ref={setNodeRef} style={style} className="relative rounded-lg border">
