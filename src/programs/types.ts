@@ -10,6 +10,17 @@ export interface ProgramTemplate {
   isArchived: boolean
 }
 
+// The exercise details attached to a TemplateExercise row — a small
+// subset of the full Exercise (just what's needed to render a card),
+// matching ExercisesService.withExerciseDetails' own return shape
+// exactly. null defensively, mirroring the backend's own defensive
+// fallback, for the case a referenced exercise is somehow missing.
+export interface TemplateExerciseDetails {
+  id: number
+  name: string
+  primaryMuscles: string[]
+}
+
 export interface TemplateExercise {
   id: number
   templateId: number
@@ -19,6 +30,7 @@ export interface TemplateExercise {
   durationInSeconds: number | null
   sortOrder: number
   notes: string | null
+  exercise: TemplateExerciseDetails | null
 }
 
 // The shape GET /programs/:id returns — ProgramsService.findOne spreads

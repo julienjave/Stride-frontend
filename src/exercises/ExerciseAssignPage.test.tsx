@@ -232,8 +232,8 @@ describe('ExerciseAssignPage', () => {
         description: null,
         isArchived: false,
         exercises: [
-          { id: 10, templateId: 1, exerciseId: 5, sets: null, reps: null, durationInSeconds: null, sortOrder: 0, notes: null },
-          { id: 11, templateId: 1, exerciseId: 6, sets: null, reps: null, durationInSeconds: null, sortOrder: 1, notes: null },
+          { id: 10, templateId: 1, exerciseId: 5, sets: null, reps: null, durationInSeconds: null, sortOrder: 0, notes: null, exercise: null },
+          { id: 11, templateId: 1, exerciseId: 6, sets: null, reps: null, durationInSeconds: null, sortOrder: 1, notes: null, exercise: null },
         ],
       },
     })

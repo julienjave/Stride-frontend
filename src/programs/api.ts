@@ -12,6 +12,14 @@ export function fetchPrograms() {
   return apiRequest<ProgramTemplate[]>('/programs')
 }
 
+// A distinct top-level key from programsListQueryKey — same reasoning as
+// exercisesListQueryKey/exerciseQueryKey: a list and a detail entry must
+// never share a top-level key, or invalidating one can silently undo a
+// setQueryData just written to the other.
+export function programQueryKey(id: number) {
+  return ['program', id] as const
+}
+
 export function fetchProgram(id: number) {
   return apiRequest<ProgramTemplateDetail>(`/programs/${id}`)
 }
@@ -49,4 +57,24 @@ export function createTemplate(values: CreateTemplateFormValues) {
       description: values.description === '' ? undefined : values.description,
     },
   })
+}
+
+// order is the full, reordered list of every existing row's own id
+// (template_exercises.id, NOT exerciseId) — the backend validates this
+// is an exact permutation of the template's current rows.
+export function reorderTemplateExercises(templateId: number, order: number[]) {
+  return apiRequest<ProgramTemplateDetail>(`/programs/${templateId}/exercises`, {
+    method: 'PATCH',
+    body: { order },
+  })
+}
+
+export function removeTemplateExercise(
+  templateId: number,
+  templateExerciseId: number,
+) {
+  return apiRequest<ProgramTemplateDetail>(
+    `/programs/${templateId}/exercises/${templateExerciseId}`,
+    { method: 'DELETE' },
+  )
 }
