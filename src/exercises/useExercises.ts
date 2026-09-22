@@ -10,10 +10,17 @@ import type { FetchExercisesParams } from './api'
 // loading state and back on every change. For a list someone is actively
 // typing into or paging through, that's a much smoother feel than a
 // full reload each time.
-export function useExercises(params: FetchExercisesParams) {
+//
+// enabled defaults to true (every existing caller's behavior is
+// unchanged) — added for ExercisePickerPage, which can't call this hook
+// conditionally (React's rules of hooks) but shouldn't fetch anything
+// when returnTo is missing and an error is about to show instead of the
+// list at all.
+export function useExercises(params: FetchExercisesParams, enabled = true) {
   return useQuery({
     queryKey: exercisesListQueryKey(params),
     queryFn: () => fetchExercises(params),
     placeholderData: keepPreviousData,
+    enabled,
   })
 }

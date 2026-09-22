@@ -19,6 +19,7 @@ import { PatientHomePage } from './PatientHomePage'
 import { MyProfilePage } from '@/users/MyProfilePage'
 import { PatientsListPage } from '@/patients/PatientsListPage'
 import { ExerciseLibraryPage } from '@/exercises/ExerciseLibraryPage'
+import { ExercisePickerPage } from '@/exercises/ExercisePickerPage'
 import { ExerciseDetailPage } from '@/exercises/ExerciseDetailPage'
 import { NewExercisePage } from '@/exercises/NewExercisePage'
 import { ExercisePhotosPage } from '@/exercises/ExercisePhotosPage'
@@ -106,6 +107,10 @@ export const router = createBrowserRouter([
               {
                 path: '/practitioner/library',
                 element: <ExerciseLibraryPage />,
+              },
+              {
+                path: '/practitioner/library/pick',
+                element: <ExercisePickerPage />,
               },
               {
                 path: '/practitioner/library/new',

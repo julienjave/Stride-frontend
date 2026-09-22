@@ -4,12 +4,17 @@ import type { ExerciseListItem } from './types'
 
 interface ExerciseCardProps {
   exercise: ExerciseListItem
+  // Defaults to the exercise's own detail page (the Library browse
+  // context) — overridden by ExercisePickerPage, the second real
+  // consumer of this same card, so picking an exercise navigates back
+  // to wherever it was picked FOR instead of to the exercise's own page.
+  href?: string
 }
 
-export function ExerciseCard({ exercise }: ExerciseCardProps) {
+export function ExerciseCard({ exercise, href }: ExerciseCardProps) {
   return (
     <Link
-      to={`/practitioner/library/${exercise.id}`}
+      to={href ?? `/practitioner/library/${exercise.id}`}
       className="flex flex-col gap-2 rounded-lg border p-3 hover:bg-muted/50"
     >
       {/* A placeholder icon, not a real thumbnail, for every card

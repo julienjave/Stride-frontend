@@ -15,6 +15,20 @@ export interface AssignedProgramExercise {
   id: number
   assignedProgramId: number
   exerciseId: number
+  // Snapshotted from the exercise at add-time, independently editable
+  // per patient afterward — NOT a live join, unlike TemplateExercise's
+  // equivalent `exercise` sub-object. If the underlying exercise is
+  // later edited or archived, this row is completely unaffected: a
+  // patient already following this program keeps seeing exactly what
+  // was there when it was assigned. See
+  // AssignedProgramsService.fetchExerciseSnapshots (backend) for where
+  // this gets populated. Deliberately NOT extended to photos yet — see
+  // deferred-improvements.md.
+  name: string
+  primaryMuscles: string[]
+  secondaryMuscles: string[]
+  equipment: string[]
+  instructions: string[]
   sets: number | null
   reps: number | null
   durationInSeconds: number | null

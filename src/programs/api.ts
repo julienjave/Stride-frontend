@@ -1,6 +1,9 @@
 import { apiRequest } from '@/api/client'
 import type { ProgramTemplate, ProgramTemplateDetail } from './types'
-import type { CreateTemplateFormValues } from './schemas'
+import type {
+  CreateTemplateFormValues,
+  AddTemplateExerciseFormValues,
+} from './schemas'
 
 // A distinct top-level key from a future programQueryKey(id), same
 // reasoning as exercisesListQueryKey/exerciseQueryKey — a list and a
@@ -77,4 +80,31 @@ export function removeTemplateExercise(
     `/programs/${templateId}/exercises/${templateExerciseId}`,
     { method: 'DELETE' },
   )
+}
+
+// Same "fetch current count, then append" shape as
+// assignExerciseToProgram — sortOrder is still a required field the
+// backend doesn't compute for you. This is the richer sibling of that
+// function: assignExerciseToProgram only ever sends {exerciseId,
+// sortOrder} (the Assign flow's own simple "just add it" contract),
+// while this one carries the full prescription (sets/reps/duration/
+// weight/unit) the New Program Exercise screen actually collects.
+export async function addTemplateExercise(
+  templateId: number,
+  exerciseId: number,
+  values: AddTemplateExerciseFormValues,
+) {
+  const template = await fetchProgram(templateId)
+  return apiRequest<ProgramTemplateDetail>(`/programs/${templateId}/exercises`, {
+    method: 'POST',
+    body: {
+      exerciseId,
+      sets: values.sets,
+      reps: values.reps,
+      durationInSeconds: values.durationInSeconds,
+      weight: values.weight,
+      weightUnit: values.weightUnit,
+      sortOrder: template.exercises.length,
+    },
+  })
 }
