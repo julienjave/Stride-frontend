@@ -16,8 +16,8 @@ import {
 } from './schemas'
 import { ExercisePhotoCarousel } from './ExercisePhotoCarousel'
 
-// Screen filled in from the always-first "Add New Exercise" card on
-// TemplateExercisesPage. The exercise itself is picked via
+// Screen filled in from the "Add New Exercise" card on TemplateDetailPage's
+// exercise list. The exercise itself is picked via
 // ExercisePickerPage (a real navigation, not a modal — see that page's
 // own comment), which redirects back here with ?exerciseId=... in the
 // URL; everything else on this page (sets/reps/duration/weight) is
@@ -79,13 +79,15 @@ function NewProgramExerciseView({ templateId }: { templateId: number }) {
     },
     onSuccess: (updated) => {
       queryClient.setQueryData(programQueryKey(templateId), updated)
-      void navigate(`/practitioner/programs/templates/${templateId}/exercises`)
+      // Back to the template's own page — the one place a template is
+      // managed — where the new card now shows at the end of the list.
+      void navigate(`/practitioner/programs/templates/${templateId}`)
     },
   })
 
   const currentPath = `/practitioner/programs/templates/${templateId}/exercises/new`
   const pickerHref = `/practitioner/library/pick?returnTo=${encodeURIComponent(currentPath)}`
-  const exercisesScreenHref = `/practitioner/programs/templates/${templateId}/exercises`
+  const templateHref = `/practitioner/programs/templates/${templateId}`
 
   const selectedWeightUnit = form.watch('weightUnit')
 
@@ -295,7 +297,7 @@ function NewProgramExerciseView({ templateId }: { templateId: number }) {
 
         <div className="flex items-center gap-4">
           <Button asChild variant="outline">
-            <Link to={exercisesScreenHref}>Cancel</Link>
+            <Link to={templateHref}>Cancel</Link>
           </Button>
           <Button
             type="submit"

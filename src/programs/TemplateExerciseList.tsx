@@ -1,4 +1,3 @@
-import { useParams, Link } from 'react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   DndContext,
@@ -14,38 +13,93 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
-import { Button } from '@/components/ui/button'
-import { useProgram } from './useProgram'
 import {
   programQueryKey,
   reorderTemplateExercises,
   removeTemplateExercise,
 } from './api'
-import { TemplateExerciseCard } from './TemplateExerciseCard'
+import {
+  TemplateExerciseCard,
+  ReadOnlyTemplateExerciseCard,
+} from './TemplateExerciseCard'
 import { AddTemplateExerciseCard } from './AddTemplateExerciseCard'
 import { computeReorderedTemplateExerciseIds } from './templateExerciseReorder'
-import type { ProgramTemplateDetail } from './types'
+import type { ProgramTemplateDetail, TemplateExercise } from './types'
 
-// Screen 2 of the template creation flow — also a stable, reusable route
-// for editing an existing template's exercise list later (see this
-// file's own placeholder-era comment, and ExercisePhotosPage for the
-// exact same architecture applied to exercise photos: immediate
-// reorder/remove with optimistic updates, "Done" is pure navigation
-// since nothing here is ever staged).
-export function TemplateExercisesPage() {
-  const { id } = useParams<{ id: string }>()
-  const templateId = Number(id)
-
-  if (!id || Number.isNaN(templateId)) {
-    return <p className="text-sm text-destructive">Invalid template.</p>
-  }
-
-  return <TemplateExercisesView templateId={templateId} />
+interface TemplateExerciseListProps {
+  templateId: number
+  // Passed in from the parent's own useProgram() data rather than read
+  // here with a second useProgram() call — the parent already has it,
+  // and this keeps the list a component that simply renders what it's
+  // given. (Both would read the same cache entry either way; this just
+  // makes the data flow visible in the props.)
+  exercises: TemplateExercise[]
+  canEdit: boolean
 }
 
-function TemplateExercisesView({ templateId }: { templateId: number }) {
+// The exercise list that used to BE TemplateExercisesPage, extracted so
+// TemplateDetailPage can render it under the template's own
+// title/description. The reorder/remove behavior is unchanged — only
+// where it lives moved. Its two mutations live here (not on the page)
+// because this component is what triggers them: keeping a mutation next
+// to the UI that fires it means the page doesn't have to know how
+// reordering works at all.
+//
+// Both mutations write the server's response into programQueryKey —
+// the same cache entry the page's title/description editors write to.
+// That's safe precisely because every one of those endpoints returns the
+// same full enriched template shape: whichever write lands last, the
+// entry is always a complete template, never a partial one.
+export function TemplateExerciseList({
+  templateId,
+  exercises,
+  canEdit,
+}: TemplateExerciseListProps) {
+  if (!canEdit) {
+    return <ReadOnlyExerciseList templateId={templateId} exercises={exercises} />
+  }
+  return <EditableExerciseList templateId={templateId} exercises={exercises} />
+}
+
+// Split into two inner components for the same rules-of-hooks reason as
+// the two card components: the editable list needs useMutation/
+// useSensors hooks the read-only list has no use for, and hooks can't
+// be called conditionally. The read-only one needs no hooks at all.
+function ReadOnlyExerciseList({
+  templateId,
+  exercises,
+}: {
+  templateId: number
+  exercises: TemplateExercise[]
+}) {
+  if (exercises.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        This template has no exercises.
+      </p>
+    )
+  }
+  return (
+    <div className="space-y-2">
+      {exercises.map((exercise) => (
+        <ReadOnlyTemplateExerciseCard
+          key={exercise.id}
+          templateId={templateId}
+          item={exercise}
+        />
+      ))}
+    </div>
+  )
+}
+
+function EditableExerciseList({
+  templateId,
+  exercises,
+}: {
+  templateId: number
+  exercises: TemplateExercise[]
+}) {
   const queryClient = useQueryClient()
-  const { data: template, isLoading, isError } = useProgram(templateId)
 
   const removeMutation = useMutation({
     mutationFn: (templateExerciseId: number) =>
@@ -76,8 +130,7 @@ function TemplateExercisesView({ templateId }: { templateId: number }) {
         const reordered = order
           .map((rowId) => byId.get(rowId))
           .filter(
-            (exercise): exercise is ProgramTemplateDetail['exercises'][number] =>
-              exercise != null,
+            (exercise): exercise is TemplateExercise => exercise != null,
           )
         queryClient.setQueryData(programQueryKey(templateId), {
           ...previous,
@@ -105,9 +158,9 @@ function TemplateExercisesView({ templateId }: { templateId: number }) {
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
-    if (!over || !template) return
+    if (!over) return
     const newOrder = computeReorderedTemplateExerciseIds(
-      template.exercises,
+      exercises,
       Number(active.id),
       Number(over.id),
     )
@@ -116,39 +169,20 @@ function TemplateExercisesView({ templateId }: { templateId: number }) {
     }
   }
 
-  if (isLoading) {
-    return (
-      <p className="mx-auto mt-12 max-w-2xl px-4 text-sm text-muted-foreground">
-        Loading…
-      </p>
-    )
-  }
-
-  if (isError || !template) {
-    return (
-      <p className="mx-auto mt-12 max-w-2xl px-4 text-sm text-destructive">
-        Couldn't load this template. Try refreshing.
-      </p>
-    )
-  }
-
-  const hasExercises = template.exercises.length > 0
   const addCard = <AddTemplateExerciseCard templateId={templateId} />
 
   return (
-    <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4">
-      <h1 className="text-xl font-semibold">{template.title}</h1>
-
+    <div className="space-y-2">
       {removeMutation.isError && (
         <p className="text-sm text-destructive">
           Couldn't remove that exercise. Try again.
         </p>
       )}
 
-      {!hasExercises ? (
+      {exercises.length === 0 ? (
         // Add card comes FIRST when the template is empty — nothing
         // else to reorder, so no DndContext needed at all here.
-        <div className="space-y-2">{addCard}</div>
+        addCard
       ) : (
         <DndContext
           sensors={sensors}
@@ -156,11 +190,11 @@ function TemplateExercisesView({ templateId }: { templateId: number }) {
           onDragEnd={handleDragEnd}
         >
           <SortableContext
-            items={template.exercises.map((exercise) => exercise.id)}
+            items={exercises.map((exercise) => exercise.id)}
             strategy={verticalListSortingStrategy}
           >
             <div className="space-y-2">
-              {template.exercises.map((exercise) => (
+              {exercises.map((exercise) => (
                 <TemplateExerciseCard
                   key={exercise.id}
                   templateId={templateId}
@@ -182,13 +216,6 @@ function TemplateExercisesView({ templateId }: { templateId: number }) {
           </SortableContext>
         </DndContext>
       )}
-
-      {/* Pure navigation — nothing to submit. Every real change (reorder,
-          remove) already happened immediately, same reasoning as
-          ExercisePhotosPage's own Done button. */}
-      <Button asChild>
-        <Link to={`/practitioner/programs/templates/${templateId}`}>Done</Link>
-      </Button>
     </div>
   )
 }

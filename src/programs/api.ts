@@ -62,6 +62,49 @@ export function createTemplate(values: CreateTemplateFormValues) {
   })
 }
 
+// Payload mirrors UpdateTemplateDto (PartialType of CreateTemplateDto) —
+// each inline editor on TemplateDetailPage sends only the one field it
+// owns. description allows an explicit null: that's how "clear the
+// description" is expressed, since JSON.stringify silently DROPS keys
+// whose value is undefined — sending { description: undefined } would
+// arrive as an empty {} body and change nothing. null survives
+// serialization, passes @IsOptional() on the backend, and is written as
+// a real SQL NULL (verified by programs.e2e-spec.ts).
+export interface UpdateTemplatePayload {
+  title?: string
+  description?: string | null
+}
+
+// Every one of these three returns the FULL enriched template (the
+// backend's findOne shape) — so each caller can write the response
+// straight into programQueryKey's cache entry without losing the
+// exercises array.
+export function updateTemplate(templateId: number, payload: UpdateTemplatePayload) {
+  return apiRequest<ProgramTemplateDetail>(`/programs/${templateId}`, {
+    method: 'PATCH',
+    body: payload,
+  })
+}
+
+// DELETE, because that's the backend route — but it archives
+// (isArchived: true), it never removes the row. See
+// ArchiveTemplateButton for how the UI words this.
+export function archiveTemplate(templateId: number) {
+  return apiRequest<ProgramTemplateDetail>(`/programs/${templateId}`, {
+    method: 'DELETE',
+  })
+}
+
+// No body — the source is the :id in the URL, and the new copy's owner
+// is always whoever is logged in (the backend reads that from the
+// session, never from anything the client sends).
+export function duplicateTemplate(templateId: number) {
+  return apiRequest<ProgramTemplateDetail>(
+    `/programs/${templateId}/duplicate`,
+    { method: 'POST' },
+  )
+}
+
 // order is the full, reordered list of every existing row's own id
 // (template_exercises.id, NOT exerciseId) — the backend validates this
 // is an exact permutation of the template's current rows.

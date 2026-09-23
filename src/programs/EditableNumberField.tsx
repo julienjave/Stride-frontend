@@ -15,6 +15,11 @@ interface EditableNumberFieldProps {
   // Appended when displaying a set value — "s" for duration ("45s"),
   // nothing for sets/reps.
   displaySuffix?: string
+  // Same reasoning as EditableExerciseTitle's own canEdit — the pencil is
+  // only rendered at all when the current user can actually modify this
+  // template (its owner, and only while it isn't archived), not just
+  // disabled, so a read-only view never suggests editing is possible.
+  canEdit: boolean
 }
 
 // Same overall click-to-edit shape as EditableExerciseListField/
@@ -29,6 +34,7 @@ export function EditableNumberField({
   label,
   value,
   displaySuffix = '',
+  canEdit,
 }: EditableNumberFieldProps) {
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
@@ -77,15 +83,17 @@ export function EditableNumberField({
           <p className="text-sm text-muted-foreground">{label}</p>
           <p>{value != null ? `${value}${displaySuffix}` : 'Not set'}</p>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label={`Edit ${label}`}
-          onClick={startEditing}
-        >
-          <Pencil className="h-4 w-4" />
-        </Button>
+        {canEdit && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={`Edit ${label}`}
+            onClick={startEditing}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     )
   }

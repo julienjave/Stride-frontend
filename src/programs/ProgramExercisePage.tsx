@@ -1,8 +1,10 @@
 import { Link, useLocation, useParams, useSearchParams, useNavigate } from 'react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
+import { useCurrentUser } from '@/auth/useCurrentUser'
 import { useExercise } from '@/exercises/useExercise'
 import { useProgram } from './useProgram'
+import { canEditTemplate } from './permissions'
 import { removeTemplateExercise, programQueryKey } from './api'
 import { EditableNumberField } from './EditableNumberField'
 import { EditableWeightField } from './EditableWeightField'
@@ -10,9 +12,8 @@ import { EditableNotesField } from './EditableNotesField'
 import { ExercisePhotoCarousel } from './ExercisePhotoCarousel'
 
 // The View/Edit screen reached by clicking any exercise card on
-// TemplateExercisesPage (or, later, TemplateDetailPage's own inline
-// list — see returnTo below for why that doesn't require any changes
-// here). Sets/reps/duration/weight/notes are the per-template
+// TemplateDetailPage's exercise list (the card passes its own page's
+// URL as returnTo — see below). Sets/reps/duration/weight/notes are the per-template
 // prescription data, editable inline exactly like the Library page's
 // own EditableExerciseListField/EditableExerciseTitle — immediate save
 // per field, no page-level Save button. The exercise's own
@@ -20,6 +21,11 @@ import { ExercisePhotoCarousel } from './ExercisePhotoCarousel'
 // keep a LIVE reference to the exercise (unlike assigned programs,
 // which snapshot it), so editing those belongs on the exercise's own
 // detail page, not here.
+//
+// For anyone who can't edit this template (another practitioner's, or
+// an archived one — see canEditTemplate), the same page renders
+// read-only: values shown, no pencils, no Remove button. Same "hide,
+// don't disable" rule as TemplateDetailPage itself.
 export function ProgramExercisePage() {
   const { id, templateExerciseId } = useParams<{
     id: string
@@ -46,14 +52,17 @@ function ProgramExerciseView({
   const location = useLocation()
   const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
-  // Falls back to the exercises list if missing (e.g. a direct/stale
-  // URL with no returnTo) — every real link to this page includes one,
-  // same defensive reasoning as ExercisePickerPage's own returnTo check.
+  // Falls back to the template's own page if missing (e.g. a direct/
+  // stale URL with no returnTo) — every real link to this page includes
+  // one, same defensive reasoning as ExercisePickerPage's own returnTo
+  // check. The template page is the ONE place a template is managed
+  // now, so it's the only sensible default.
   const returnTo =
     searchParams.get('returnTo') ??
-    `/practitioner/programs/templates/${templateId}/exercises`
+    `/practitioner/programs/templates/${templateId}`
 
   const { data: template, isLoading, isError } = useProgram(templateId)
+  const { data: currentUser } = useCurrentUser()
   const row = template?.exercises.find((exercise) => exercise.id === rowId)
 
   // Only fetch once the row (and therefore its exerciseId) is known —
@@ -90,6 +99,8 @@ function ProgramExerciseView({
     )
   }
 
+  const canEdit = canEditTemplate(template, currentUser)
+
   const libraryHref = `/practitioner/library/${row.exerciseId}?returnTo=${encodeURIComponent(
     `${location.pathname}${location.search}`,
   )}`
@@ -98,7 +109,9 @@ function ProgramExerciseView({
     <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4">
       <div>
         <h1 className="text-xl font-semibold">{template.title}</h1>
-        <p className="text-sm text-muted-foreground">- Edit Exercise -</p>
+        <p className="text-sm text-muted-foreground">
+          {canEdit ? '- Edit Exercise -' : '- View Exercise -'}
+        </p>
       </div>
 
       {isLoadingExercise ? (
@@ -166,12 +179,13 @@ function ProgramExerciseView({
         </div>
       )}
 
-      {/* Editable — the per-template prescription, independent of the
-          exercise's own definition above. */}
+      {/* The per-template prescription, independent of the exercise's
+          own definition above — editable only when canEdit. */}
       <div className="divide-y divide-border rounded-lg border px-4">
         <EditableNumberField
           templateId={templateId}
           templateExerciseId={rowId}
+          canEdit={canEdit}
           fieldKey="sets"
           label="Sets"
           value={row.sets}
@@ -179,6 +193,7 @@ function ProgramExerciseView({
         <EditableNumberField
           templateId={templateId}
           templateExerciseId={rowId}
+          canEdit={canEdit}
           fieldKey="reps"
           label="Reps"
           value={row.reps}
@@ -186,6 +201,7 @@ function ProgramExerciseView({
         <EditableNumberField
           templateId={templateId}
           templateExerciseId={rowId}
+          canEdit={canEdit}
           fieldKey="durationInSeconds"
           label="Duration"
           value={row.durationInSeconds}
@@ -194,12 +210,14 @@ function ProgramExerciseView({
         <EditableWeightField
           templateId={templateId}
           templateExerciseId={rowId}
+          canEdit={canEdit}
           weight={row.weight}
           weightUnit={row.weightUnit}
         />
         <EditableNotesField
           templateId={templateId}
           templateExerciseId={rowId}
+          canEdit={canEdit}
           notes={row.notes}
         />
       </div>
@@ -212,22 +230,25 @@ function ProgramExerciseView({
 
       <div className="flex items-center gap-4">
         {/* Immediate, no confirmation dialog — matches the exact same
-            per-card delete button already on TemplateExercisesPage;
+            per-card delete button on the template page's own list;
             removing one exercise from one template is low-stakes,
             unlike archiving the exercise entity itself (which does get
             a confirmation dialog on the Library's own detail page). */}
-        <Button
-          type="button"
-          variant="destructive"
-          onClick={() => removeMutation.mutate()}
-          disabled={removeMutation.isPending}
-        >
-          {removeMutation.isPending ? 'Removing…' : 'Remove from Template'}
-        </Button>
+        {canEdit && (
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={() => removeMutation.mutate()}
+            disabled={removeMutation.isPending}
+          >
+            {removeMutation.isPending ? 'Removing…' : 'Remove from Template'}
+          </Button>
+        )}
         {/* Pure navigation — every field above saves immediately on its
-            own, so there's nothing left to submit here. */}
+            own, so there's nothing left to submit here. Labeled "Back"
+            in read-only mode, where there was nothing to be "done" with. */}
         <Button asChild variant="outline">
-          <Link to={returnTo}>Done</Link>
+          <Link to={returnTo}>{canEdit ? 'Done' : 'Back'}</Link>
         </Button>
       </div>
     </div>

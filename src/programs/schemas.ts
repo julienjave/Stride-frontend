@@ -1,5 +1,14 @@
 import { z } from 'zod'
 
+// Mirrors the backend's TEMPLATE_TITLE_MAX_LENGTH and the description's
+// @MaxLength(2000) in CreateTemplateDto. Named and exported (rather than
+// typed as literals below) because the inline title/description editors
+// on TemplateDetailPage enforce the SAME limits outside of this Zod
+// schema — one constant each means the creation form and the editors
+// can never quietly disagree.
+export const TEMPLATE_TITLE_MAX_LENGTH = 200
+export const TEMPLATE_DESCRIPTION_MAX_LENGTH = 2000
+
 // Mirrors CreateTemplateDto exactly (programs/dto/create-template.dto.ts)
 // — same reasoning as every other frontend schema in this codebase: the
 // backend is the actual authority on what's valid, this just gives
@@ -8,10 +17,16 @@ export const createTemplateSchema = z.object({
   title: z
     .string()
     .min(1, 'Title is required')
-    .max(200, 'Title must be 200 characters or fewer'),
+    .max(
+      TEMPLATE_TITLE_MAX_LENGTH,
+      `Title must be ${TEMPLATE_TITLE_MAX_LENGTH} characters or fewer`,
+    ),
   description: z
     .string()
-    .max(2000, 'Description must be 2000 characters or fewer')
+    .max(
+      TEMPLATE_DESCRIPTION_MAX_LENGTH,
+      `Description must be ${TEMPLATE_DESCRIPTION_MAX_LENGTH} characters or fewer`,
+    )
     .optional(),
 })
 

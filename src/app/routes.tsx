@@ -26,7 +26,6 @@ import { ExercisePhotosPage } from '@/exercises/ExercisePhotosPage'
 import { ExerciseAssignPage } from '@/exercises/ExerciseAssignPage'
 import { ProgramsPage } from '@/programs/ProgramsPage'
 import { NewTemplatePage } from '@/programs/NewTemplatePage'
-import { TemplateExercisesPage } from '@/programs/TemplateExercisesPage'
 import { NewProgramExercisePage } from '@/programs/NewProgramExercisePage'
 import { ProgramExercisePage } from '@/programs/ProgramExercisePage'
 import { TemplateDetailPage } from '@/programs/TemplateDetailPage'
@@ -132,10 +131,6 @@ export const router = createBrowserRouter([
               {
                 path: '/practitioner/programs/templates/new',
                 element: <NewTemplatePage />,
-              },
-              {
-                path: '/practitioner/programs/templates/:id/exercises',
-                element: <TemplateExercisesPage />,
               },
               {
                 path: '/practitioner/programs/templates/:id/exercises/new',

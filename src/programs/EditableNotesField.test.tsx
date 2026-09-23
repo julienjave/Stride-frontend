@@ -11,13 +11,21 @@ beforeEach(() => {
   fetchMock.mockReset()
 })
 
-function renderField(notes: string | null = 'Go slow on the way down') {
+function renderField(
+  notes: string | null = 'Go slow on the way down',
+  canEdit = true,
+) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
   return render(
     <QueryClientProvider client={queryClient}>
-      <EditableNotesField templateId={1} templateExerciseId={50} notes={notes} />
+      <EditableNotesField
+        templateId={1}
+        templateExerciseId={50}
+        notes={notes}
+        canEdit={canEdit}
+      />
     </QueryClientProvider>,
   )
 }
@@ -27,6 +35,14 @@ describe('EditableNotesField', () => {
     renderField('Go slow on the way down')
     expect(screen.getByText('Go slow on the way down')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Edit Notes' })).toBeInTheDocument()
+  })
+
+  it('shows the notes but no edit pencil at all when canEdit is false', () => {
+    renderField('Go slow on the way down', false)
+    expect(screen.getByText('Go slow on the way down')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Edit Notes' }),
+    ).not.toBeInTheDocument()
   })
 
   it('shows "Not set" when there are no notes', () => {

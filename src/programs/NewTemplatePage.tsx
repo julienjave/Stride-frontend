@@ -1,21 +1,24 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ApiError } from '@/api/client'
 import { createTemplate } from './api'
+import { upsertInProgramsList } from './programsListCache'
 import { createTemplateSchema, type CreateTemplateFormValues } from './schemas'
 
-// Screen 1 of 2 in the template creation flow — title/description only.
-// "Next" creates the template for real (it already exists, with a real
-// id, the moment this succeeds) and redirects to Screen 2 for adding
-// exercises, mirroring the exact same two-screen shape already
-// established for exercise creation -> photo management.
+// Title/description only. Submitting creates the template for real (it
+// exists, with a real id, the moment this succeeds) and goes straight to
+// that template's own page, where exercises are added. There used to be
+// a separate "Screen 2" for adding exercises in between — it existed
+// only because adding an exercise needs the template's id, and the
+// template's own page has that id just as well.
 export function NewTemplatePage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   const form = useForm<CreateTemplateFormValues>({
     resolver: zodResolver(createTemplateSchema),
@@ -28,7 +31,18 @@ export function NewTemplatePage() {
   const createTemplateMutation = useMutation({
     mutationFn: createTemplate,
     onSuccess: (template) => {
-      void navigate(`/practitioner/programs/templates/${template.id}/exercises`)
+      // Without this, the Programs hub could keep showing its cached
+      // list — WITHOUT the new template — for up to 30 seconds (the
+      // app-wide staleTime) after landing back on it. Nothing refreshed
+      // that list after a create before now.
+      upsertInProgramsList(queryClient, template)
+      // replace: the "New Program Template" form's history entry is
+      // swapped for the new template's page. Browser Back from there
+      // goes to the hub, not back to a blank creation form (where a
+      // second submit would quietly create a second template).
+      void navigate(`/practitioner/programs/templates/${template.id}`, {
+        replace: true,
+      })
     },
   })
 
@@ -87,7 +101,10 @@ export function NewTemplatePage() {
             <Link to="/practitioner/programs">Back</Link>
           </Button>
           <Button type="submit" disabled={createTemplateMutation.isPending}>
-            {createTemplateMutation.isPending ? 'Creating…' : 'Add Exercises'}
+            {/* Says exactly what the button does. It used to read "Add
+                Exercises" because it led to an exercises-only screen;
+                it now lands on the template's own page. */}
+            {createTemplateMutation.isPending ? 'Creating…' : 'Create Template'}
           </Button>
         </div>
       </form>

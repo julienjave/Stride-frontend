@@ -9,6 +9,11 @@ interface EditableNotesFieldProps {
   templateId: number
   templateExerciseId: number
   notes: string | null
+  // Same reasoning as EditableExerciseTitle's own canEdit — the pencil is
+  // only rendered at all when the current user can actually modify this
+  // template (its owner, and only while it isn't archived), not just
+  // disabled, so a read-only view never suggests editing is possible.
+  canEdit: boolean
 }
 
 // Same click-to-edit shape as the other editable fields on this page —
@@ -18,6 +23,7 @@ export function EditableNotesField({
   templateId,
   templateExerciseId,
   notes,
+  canEdit,
 }: EditableNotesFieldProps) {
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
@@ -59,15 +65,17 @@ export function EditableNotesField({
       <div className="py-2">
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">Notes</p>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="Edit Notes"
-            onClick={startEditing}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
+          {canEdit && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Edit Notes"
+              onClick={startEditing}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
         </div>
         <p className="whitespace-pre-wrap text-sm">
           {notes && notes.length > 0 ? notes : 'Not set'}

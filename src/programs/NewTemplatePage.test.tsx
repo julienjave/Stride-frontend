@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, createMemoryRouter, RouterProvider } from 'react-router'
 import { NewTemplatePage } from './NewTemplatePage'
+import { programsListQueryKey } from './api'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -40,7 +41,7 @@ describe('NewTemplatePage', () => {
   it('shows a validation error and never calls the API when title is left empty', async () => {
     const user = userEvent.setup()
     renderPage()
-    await user.click(screen.getByRole('button', { name: 'Add Exercises' }))
+    await user.click(screen.getByRole('button', { name: 'Create Template' }))
 
     expect(await screen.findByText('Title is required')).toBeInTheDocument()
     expect(fetchMock).not.toHaveBeenCalled()
@@ -51,7 +52,7 @@ describe('NewTemplatePage', () => {
     const user = userEvent.setup()
     renderPage()
     await user.type(screen.getByLabelText('Title'), 'Shoulder Rehab')
-    await user.click(screen.getByRole('button', { name: 'Add Exercises' }))
+    await user.click(screen.getByRole('button', { name: 'Create Template' }))
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -70,7 +71,7 @@ describe('NewTemplatePage', () => {
     renderPage()
     await user.type(screen.getByLabelText('Title'), 'Shoulder Rehab')
     await user.type(screen.getByLabelText('Description'), 'A gentle rehab plan')
-    await user.click(screen.getByRole('button', { name: 'Add Exercises' }))
+    await user.click(screen.getByRole('button', { name: 'Create Template' }))
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -92,12 +93,12 @@ describe('NewTemplatePage', () => {
     const user = userEvent.setup()
     renderPage()
     await user.type(screen.getByLabelText('Title'), 'Shoulder Rehab')
-    await user.click(screen.getByRole('button', { name: 'Add Exercises' }))
+    await user.click(screen.getByRole('button', { name: 'Create Template' }))
 
     expect(await screen.findByText('Title already in use')).toBeInTheDocument()
   })
 
-  it("navigates to Screen 2 for the NEW template's id on success", async () => {
+  it("navigates to the NEW template's own page on success, replacing the form in history", async () => {
     fetchMock.mockResolvedValue(jsonResponse({ id: 777, title: 'Shoulder Rehab' }, 201))
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
@@ -105,12 +106,86 @@ describe('NewTemplatePage', () => {
     const router = createMemoryRouter(
       [
         {
+          path: '/practitioner/programs',
+          element: <div>Programs hub</div>,
+        },
+        {
           path: '/practitioner/programs/templates/new',
           element: <NewTemplatePage />,
         },
         {
-          path: '/practitioner/programs/templates/:id/exercises',
-          element: <div>Template exercises page</div>,
+          path: '/practitioner/programs/templates/:id',
+          element: <div>Template detail page</div>,
+        },
+      ],
+      // Two entries: the hub, then the form — the way a real visit
+      // arrives here. That's what lets the test check where Back goes.
+      {
+        initialEntries: [
+          '/practitioner/programs',
+          '/practitioner/programs/templates/new',
+        ],
+        initialIndex: 1,
+      },
+    )
+    const user = userEvent.setup()
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    )
+
+    await user.type(screen.getByLabelText('Title'), 'Shoulder Rehab')
+    await user.click(screen.getByRole('button', { name: 'Create Template' }))
+
+    expect(
+      await screen.findByText('Template detail page'),
+    ).toBeInTheDocument()
+    // The real id from the response, not a hardcoded one — a wrong
+    // redirect target would only surface for any id except 777.
+    expect(router.state.location.pathname).toBe(
+      '/practitioner/programs/templates/777',
+    )
+
+    // replace: true means the form's history entry is GONE — going back
+    // one step lands on the hub, not on a blank creation form.
+    await act(() => router.navigate(-1))
+    expect(router.state.location.pathname).toBe('/practitioner/programs')
+  })
+
+  it('adds the new template to an already-cached hub list, so it shows up immediately', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(
+        {
+          id: 777,
+          practitionerId: 7,
+          title: 'Shoulder Rehab',
+          description: null,
+          isArchived: false,
+        },
+        201,
+      ),
+    )
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const existing = {
+      id: 1,
+      practitionerId: 7,
+      title: 'Older Template',
+      description: null,
+      isArchived: false,
+    }
+    queryClient.setQueryData(programsListQueryKey, [existing])
+    const router = createMemoryRouter(
+      [
+        {
+          path: '/practitioner/programs/templates/new',
+          element: <NewTemplatePage />,
+        },
+        {
+          path: '/practitioner/programs/templates/:id',
+          element: <div>Template detail page</div>,
         },
       ],
       { initialEntries: ['/practitioner/programs/templates/new'] },
@@ -123,16 +198,19 @@ describe('NewTemplatePage', () => {
     )
 
     await user.type(screen.getByLabelText('Title'), 'Shoulder Rehab')
-    await user.click(screen.getByRole('button', { name: 'Add Exercises' }))
+    await user.click(screen.getByRole('button', { name: 'Create Template' }))
+    await screen.findByText('Template detail page')
 
-    expect(
-      await screen.findByText('Template exercises page'),
-    ).toBeInTheDocument()
-    // The real id from the response, not a hardcoded one — a wrong
-    // redirect target would only surface for any id except 777.
-    expect(router.state.location.pathname).toBe(
-      '/practitioner/programs/templates/777/exercises',
-    )
+    expect(queryClient.getQueryData(programsListQueryKey)).toEqual([
+      existing,
+      {
+        id: 777,
+        practitionerId: 7,
+        title: 'Shoulder Rehab',
+        description: null,
+        isArchived: false,
+      },
+    ])
   })
 
   it('has a Back link to the programs hub', () => {

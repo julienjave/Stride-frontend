@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router'
 import { ProgramExercisePage } from './ProgramExercisePage'
+import { currentUserQueryKey } from '@/auth/useCurrentUser'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -84,10 +85,22 @@ function setupFetchMock(config: {
   })
 }
 
-function renderAt(path: string) {
+// Defaults to the template's owner (practitionerId 7 above), so every
+// existing test keeps exercising the editable view; the read-only tests
+// at the bottom pass a different user explicitly. Seeded straight into
+// the cache — same approach as ExerciseDetailPage.test — so
+// useCurrentUser() never tries to fetch /auth/me in a test.
+function renderAt(
+  path: string,
+  currentUser: { id: number; activeRole: string } = {
+    id: 7,
+    activeRole: 'practitioner',
+  },
+) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+  queryClient.setQueryData(currentUserQueryKey, currentUser)
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[path]}>
@@ -97,9 +110,10 @@ function renderAt(path: string) {
             element={<ProgramExercisePage />}
           />
           <Route
-            path="/practitioner/programs/templates/:id/exercises"
-            element={<div>Template exercises page</div>}
+            path="/practitioner/programs/templates/:id"
+            element={<div>Template detail page</div>}
           />
+          <Route path="/somewhere-else" element={<div>Somewhere else</div>} />
           <Route
             path="/practitioner/library/:exerciseId"
             element={<div>Exercise detail page</div>}
@@ -169,7 +183,7 @@ describe('ProgramExercisePage', () => {
   it('the "Find it in Library" link points to the exercise, with returnTo chained back to this exact page', async () => {
     setupFetchMock({})
     renderAt(
-      '/practitioner/programs/templates/1/exercises/50?returnTo=%2Fpractitioner%2Fprograms%2Ftemplates%2F1%2Fexercises',
+      '/practitioner/programs/templates/1/exercises/50?returnTo=%2Fsomewhere-else',
     )
     await screen.findByRole('heading', { name: 'Squat' })
 
@@ -178,12 +192,12 @@ describe('ProgramExercisePage', () => {
       'href',
       '/practitioner/library/5?returnTo=' +
         encodeURIComponent(
-          '/practitioner/programs/templates/1/exercises/50?returnTo=%2Fpractitioner%2Fprograms%2Ftemplates%2F1%2Fexercises',
+          '/practitioner/programs/templates/1/exercises/50?returnTo=%2Fsomewhere-else',
         ),
     )
   })
 
-  it('falls back to the exercises list when returnTo is missing from the URL', async () => {
+  it("falls back to the template's own page when returnTo is missing from the URL", async () => {
     setupFetchMock({})
     const user = userEvent.setup()
     renderAt('/practitioner/programs/templates/1/exercises/50')
@@ -191,7 +205,7 @@ describe('ProgramExercisePage', () => {
 
     await user.click(screen.getByRole('link', { name: 'Done' }))
     expect(
-      await screen.findByText('Template exercises page'),
+      await screen.findByText('Template detail page'),
     ).toBeInTheDocument()
   })
 
@@ -199,18 +213,18 @@ describe('ProgramExercisePage', () => {
     setupFetchMock({})
     const user = userEvent.setup()
     renderAt(
-      '/practitioner/programs/templates/1/exercises/50?returnTo=%2Fpractitioner%2Fprograms%2Ftemplates%2F1%2Fexercises',
+      '/practitioner/programs/templates/1/exercises/50?returnTo=%2Fsomewhere-else',
     )
     await screen.findByRole('heading', { name: 'Squat' })
 
+    // A returnTo deliberately DIFFERENT from the fallback, so this test
+    // can only pass if the param is really being read.
     expect(screen.getByRole('link', { name: 'Done' })).toHaveAttribute(
       'href',
-      '/practitioner/programs/templates/1/exercises',
+      '/somewhere-else',
     )
     await user.click(screen.getByRole('link', { name: 'Done' }))
-    expect(
-      await screen.findByText('Template exercises page'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('Somewhere else')).toBeInTheDocument()
   })
 
   it('Remove from Template calls DELETE immediately, with no confirmation dialog, and navigates to returnTo', async () => {
@@ -230,7 +244,7 @@ describe('ProgramExercisePage', () => {
       ),
     )
     expect(
-      await screen.findByText('Template exercises page'),
+      await screen.findByText('Template detail page'),
     ).toBeInTheDocument()
   })
 
@@ -253,7 +267,45 @@ describe('ProgramExercisePage', () => {
       await screen.findByText("Couldn't remove this exercise. Try again."),
     ).toBeInTheDocument()
     expect(
-      screen.queryByText('Template exercises page'),
+      screen.queryByText('Template detail page'),
     ).not.toBeInTheDocument()
+  })
+
+  describe('read-only mode', () => {
+    // Every edit affordance on this page: the five field pencils and the
+    // Remove button. Checked by role + name pattern, so a newly added
+    // editable field that forgot to respect canEdit would be caught too.
+    function expectNoEditControls() {
+      expect(
+        screen.queryByRole('button', { name: /^Edit / }),
+      ).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: 'Remove from Template' }),
+      ).not.toBeInTheDocument()
+    }
+
+    it("shows another practitioner's template exercise with no edit controls", async () => {
+      setupFetchMock({})
+      renderAt('/practitioner/programs/templates/1/exercises/50', {
+        id: 999,
+        activeRole: 'practitioner',
+      })
+      await screen.findByRole('heading', { name: 'Squat' })
+
+      expect(screen.getByText('- View Exercise -')).toBeInTheDocument()
+      // Values are still shown — read-only, not hidden.
+      expect(screen.getByText('3')).toBeInTheDocument()
+      expectNoEditControls()
+      expect(screen.getByRole('link', { name: 'Back' })).toBeInTheDocument()
+    })
+
+    it('is read-only for an archived template, even for its owner', async () => {
+      setupFetchMock({ templateOverride: { ...template, isArchived: true } })
+      renderAt('/practitioner/programs/templates/1/exercises/50')
+      await screen.findByRole('heading', { name: 'Squat' })
+
+      expect(screen.getByText('- View Exercise -')).toBeInTheDocument()
+      expectNoEditControls()
+    })
   })
 })

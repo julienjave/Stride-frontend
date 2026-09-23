@@ -8,7 +8,7 @@ interface AddTemplateExerciseCardProps {
 // Positioned LAST when the template already has exercises, but FIRST
 // when it has none — deliberately different from the exercise Library's
 // own AddExerciseCard (always first regardless), per the design
-// discussion. Positioning is handled by the caller (TemplateExercisesPage),
+// discussion. Positioning is handled by the caller (TemplateExerciseList),
 // not this component, since it depends on how many OTHER cards exist.
 export function AddTemplateExerciseCard({
   templateId,

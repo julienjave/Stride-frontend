@@ -24,6 +24,7 @@ function renderField(
         fieldKey="sets"
         label="Sets"
         value={3}
+        canEdit
         {...props}
       />
     </QueryClientProvider>,
@@ -36,6 +37,14 @@ describe('EditableNumberField — display mode', () => {
     expect(screen.getByText('Sets')).toBeInTheDocument()
     expect(screen.getByText('3')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Edit Sets' })).toBeInTheDocument()
+  })
+
+  it('shows the value but no edit pencil at all when canEdit is false', () => {
+    renderField({ value: 3, canEdit: false })
+    expect(screen.getByText('3')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Edit Sets' }),
+    ).not.toBeInTheDocument()
   })
 
   it('shows "Not set" for a null value', () => {

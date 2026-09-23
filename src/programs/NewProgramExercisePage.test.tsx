@@ -97,8 +97,8 @@ function renderAt(path: string) {
             element={<NewProgramExercisePage />}
           />
           <Route
-            path="/practitioner/programs/templates/:id/exercises"
-            element={<div>Template exercises page</div>}
+            path="/practitioner/programs/templates/:id"
+            element={<div>Template detail page</div>}
           />
         </Routes>
       </MemoryRouter>
@@ -180,7 +180,7 @@ describe('NewProgramExercisePage', () => {
       ),
     )
     expect(
-      await screen.findByText('Template exercises page'),
+      await screen.findByText('Template detail page'),
     ).toBeInTheDocument()
   })
 
@@ -270,14 +270,14 @@ describe('NewProgramExercisePage', () => {
     ).toBeInTheDocument()
   })
 
-  it('has a Cancel link back to the template exercises screen', async () => {
+  it("has a Cancel link back to the template's own page", async () => {
     setupFetchMock({})
     renderAt('/practitioner/programs/templates/1/exercises/new')
     await screen.findByRole('heading', { name: 'Shoulder Rehab' })
 
     expect(screen.getByRole('link', { name: 'Cancel' })).toHaveAttribute(
       'href',
-      '/practitioner/programs/templates/1/exercises',
+      '/practitioner/programs/templates/1',
     )
   })
 })

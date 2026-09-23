@@ -11,6 +11,11 @@ interface EditableWeightFieldProps {
   templateExerciseId: number
   weight: number | null
   weightUnit: 'kg' | 'lbs' | null
+  // Same reasoning as EditableExerciseTitle's own canEdit — the pencil is
+  // only rendered at all when the current user can actually modify this
+  // template (its owner, and only while it isn't archived), not just
+  // disabled, so a read-only view never suggests editing is possible.
+  canEdit: boolean
 }
 
 // Same click-to-edit shape as EditableNumberField, but for the one
@@ -23,6 +28,7 @@ export function EditableWeightField({
   templateExerciseId,
   weight,
   weightUnit,
+  canEdit,
 }: EditableWeightFieldProps) {
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
@@ -88,15 +94,17 @@ export function EditableWeightField({
               : 'Not set'}
           </p>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label="Edit Weight"
-          onClick={startEditing}
-        >
-          <Pencil className="h-4 w-4" />
-        </Button>
+        {canEdit && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Edit Weight"
+            onClick={startEditing}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     )
   }

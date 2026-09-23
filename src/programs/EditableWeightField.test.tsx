@@ -24,6 +24,7 @@ function renderField(
         templateExerciseId={50}
         weight={62.5}
         weightUnit="kg"
+        canEdit
         {...props}
       />
     </QueryClientProvider>,
@@ -34,6 +35,14 @@ describe('EditableWeightField — display mode', () => {
   it('shows the weight and unit together', () => {
     renderField({ weight: 62.5, weightUnit: 'kg' })
     expect(screen.getByText('62.5 kg')).toBeInTheDocument()
+  })
+
+  it('shows the weight but no edit pencil at all when canEdit is false', () => {
+    renderField({ weight: 62.5, weightUnit: 'kg', canEdit: false })
+    expect(screen.getByText('62.5 kg')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Edit Weight' }),
+    ).not.toBeInTheDocument()
   })
 
   it('shows "Not set" when neither is set', () => {
