@@ -1,4 +1,4 @@
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, Trash2 } from 'lucide-react'
@@ -28,6 +28,15 @@ export function TemplateExerciseCard({
 }: TemplateExerciseCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.id })
+  // The current page's own URL — whichever list is rendering this card
+  // (TemplateExercisesPage today; whatever else links here later, once
+  // TemplateDetailPage exists with its own inline list) is where "Done"
+  // and "Remove from Template" should navigate back to. Computed here
+  // via useLocation rather than passed as a prop, since the card can
+  // always correctly reference its OWN current URL without the parent
+  // needing to know or pass anything extra.
+  const location = useLocation()
+  const returnTo = `${location.pathname}${location.search}`
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -52,7 +61,7 @@ export function TemplateExerciseCard({
   return (
     <div ref={setNodeRef} style={style} className="relative rounded-lg border">
       <Link
-        to={`/practitioner/programs/templates/${templateId}/exercises/${item.id}`}
+        to={`/practitioner/programs/templates/${templateId}/exercises/${item.id}?returnTo=${encodeURIComponent(returnTo)}`}
         className="block p-3 pl-8 pr-10 hover:bg-muted"
       >
         <p className="font-medium">{name}</p>

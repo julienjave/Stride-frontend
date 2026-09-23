@@ -82,6 +82,30 @@ export function removeTemplateExercise(
   )
 }
 
+// Payload mirrors UpdateTemplateExerciseDto — every field independently
+// optional, since each inline-editable field on the view/edit page
+// PATCHes only the one field it owns, same convention as
+// EditableExerciseListField/EditableExerciseTitle on the Library page.
+export interface UpdateTemplateExercisePayload {
+  sets?: number
+  reps?: number
+  durationInSeconds?: number
+  weight?: number
+  weightUnit?: 'kg' | 'lbs'
+  notes?: string
+}
+
+export function updateTemplateExercise(
+  templateId: number,
+  templateExerciseId: number,
+  payload: UpdateTemplateExercisePayload,
+) {
+  return apiRequest<ProgramTemplateDetail>(
+    `/programs/${templateId}/exercises/${templateExerciseId}`,
+    { method: 'PATCH', body: payload },
+  )
+}
+
 // Same "fetch current count, then append" shape as
 // assignExerciseToProgram — sortOrder is still a required field the
 // backend doesn't compute for you. This is the richer sibling of that

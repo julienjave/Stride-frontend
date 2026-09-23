@@ -139,6 +139,26 @@ describe('TemplateExercisesPage', () => {
     expect(links[3]).toHaveTextContent('Done')
   })
 
+  it('an exercise card links to its view/edit page with returnTo set to this exact list page', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(
+        makeTemplate({
+          exercises: [
+            makeRow({ id: 1, exercise: { id: 5, name: 'Squat', primaryMuscles: ['legs'] } }),
+          ],
+        }),
+      ),
+    )
+    renderAt('/practitioner/programs/templates/1/exercises')
+    const squatLink = await screen.findByText('Squat')
+
+    expect(squatLink.closest('a')).toHaveAttribute(
+      'href',
+      '/practitioner/programs/templates/1/exercises/1?returnTo=' +
+        encodeURIComponent('/practitioner/programs/templates/1/exercises'),
+    )
+  })
+
   it('renders muscles and set/rep/duration details when present', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse(

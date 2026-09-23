@@ -59,6 +59,7 @@ function renderAt(
             path="/practitioner/library"
             element={<div>Library page</div>}
           />
+          <Route path="/somewhere-else" element={<div>Somewhere else</div>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -159,6 +160,25 @@ describe('ExerciseDetailPage', () => {
       expect(
         screen.getByRole('link', { name: 'Back to Library' }),
       ).toHaveAttribute('href', '/practitioner/library')
+    })
+  })
+
+  describe('returnTo-aware back button', () => {
+    it('navigates to returnTo, labeled plainly "Back", when one is provided', async () => {
+      fetchMock.mockResolvedValue(jsonResponse(makeExercise()))
+      renderAt(
+        '/practitioner/library/1?returnTo=%2Fsomewhere-else',
+        { id: 7, activeRole: 'practitioner' },
+      )
+      await screen.findByRole('heading', { name: 'Wall Slide' })
+
+      // Not "Back to Library" — that label would be misleading once
+      // this is actually going somewhere else.
+      expect(
+        screen.queryByRole('link', { name: 'Back to Library' }),
+      ).not.toBeInTheDocument()
+      const backLink = screen.getByRole('link', { name: 'Back' })
+      expect(backLink).toHaveAttribute('href', '/somewhere-else')
     })
   })
 

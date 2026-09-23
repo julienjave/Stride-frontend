@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router'
+import { useParams, useSearchParams, Link } from 'react-router'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { Button } from '@/components/ui/button'
 import { useExercise } from './useExercise'
@@ -28,6 +28,13 @@ function ExerciseDetailView({ exerciseId }: { exerciseId: number }) {
   // RequireRole's own identical defensive reasoning for why checking
   // anyway costs nothing.
   const { data: currentUser } = useCurrentUser()
+  const [searchParams] = useSearchParams()
+  // Backward-compatible: the normal Library-browse-then-view flow never
+  // sets this, so it stays undefined there and the button below keeps
+  // its exact original behavior and wording. Only set when something
+  // links here with a specific place to return to — currently
+  // ProgramExercisePage's own "Find it in Library" link.
+  const returnTo = searchParams.get('returnTo')
 
   if (isLoading) {
     return (
@@ -144,7 +151,9 @@ function ExerciseDetailView({ exerciseId }: { exerciseId: number }) {
           />
         )}
         <Button asChild variant="outline">
-          <Link to="/practitioner/library">Back to Library</Link>
+          <Link to={returnTo ?? '/practitioner/library'}>
+            {returnTo ? 'Back' : 'Back to Library'}
+          </Link>
         </Button>
       </div>
     </div>
