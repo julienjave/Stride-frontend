@@ -42,7 +42,8 @@ export function EditableNumberField({
   const [validationError, setValidationError] = useState<string | null>(null)
 
   const updateMutation = useMutation({
-    mutationFn: (newValue: number | undefined) =>
+    // null, not undefined, for "cleared" — see UpdateTemplateExercisePayload.
+    mutationFn: (newValue: number | null) =>
       updateTemplateExercise(templateId, templateExerciseId, {
         [fieldKey]: newValue,
       }),
@@ -73,7 +74,11 @@ export function EditableNumberField({
       setValidationError(`${label} must be a positive whole number`)
       return
     }
-    updateMutation.mutate(draft)
+    // The draft uses undefined for "empty input" (convenient for the
+    // input's value binding), but the REQUEST must say null: `?? null`
+    // turns undefined into null and leaves any real number untouched —
+    // a number is never null/undefined, so ?? never replaces it.
+    updateMutation.mutate(draft ?? null)
   }
 
   if (!isEditing) {

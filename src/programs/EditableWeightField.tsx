@@ -41,9 +41,11 @@ export function EditableWeightField({
   const [validationError, setValidationError] = useState<string | null>(null)
 
   const updateMutation = useMutation({
+    // null for "cleared" — see UpdateTemplateExercisePayload. Always sent
+    // as a PAIR, both set or both null, matching hasStartedWeight.
     mutationFn: (payload: {
-      weight: number | undefined
-      weightUnit: 'kg' | 'lbs' | undefined
+      weight: number | null
+      weightUnit: 'kg' | 'lbs' | null
     }) => updateTemplateExercise(templateId, templateExerciseId, payload),
     onSuccess: (updated) => {
       queryClient.setQueryData(programQueryKey(templateId), updated)
@@ -80,7 +82,22 @@ export function EditableWeightField({
       setValidationError('Weight cannot be negative')
       return
     }
-    updateMutation.mutate({ weight: draftWeight, weightUnit: draftUnit })
+    updateMutation.mutate({
+      weight: draftWeight ?? null,
+      weightUnit: draftUnit ?? null,
+    })
+  }
+
+  // The unit toggle can select kg or lbs but never "no unit" — so once a
+  // weight exists, emptying the number input alone just triggers the
+  // "Enter a weight for the selected unit" error, and there was no way to
+  // clear a weight from the UI at all. This is the explicit way to do it:
+  // one action that clears both halves together, which is the only kind
+  // of clearing the backend accepts anyway. An explicit button rather
+  // than "click the selected unit again to unselect it," because that
+  // second behavior isn't something a person would ever guess.
+  function removeWeight() {
+    updateMutation.mutate({ weight: null, weightUnit: null })
   }
 
   if (!isEditing) {
@@ -168,6 +185,19 @@ export function EditableWeightField({
           <X className="h-4 w-4" />
         </Button>
       </div>
+      {/* Only offered when there's a SAVED weight to remove — on an
+          unset field there's nothing to clear. */}
+      {weight != null && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={removeWeight}
+          disabled={updateMutation.isPending}
+        >
+          Remove weight
+        </Button>
+      )}
       {validationError && (
         <p className="text-sm text-destructive">{validationError}</p>
       )}

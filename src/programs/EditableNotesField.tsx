@@ -31,7 +31,7 @@ export function EditableNotesField({
   const [validationError, setValidationError] = useState<string | null>(null)
 
   const updateMutation = useMutation({
-    mutationFn: (newValue: string) =>
+    mutationFn: (newValue: string | null) =>
       updateTemplateExercise(templateId, templateExerciseId, {
         notes: newValue,
       }),
@@ -57,7 +57,12 @@ export function EditableNotesField({
       setValidationError('Notes must be 2000 characters or fewer')
       return
     }
-    updateMutation.mutate(draft)
+    // Empty (or whitespace-only) is saved as null, not "" — the same
+    // "no notes" state a row starts in when notes were never set, rather
+    // than a second, different kind of empty. Same rule as the template
+    // description editor.
+    const trimmed = draft.trim()
+    updateMutation.mutate(trimmed.length === 0 ? null : trimmed)
   }
 
   if (!isEditing) {

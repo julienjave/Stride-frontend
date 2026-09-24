@@ -84,6 +84,24 @@ describe('EditableNotesField', () => {
     )
   })
 
+  it('clears the notes by sending an explicit null, not an empty string', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ id: 1 }), { status: 200 }),
+    )
+    const user = userEvent.setup()
+    renderField('Original')
+    await user.click(screen.getByRole('button', { name: 'Edit Notes' }))
+    await user.clear(screen.getByLabelText('Notes'))
+    await user.click(screen.getByRole('button', { name: 'Save Notes' }))
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/programs/1/exercises/50'),
+        expect.objectContaining({ body: '{"notes":null}' }),
+      ),
+    )
+  })
+
   it('shows the API error message on a failed save', async () => {
     fetchMock.mockResolvedValue(
       new Response(

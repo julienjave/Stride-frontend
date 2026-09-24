@@ -124,6 +124,39 @@ describe('EditableWeightField — editing', () => {
     )
   })
 
+  it('"Remove weight" clears BOTH halves together, with explicit nulls', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ id: 1 }), { status: 200 }),
+    )
+    const user = userEvent.setup()
+    renderField({ weight: 62.5, weightUnit: 'kg' })
+    await user.click(screen.getByRole('button', { name: 'Edit Weight' }))
+    await user.click(screen.getByRole('button', { name: 'Remove weight' }))
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/programs/1/exercises/50'),
+        expect.objectContaining({
+          method: 'PATCH',
+          // Literal on purpose — see EditableNumberField.test's clearing
+          // test for why JSON.stringify({ ...: undefined }) can't be
+          // trusted in an assertion like this.
+          body: '{"weight":null,"weightUnit":null}',
+        }),
+      ),
+    )
+  })
+
+  it('does not offer "Remove weight" when no weight is saved', async () => {
+    const user = userEvent.setup()
+    renderField({ weight: null, weightUnit: null })
+    await user.click(screen.getByRole('button', { name: 'Edit Weight' }))
+
+    expect(
+      screen.queryByRole('button', { name: 'Remove weight' }),
+    ).not.toBeInTheDocument()
+  })
+
   it('Cancel discards changes and never calls the API', async () => {
     const user = userEvent.setup()
     renderField({ weight: 62.5, weightUnit: 'kg' })

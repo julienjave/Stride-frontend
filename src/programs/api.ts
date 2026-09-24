@@ -129,13 +129,25 @@ export function removeTemplateExercise(
 // optional, since each inline-editable field on the view/edit page
 // PATCHes only the one field it owns, same convention as
 // EditableExerciseListField/EditableExerciseTitle on the Library page.
+//
+// Every field also accepts null, which means "clear this value." Three
+// different states, three different meanings:
+//   - key absent   → don't touch this field
+//   - key: null    → clear it (stored as SQL NULL)
+//   - key: value   → set it
+// undefined can NOT stand in for "clear": JSON has no undefined, so
+// JSON.stringify drops the key entirely and it arrives as "absent" —
+// which is exactly the bug this null support fixed (clearing sets/reps/
+// duration/weight used to send an empty {} body and change nothing).
+// weight and weightUnit are cleared together, as a pair — the backend
+// rejects clearing only one of them (see hasStartedWeight).
 export interface UpdateTemplateExercisePayload {
-  sets?: number
-  reps?: number
-  durationInSeconds?: number
-  weight?: number
-  weightUnit?: 'kg' | 'lbs'
-  notes?: string
+  sets?: number | null
+  reps?: number | null
+  durationInSeconds?: number | null
+  weight?: number | null
+  weightUnit?: 'kg' | 'lbs' | null
+  notes?: string | null
 }
 
 export function updateTemplateExercise(

@@ -86,7 +86,7 @@ describe('EditableNumberField — editing', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('allows clearing the field entirely — undefined is a valid value, not an error', async () => {
+  it('clears the field by sending an explicit null — the literal request body is checked', async () => {
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify({ id: 1 }), { status: 200 }),
     )
@@ -101,7 +101,12 @@ describe('EditableNumberField — editing', () => {
         expect.stringContaining('/programs/1/exercises/50'),
         expect.objectContaining({
           method: 'PATCH',
-          body: JSON.stringify({ sets: undefined }),
+          // A LITERAL string on purpose. This assertion used to be
+          // JSON.stringify({ sets: undefined }) — which is itself just
+          // "{}", because JSON.stringify drops undefined keys. It was
+          // comparing an empty body to an empty body, so it passed while
+          // clearing silently did nothing. A literal can't hide that.
+          body: '{"sets":null}',
         }),
       ),
     )
