@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Check, Pencil, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,11 @@ interface EditableTemplateTitleProps {
   title: string
   // Pencil only rendered when true — see canEditTemplate for the rule.
   canEdit: boolean
+  // Optional extra content shown beside the title in DISPLAY mode only
+  // (TemplateDetailPage passes the "Yours" badge). A generic slot rather
+  // than an `isOwn` prop, so this editor stays about editing a title and
+  // doesn't need to know what ownership is or how it's decided.
+  adornment?: ReactNode
 }
 
 // A close mirror of EditableExerciseTitle on the Library's detail page:
@@ -28,6 +33,7 @@ export function EditableTemplateTitle({
   templateId,
   title,
   canEdit,
+  adornment,
 }: EditableTemplateTitleProps) {
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
@@ -85,8 +91,9 @@ export function EditableTemplateTitle({
 
   if (!isEditing) {
     return (
-      <div className="flex items-start gap-2">
+      <div className="flex items-center gap-2">
         <h1 className="text-2xl font-semibold">{title}</h1>
+        {adornment}
         {canEdit && (
           <Button
             type="button"

@@ -55,6 +55,18 @@ describe('EditableTemplateTitle — display mode', () => {
   })
 })
 
+describe('EditableTemplateTitle — adornment', () => {
+  it('shows the adornment beside the title in display mode, and hides it while editing', async () => {
+    const user = userEvent.setup()
+    renderTitle({ adornment: <span>Badge here</span> })
+    expect(screen.getByText('Badge here')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Edit template title' }))
+
+    expect(screen.queryByText('Badge here')).not.toBeInTheDocument()
+  })
+})
+
 describe('EditableTemplateTitle — editing', () => {
   it('Cancel discards the change and never calls the API', async () => {
     const user = userEvent.setup()

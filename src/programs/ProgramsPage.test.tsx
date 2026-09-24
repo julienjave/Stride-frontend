@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router'
@@ -136,6 +136,45 @@ describe('ProgramsPage', () => {
     expect(
       screen.queryByText("Someone Else's Template"),
     ).not.toBeInTheDocument()
+  })
+
+  it('marks only the current user\'s own templates with a "Yours" badge', async () => {
+    setupFetchMock({
+      templates: [
+        { id: 1, practitionerId: 7, title: 'My Template', description: null, isArchived: false },
+        { id: 2, practitionerId: 999, title: "Someone Else's Template", description: null, isArchived: false },
+      ],
+    })
+    renderAt()
+
+    const mine = (await screen.findByText('My Template')).closest('a')!
+    const theirs = screen.getByText("Someone Else's Template").closest('a')!
+    expect(within(mine).getByText('Yours')).toBeInTheDocument()
+    expect(within(theirs).queryByText('Yours')).not.toBeInTheDocument()
+  })
+
+  it('does not badge assigned programs — every one listed is already the user\'s own', async () => {
+    setupFetchMock({
+      assignedPrograms: [
+        {
+          id: 1,
+          patientId: 50,
+          assignedBy: 7,
+          basedOnTemplateId: null,
+          title: 'My Assignment',
+          startDate: '2026-01-01',
+          endDate: null,
+          status: 'active',
+          isArchived: false,
+        },
+      ],
+    })
+    const user = userEvent.setup()
+    renderAt()
+    await user.click(screen.getByRole('button', { name: 'Assigned' }))
+
+    await screen.findByText('My Assignment')
+    expect(screen.queryByText('Yours')).not.toBeInTheDocument()
   })
 
   it('always filters Assigned Programs to ones the current user assigned, with no toggle needed', async () => {

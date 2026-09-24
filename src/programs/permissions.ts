@@ -42,3 +42,20 @@ export function canEditTemplate(
   if (!currentUser || template.isArchived) return false
   return canModifyProgram(template, currentUser)
 }
+
+// Strict ownership: did THIS user create this template? Used for the
+// "Yours" badge and the hub's "Only my templates" filter.
+//
+// Deliberately NOT canModifyProgram, which also returns true for any
+// admin — "can I change it?" and "is it mine?" are different questions.
+// An admin can modify every template, but none of them are theirs; with
+// canModifyProgram, a badge would call every single template "Yours."
+// (Admins can't reach the programs pages today, so the two happen to give
+// the same answer there — but the badge should say what it means, not
+// rely on that.)
+export function isOwnTemplate(
+  template: ProgramTemplate,
+  currentUser: { id: number } | undefined | null,
+): boolean {
+  return currentUser != null && template.practitionerId === currentUser.id
+}

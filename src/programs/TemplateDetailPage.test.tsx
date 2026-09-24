@@ -160,6 +160,14 @@ describe('TemplateDetailPage — as the owner', () => {
     expect(screen.queryByText(/View only/)).not.toBeInTheDocument()
   })
 
+  it('shows the "Yours" badge beside the title', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(makeTemplate()))
+    renderAt('/practitioner/programs/templates/1')
+    await screen.findByRole('heading', { name: 'Shoulder Rehab' })
+
+    expect(screen.getByText('Yours')).toBeInTheDocument()
+  })
+
   it('shows Duplicate, Delete, and a Back link to the hub', async () => {
     fetchMock.mockResolvedValue(jsonResponse(makeTemplate()))
     renderAt('/practitioner/programs/templates/1')
@@ -357,6 +365,9 @@ describe("TemplateDetailPage — someone else's template", () => {
     expectNoEditControls()
     expect(screen.getByText(/View only/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Duplicate' })).toBeInTheDocument()
+    // Not theirs — no badge. This is the exact case that caused the mix-up
+    // with two identically-titled "Copy of ..." templates.
+    expect(screen.queryByText('Yours')).not.toBeInTheDocument()
   })
 
   it('still lets each exercise card open its (read-only) exercise page', async () => {
@@ -405,5 +416,8 @@ describe('TemplateDetailPage — an archived template', () => {
     // The deleted notice already explains why — no second, misleading
     // "belongs to another practitioner" line for the owner.
     expect(screen.queryByText(/View only/)).not.toBeInTheDocument()
+    // Still theirs, though — ownership doesn't end at archiving, even
+    // though editing does.
+    expect(screen.getByText('Yours')).toBeInTheDocument()
   })
 })

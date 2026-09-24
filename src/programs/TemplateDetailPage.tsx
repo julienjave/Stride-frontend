@@ -2,7 +2,8 @@ import { Link, useParams } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { useProgram } from './useProgram'
-import { canEditTemplate } from './permissions'
+import { canEditTemplate, isOwnTemplate } from './permissions'
+import { YoursBadge } from '@/common/YoursBadge'
 import { EditableTemplateTitle } from './EditableTemplateTitle'
 import { EditableTemplateDescription } from './EditableTemplateDescription'
 import { TemplateExerciseList } from './TemplateExerciseList'
@@ -81,6 +82,13 @@ function TemplateDetailView({ templateId }: { templateId: number }) {
           templateId={templateId}
           title={template.title}
           canEdit={canEdit}
+          // Ownership, NOT canEdit: an archived template you created is
+          // still yours, even though it's no longer editable. The badge
+          // states a fact about who made it; canEdit is about what you
+          // can do with it right now.
+          adornment={
+            isOwnTemplate(template, currentUser) ? <YoursBadge /> : null
+          }
         />
         {/* Explains the ABSENCE of pencils on a colleague's template —
             otherwise a practitioner could reasonably wonder whether

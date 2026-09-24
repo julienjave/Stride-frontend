@@ -3,7 +3,8 @@ import { Link } from 'react-router'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { Button } from '@/components/ui/button'
 import { usePrograms } from './usePrograms'
-import { canModifyProgram } from './permissions'
+import { isOwnTemplate } from './permissions'
+import { YoursBadge } from '@/common/YoursBadge'
 import { useAssignedPrograms } from '@/assigned-programs/useAssignedPrograms'
 import { isOwnAssignedProgram } from '@/assigned-programs/permissions'
 
@@ -33,10 +34,19 @@ export function ProgramsPage() {
   // to browse broadly (as a base for a new assigned program), not just
   // manage. ownOnly narrows it down when they specifically want to see
   // (and edit) just their own.
+  //
+  // The filter and the "Yours" badge use the SAME helper, isOwnTemplate,
+  // so "Only my templates" always shows exactly the cards marked Yours —
+  // they can never disagree. (The filter used canModifyProgram before;
+  // see isOwnTemplate for why ownership is the more accurate question.)
   const templateItems = currentUser
     ? (templates ?? [])
-        .filter((template) => !ownOnly || canModifyProgram(template, currentUser))
-        .map((template) => ({ id: template.id, title: template.title }))
+        .filter((template) => !ownOnly || isOwnTemplate(template, currentUser))
+        .map((template) => ({
+          id: template.id,
+          title: template.title,
+          isOwn: isOwnTemplate(template, currentUser),
+        }))
     : []
 
   // Assigned programs are ALWAYS filtered to "assigned by me" here,
@@ -47,7 +57,11 @@ export function ProgramsPage() {
   const assignedItems = currentUser
     ? (assignedPrograms ?? [])
         .filter((program) => isOwnAssignedProgram(program, currentUser))
-        .map((program) => ({ id: program.id, title: program.title }))
+        // isOwn: false — not because they aren't the practitioner's (they
+        // ALL are, by the filter above), but because a badge on every
+        // single card tells the reader nothing. A marker only carries
+        // information when some items have it and others don't.
+        .map((program) => ({ id: program.id, title: program.title, isOwn: false }))
     : []
 
   const isLoading = kind === 'template' ? isLoadingTemplates : isLoadingAssigned
@@ -139,9 +153,10 @@ export function ProgramsPage() {
               <li key={item.id}>
                 <Link
                   to={detailHref(item.id)}
-                  className="block rounded-lg border p-3 hover:bg-muted"
+                  className="flex items-center justify-between gap-2 rounded-lg border p-3 hover:bg-muted"
                 >
-                  {item.title}
+                  <span>{item.title}</span>
+                  {item.isOwn && <YoursBadge />}
                 </Link>
               </li>
             ))}

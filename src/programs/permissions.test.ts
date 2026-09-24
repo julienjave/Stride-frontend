@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { canModifyProgram, canEditTemplate } from './permissions'
+import {
+  canModifyProgram,
+  canEditTemplate,
+  isOwnTemplate,
+} from './permissions'
 import type { ProgramTemplate } from './types'
 
 function makeTemplate(overrides: Partial<ProgramTemplate> = {}): ProgramTemplate {
@@ -63,5 +67,38 @@ describe('canEditTemplate', () => {
 
   it('rejects when the current user is not known', () => {
     expect(canEditTemplate(makeTemplate(), undefined)).toBe(false)
+  })
+})
+
+describe('isOwnTemplate', () => {
+  // Just { id } here: isOwnTemplate's parameter type only asks for an
+  // id, because ownership genuinely doesn't depend on role. TypeScript
+  // enforces that — passing an inline { id, activeRole } literal is a
+  // compile error ("excess property check"), a hint that the extra field
+  // wouldn't be used for anything.
+  it('is true for the practitioner who created the template', () => {
+    expect(isOwnTemplate(makeTemplate(), { id: 7 })).toBe(true)
+  })
+
+  it('is false for anyone else', () => {
+    expect(isOwnTemplate(makeTemplate(), { id: 999 })).toBe(false)
+  })
+
+  // The case that separates it from canModifyProgram: an admin CAN
+  // modify the template, but it still isn't theirs.
+  it('is false for an admin who did not create it, even though they can modify it', () => {
+    const admin = { id: 999, activeRole: 'admin' }
+    expect(canModifyProgram(makeTemplate(), admin)).toBe(true)
+    expect(isOwnTemplate(makeTemplate(), admin)).toBe(false)
+  })
+
+  it('is false when the current user is not known', () => {
+    expect(isOwnTemplate(makeTemplate(), undefined)).toBe(false)
+  })
+
+  it('still counts an archived template as owned — ownership is a fact, not a permission', () => {
+    expect(isOwnTemplate(makeTemplate({ isArchived: true }), { id: 7 })).toBe(
+      true,
+    )
   })
 })
