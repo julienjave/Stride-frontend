@@ -1,117 +1,99 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter, createMemoryRouter, RouterProvider } from 'react-router'
 import { RoleSwitcher } from './RoleSwitcher'
 import { currentUserQueryKey } from './useCurrentUser'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
-const fetchMock = vi.fn<typeof fetch>()
-vi.stubGlobal('fetch', fetchMock)
-
-beforeEach(() => {
-  fetchMock.mockReset()
-})
-
-function renderWithUser(user: { activeRole: string; roles: string[] }) {
+// RoleSwitcher renders MENU ITEMS, which only work inside a menu. `open`
+// forces the menu open from the start, so each test looks at the items
+// directly.
+//
+// A WARNING about that shortcut, learned the hard way: a forced-open menu
+// never closes, so nothing inside it is ever unmounted. That's exactly the
+// condition under which the old RoleSwitcher's redirect "worked" in tests
+// while silently failing in the real app (where choosing an item closes
+// the menu and unmounts this component). So this file only tests what
+// RoleSwitcher itself does — which roles it lists, and what it REPORTS.
+// The real switch (request, header update, redirect) is tested through
+// the real, closing menu in UserMenu.test.tsx.
+function renderSwitcher(
+  user: { activeRole: string; roles: string[] },
+  { isSwitching = false } = {},
+) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
-  // Seed the cache directly rather than mocking a fetch call — RoleSwitcher
-  // reads via useCurrentUser(), which reads whatever's already in the
-  // cache without needing a real request for this particular test.
   queryClient.setQueryData(currentUserQueryKey, user)
-  return render(
+  // vi.fn() records every call, so a test can assert on exactly what
+  // RoleSwitcher reported, and how many times.
+  const onSwitch = vi.fn()
+
+  render(
     <QueryClientProvider client={queryClient}>
-      {/* RoleSwitcher now calls useNavigate() (to land on the newly-active
-          role's own route after a switch) — that hook throws without a
-          router ancestor, even in tests that never trigger a navigation.
-          MemoryRouter is React Router's lightweight in-memory router
-          built for exactly this: a real router context without needing
-          an actual browser URL. Same pattern useLogout.test.tsx already
-          uses for the same reason. */}
-      <MemoryRouter>
-        <RoleSwitcher />
-      </MemoryRouter>
+      <DropdownMenu open>
+        <DropdownMenuTrigger>Menu</DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <RoleSwitcher onSwitch={onSwitch} isSwitching={isSwitching} />
+        </DropdownMenuContent>
+      </DropdownMenu>
     </QueryClientProvider>,
   )
+  return { onSwitch }
 }
 
+function roleOptions() {
+  return screen
+    .getAllByRole('menuitemradio')
+    .map((item) => [item.textContent, item.getAttribute('aria-checked')])
+}
+
+const multiRole = { activeRole: 'practitioner', roles: ['practitioner', 'admin'] }
+
 describe('RoleSwitcher', () => {
-  it('renders nothing for a single-role account', () => {
-    const { container } = renderWithUser({
-      activeRole: 'patient',
-      roles: ['patient'],
-    })
-    expect(container).toBeEmptyDOMElement()
+  it('renders nothing for a single-role account — not even its heading', () => {
+    renderSwitcher({ activeRole: 'patient', roles: ['patient'] })
+    expect(screen.queryByRole('menuitemradio')).not.toBeInTheDocument()
+    expect(screen.queryByText('Switch role')).not.toBeInTheDocument()
   })
 
-  it('shows only the roles the account holds, excluding the currently active one', () => {
-    renderWithUser({
-      activeRole: 'practitioner',
-      roles: ['practitioner', 'admin'],
-    })
-
-    expect(
-      screen.getByRole('button', { name: 'Switch to admin' }),
-    ).toBeInTheDocument()
-    // The currently active role should NOT appear as a switch target —
-    // switching to the role you're already in doesn't make sense.
-    expect(
-      screen.queryByRole('button', { name: 'Switch to practitioner' }),
-    ).not.toBeInTheDocument()
+  it('lists every held role in a fixed order, with the active one ticked', () => {
+    // Deliberately out of order in the input: the output should still be
+    // admin → practitioner → patient, however the backend orders them.
+    renderSwitcher(multiRole)
+    expect(screen.getByText('Switch role')).toBeInTheDocument()
+    expect(roleOptions()).toEqual([
+      ['Admin', 'false'],
+      ['Practitioner', 'true'],
+    ])
   })
 
-  it("navigates to the newly-active role's own home route after switching", async () => {
-    // The mutation's mutationFn (switchRole, in api.ts) POSTs to
-    // /auth/switch-role and resolves with the updated CurrentUser —
-    // this mock stands in for that response, with activeRole flipped to
-    // 'admin' to match the button we're about to click below.
-    fetchMock.mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          id: 1,
-          email: 'a@b.com',
-          activeRole: 'admin',
-          roles: ['practitioner', 'admin'],
-        }),
-        { status: 201 },
-      ),
+  it('reports the chosen role, once', async () => {
+    const { onSwitch } = renderSwitcher(multiRole)
+    await userEvent.click(screen.getByRole('menuitemradio', { name: 'Admin' }))
+    expect(onSwitch).toHaveBeenCalledTimes(1)
+    expect(onSwitch).toHaveBeenCalledWith('admin')
+  })
+
+  it('reports nothing when the already-active role is chosen', async () => {
+    const { onSwitch } = renderSwitcher(multiRole)
+    await userEvent.click(
+      screen.getByRole('menuitemradio', { name: 'Practitioner' }),
     )
+    expect(onSwitch).not.toHaveBeenCalled()
+  })
 
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    })
-    queryClient.setQueryData(currentUserQueryKey, {
-      activeRole: 'practitioner',
-      roles: ['practitioner', 'admin'],
-    })
-
-    // A real router with two destinations, rather than inspecting
-    // navigation history directly — same style preservedDestination.test.tsx
-    // and routeGuards.test.tsx already use: render a marker element at the
-    // expected destination and assert it shows up, which proves the actual
-    // navigation happened rather than just that navigate() was CALLED with
-    // the right argument (a subtly weaker assertion this avoids).
-    const router = createMemoryRouter(
-      [
-        { path: '/', element: <RoleSwitcher /> },
-        { path: '/admin', element: <div>Admin home</div> },
-      ],
-      { initialEntries: ['/'] },
-    )
-
-    render(
-      <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>,
-    )
-
-    const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: 'Switch to admin' }))
-
-    await waitFor(() =>
-      expect(screen.getByText('Admin home')).toBeInTheDocument(),
-    )
+  it('disables every role while a switch is in flight', () => {
+    renderSwitcher(multiRole, { isSwitching: true })
+    // Radix marks a disabled item with aria-disabled (and data-disabled),
+    // which is what makes it unselectable and announced as unavailable.
+    for (const item of screen.getAllByRole('menuitemradio')) {
+      expect(item).toHaveAttribute('aria-disabled', 'true')
+    }
   })
 })

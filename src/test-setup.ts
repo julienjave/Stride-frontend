@@ -43,6 +43,14 @@ vi.mock('country-state-city', () => ({
 
 afterEach(() => {
   cleanup()
+  // The theme is GLOBAL browser state that outlives a component: a test
+  // that picks "Dark" leaves the `dark` class on <html> and 'dark' in
+  // localStorage, which would silently change what the NEXT test starts
+  // from. Resetting both after every test keeps tests independent of the
+  // order they happen to run in.
+  localStorage.clear()
+  document.documentElement.className = ''
+  document.documentElement.style.colorScheme = ''
 })
 
 // jsdom (the in-memory fake browser these tests run against) does not
@@ -69,3 +77,22 @@ Element.prototype.hasPointerCapture = vi.fn(() => false)
 Element.prototype.setPointerCapture = vi.fn()
 Element.prototype.releasePointerCapture = vi.fn()
 Element.prototype.scrollIntoView = vi.fn()
+
+// jsdom has no window.matchMedia at all (confirmed: it's undefined), but
+// ThemeProvider calls it to read the OS light/dark setting — so every test
+// rendering the app layout would crash without this. The default answer is
+// "matches nothing", i.e. an OS in light mode that never changes.
+// Theme tests that need a controllable OS setting replace it per test with
+// vi.spyOn (see src/theme/fakeMatchMedia.ts); spyOn needs an existing
+// property to wrap, which is one more reason this default lives here.
+window.matchMedia = (query: string) =>
+  ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  }) as MediaQueryList

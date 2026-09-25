@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
 import { PractitionerHomePage } from './PractitionerHomePage'
@@ -53,27 +53,26 @@ describe('PractitionerHomePage', () => {
     expect(screen.getAllByText('Coming soon')).toHaveLength(2)
   })
 
-  it('links to all four Phase 3 destinations, and not to messaging', () => {
+  it('links to the three sections with real pages, and not to messaging', () => {
     renderWithUser({ firstName: 'Jamie', lastName: 'Rivera' })
-    expect(screen.getByRole('link', { name: 'My Profile' })).toHaveAttribute(
-      'href',
-      '/practitioner/profile',
-    )
-    expect(screen.getByRole('link', { name: 'My Patients' })).toHaveAttribute(
-      'href',
-      '/practitioner/patients',
-    )
+    // Scoped to this page's own shortcuts landmark, and compared in full
+    // (name + href, in order), so a missing, extra or reordered link fails.
+    const shortcuts = screen.getByRole('navigation', { name: 'Shortcuts' })
     expect(
-      screen.getByRole('link', { name: 'Exercise Library' }),
-    ).toHaveAttribute('href', '/practitioner/library')
-    expect(screen.getByRole('link', { name: 'Programs' })).toHaveAttribute(
-      'href',
-      '/practitioner/programs',
-    )
-    // Messaging has no frontend yet at all (Phase 5) — confirming there's
-    // no dead link for it, rather than just confirming the four real ones.
+      within(shortcuts)
+        .getAllByRole('link')
+        .map((link) => [link.textContent, link.getAttribute('href')]),
+    ).toEqual([
+      ['My Patients', '/practitioner/patients'],
+      ['Exercise Library', '/practitioner/library'],
+      ['Programs', '/practitioner/programs'],
+    ])
+  })
+
+  it('no longer links to the profile (it moved to the account menu)', () => {
+    renderWithUser({ firstName: 'Jamie', lastName: 'Rivera' })
     expect(
-      screen.queryByRole('link', { name: /messag/i }),
+      screen.queryByRole('link', { name: /profile/i }),
     ).not.toBeInTheDocument()
   })
 })

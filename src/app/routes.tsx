@@ -16,6 +16,7 @@ import { AuthenticatedLayout } from './AuthenticatedLayout'
 import { AdminHomePage } from './AdminHomePage'
 import { PractitionerHomePage } from './PractitionerHomePage'
 import { PatientHomePage } from './PatientHomePage'
+import { ComingSoonPage } from './ComingSoonPage'
 import { MyProfilePage } from '@/users/MyProfilePage'
 import { PatientsListPage } from '@/patients/PatientsListPage'
 import { ExerciseLibraryPage } from '@/exercises/ExerciseLibraryPage'
@@ -63,18 +64,21 @@ export const router = createBrowserRouter([
     children: [
       {
         // AuthenticatedLayout sits BETWEEN RequireAuth and every actual
-        // page route — it's the one place the role switcher and logout
-        // button render, so they're visible no matter which page below
-        // it actually matched. This layer didn't exist before each role
-        // had its own home page; it used to be fine for that chrome to
-        // live directly on the single shared DashboardPage, since that
-        // WAS the only authenticated page every user saw first.
+        // page route — it renders the persistent navigation (top bar,
+        // phone tab bar, Settings and account menus), so it's visible no
+        // matter which page below it actually matched.
         element: <AuthenticatedLayout />,
         children: [
           // `/` no longer renders content of its own — DashboardRedirect
           // immediately sends the user on to whichever of the three role
           // homes below actually matches their activeRole.
           { path: '/', element: <DashboardRedirect /> },
+          // Shared by EVERY role (design decisions §4), so it sits beside
+          // the RequireRole groups rather than inside one: any logged-in
+          // user may open their own profile, whatever their active role.
+          // Reached from the account menu. Still the placeholder page —
+          // the real editable profile is the next roadmap item.
+          { path: '/profile', element: <MyProfilePage /> },
           {
             // Nested one level further: authenticated AND the right role.
             // This is the pattern every future role-scoped section (admin
@@ -98,7 +102,6 @@ export const router = createBrowserRouter([
             element: <RequireRole allowedRoles={['practitioner']} />,
             children: [
               { path: '/practitioner', element: <PractitionerHomePage /> },
-              { path: '/practitioner/profile', element: <MyProfilePage /> },
               {
                 path: '/practitioner/patients',
                 element: <PatientsListPage />,
@@ -152,12 +155,34 @@ export const router = createBrowserRouter([
                 path: '/practitioner/programs/assigned/:id',
                 element: <AssignedProgramDetailPage />,
               },
+              // Listed in the navigation (sections.ts) before the feature
+              // exists — see ComingSoonPage for why.
+              {
+                path: '/practitioner/messages',
+                element: <ComingSoonPage title="Messages" />,
+              },
             ],
           },
           {
             // Same shape again, for Phase 4's patient-facing routes.
             element: <RequireRole allowedRoles={['patient']} />,
-            children: [{ path: '/patient', element: <PatientHomePage /> }],
+            children: [
+              { path: '/patient', element: <PatientHomePage /> },
+              // All three are navigation sections (design decisions §2)
+              // whose features don't exist yet — see ComingSoonPage.
+              {
+                path: '/patient/sessions',
+                element: <ComingSoonPage title="Sessions" />,
+              },
+              {
+                path: '/patient/team',
+                element: <ComingSoonPage title="Team" />,
+              },
+              {
+                path: '/patient/messages',
+                element: <ComingSoonPage title="Messages" />,
+              },
+            ],
           },
         ],
       },

@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
+import { render, renderHook, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { useSwitchRole } from './useSwitchRole'
-import { currentUserQueryKey } from './useCurrentUser'
+import { currentUserQueryKey, useCurrentUser } from './useCurrentUser'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -88,9 +89,64 @@ describe('useSwitchRole', () => {
         expect.stringContaining('/auth/switch-role'),
         expect.objectContaining({
           method: 'POST',
-          body: JSON.stringify({ role: 'admin' }),
+          // A literal string, not JSON.stringify(...) — the test must say
+          // what the wire format IS, not recompute it the same way the
+          // code does.
+          body: '{"role":"admin"}',
         }),
       ),
     )
+  })
+
+  it('components already showing the current user update to the new role at once', async () => {
+    // The regression test for the "header keeps showing the old role" bug.
+    // The first test above only reads the CACHE, which was correct even
+    // while the bug existed: the new user WAS in the cache. The bug was
+    // that components already watching the old cache entry were never told.
+    // So this test renders one such component and checks what it DISPLAYS,
+    // with no navigation or anything else around to re-render it by luck.
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 1,
+          email: 'a@b.com',
+          activeRole: 'admin',
+          roles: ['practitioner', 'admin'],
+        }),
+        { status: 201 },
+      ),
+    )
+    const queryClient = new QueryClient()
+    queryClient.setQueryData(currentUserQueryKey, {
+      id: 1,
+      email: 'a@b.com',
+      activeRole: 'practitioner',
+      roles: ['practitioner', 'admin'],
+    })
+
+    function RoleDisplay() {
+      const { data: user } = useCurrentUser()
+      return <p>Active role: {user?.activeRole}</p>
+    }
+    function SwitchButton() {
+      const switchRoleMutation = useSwitchRole()
+      return (
+        <button onClick={() => switchRoleMutation.mutate('admin')}>
+          Switch
+        </button>
+      )
+    }
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RoleDisplay />
+        <SwitchButton />
+      </QueryClientProvider>,
+    )
+    expect(screen.getByText('Active role: practitioner')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Switch' }))
+
+    expect(await screen.findByText('Active role: admin')).toBeInTheDocument()
   })
 })

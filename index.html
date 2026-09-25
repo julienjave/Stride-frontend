@@ -3,8 +3,43 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>stride-frontend</title>
+    <!-- viewport-fit=cover lets the page extend under a phone's rounded
+         corners and home indicator; the bottom tab bar then uses
+         env(safe-area-inset-bottom) to keep its buttons clear of them. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <title>Stride</title>
+    <!-- Pre-paint theme script. It must run BEFORE the browser first paints
+         the page: React only starts after the JS bundle has downloaded, so
+         without this a dark-mode user would see a white flash on every
+         load. A plain inline <script> in <head> blocks rendering until it
+         finishes, which is exactly what's wanted here (and it takes well
+         under a millisecond).
+
+         It deliberately duplicates src/theme/theme.ts (it can't import
+         anything — no modules have loaded yet). themeScript.test.ts runs
+         this exact script and checks it agrees with theme.ts, so the two
+         copies can't drift apart unnoticed. Keep it tiny and ES5-simple. -->
+    <script>
+      (function () {
+        // Mirrors readStoredPreference(): blocked storage counts as "no
+        // stored choice", which means follow the system.
+        var stored = null
+        try {
+          stored = localStorage.getItem('stride-theme')
+        } catch (e) {}
+        // Mirrors parseThemePreference() + resolveTheme(): anything other
+        // than an explicit 'dark' or 'light' is treated as 'system'.
+        var dark =
+          stored === 'dark' ||
+          (stored !== 'light' &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.classList.toggle('dark', dark)
+        document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

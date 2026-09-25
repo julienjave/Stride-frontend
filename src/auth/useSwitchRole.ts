@@ -12,21 +12,38 @@ export function useSwitchRole() {
   return useMutation({
     mutationFn: switchRole,
     onSuccess: (user) => {
-      // ORDER MATTERS here, and it's the opposite of an intuitive
-      // "update, then clean up" sequence:
+      // Two steps, in this order:
       //
-      // 1. clear() FIRST — wipes every cached query, including the current
-      //    one for currentUserQueryKey. This guarantees zero window where
-      //    some OTHER role-scoped query (a patient roster, an exercise
-      //    library filtered to the old role's permissions) could still be
-      //    read from cache after the switch has happened.
-      // 2. setQueryData SECOND — immediately re-seeds JUST the current-user
-      //    entry with the fresh object this response already gave us. This
-      //    avoids two problems at once: no refetch is needed (we already
-      //    have the data), AND no other component reading useCurrentUser()
-      //    ever sees an undefined/loading gap between steps 1 and 2 for
-      //    the one piece of data every guard/header depends on.
-      queryClient.clear()
+      // 1. REMOVE every cached query EXCEPT the current user's. No
+      //    role-scoped data (a patient roster, a library filtered for the
+      //    old role) may survive the switch.
+      //
+      // 2. UPDATE the current-user entry IN PLACE with the fresh object
+      //    this response already gave us — no refetch needed.
+      //
+      // Why not simply queryClient.clear() and then setQueryData (the
+      // previous version)? Because of how components watch the cache: a
+      // component calling useCurrentUser() is subscribed to one specific
+      // Query OBJECT in the cache, not to the key in the abstract.
+      // clear() throws that object away; setQueryData then creates a NEW
+      // object under the same key, which the watching components know
+      // nothing about. They stayed stuck on the discarded object — still
+      // showing the OLD role — until something happened to re-render them.
+      // That was the "header keeps showing Practitioner after switching"
+      // bug: the only thing that had been re-rendering them was the
+      // post-switch navigation, and when that got lost too, nothing did.
+      // (useSwitchRole.test.tsx reproduces it with a watching component.)
+      //
+      // Keeping the current-user Query object alive and only updating its
+      // DATA means setQueryData notifies everyone subscribed to it, right
+      // away, whatever else happens. As a bonus there's never a moment
+      // where the current user is missing from the cache at all.
+      const currentUserQuery = queryClient
+        .getQueryCache()
+        .find({ queryKey: currentUserQueryKey, exact: true })
+      queryClient.removeQueries({
+        predicate: (query) => query !== currentUserQuery,
+      })
       queryClient.setQueryData(currentUserQueryKey, user)
     },
   })
