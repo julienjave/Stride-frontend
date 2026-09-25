@@ -34,7 +34,7 @@ export function DeactivateClinicButton({ clinicId, clinicName }: DeactivateClini
     mutationFn: () => deactivateClinic(clinicId),
     onSuccess: (updated) => {
       // Same "the response IS the full authoritative state" reasoning as
-      // EditableClinicField's saves — writing it straight into the detail
+      // useSaveClinic's saves — writing it straight into the detail
       // cache means anything reading clinicQueryKey(clinicId) already
       // reflects isActive: false with no extra round trip.
       queryClient.setQueryData(clinicQueryKey(clinicId), updated)

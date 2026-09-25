@@ -67,7 +67,7 @@ describe('ClinicEditPage — loading and error states', () => {
   })
 })
 
-describe('ClinicEditPage — rendering all four editable fields', () => {
+describe('ClinicEditPage — rendering all five editable fields', () => {
   it('renders the clinic name as the heading and every editable field with its current value', async () => {
     fetchMock.mockResolvedValue(new Response(JSON.stringify(fullClinic), { status: 200 }))
     renderAt('/admin/clinics/1')
@@ -76,11 +76,21 @@ describe('ClinicEditPage — rendering all four editable fields', () => {
     expect(screen.getByText('acme@example.com')).toBeInTheDocument()
     expect(screen.getByText('555-1234')).toBeInTheDocument()
     expect(screen.getByText('https://acme.example')).toBeInTheDocument()
-    // Four editable fields (name, email, phone, website) means four
-    // independent Edit buttons — address is no longer one of them; see
-    // ClinicEditPage.tsx's own comment for why editing an existing
-    // address was deliberately deferred, not silently dropped.
-    expect(screen.getAllByRole('button', { name: 'Edit' })).toHaveLength(4)
+    // The address, formatted (country shown by name).
+    expect(screen.getByText('62704 Springfield')).toBeInTheDocument()
+    // Every field has its own Edit button, named after the field — the
+    // full list, in page order, so a missing or extra one fails.
+    expect(
+      screen
+        .getAllByRole('button', { name: /^Edit / })
+        .map((button) => button.getAttribute('aria-label')),
+    ).toEqual([
+      'Edit Clinic name',
+      'Edit Clinic email',
+      'Edit Phone',
+      'Edit Address',
+      'Edit Website',
+    ])
   })
 
   it('shows "Not set" for a field that is genuinely null', async () => {
@@ -107,24 +117,76 @@ describe('ClinicEditPage — real end-to-end edit flow', () => {
 
     expect(await screen.findByText('555-1234')).toBeInTheDocument()
 
-    // There are four "Edit" buttons (one per editable field) — phone is
-    // the third field rendered (name, email, phone, website).
-    const editButtons = screen.getAllByRole('button', { name: 'Edit' })
-    await user.click(editButtons[2])
+    await user.click(screen.getByRole('button', { name: 'Edit Phone' }))
 
     const input = screen.getByDisplayValue('555-1234')
     await user.clear(input)
     await user.type(input, '999-9999')
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
-    // This is the assertion EditableClinicField's own isolated test
-    // structurally cannot make: that the number actually shown on the
-    // page changes, driven by ClinicEditPage's useClinic() reactively
-    // picking up the setQueryData() call EditableClinicField made into
-    // the SAME cache key — real parent/child wiring through the shared
-    // query cache, not asserted on in isolation.
+    // The assertion an isolated field test structurally cannot make:
+    // that the number actually shown on the PAGE changes, driven by
+    // ClinicEditPage's useClinic() reactively picking up the
+    // setQueryData() call useSaveClinic made into the SAME cache key —
+    // real wiring through the shared query cache.
     expect(await screen.findByText('999-9999')).toBeInTheDocument()
     expect(screen.queryByText('555-1234')).not.toBeInTheDocument()
+    expect(fetchMock.mock.calls[1][1]?.body).toBe('{"phone":"999-9999"}')
+  })
+
+  it('clearing a clearable field (website) sends null — not an empty string', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify(fullClinic), { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ...fullClinic, website: null }), { status: 200 }),
+      )
+    const user = userEvent.setup()
+    renderAt('/admin/clinics/1')
+
+    await user.click(await screen.findByRole('button', { name: 'Edit Website' }))
+    await user.clear(screen.getByLabelText('Website'))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('Not set')).toBeInTheDocument()
+    expect(fetchMock.mock.calls[1][1]?.body).toBe('{"website":null}')
+  })
+
+  it('refuses to empty the clinic name, without calling the API', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(fullClinic), { status: 200 }))
+    const user = userEvent.setup()
+    renderAt('/admin/clinics/1')
+
+    await user.click(await screen.findByRole('button', { name: 'Edit Clinic name' }))
+    await user.clear(screen.getByLabelText('Clinic name'))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(screen.getByText('Clinic name is required')).toBeInTheDocument()
+    // Only the initial GET — no PATCH.
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  // New: a clinic's address used to be settable only at creation.
+  it('edits the address as one six-field PATCH, and shows the result', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify(fullClinic), { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ...fullClinic, addressLine1: '2 Acme Way' }), {
+          status: 200,
+        }),
+      )
+    const user = userEvent.setup()
+    renderAt('/admin/clinics/1')
+
+    await user.click(await screen.findByRole('button', { name: 'Edit Address' }))
+    await user.clear(screen.getByLabelText('Address line 1'))
+    await user.type(screen.getByLabelText('Address line 1'), '2 Acme Way')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('2 Acme Way')).toBeInTheDocument()
+    expect(fetchMock.mock.calls[1][1]?.body).toBe(
+      '{"addressLine1":"2 Acme Way","addressLine2":null,"addressCity":"Springfield",' +
+        '"addressState":"IL","addressPostalCode":"62704","addressCountry":"US"}',
+    )
   })
 })
 

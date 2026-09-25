@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { EditableField, ReadOnlyField } from '@/common/EditableField'
 import { formatCalendarDate } from '@/common/formatCalendarDate'
+import { requiredValue } from '@/common/requiredValue'
 import { EditableTags } from '@/common/EditableTags'
 import { EditableAddress } from '@/common/address/EditableAddress'
 import { roleLabel } from '@/auth/roleLabel'
@@ -49,13 +50,13 @@ export function ProfileFields({ user, canEditLicense }: ProfileFieldsProps) {
           label="First name"
           value={user.firstName}
           schema={firstNameSchema}
-          save={(value) => saveUser({ firstName: required(value) })}
+          save={(value) => saveUser({ firstName: requiredValue(value) })}
         />
         <EditableField
           label="Last name"
           value={user.lastName}
           schema={lastNameSchema}
-          save={(value) => saveUser({ lastName: required(value) })}
+          save={(value) => saveUser({ lastName: requiredValue(value) })}
         />
         {/* Read-only by decision (§4): email is also the login name and
             the password-reset address, so changing it gets its own flow
@@ -92,7 +93,7 @@ export function ProfileFields({ user, canEditLicense }: ProfileFieldsProps) {
                 label="License number"
                 value={user.practitionerProfile?.licenseNumber ?? null}
                 schema={requiredLicenseNumberSchema}
-                save={(value) => saveUser({ licenseNumber: required(value) })}
+                save={(value) => saveUser({ licenseNumber: requiredValue(value) })}
                 readOnlyNote={
                   canEditLicense
                     ? undefined
@@ -123,7 +124,7 @@ export function ProfileFields({ user, canEditLicense }: ProfileFieldsProps) {
               schema={requiredDateOfBirthSchema}
               inputType="date"
               formatValue={formatCalendarDate}
-              save={(value) => saveUser({ dateOfBirth: required(value) })}
+              save={(value) => saveUser({ dateOfBirth: requiredValue(value) })}
             />
           )}
         </ProfileSection>
@@ -145,21 +146,4 @@ function ProfileSection({ title, children }: { title: string; children: ReactNod
       <div className="divide-y divide-border rounded-lg border px-4">{children}</div>
     </section>
   )
-}
-
-// For NOT NULL fields. EditableField hands every `save` a `string | null`,
-// because in general a cleared field is null. These fields' schemas reject
-// '' (so EditableField shows "… is required" and never gets as far as
-// saving), which means null can't actually arrive here — but TypeScript
-// can't know that: the guarantee lives in the schema, at runtime.
-//
-// Rather than hiding the gap with a cast (`value as string`), this makes
-// the assumption explicit and LOUD: if it's ever broken (say, someone
-// swaps in a schema that accepts ''), the save fails with a clear message
-// instead of quietly sending null to the backend.
-function required(value: string | null): string {
-  if (value === null) {
-    throw new Error('This field is required and cannot be cleared')
-  }
-  return value
 }

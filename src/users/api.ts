@@ -14,7 +14,7 @@ import type { CreateUserFormValues, GrantRoleFormValues } from './schemas'
 // inactive) needs a PREFIX match across both, which would otherwise also
 // sweep up individual userQueryKey(id) entries if they shared the same
 // top-level key — the exact prefix-matching gotcha this app already hit
-// once with invalidateQueries on clinics (see EditableClinicField).
+// once with invalidateQueries on clinics (see clinics/useSaveClinic.ts).
 export function usersListQueryKey(includeInactive = false) {
   return ['users-list', includeInactive] as const
 }

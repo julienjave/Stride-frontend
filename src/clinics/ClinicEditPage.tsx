@@ -1,6 +1,9 @@
 import { useParams, Link } from 'react-router'
 import { useClinic } from './useClinic'
-import { EditableClinicField } from './EditableClinicField'
+import { EditableField } from '@/common/EditableField'
+import { EditableAddress } from '@/common/address/EditableAddress'
+import { requiredValue } from '@/common/requiredValue'
+import { useSaveClinic } from './useSaveClinic'
 import { DeactivateClinicButton } from './DeactivateClinicButton'
 import { ReactivateClinicButton } from './ReactivateClinicButton'
 import { ClinicLogoUpload } from './ClinicLogoUpload'
@@ -36,6 +39,9 @@ export function ClinicEditPage() {
 // rule against calling hooks conditionally.
 function ClinicEditView({ clinicId }: { clinicId: number }) {
   const { data: clinic, isLoading, isError } = useClinic(clinicId)
+  // What "saving" means for every field below: PATCH /clinics/:id, then
+  // update the clinic caches. Each field wraps it in its own mutation.
+  const saveClinic = useSaveClinic(clinicId)
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Loading clinic…</p>
@@ -52,44 +58,37 @@ function ClinicEditView({ clinicId }: { clinicId: number }) {
       <ClinicLogoUpload clinicId={clinicId} logoUrl={clinic.logoUrl} />
 
       <div className="divide-y divide-border rounded-lg border px-4">
-        <EditableClinicField
-          clinicId={clinicId}
-          fieldKey="name"
+        {/* name and email can't be emptied: their schemas reject '', so
+            EditableField shows "… is required" instead of saving — and
+            requiredValue() makes that assumption explicit. */}
+        <EditableField
           label="Clinic name"
           value={clinic.name}
           schema={clinicNameSchema}
+          save={(value) => saveClinic({ name: requiredValue(value) })}
         />
-        <EditableClinicField
-          clinicId={clinicId}
-          fieldKey="email"
+        <EditableField
           label="Clinic email"
           value={clinic.email}
           schema={clinicEmailSchema}
+          save={(value) => saveClinic({ email: requiredValue(value) })}
         />
-        <EditableClinicField
-          clinicId={clinicId}
-          fieldKey="phone"
+        <EditableField
           label="Phone"
           value={clinic.phone}
           schema={clinicPhoneSchema}
+          inputType="tel"
+          save={(value) => saveClinic({ phone: value })}
         />
-        {/* Editing an existing address is deliberately NOT here yet.
-            EditableClinicField's single-line-per-field pattern doesn't
-            fit a 6-field address (line1/line2/city/state/postal/country)
-            — that needs its own multi-field block component with the
-            same country-dropdown/cascading-state behavior the CREATE
-            form uses. That's real work, and it naturally belongs with
-            the Phase 3/4 profile-editing items already on the roadmap
-            (which need the exact same reusable address block), not a
-            one-off patch bolted on here. Until then, a clinic's address
-            can be set at creation time but not edited afterward through
-            this page. */}
-        <EditableClinicField
-          clinicId={clinicId}
-          fieldKey="website"
+        {/* The address block the profile page uses. It saves all six
+            parts at once — the clinic's address used to be settable only
+            at creation time. */}
+        <EditableAddress address={clinic} save={(address) => saveClinic(address)} />
+        <EditableField
           label="Website"
           value={clinic.website}
           schema={clinicWebsiteSchema}
+          save={(value) => saveClinic({ website: value })}
         />
       </div>
 

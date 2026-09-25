@@ -54,7 +54,7 @@ export function ClinicLogoUpload({ clinicId, logoUrl }: ClinicLogoUploadProps) {
     mutationFn: (file: File) => uploadClinicLogo(clinicId, file),
     onSuccess: (updated) => {
       // Same "the response IS the full authoritative new state" pattern
-      // as every other clinic mutation in this feature (EditableClinicField,
+      // as every other clinic mutation in this feature (useSaveClinic,
       // DeactivateClinicButton) — updated.logoUrl is a real, ready-to-use
       // signed URL, so writing it straight into the cache means the page
       // reflects it immediately, no extra re-fetch needed.

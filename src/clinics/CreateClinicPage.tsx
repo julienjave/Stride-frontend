@@ -37,7 +37,7 @@ export function CreateClinicPage() {
       // client-side guess. This is a distinct top-level key from
       // clinicQueryKey(id) (['clinics', id]) specifically so a prefix
       // match here can never also sweep up an unrelated already-cached
-      // clinic detail entry — see EditableClinicField's identical
+      // clinic detail entry — see useSaveClinic's identical
       // reasoning for the bug this design avoids.
       void queryClient.invalidateQueries({ queryKey: ['clinics-list'] })
       // Landing on the new clinic's own page, not back on the list —

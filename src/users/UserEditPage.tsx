@@ -1,5 +1,9 @@
 import { useParams, Link } from 'react-router'
+import { useCurrentUser } from '@/auth/useCurrentUser'
+import { roleLabel } from '@/auth/roleLabel'
+import { userRoleSchema } from '@/auth/schemas'
 import { useUser } from './useUser'
+import { ProfileFields } from './ProfileFields'
 import { UserClinicMemberships } from './UserClinicMemberships'
 import { GrantRoleForm } from './GrantRoleForm'
 import { DeactivateUserButton } from './DeactivateUserButton'
@@ -25,6 +29,7 @@ export function UserEditPage() {
 // valid number, not a conditionally-called hook needing a fallback id.
 function UserEditView({ userId }: { userId: number }) {
   const { data: user, isLoading, isError } = useUser(userId)
+  const { data: me } = useCurrentUser()
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Loading user…</p>
@@ -34,20 +39,33 @@ function UserEditView({ userId }: { userId: number }) {
     return <p className="text-sm text-destructive">Couldn't load this user.</p>
   }
 
+  // Display names in the fixed admin → practitioner → patient order, the
+  // same as the profile page.
+  const roleNames = userRoleSchema.options
+    .filter((role) => user.roles.includes(role))
+    .map(roleLabel)
+    .join(' · ')
+
   return (
-    <div className="mx-auto mt-12 max-w-sm space-y-4">
+    <div className="mx-auto mt-12 max-w-lg space-y-6 px-4 pb-8">
       <div>
         <h1 className="text-xl font-semibold">
           {user.firstName} {user.lastName}
         </h1>
-        <p className="text-sm text-muted-foreground">{user.email}</p>
-        <p className="text-sm text-muted-foreground">{user.roles.join(', ')}</p>
+        <p className="text-sm text-muted-foreground">{roleNames}</p>
       </div>
 
-      {/* Editing name/email is a separate, later roadmap item — this page
-          deliberately shows that information read-only for now, rather
-          than half-building an edit flow ahead of the pieces actually
-          being built: clinic membership and granting roles. */}
+      {/* The same editable profile as /profile (design decisions §4) —
+          this page was read-only since Phase 2, waiting for exactly this
+          shared component. Email is shown there, read-only.
+
+          canEditLicense comes from the viewer's ACTIVE role, like
+          everywhere else. RequireRole already keeps non-admins off this
+          page, but that guard is only a convenience (see RequireRole.tsx);
+          asking the real question here keeps the component honest if the
+          page is ever reused, and the backend enforces it regardless. */}
+      <ProfileFields user={user} canEditLicense={me?.activeRole === 'admin'} />
+
       <div className="rounded-lg border px-4">
         <UserClinicMemberships userId={userId} currentClinics={user.clinics} />
       </div>

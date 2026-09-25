@@ -39,7 +39,7 @@ export function EditableExerciseTitle({
       queryClient.setQueryData(exerciseQueryKey(exerciseId), updated)
       // The library's list cards also show the name — same "write the
       // detail cache directly, invalidate the list" split every other
-      // editable field in this codebase already uses (EditableClinicField
+      // editable field in this codebase already uses (useSaveClinic
       // has the identical reasoning, including why 'exercises-list' is a
       // safe prefix match: it's a distinct top-level key from
       // exerciseQueryKey(id), so this can never also invalidate the

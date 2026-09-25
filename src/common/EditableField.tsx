@@ -32,7 +32,8 @@ interface EditableFieldProps {
 }
 
 // The "view → Edit → Save / Cancel" row used on every per-field edit page.
-// Extracted from EditableClinicField, which was clinic-specific only in
+// Extracted from the former EditableClinicField (since removed — the
+// clinic page now uses this too), which was clinic-specific only in
 // the ONE line that sent the request — that line is now the `save` prop.
 export function EditableField({
   label,

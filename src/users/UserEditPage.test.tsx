@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router'
 import { UserEditPage } from './UserEditPage'
+import { currentUserQueryKey } from '@/auth/useCurrentUser'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -19,6 +21,16 @@ function urlOf(input: RequestInfo | URL): string {
 
 function renderAt(path: string) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  // The viewer: an admin (id 9 — a different person from the user being
+  // edited). The license-number rule reads the viewer's active role.
+  queryClient.setQueryData(currentUserQueryKey, {
+    id: 9,
+    firstName: 'Ada',
+    lastName: 'Admin',
+    email: 'ada@example.com',
+    activeRole: 'admin',
+    roles: ['admin'],
+  })
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[path]}>
@@ -30,14 +42,37 @@ function renderAt(path: string) {
   )
 }
 
+// A complete GET /users/:id response — the editable profile reads every
+// one of these fields.
 const fullUser = {
   id: 1,
   firstName: 'Jamie',
   lastName: 'Doe',
   email: 'jamie@example.com',
+  avatarPath: null,
+  phone: null,
+  addressLine1: null,
+  addressLine2: null,
+  addressCity: null,
+  addressState: null,
+  addressPostalCode: null,
+  addressCountry: null,
   isActive: true,
+  createdAt: '2026-09-01T00:00:00.000Z',
+  mfaEnabled: false,
   roles: ['patient'],
+  patientProfile: { dateOfBirth: '1990-01-01' },
   clinics: [{ id: 1, name: 'Acme Clinic' }],
+}
+
+const practitionerUser = {
+  ...fullUser,
+  id: 4,
+  firstName: 'Prac',
+  lastName: 'Titioner',
+  roles: ['practitioner'],
+  patientProfile: undefined,
+  practitionerProfile: { licenseNumber: 'PT-4', specialties: [], bio: null },
 }
 
 describe('UserEditPage — invalid route param', () => {
@@ -86,7 +121,8 @@ describe('UserEditPage — rendering a loaded user', () => {
 
     expect(await screen.findByRole('heading', { name: 'Jamie Doe' })).toBeInTheDocument()
     expect(screen.getByText('jamie@example.com')).toBeInTheDocument()
-    expect(screen.getByText('patient')).toBeInTheDocument()
+    // Role shown by its display name now, not the raw enum value.
+    expect(screen.getByText('Patient')).toBeInTheDocument()
     // The actual feature — UserClinicMemberships — is rendered with this
     // user's real data, not just present as an empty shell.
     expect(screen.getByText('Acme Clinic')).toBeInTheDocument()
@@ -141,5 +177,70 @@ describe('UserEditPage — rendering a loaded user', () => {
     // one labeled "Grant role" specifically confirms the RIGHT one shows
     // up, not just that some dropdown somewhere does.
     expect(await screen.findByRole('combobox', { name: 'Grant role' })).toBeInTheDocument()
+  })
+})
+
+// The page used to be read-only; it now embeds the same editable profile
+// as /profile (ProfileFields — tested in depth through ProfilePage.test).
+// These tests check the WIRING on this page: the right user, the admin's
+// license permission, and saves reaching the right URL.
+describe('UserEditPage — editing the profile', () => {
+  function fakeBackend(user: typeof fullUser | typeof practitionerUser) {
+    fetchMock.mockImplementation((input, init) => {
+      const url = urlOf(input)
+      if (url.endsWith(`/users/${user.id}`)) {
+        if (init?.method === 'PATCH') {
+          const body = JSON.parse(init.body as string) as Record<string, unknown>
+          return Promise.resolve(
+            new Response(JSON.stringify({ ...user, ...body }), { status: 200 }),
+          )
+        }
+        return Promise.resolve(new Response(JSON.stringify(user), { status: 200 }))
+      }
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }))
+    })
+  }
+
+  function patchBodies() {
+    return fetchMock.mock.calls
+      .filter(([, init]) => init?.method === 'PATCH')
+      .map(([input, init]) => [urlOf(input), init?.body])
+  }
+
+  it("shows the user's role sections with editable fields", async () => {
+    fakeBackend(fullUser)
+    renderAt('/admin/users/1')
+    expect(await screen.findByRole('region', { name: 'Patient details' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit Date of birth' })).toBeInTheDocument()
+  })
+
+  it("lets the admin edit THIS user's phone — PATCHing /users/1, not the admin's own id", async () => {
+    fakeBackend(fullUser)
+    const user = userEvent.setup()
+    renderAt('/admin/users/1')
+
+    await user.click(await screen.findByRole('button', { name: 'Edit Phone' }))
+    await user.type(screen.getByLabelText('Phone'), '555-0100')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('555-0100')).toBeInTheDocument()
+    expect(patchBodies()).toEqual([
+      [expect.stringMatching(/\/users\/1$/), '{"phone":"555-0100"}'],
+    ])
+  })
+
+  it("lets the admin change a practitioner's license number", async () => {
+    fakeBackend(practitionerUser)
+    const user = userEvent.setup()
+    renderAt('/admin/users/4')
+
+    await user.click(await screen.findByRole('button', { name: 'Edit License number' }))
+    await user.clear(screen.getByLabelText('License number'))
+    await user.type(screen.getByLabelText('License number'), 'PT-44')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(patchBodies()).toEqual([
+      [expect.stringMatching(/\/users\/4$/), '{"licenseNumber":"PT-44"}'],
+    ])
   })
 })
