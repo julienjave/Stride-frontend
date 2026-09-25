@@ -11,14 +11,17 @@ const passwordSchema = z
   .string()
   .min(8, 'Password must be at least 8 characters')
   .max(128, 'Password is too long')
-const firstNameSchema = z.string().min(1, 'First name is required').max(100, 'First name is too long')
-const lastNameSchema = z.string().min(1, 'Last name is required').max(100, 'Last name is too long')
-const phoneSchema = z.string().max(50, 'Phone number is too long')
+// Exported (the email/password ones stay private): the profile page's
+// per-field editors validate a single value against these SAME rules, so
+// "what counts as a valid phone number" is written down exactly once.
+export const firstNameSchema = z.string().min(1, 'First name is required').max(100, 'First name is too long')
+export const lastNameSchema = z.string().min(1, 'Last name is required').max(100, 'Last name is too long')
+export const phoneSchema = z.string().max(50, 'Phone number is too long')
 
 // --- ROLE-SPECIFIC FIELDS ------------------------------------------------
 
-const licenseNumberSchema = z.string().max(100, 'License number is too long')
-const bioSchema = z.string().max(2000, 'Bio is too long')
+export const licenseNumberSchema = z.string().max(100, 'License number is too long')
+export const bioSchema = z.string().max(2000, 'Bio is too long')
 // No .min(1) here — deliberately. Requiredness for THIS field is entirely
 // superRefine's job below (it's only required for patients, and needs a
 // role-aware message: "Date of birth is required for patients," not a
@@ -26,7 +29,36 @@ const bioSchema = z.string().max(2000, 'Bio is too long')
 // error first, before superRefine's custom issue ever gets a chance to —
 // exactly the bug this comment is here to prevent someone re-introducing.
 const dateOfBirthSchema = z.string()
-const positionSchema = z.string().max(100, 'Position is too long')
+export const positionSchema = z.string().max(100, 'Position is too long')
+
+// --- EDITING AN EXISTING PROFILE (one field at a time) --------------------
+
+// licenseNumber and dateOfBirth have NO .min(1) above, on purpose: in the
+// create/grant forms their requiredness depends on the chosen role, so
+// superRefine owns it (see the comment on dateOfBirthSchema). When editing
+// an existing profile there's no role choice left — the account already
+// holds the role, and the database column is NOT NULL — so the field is
+// simply required. These two add that rule on top of the shared base.
+//
+// Why it matters beyond the message: EditableField decides "can this field
+// be cleared?" by asking the schema whether '' is valid. A schema that
+// accepts '' would let the page send `null` for a NOT NULL column (the
+// backend now answers that with a 400, but the page shouldn't even try).
+export const requiredLicenseNumberSchema = licenseNumberSchema.min(1, 'License number is required')
+export const requiredDateOfBirthSchema = dateOfBirthSchema.min(1, 'Date of birth is required')
+
+// One specialty, as an item of the tag input. Mirrors UpdateUserDto's
+// `@IsString({ each: true }) @MaxLength(100, { each: true })`, plus a
+// non-empty rule (a blank tag is never meaningful). .trim() runs BEFORE
+// the length checks, so "  " counts as empty, not as two characters.
+export const specialtySchema = z
+  .string()
+  .trim()
+  .min(1, 'Enter a specialty')
+  .max(100, 'Each specialty must be 100 characters or fewer')
+
+// Mirrors UpdateUserDto's @ArrayMaxSize(20).
+export const MAX_SPECIALTIES = 20
 
 // --- THE CREATE FORM ------------------------------------------------------
 

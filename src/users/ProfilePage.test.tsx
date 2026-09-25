@@ -1,0 +1,293 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
+import { ProfilePage } from './ProfilePage'
+import { UserMenu } from '@/app/layout/UserMenu'
+import { currentUserQueryKey } from '@/auth/useCurrentUser'
+import type { User } from './types'
+
+const fetchMock = vi.fn<typeof fetch>()
+vi.stubGlobal('fetch', fetchMock)
+
+beforeEach(() => {
+  fetchMock.mockReset()
+})
+
+// A practitioner + admin account — like the dev database's
+// multirole-verify@example.com — so one fixture exercises both role
+// sections and the license-number rule.
+const multiRoleUser: User = {
+  id: 2,
+  email: 'julien@example.com',
+  firstName: 'Julien',
+  lastName: 'Martin',
+  avatarPath: null,
+  phone: '555-0100',
+  addressLine1: null,
+  addressLine2: null,
+  addressCity: null,
+  addressState: null,
+  addressPostalCode: null,
+  addressCountry: null,
+  isActive: true,
+  createdAt: '2026-09-01T00:00:00.000Z',
+  mfaEnabled: false,
+  roles: ['practitioner', 'admin'],
+  practitionerProfile: { licenseNumber: 'PT-1', specialties: ['Sports rehab'], bio: null },
+  adminProfile: { position: null },
+  clinics: [{ id: 1, name: 'Verify Clinic' }],
+}
+
+const patientUser: User = {
+  ...multiRoleUser,
+  id: 3,
+  firstName: 'Pat',
+  lastName: 'Ient',
+  roles: ['patient'],
+  practitionerProfile: undefined,
+  adminProfile: undefined,
+  patientProfile: { dateOfBirth: '1990-01-01' },
+  clinics: [],
+}
+
+function urlOf(input: RequestInfo | URL): string {
+  if (typeof input === 'string') return input
+  if (input instanceof URL) return input.toString()
+  return input.url
+}
+
+// A tiny fake backend: GET /users/:id returns the user; PATCH merges the
+// sent fields into it and returns the result — like the real
+// UsersService.update() (profile fields nested, the rest top-level).
+function fakeBackend(user: User, patchResponse?: Response) {
+  fetchMock.mockImplementation((input, init) => {
+    const url = urlOf(input)
+    if (!url.endsWith(`/users/${user.id}`)) {
+      return Promise.resolve(new Response('{}', { status: 404 }))
+    }
+    if (init?.method === 'PATCH') {
+      if (patchResponse) return Promise.resolve(patchResponse)
+      const body = JSON.parse(init.body as string) as Record<string, unknown>
+      const { licenseNumber, specialties, bio, dateOfBirth, position, ...rest } = body
+      const updated = {
+        ...user,
+        ...rest,
+        ...(user.practitionerProfile && {
+          practitionerProfile: {
+            ...user.practitionerProfile,
+            ...(licenseNumber !== undefined && { licenseNumber }),
+            ...(specialties !== undefined && { specialties }),
+            ...(bio !== undefined && { bio }),
+          },
+        }),
+        ...(user.patientProfile && {
+          patientProfile: { dateOfBirth: dateOfBirth ?? user.patientProfile.dateOfBirth },
+        }),
+        ...(user.adminProfile && {
+          adminProfile: { position: position === undefined ? user.adminProfile.position : position },
+        }),
+      }
+      return Promise.resolve(new Response(JSON.stringify(updated), { status: 200 }))
+    }
+    return Promise.resolve(new Response(JSON.stringify(user), { status: 200 }))
+  })
+}
+
+// The PATCH requests actually sent, as [url, body] pairs — the body as
+// the literal string that went over the wire.
+function patchCalls() {
+  return fetchMock.mock.calls
+    .filter(([, init]) => init?.method === 'PATCH')
+    .map(([input, init]) => [urlOf(input), init?.body])
+}
+
+// The page inside a layout that ALSO shows the account menu — so a test
+// can check what the header DISPLAYS after an edit, not just the cache.
+function renderProfile(user: User, activeRole: string) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  const { clinics: _clinics, ...me } = user
+  queryClient.setQueryData(currentUserQueryKey, { ...me, activeRole })
+  const router = createMemoryRouter(
+    [
+      {
+        element: (
+          <>
+            <UserMenu />
+            <Outlet />
+          </>
+        ),
+        children: [{ path: '/profile', element: <ProfilePage /> }],
+      },
+    ],
+    { initialEntries: ['/profile'] },
+  )
+  render(
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  )
+}
+
+// Opens a field's editor, replaces its text, and saves.
+async function editField(label: string, newValue: string) {
+  await userEvent.click(await screen.findByRole('button', { name: `Edit ${label}` }))
+  const input = screen.getByLabelText(label)
+  await userEvent.clear(input)
+  if (newValue) await userEvent.type(input, newValue)
+  await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+}
+
+function sectionNames() {
+  return screen.getAllByRole('region').map((region) => region.getAttribute('aria-labelledby'))
+}
+
+describe('ProfilePage — what it shows', () => {
+  it('shows a section for EVERY role held, in a fixed order, plus clinics', async () => {
+    fakeBackend(multiRoleUser)
+    renderProfile(multiRoleUser, 'practitioner')
+    await screen.findByRole('heading', { name: 'My profile' })
+
+    expect(sectionNames()).toEqual([
+      'profile-section-personal-details',
+      'profile-section-admin-details',
+      'profile-section-practitioner-details',
+      'profile-clinics',
+    ])
+    expect(screen.queryByRole('region', { name: 'Patient details' })).not.toBeInTheDocument()
+    expect(
+      within(screen.getByRole('region', { name: 'Clinics' })).getByText('Verify Clinic'),
+    ).toBeInTheDocument()
+  })
+
+  it('shows the email read-only', async () => {
+    fakeBackend(multiRoleUser)
+    renderProfile(multiRoleUser, 'practitioner')
+    await screen.findByText('julien@example.com')
+    expect(screen.queryByRole('button', { name: 'Edit Email' })).not.toBeInTheDocument()
+    expect(screen.getByText("Changing an email address isn't available yet.")).toBeInTheDocument()
+  })
+
+  it('shows a patient their date of birth as a readable date, and "no clinic" plainly', async () => {
+    fakeBackend(patientUser)
+    renderProfile(patientUser, 'patient')
+    // The exact text depends on the test machine's locale — asserting on
+    // the parts that don't vary.
+    expect(await screen.findByText(/1990/)).toHaveTextContent(/January|janvier/)
+    expect(screen.getByText('Not a member of any clinic')).toBeInTheDocument()
+    expect(sectionNames()).toContain('profile-section-patient-details')
+  })
+})
+
+describe('ProfilePage — license number (admin-only, decisions §4)', () => {
+  it('is read-only, with an explanation, while acting as a practitioner', async () => {
+    fakeBackend(multiRoleUser)
+    renderProfile(multiRoleUser, 'practitioner')
+    await screen.findByText('PT-1')
+    expect(screen.queryByRole('button', { name: 'Edit License number' })).not.toBeInTheDocument()
+    expect(
+      screen.getByText('Only an admin can change this. Ask your clinic admin.'),
+    ).toBeInTheDocument()
+  })
+
+  it('is editable once the same account is acting as admin', async () => {
+    fakeBackend(multiRoleUser)
+    renderProfile(multiRoleUser, 'admin')
+    await editField('License number', 'PT-NEW')
+    expect(patchCalls()).toEqual([
+      [expect.stringMatching(/\/users\/2$/), '{"licenseNumber":"PT-NEW"}'],
+    ])
+    expect(await screen.findByText('PT-NEW')).toBeInTheDocument()
+  })
+
+  it("shows the backend's 409 message under the field when the number is taken", async () => {
+    fakeBackend(
+      multiRoleUser,
+      new Response(
+        JSON.stringify({
+          statusCode: 409,
+          message: ['This license number is already registered to another practitioner'],
+          error: 'Conflict',
+          timestamp: '',
+          path: '/users/2',
+        }),
+        { status: 409 },
+      ),
+    )
+    renderProfile(multiRoleUser, 'admin')
+    await editField('License number', 'PT-TAKEN')
+    expect(
+      await screen.findByText('This license number is already registered to another practitioner'),
+    ).toBeInTheDocument()
+  })
+})
+
+describe('ProfilePage — saving', () => {
+  it('renaming yourself updates the page AND the name in the account menu', async () => {
+    fakeBackend(multiRoleUser)
+    renderProfile(multiRoleUser, 'practitioner')
+    await editField('First name', 'Julia')
+
+    expect(patchCalls()).toEqual([
+      [expect.stringMatching(/\/users\/2$/), '{"firstName":"Julia"}'],
+    ])
+    // The profile shows the new name…
+    expect(await screen.findByRole('button', { name: 'Edit First name' })).toBeInTheDocument()
+    // …and so does the header, which reads a DIFFERENT cache entry
+    // (/auth/me). The role shown there must survive the update, too.
+    const menuButton = screen.getByRole('button', { name: 'Account menu' })
+    expect(menuButton).toHaveTextContent('Julia')
+    expect(menuButton).toHaveTextContent('Practitioner')
+  })
+
+  it('clearing the phone sends null', async () => {
+    fakeBackend(multiRoleUser)
+    renderProfile(multiRoleUser, 'practitioner')
+    await editField('Phone', '')
+    expect(patchCalls()).toEqual([[expect.stringMatching(/\/users\/2$/), '{"phone":null}']])
+  })
+
+  it('saves specialties as a JSON array', async () => {
+    fakeBackend(multiRoleUser)
+    renderProfile(multiRoleUser, 'practitioner')
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit Specialties' }))
+    await userEvent.type(screen.getByLabelText('Specialties'), 'Ortho{Enter}')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(patchCalls()).toEqual([
+      [expect.stringMatching(/\/users\/2$/), '{"specialties":["Sports rehab","Ortho"]}'],
+    ])
+  })
+
+  it('saves an address as all six fields in one request', async () => {
+    fakeBackend(multiRoleUser)
+    renderProfile(multiRoleUser, 'practitioner')
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit Address' }))
+    await userEvent.type(screen.getByLabelText('Address line 1'), '1 Main St')
+    await userEvent.type(screen.getByLabelText('City'), 'Springfield')
+    await userEvent.type(screen.getByLabelText('Postal code'), '62704')
+    await userEvent.click(screen.getByRole('combobox', { name: 'Country' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Aland Islands' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(patchCalls()).toEqual([
+      [
+        expect.stringMatching(/\/users\/2$/),
+        '{"addressLine1":"1 Main St","addressLine2":null,"addressCity":"Springfield",' +
+          '"addressState":null,"addressPostalCode":"62704","addressCountry":"AX"}',
+      ],
+    ])
+    expect(await screen.findByText('62704 Springfield')).toBeInTheDocument()
+  })
+
+  it("a patient can correct their date of birth", async () => {
+    fakeBackend(patientUser)
+    renderProfile(patientUser, 'patient')
+    await editField('Date of birth', '1991-02-02')
+    expect(patchCalls()).toEqual([
+      [expect.stringMatching(/\/users\/3$/), '{"dateOfBirth":"1991-02-02"}'],
+    ])
+  })
+})

@@ -23,12 +23,26 @@ import '@testing-library/jest-dom/vitest'
 // package's exact, changeable data. Covers every real country name used
 // across the address-bearing forms' test files (United States, with
 // states including Illinois/California; Aland Islands, with none).
+//
+// getCountryByCode (added with the profile page's address display, which
+// shows a stored 'US' as "United States") looks up the SAME fixture list,
+// so the two functions can never disagree about which countries exist.
+//
+// vi.hoisted(): Vitest moves every vi.mock() call to the very top of the
+// file, above ordinary `const` declarations. A plain const used inside the
+// mock factory would therefore not exist yet if the factory ever ran that
+// early. vi.hoisted() lifts this value along with the mock, so it is
+// always defined first.
+const MOCK_COUNTRIES = vi.hoisted(() => [
+  { isoCode: 'US', name: 'United States' },
+  { isoCode: 'AX', name: 'Aland Islands' },
+])
+
 vi.mock('country-state-city', () => ({
   Country: {
-    getAllCountries: () => [
-      { isoCode: 'US', name: 'United States' },
-      { isoCode: 'AX', name: 'Aland Islands' },
-    ],
+    getAllCountries: () => MOCK_COUNTRIES,
+    getCountryByCode: (isoCode: string) =>
+      MOCK_COUNTRIES.find((country) => country.isoCode === isoCode),
   },
   State: {
     getStatesOfCountry: (countryCode: string) =>

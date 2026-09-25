@@ -17,7 +17,7 @@ import { AdminHomePage } from './AdminHomePage'
 import { PractitionerHomePage } from './PractitionerHomePage'
 import { PatientHomePage } from './PatientHomePage'
 import { ComingSoonPage } from './ComingSoonPage'
-import { MyProfilePage } from '@/users/MyProfilePage'
+import { ProfilePage } from '@/users/ProfilePage'
 import { PatientsListPage } from '@/patients/PatientsListPage'
 import { ExerciseLibraryPage } from '@/exercises/ExerciseLibraryPage'
 import { ExercisePickerPage } from '@/exercises/ExercisePickerPage'
@@ -76,9 +76,8 @@ export const router = createBrowserRouter([
           // Shared by EVERY role (design decisions §4), so it sits beside
           // the RequireRole groups rather than inside one: any logged-in
           // user may open their own profile, whatever their active role.
-          // Reached from the account menu. Still the placeholder page —
-          // the real editable profile is the next roadmap item.
-          { path: '/profile', element: <MyProfilePage /> },
+          // Reached from the account menu.
+          { path: '/profile', element: <ProfilePage /> },
           {
             // Nested one level further: authenticated AND the right role.
             // This is the pattern every future role-scoped section (admin

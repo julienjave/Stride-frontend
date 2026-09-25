@@ -1,6 +1,6 @@
 import { apiRequest } from '@/api/client'
 import { toAddressPayload } from '@/common/address/api'
-import type { User } from './types'
+import type { UpdateUserPayload, User } from './types'
 import type { CreateUserFormValues, GrantRoleFormValues } from './schemas'
 
 // --- QUERY KEYS --------------------------------------------------------
@@ -165,4 +165,14 @@ export function deactivateUser(id: number) {
 // "the response IS the full authoritative state" shape as deactivateUser.
 export function reactivateUser(id: number) {
   return apiRequest<User>(`/users/${id}/reactivate`, { method: 'POST' })
+}
+
+// PATCH /users/:id — used by every per-field editor on the profile page
+// and the admin's user page. Returns the full updated User (roles, profile
+// sections and clinics included — UsersService.update() ends with the
+// same attachProfile() call as GET /users/:id), so callers write the
+// response straight into the cache instead of fetching again. See
+// useSaveUser.ts for exactly which cache entries that touches.
+export function updateUser(id: number, payload: UpdateUserPayload) {
+  return apiRequest<User>(`/users/${id}`, { method: 'PATCH', body: payload })
 }

@@ -55,3 +55,32 @@ export interface User extends Address {
   // clinics and group by userId rather than assuming one-clinic-per-user.
   clinics: { id: number; name: string }[]
 }
+
+// The body of PATCH /users/:id — mirrors the backend's UpdateUserDto.
+// Every key is optional (a PATCH sends only what changed), but the VALUE
+// types differ on purpose, following what the database allows:
+//   - NOT NULL columns (names, licenseNumber, specialties, dateOfBirth)
+//     take a real value only. There's no way to "clear" them, and the
+//     backend answers null with a 400.
+//   - Nullable columns (phone, bio, position, every address field) also
+//     accept `null`, which is how a field is cleared. Sending '' instead
+//     would store an empty string — "we have a phone number and it's
+//     blank" — rather than "no phone number".
+// Email is deliberately absent: it can't be changed through this route
+// (design decisions §4 — its own flow, later).
+export interface UpdateUserPayload {
+  firstName?: string
+  lastName?: string
+  phone?: string | null
+  addressLine1?: string | null
+  addressLine2?: string | null
+  addressCity?: string | null
+  addressState?: string | null
+  addressPostalCode?: string | null
+  addressCountry?: string | null
+  licenseNumber?: string
+  specialties?: string[]
+  bio?: string | null
+  dateOfBirth?: string
+  position?: string | null
+}
