@@ -65,7 +65,7 @@ describe('GrantRoleForm — role-conditional fields', () => {
     await selectRole(user, 'Practitioner')
 
     expect(screen.getByLabelText('License number')).toBeInTheDocument()
-    expect(screen.getByLabelText('Specialties (optional, comma-separated)')).toBeInTheDocument()
+    expect(screen.getByLabelText('Specialties (optional)')).toBeInTheDocument()
     expect(screen.getByLabelText('Bio (optional)')).toBeInTheDocument()
     expect(screen.queryByLabelText('Date of birth')).not.toBeInTheDocument()
   })
@@ -127,6 +127,52 @@ describe('GrantRoleForm — successful submission', () => {
         exact: true,
       }),
     )
+  })
+
+  it('sends specialties as a list — a chip, plus the text still in the box', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify(['admin', 'practitioner']), { status: 201 }),
+    )
+    const user = userEvent.setup()
+    renderForm(['admin'])
+
+    await selectRole(user, 'Practitioner')
+    await user.type(screen.getByLabelText('License number'), 'LIC-999')
+    await user.type(screen.getByLabelText('Specialties (optional)'), 'Sports,Neuro')
+    await user.click(screen.getByRole('button', { name: 'Grant role' }))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    expect(fetchMock.mock.calls[0][1]?.body).toBe(
+      '{"role":"practitioner","licenseNumber":"LIC-999","specialties":["Sports","Neuro"]}',
+    )
+  })
+
+  // Inside a <form>, Enter normally submits it. In the tag box it must
+  // only add the tag (TagInput's preventDefault) — granting a role by
+  // accident, half-filled, would be a real bug.
+  it('Enter in the specialties box adds a tag, and does not submit the form', async () => {
+    const user = userEvent.setup()
+    renderForm(['admin'])
+
+    await selectRole(user, 'Practitioner')
+    await user.type(screen.getByLabelText('License number'), 'LIC-999')
+    await user.type(screen.getByLabelText('Specialties (optional)'), 'Sports{Enter}')
+
+    expect(screen.getByRole('button', { name: 'Remove Sports' })).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  // A refused entry is explained right away, on Enter — not only when the
+  // form is submitted.
+  it('explains a refused specialty as soon as Enter is pressed', async () => {
+    const user = userEvent.setup()
+    renderForm(['admin'])
+
+    await selectRole(user, 'Practitioner')
+    await user.type(screen.getByLabelText('Specialties (optional)'), 'Sports{Enter}sports{Enter}')
+
+    expect(screen.getByText('"sports" is already in the list')).toBeInTheDocument()
+    expect(screen.getByLabelText('Specialties (optional)')).toHaveValue('sports')
   })
 
   it('shows the backend error message on failure (e.g. role already held)', async () => {

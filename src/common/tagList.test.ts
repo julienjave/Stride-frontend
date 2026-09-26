@@ -1,6 +1,15 @@
 import { describe, it, expect } from 'vitest'
 import { z } from 'zod'
-import { addTag, sameTags, splitTypedText, type TagRules } from './tagList'
+import {
+  addTag,
+  commitTagText,
+  removeTagAt,
+  sameTags,
+  splitTypedText,
+  tagDraftSchema,
+  typeTagText,
+  type TagRules,
+} from './tagList'
 
 const rules: TagRules = {
   itemSchema: z.string().trim().min(1, 'Enter something').max(10, 'Too long'),
@@ -57,5 +66,80 @@ describe('sameTags', () => {
     expect(sameTags(['a', 'b'], ['a', 'b'])).toBe(true)
     expect(sameTags(['a', 'b'], ['b', 'a'])).toBe(false)
     expect(sameTags(['a'], ['a', 'b'])).toBe(false)
+  })
+})
+
+describe('typeTagText', () => {
+  it('only updates the text when there is no comma', () => {
+    expect(typeTagText({ tags: ['A'], text: 'Sp' }, 'Spo', rules)).toEqual({
+      draft: { tags: ['A'], text: 'Spo' },
+      error: null,
+    })
+  })
+
+  it('turns everything before the last comma into tags, keeping the rest in the box', () => {
+    expect(typeTagText({ tags: [], text: '' }, 'Sports, Neuro,Pe', rules)).toEqual({
+      draft: { tags: ['Sports', 'Neuro'], text: 'Pe' },
+      error: null,
+    })
+  })
+
+  // The refused entry goes back in the box, so the person can fix it;
+  // what came before it is kept, what came after it is dropped.
+  it('stops at the first refused entry, keeping it in the box with its message', () => {
+    expect(typeTagText({ tags: ['A'], text: '' }, 'B, a, C,', rules)).toEqual({
+      draft: { tags: ['A', 'B'], text: 'a' },
+      error: '"a" is already in the list',
+    })
+  })
+})
+
+describe('commitTagText', () => {
+  it('turns the typed text into a tag and empties the box', () => {
+    expect(commitTagText({ tags: ['A'], text: ' B ' }, rules)).toEqual({
+      draft: { tags: ['A', 'B'], text: '' },
+      error: null,
+    })
+  })
+
+  it('does nothing with an empty box', () => {
+    expect(commitTagText({ tags: ['A'], text: '' }, rules)).toEqual({
+      draft: { tags: ['A'], text: '' },
+      error: null,
+    })
+  })
+
+  it('keeps refused text in the box, with the message', () => {
+    expect(commitTagText({ tags: [], text: 'much too long' }, rules)).toEqual({
+      draft: { tags: [], text: 'much too long' },
+      error: 'Too long',
+    })
+  })
+})
+
+describe('removeTagAt', () => {
+  it('removes one tag by position, leaving the typed text alone', () => {
+    const draft = { tags: ['A', 'B', 'C'], text: 'D' }
+    expect(removeTagAt(draft, 1)).toEqual({ tags: ['A', 'C'], text: 'D' })
+    // A new array — the original is untouched.
+    expect(draft.tags).toEqual(['A', 'B', 'C'])
+  })
+})
+
+// What a form's submit handler receives: a plain list, with text left in
+// the box included — or a validation error, with the same message Enter
+// would have shown.
+describe('tagDraftSchema', () => {
+  const schema = tagDraftSchema(rules)
+
+  it('outputs the tags, plus any text left in the box', () => {
+    expect(schema.parse({ tags: ['A'], text: 'B' })).toEqual(['A', 'B'])
+    expect(schema.parse({ tags: [], text: '' })).toEqual([])
+  })
+
+  it("fails with the tag rule's message when the leftover text is refused", () => {
+    const result = schema.safeParse({ tags: ['A'], text: 'a' })
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0]?.message).toBe('"a" is already in the list')
   })
 })

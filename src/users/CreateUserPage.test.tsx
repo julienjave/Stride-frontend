@@ -103,7 +103,7 @@ describe('CreateUserPage — role-conditional fields', () => {
     await selectRole(user, 'Practitioner')
 
     expect(screen.getByLabelText('License number')).toBeInTheDocument()
-    expect(screen.getByLabelText('Specialties (optional, comma-separated)')).toBeInTheDocument()
+    expect(screen.getByLabelText('Specialties (optional)')).toBeInTheDocument()
     expect(screen.getByLabelText('Bio (optional)')).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Clinic' })).toBeInTheDocument()
     expect(screen.queryByLabelText('Date of birth')).not.toBeInTheDocument()
@@ -270,7 +270,10 @@ describe('CreateUserPage — successful submission payloads', () => {
     })
   })
 
-  it('sends the exact practitioner payload, splitting specialties into a trimmed array', async () => {
+  // The three ways an entry gets into the list: Enter, a comma, and text
+  // simply left in the box when the form is submitted — which counts as
+  // an entry too, rather than being silently dropped.
+  it('sends the exact practitioner payload, with specialties as a list — chips plus any text left in the box', async () => {
     mockClinicsAndUserCreation({
       id: 43,
       firstName: 'Jamie',
@@ -282,7 +285,7 @@ describe('CreateUserPage — successful submission payloads', () => {
     await selectRole(user, 'Practitioner')
     await fillCommonFields(user)
     await user.type(screen.getByLabelText('License number'), 'LIC-123')
-    await user.type(screen.getByLabelText('Specialties (optional, comma-separated)'), 'Sports,  Pediatrics ,')
+    await user.type(screen.getByLabelText('Specialties (optional)'), 'Sports{Enter} Pediatrics , Neuro')
     await selectClinic(user, 'Acme Clinic')
     await user.click(screen.getByRole('button', { name: 'Create user' }))
 
@@ -306,9 +309,28 @@ describe('CreateUserPage — successful submission payloads', () => {
       lastName: 'Doe',
       role: 'practitioner',
       licenseNumber: 'LIC-123',
-      specialties: ['Sports', 'Pediatrics'],
+      specialties: ['Sports', 'Pediatrics', 'Neuro'],
       clinicId: 1,
     })
+  })
+
+  // Text left in the box is checked by the same rules as Enter: if it
+  // would be refused, the form doesn't submit — the person sees why.
+  it('blocks the submit when the text left in the specialties box would be refused', async () => {
+    mockClinicsAndUserCreation({})
+    const user = userEvent.setup()
+    renderCreateUserPage()
+    await selectRole(user, 'Practitioner')
+    await fillCommonFields(user)
+    await user.type(screen.getByLabelText('License number'), 'LIC-123')
+    await user.type(screen.getByLabelText('Specialties (optional)'), 'Sports{Enter}sports')
+    await selectClinic(user, 'Acme Clinic')
+    await user.click(screen.getByRole('button', { name: 'Create user' }))
+
+    expect(await screen.findByText('"sports" is already in the list')).toBeInTheDocument()
+    expect(
+      fetchMock.mock.calls.some(([url, init]) => urlOf(url).includes('/users') && init?.method === 'POST'),
+    ).toBe(false)
   })
 
   it('shows a success confirmation and resets the form for the next one', async () => {

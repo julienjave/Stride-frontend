@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, useWatch, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
 import { Link } from 'react-router'
@@ -16,12 +16,22 @@ import {
 import { ApiError } from '@/api/client'
 import { useClinics } from '@/clinics/useClinics'
 import { AddressFields } from '@/common/address/AddressFields'
+import { TagListField } from '@/common/TagListField'
 import { createUser } from './api'
-import { createUserSchema, type CreateUserFormValues } from './schemas'
+import {
+  createUserSchema,
+  SPECIALTY_RULES,
+  type CreateUserFormInput,
+  type CreateUserFormValues,
+} from './schemas'
 import type { User } from './types'
 
 export function CreateUserPage() {
-  const form = useForm<CreateUserFormValues>({
+  // Three types, because the schema TRANSFORMS a value (specialties: a
+  // tag draft while typing, a string[] once submitted — see schemas.ts):
+  // what the fields hold, a context type we don't use, and what the
+  // submit handler receives after validation.
+  const form = useForm<CreateUserFormInput, unknown, CreateUserFormValues>({
     resolver: zodResolver(createUserSchema),
     defaultValues: { role: 'patient' },
     // Without this, react-hook-form's DEFAULT behavior keeps a field's
@@ -44,11 +54,15 @@ export function CreateUserPage() {
   // makes the conditional fields below actually re-render the instant the
   // person changes the dropdown — react-hook-form deliberately does NOT
   // re-render the whole form on every keystroke for performance, so
-  // without watch(), switching from "patient" to "practitioner" wouldn't
+  // without watching, switching from "patient" to "practitioner" wouldn't
   // swap which extra fields are shown until something else happened to
   // trigger a re-render.
-  const role = form.watch('role')
-  const watchedCountry = form.watch('addressCountry')
+  //
+  // useWatch rather than form.watch(): the same value, through a hook the
+  // React Compiler understands (form.watch() made it skip this component
+  // — the "incompatible library" lint warning).
+  const role = useWatch({ control: form.control, name: 'role' })
+  const watchedCountry = useWatch({ control: form.control, name: 'addressCountry' })
 
   const { data: clinics, isLoading: isLoadingClinics } = useClinics()
 
@@ -252,8 +266,25 @@ export function CreateUserPage() {
               )}
             </div>
             <div className="space-y-1">
-              <Label htmlFor="specialties">Specialties (optional, comma-separated)</Label>
-              <Input id="specialties" {...form.register('specialties')} />
+              <Label htmlFor="specialties">Specialties (optional)</Label>
+              {/* A Controller, like the role Select above: TagListField
+                  isn't a native input, so register() can't attach to it.
+                  The form holds its whole draft (chips + typed text);
+                  fieldState.error is the schema's message after a
+                  submit attempt. */}
+              <Controller
+                control={form.control}
+                name="specialties"
+                render={({ field, fieldState }) => (
+                  <TagListField
+                    id="specialties"
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={fieldState.error?.message}
+                    {...SPECIALTY_RULES}
+                  />
+                )}
+              />
             </div>
             <div className="space-y-1">
               <Label htmlFor="bio">Bio (optional)</Label>

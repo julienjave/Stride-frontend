@@ -3,7 +3,16 @@ import { useMutation } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { ApiError } from '@/api/client'
 import { TagInput } from './TagInput'
-import { addTag, sameTags, splitTypedText, type TagRules } from './tagList'
+import {
+  commitTagText,
+  EMPTY_TAG_DRAFT,
+  removeTagAt,
+  sameTags,
+  typeTagText,
+  type TagDraft,
+  type TagDraftUpdate,
+  type TagRules,
+} from './tagList'
 
 interface EditableTagsProps extends TagRules {
   label: string
@@ -25,8 +34,10 @@ export function EditableTags({
 }: EditableTagsProps) {
   const rules: TagRules = { itemSchema, maxItems }
   const [isEditing, setIsEditing] = useState(false)
-  const [tags, setTags] = useState<string[]>([])
-  const [text, setText] = useState('')
+  // The chips and the typed text, as one value — see TagDraft. Every
+  // editing rule (commas, duplicates, the maximum…) lives in tagList.ts
+  // and is shared with TagListField, the version used inside forms.
+  const [draft, setDraft] = useState<TagDraft>(EMPTY_TAG_DRAFT)
   const [error, setError] = useState<string | null>(null)
   const inputId = useId()
 
@@ -39,67 +50,28 @@ export function EditableTags({
   function startEditing() {
     // A COPY of the stored list: edits happen on the copy, and Cancel
     // simply throws it away.
-    setTags([...values])
-    setText('')
+    setDraft({ tags: [...values], text: '' })
     setError(null)
     mutation.reset()
     setIsEditing(true)
   }
 
-  // Adds each entry in turn, stopping at the first one that's refused.
-  // Entries accepted before that point are kept (`tags`), and `failed`
-  // tells the caller to leave the refused text in the box, with its
-  // message on screen, for the person to fix.
-  function commitEntries(
-    current: string[],
-    entries: string[],
-  ): { tags: string[]; failed: boolean } {
-    let next = current
-    for (const entry of entries) {
-      const result = addTag(next, entry, rules)
-      if (!result.ok) {
-        setError(result.error)
-        setText(entry.trim())
-        return { tags: next, failed: true }
-      }
-      next = result.tags
-    }
-    return { tags: next, failed: false }
-  }
-
-  function handleTextChange(newText: string) {
-    setError(null)
-    // A comma finishes an entry (typed, or several in a paste).
-    const { complete, rest } = splitTypedText(newText)
-    if (complete.length === 0) {
-      setText(newText)
-      return
-    }
-    const { tags: next, failed } = commitEntries(tags, complete)
-    setTags(next)
-    if (!failed) setText(rest)
-  }
-
-  function handleCommit() {
-    const { tags: next, failed } = commitEntries(tags, [text])
-    setTags(next)
-    if (!failed) setText('')
-  }
-
-  function handleRemove(index: number) {
-    setError(null)
-    // filter() builds a new array without that one entry.
-    setTags(tags.filter((_, position) => position !== index))
+  // Every editing step returns the next draft plus an error (or null);
+  // this applies both. A refused entry keeps its text in the box, with
+  // the message on screen, for the person to fix.
+  function apply(update: TagDraftUpdate) {
+    setDraft(update.draft)
+    setError(update.error)
   }
 
   function submit(event: FormEvent) {
     event.preventDefault()
     // Text typed but never confirmed with Enter or a comma is still what
     // the person meant to add — include it rather than silently drop it.
-    const { tags: finalTags, failed } = commitEntries(tags, [text])
-    if (failed) return
-    setTags(finalTags)
-    setText('')
+    const update = commitTagText(draft, rules)
+    apply(update)
+    if (update.error) return
+    const finalTags = update.draft.tags
 
     if (sameTags(finalTags, values)) {
       setIsEditing(false)
@@ -156,11 +128,11 @@ export function EditableTags({
       </label>
       <TagInput
         id={inputId}
-        tags={tags}
-        text={text}
-        onTextChange={handleTextChange}
-        onCommit={handleCommit}
-        onRemove={handleRemove}
+        tags={draft.tags}
+        text={draft.text}
+        onTextChange={(text) => apply(typeTagText(draft, text, rules))}
+        onCommit={() => apply(commitTagText(draft, rules))}
+        onRemove={(index) => apply({ draft: removeTagAt(draft, index), error: null })}
         invalid={!!errorMessage}
         disabled={mutation.isPending}
         placeholder="Type, then press Enter"

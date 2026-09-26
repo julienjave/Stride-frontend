@@ -1,4 +1,4 @@
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, useWatch, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
@@ -12,8 +12,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ApiError } from '@/api/client'
+import { TagListField } from '@/common/TagListField'
 import { grantRole, userQueryKey } from './api'
-import { grantRoleSchema, type GrantRoleFormValues } from './schemas'
+import {
+  grantRoleSchema,
+  SPECIALTY_RULES,
+  type GrantRoleFormInput,
+  type GrantRoleFormValues,
+} from './schemas'
 
 const ALL_ROLES: { value: 'patient' | 'practitioner' | 'admin'; label: string }[] = [
   { value: 'patient', label: 'Patient' },
@@ -61,7 +67,8 @@ function GrantRoleFormView({
   availableRoles: typeof ALL_ROLES
 }) {
   const queryClient = useQueryClient()
-  const form = useForm<GrantRoleFormValues>({
+  // Input vs submitted types — see CreateUserPage.
+  const form = useForm<GrantRoleFormInput, unknown, GrantRoleFormValues>({
     resolver: zodResolver(grantRoleSchema),
     defaultValues: { role: availableRoles[0].value },
     // Same reasoning as CreateUserPage: without this, a field's value
@@ -71,7 +78,8 @@ function GrantRoleFormView({
     // even visible anymore.
     shouldUnregister: true,
   })
-  const role = form.watch('role')
+  // useWatch, not form.watch() — see CreateUserPage.
+  const role = useWatch({ control: form.control, name: 'role' })
 
   const grantRoleMutation = useMutation({
     mutationFn: (values: GrantRoleFormValues) => grantRole(userId, values),
@@ -125,8 +133,21 @@ function GrantRoleFormView({
             )}
           </div>
           <div className="space-y-1">
-            <Label htmlFor="grant-specialties">Specialties (optional, comma-separated)</Label>
-            <Input id="grant-specialties" {...form.register('specialties')} />
+            <Label htmlFor="grant-specialties">Specialties (optional)</Label>
+            {/* Same wiring as CreateUserPage's specialties. */}
+            <Controller
+              control={form.control}
+              name="specialties"
+              render={({ field, fieldState }) => (
+                <TagListField
+                  id="grant-specialties"
+                  value={field.value}
+                  onChange={field.onChange}
+                  error={fieldState.error?.message}
+                  {...SPECIALTY_RULES}
+                />
+              )}
+            />
           </div>
           <div className="space-y-1">
             <Label htmlFor="grant-bio">Bio (optional)</Label>

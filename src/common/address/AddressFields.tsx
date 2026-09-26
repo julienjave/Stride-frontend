@@ -24,8 +24,18 @@ import type { AddressFormValues } from './schemas'
 // the list itself never changes during the app's lifetime.
 const ALL_COUNTRIES = Country.getAllCountries()
 
-interface AddressFieldsProps<TFieldValues extends FieldValues & AddressFormValues> {
-  control: Control<TFieldValues>
+// TTransformedValues: what the form's submit handler receives AFTER its
+// schema ran. For most forms it's the same type as the form's values (the
+// default below), but a schema with a .transform() makes them differ —
+// CreateUserPage's specialties are a tag draft while typing, a string[]
+// on submit. react-hook-form carries that second type inside `control`,
+// so a component that receives `control` has to accept it too. This
+// component never looks at submitted values; it only passes the type on.
+interface AddressFieldsProps<
+  TFieldValues extends FieldValues & AddressFormValues,
+  TTransformedValues = TFieldValues,
+> {
+  control: Control<TFieldValues, unknown, TTransformedValues>
   register: UseFormRegister<TFieldValues>
   errors: FieldErrors<TFieldValues>
   // watchedCountry drives which states/provinces (if any) the second
@@ -39,12 +49,10 @@ interface AddressFieldsProps<TFieldValues extends FieldValues & AddressFormValue
 // this is what lets ONE component serve CreateClinicPage, CreateUserPage,
 // RegisterPage, and RegisterClinicPage, each with their own, larger form
 // shape, rather than four near-identical copies of this same JSX.
-export function AddressFields<TFieldValues extends FieldValues & AddressFormValues>({
-  control,
-  register,
-  errors,
-  watchedCountry,
-}: AddressFieldsProps<TFieldValues>) {
+export function AddressFields<
+  TFieldValues extends FieldValues & AddressFormValues,
+  TTransformedValues = TFieldValues,
+>({ control, register, errors, watchedCountry }: AddressFieldsProps<TFieldValues, TTransformedValues>) {
   // Recomputed only when the selected country actually changes, not on
   // every keystroke elsewhere in the form.
   const statesForCountry = useMemo(

@@ -92,16 +92,12 @@ export function createUser(values: CreateUserFormValues) {
       // test fixture for no benefit.
       ...(role === 'practitioner' && {
         licenseNumber,
-        // The form collects this as one comma-separated text input, not
-        // a real multi-value control — split, trim each piece, and drop
-        // any empty strings a trailing/double comma would otherwise leave
-        // behind (e.g. "Sports, , Pediatrics," → ["Sports", "Pediatrics"]).
-        specialties: specialties
-          ? specialties
-              .split(',')
-              .map((specialty) => specialty.trim())
-              .filter((specialty) => specialty !== '')
-          : undefined,
+        // Already a clean list — the form's schema (tagDraftSchema) did
+        // the trimming, checking and adding of leftover text. `undefined`
+        // when the box was never touched, so JSON.stringify leaves it out;
+        // [] if tags were added then removed, which the backend stores
+        // exactly like its default (an empty list).
+        specialties,
         bio: emptyToUndefined(bio),
       }),
       ...(role === 'patient' && { dateOfBirth }),
@@ -135,12 +131,8 @@ export function grantRole(userId: number, values: GrantRoleFormValues) {
       role,
       ...(role === 'practitioner' && {
         licenseNumber,
-        specialties: specialties
-          ? specialties
-              .split(',')
-              .map((specialty) => specialty.trim())
-              .filter((specialty) => specialty !== '')
-          : undefined,
+        // Same as createUser above.
+        specialties,
         bio: emptyToUndefined(bio),
       }),
       ...(role === 'patient' && { dateOfBirth }),

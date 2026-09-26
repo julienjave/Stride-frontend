@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { userRoleSchema } from '@/auth/schemas'
 import { addressObjectShape, addAddressIssues } from '@/common/address/schemas'
+import { tagDraftSchema, type TagRules } from '@/common/tagList'
 
 // --- BASE FIELDS (every role needs these) -------------------------------
 
@@ -57,8 +58,24 @@ export const specialtySchema = z
   .min(1, 'Enter a specialty')
   .max(100, 'Each specialty must be 100 characters or fewer')
 
-// Mirrors UpdateUserDto's @ArrayMaxSize(20).
+// Mirrors @ArrayMaxSize(20) — the same on CreateUserDto, GrantRoleDto and
+// UpdateUserDto.
 export const MAX_SPECIALTIES = 20
+
+// The two rules above as one object, in the shape the tag components and
+// tagDraftSchema take — so every place specialties are entered (profile,
+// create user, grant role) applies exactly the same rules.
+export const SPECIALTY_RULES: TagRules = {
+  itemSchema: specialtySchema,
+  maxItems: MAX_SPECIALTIES,
+}
+
+// Specialties inside the create/grant forms: the form holds the tag
+// input's whole draft (chips + unconfirmed text), and this turns it into
+// the string[] sent to the API — including any text left in the box.
+// .optional(): the field only exists while "practitioner" is selected
+// (shouldUnregister drops it otherwise).
+const specialtiesDraftSchema = tagDraftSchema(SPECIALTY_RULES).optional()
 
 // --- THE CREATE FORM ------------------------------------------------------
 
@@ -84,7 +101,7 @@ const baseObjectSchema = z.object({
   phone: phoneSchema.optional(),
   ...addressObjectShape,
   licenseNumber: licenseNumberSchema.optional(),
-  specialties: z.string().optional(), // raw comma-separated input; split into an array in api.ts, not here
+  specialties: specialtiesDraftSchema,
   bio: bioSchema.optional(),
   dateOfBirth: dateOfBirthSchema.optional(),
   position: positionSchema.optional(),
@@ -158,6 +175,13 @@ export const createUserSchema = baseObjectSchema.superRefine((data, ctx) => {
   addAddressIssues(data, ctx)
 })
 
+// Two types, because the specialties transform makes them differ:
+//   - the INPUT is what the form holds while it's being filled in
+//     (specialties as a TagDraft — chips plus typed text);
+//   - the OUTPUT (z.infer) is what the submit handler receives after
+//     validation (specialties as a plain string[]).
+// useForm takes both (see CreateUserPage).
+export type CreateUserFormInput = z.input<typeof createUserSchema>
 export type CreateUserFormValues = z.infer<typeof createUserSchema>
 
 // --- GRANTING AN ADDITIONAL ROLE TO AN EXISTING USER ---------------------
@@ -173,7 +197,7 @@ export type CreateUserFormValues = z.infer<typeof createUserSchema>
 const grantRoleBaseSchema = z.object({
   role: userRoleSchema,
   licenseNumber: licenseNumberSchema.optional(),
-  specialties: z.string().optional(),
+  specialties: specialtiesDraftSchema,
   bio: bioSchema.optional(),
   dateOfBirth: dateOfBirthSchema.optional(),
   position: positionSchema.optional(),
@@ -196,4 +220,6 @@ export const grantRoleSchema = grantRoleBaseSchema.superRefine((data, ctx) => {
   }
 })
 
+// Input vs output — same reason as CreateUserFormInput above.
+export type GrantRoleFormInput = z.input<typeof grantRoleSchema>
 export type GrantRoleFormValues = z.infer<typeof grantRoleSchema>

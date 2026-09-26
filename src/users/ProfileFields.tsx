@@ -11,12 +11,11 @@ import {
   bioSchema,
   firstNameSchema,
   lastNameSchema,
-  MAX_SPECIALTIES,
   phoneSchema,
   positionSchema,
   requiredDateOfBirthSchema,
   requiredLicenseNumberSchema,
-  specialtySchema,
+  SPECIALTY_RULES,
 } from './schemas'
 import type { User } from './types'
 
@@ -103,8 +102,7 @@ export function ProfileFields({ user, canEditLicense }: ProfileFieldsProps) {
               <EditableTags
                 label="Specialties"
                 values={user.practitionerProfile?.specialties ?? []}
-                itemSchema={specialtySchema}
-                maxItems={MAX_SPECIALTIES}
+                {...SPECIALTY_RULES}
                 save={(specialties) => saveUser({ specialties })}
               />
               <EditableField
