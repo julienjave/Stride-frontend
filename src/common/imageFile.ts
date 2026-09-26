@@ -6,12 +6,12 @@ import { z } from 'zod'
 // projects with no shared code — so a change on one side needs the other
 // updated by hand.
 //
-// Why it lives in common/: the same rule was already copied twice, in
-// clinics/schemas.ts (logos) and exercises/schemas.ts (photos). Avatars
-// would have been the third copy; three copies of one rule is the point
-// where one shared definition pays for itself ("rule of three"). The two
-// older copies can switch to this one when those files are next touched
-// (noted in deferred-improvements.md).
+// Why it lives in common/: clinic logos, exercise photos and avatars all
+// upload through the backend's same imageUploadOptions. The rule used to
+// be copied into clinics/schemas.ts and exercises/schemas.ts; with avatars
+// it would have been a third copy — the point where one shared definition
+// pays for itself ("rule of three"). All three features now read it from
+// here, so a change to the backend rule means one frontend edit.
 export const ALLOWED_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 export const MAX_IMAGE_FILE_SIZE_BYTES = 5 * 1024 * 1024
 

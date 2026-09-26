@@ -26,6 +26,7 @@ import {
   removeExerciseImage,
 } from './api'
 import { validateExerciseImageFiles } from './schemas'
+import { IMAGE_FILE_ACCEPT } from '@/common/imageFile'
 import { SortableExerciseImage } from './SortableExerciseImage'
 import { computeReorderedKeys } from './exerciseImageReorder'
 import type { ExerciseDetail } from './types'
@@ -233,7 +234,7 @@ function ExercisePhotosView({ exerciseId }: { exerciseId: number }) {
         <Input
           ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          accept={IMAGE_FILE_ACCEPT}
           multiple
           className="hidden"
           onChange={handleFileInputChange}

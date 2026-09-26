@@ -133,7 +133,7 @@ describe('ClinicLogoUpload — client-side validation', () => {
     // by default — which would make this test pass for the wrong reason
     // (no error shown because no file was "selected" at all, not because
     // our own validation caught it). Disabling it here exercises our
-    // actual clinicLogoFileSchema check, which matters as a second layer:
+    // actual imageFileSchema check, which matters as a second layer:
     // `accept` is only advisory — some OS file pickers still offer an
     // "All Files" option that bypasses it entirely.
     const user = userEvent.setup({ applyAccept: false })
@@ -228,5 +228,46 @@ describe('ClinicLogoUpload — a failed upload', () => {
     expect(
       await screen.findByText('Only JPEG, PNG, and WebP images are allowed'),
     ).toBeInTheDocument()
+  })
+})
+
+describe('ClinicLogoUpload — the preview after a failed upload', () => {
+  // Regression coverage: the preview used to be released only on success,
+  // so after a failure the picked file stayed on screen next to the error,
+  // looking as if it had been saved.
+  it('drops the preview and goes back to the stored logo (here: none)', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ statusCode: 500, message: ['Upload broke'] }), {
+        status: 500,
+      }),
+    )
+    const user = userEvent.setup()
+    renderUpload(null)
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    await user.upload(input, makeFile('logo.png', 'image/png', 1000))
+
+    expect(await screen.findByText('Upload broke')).toBeInTheDocument()
+    expect(screen.queryByRole('img', { name: 'Clinic logo' })).not.toBeInTheDocument()
+    expect(screen.getByText('No logo')).toBeInTheDocument()
+  })
+
+  it('keeps showing the previously saved logo, not the failed one', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ statusCode: 500, message: ['Upload broke'] }), {
+        status: 500,
+      }),
+    )
+    const user = userEvent.setup()
+    renderUpload('https://storage.example.com/signed/logo.png')
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    await user.upload(input, makeFile('logo.png', 'image/png', 1000))
+
+    expect(await screen.findByText('Upload broke')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Clinic logo' })).toHaveAttribute(
+      'src',
+      'https://storage.example.com/signed/logo.png',
+    )
   })
 })

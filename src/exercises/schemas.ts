@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { ALLOWED_IMAGE_MIME_TYPES, MAX_IMAGE_FILE_SIZE_BYTES } from '@/common/imageFile'
 
 // useFieldArray (React Hook Form) requires each array entry to be an
 // OBJECT with a stable identity, not a bare string — RHF generates its
@@ -54,16 +55,11 @@ export type CreateExerciseFormValues = z.infer<typeof createExerciseSchema>
 
 // --- IMAGE UPLOAD VALIDATION ---------------------------------------------
 
-// Mirrors the backend's imageUploadOptions (common/config/image-upload.
-// config.ts) exactly — same MIME types, same 5MB-per-file limit. Defined
-// locally here rather than importing from clinics/schemas.ts (which has
-// its own near-identical clinicLogoFileSchema/constants): same
-// established convention as the User/CurrentUser type duplication
-// elsewhere in this codebase — separate feature folders, a small,
-// acknowledged duplication rather than a cross-cutting shared-file
-// refactor for two constants.
-const ALLOWED_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
-const MAX_IMAGE_FILE_SIZE_BYTES = 5 * 1024 * 1024
+// The accepted types and the 5MB limit come from the ONE shared copy of
+// the backend's image-upload rule, src/common/imageFile.ts (also used by
+// clinic logos and avatars). This schema is its own, rather than
+// imageFileSchema itself, only for its wording: photos are picked
+// several at a time here, so the size message says "Each image…".
 
 // Matches the backend's FilesInterceptor("files", 5, ...) cap exactly
 // (exercises.controller.ts) — enforced here too so a rejection is

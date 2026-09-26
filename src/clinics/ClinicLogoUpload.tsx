@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ApiError } from '@/api/client'
 import { uploadClinicLogo, removeClinicLogo, clinicQueryKey } from './api'
-import { clinicLogoFileSchema } from './schemas'
+import { IMAGE_FILE_ACCEPT, imageFileSchema } from '@/common/imageFile'
 import type { Clinic } from './types'
 
 interface ClinicLogoUploadProps {
@@ -59,11 +59,17 @@ export function ClinicLogoUpload({ clinicId, logoUrl }: ClinicLogoUploadProps) {
       // signed URL, so writing it straight into the cache means the page
       // reflects it immediately, no extra re-fetch needed.
       applyUpdatedClinic(updated)
-      // The upload succeeded, so the real logoUrl now in the cache above
-      // is the correct thing to show going forward — the temporary local
-      // preview has done its job and should be released.
-      revokePreview()
     },
+    // onSettled runs after success OR failure, and the local preview has
+    // to go in both cases:
+    // - success: the real logoUrl is now in the cache, so the page shows
+    //   the saved logo instead;
+    // - failure: the logo was NOT saved, so continuing to show the picked
+    //   file next to the error message would suggest it had been. The
+    //   page goes back to the logo that's really stored.
+    // (This used to be onSuccess only, which left the unsaved preview on
+    // screen after a failed upload.)
+    onSettled: revokePreview,
   })
 
   const removeMutation = useMutation({
@@ -97,7 +103,7 @@ export function ClinicLogoUpload({ clinicId, logoUrl }: ClinicLogoUploadProps) {
 
     if (!file) return
 
-    const result = clinicLogoFileSchema.safeParse(file)
+    const result = imageFileSchema.safeParse(file)
     if (!result.success) {
       setValidationError(result.error.issues[0]?.message ?? 'Invalid file')
       return
@@ -168,7 +174,7 @@ export function ClinicLogoUpload({ clinicId, logoUrl }: ClinicLogoUploadProps) {
           <Input
             ref={fileInputRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept={IMAGE_FILE_ACCEPT}
             className="hidden"
             onChange={handleFileChange}
           />
