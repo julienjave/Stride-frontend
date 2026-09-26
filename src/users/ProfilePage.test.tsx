@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
@@ -23,7 +23,7 @@ const multiRoleUser: User = {
   email: 'julien@example.com',
   firstName: 'Julien',
   lastName: 'Martin',
-  avatarPath: null,
+  avatarUrl: null,
   phone: '555-0100',
   addressLine1: null,
   addressLine2: null,
@@ -147,12 +147,13 @@ function sectionNames() {
 }
 
 describe('ProfilePage — what it shows', () => {
-  it('shows a section for EVERY role held, in a fixed order, plus clinics', async () => {
+  it('shows the photo, a section for EVERY role held in a fixed order, and clinics', async () => {
     fakeBackend(multiRoleUser)
     renderProfile(multiRoleUser, 'practitioner')
     await screen.findByRole('heading', { name: 'My profile' })
 
     expect(sectionNames()).toEqual([
+      'profile-photo',
       'profile-section-personal-details',
       'profile-section-admin-details',
       'profile-section-practitioner-details',
@@ -290,5 +291,33 @@ describe('ProfilePage — saving', () => {
     expect(patchCalls()).toEqual([
       [expect.stringMatching(/\/users\/3$/), '{"dateOfBirth":"1991-02-02"}'],
     ])
+  })
+})
+
+describe('ProfilePage — photo', () => {
+  // The avatar in the account menu reads the /auth/me cache entry, not the
+  // profile's GET /users/:id entry. This checks the whole chain on the
+  // real page: upload → response → applyUpdatedUser() → the HEADER shows
+  // the new photo, with the active role still under the name.
+  it('uploading your own photo shows it in the account menu, too', async () => {
+    const newUrl = 'https://storage.example.com/signed/avatars/2/new.png'
+    fetchMock.mockImplementation((input, init) => {
+      const url = urlOf(input)
+      if (url.endsWith('/users/2/avatar') && init?.method === 'POST') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ ...multiRoleUser, avatarUrl: newUrl }), { status: 201 }),
+        )
+      }
+      return Promise.resolve(new Response(JSON.stringify(multiRoleUser), { status: 200 }))
+    })
+    renderProfile(multiRoleUser, 'practitioner')
+    await screen.findByRole('button', { name: 'Upload photo' })
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    await userEvent.upload(input, new File(['x'], 'me.png', { type: 'image/png' }))
+
+    const menuButton = screen.getByRole('button', { name: 'Account menu' })
+    await waitFor(() => expect(menuButton.querySelector('img')).toHaveAttribute('src', newUrl))
+    expect(menuButton).toHaveTextContent('Practitioner')
   })
 })

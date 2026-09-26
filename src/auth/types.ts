@@ -14,13 +14,17 @@ export interface CurrentUser extends Address {
   email: string
   firstName: string
   lastName: string
-  avatarPath: string | null
+  // Same field as User.avatarUrl (see users/types.ts). Worth knowing here
+  // specifically: this object is cached for the whole tab's life and
+  // never refetched, so after 24 hours this URL can be expired. UserAvatar
+  // falls back to initials when that happens.
+  avatarUrl: string | null
   isActive: boolean
   createdAt: string
   mfaEnabled: boolean
   roles: string[]
   activeRole: string
-  // Nullable, not optional (`| null`, not `?`) — matches how avatarPath is
+  // Nullable, not optional (`| null`, not `?`) — matches how avatarUrl is
   // already modeled above. The distinction matters: an optional key (`?`)
   // means the backend might not even send the property; `| null` means
   // the property is always present, but its value might genuinely be

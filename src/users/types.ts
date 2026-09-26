@@ -18,17 +18,17 @@ import type { WeightUnit } from '@/common/weight'
 // (this project's established structure), so reaching across that
 // boundary to share a base type is a bigger refactor than this feature
 // needs — a small, acknowledged duplication is the lower-risk choice here.
-//
-// avatarPath stays a raw internal storage key for now, NOT a presigned
-// URL — unlike Clinic.logoUrl, this hasn't been converted yet. That's a
-// deliberate, separate, later piece of work (see the roadmap's Phase 6
-// avatar-upload item), not an oversight here.
 export interface User extends Address {
   id: number
   email: string
   firstName: string
   lastName: string
-  avatarPath: string | null
+  // A ready-to-load presigned image URL, or null when the user has no
+  // photo — the same convention as Clinic.logoUrl. The backend never sends
+  // the raw storage key (it converts it in UsersService.toPublic()). The
+  // URL expires after 24 hours, which is why anything that displays it
+  // must cope with it failing to load — see UserAvatar.
+  avatarUrl: string | null
   phone: string | null
   isActive: boolean
   createdAt: string

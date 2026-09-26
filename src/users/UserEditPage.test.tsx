@@ -49,7 +49,7 @@ const fullUser = {
   firstName: 'Jamie',
   lastName: 'Doe',
   email: 'jamie@example.com',
-  avatarPath: null,
+  avatarUrl: null,
   phone: null,
   addressLine1: null,
   addressLine2: null,
@@ -242,5 +242,34 @@ describe('UserEditPage — editing the profile', () => {
     expect(patchBodies()).toEqual([
       [expect.stringMatching(/\/users\/4$/), '{"licenseNumber":"PT-44"}'],
     ])
+  })
+})
+
+describe('UserEditPage — photo', () => {
+  it("lets the admin remove THIS user's photo — DELETE /users/1/avatar, not the admin's own id", async () => {
+    const withPhoto = {
+      ...fullUser,
+      avatarUrl: 'https://storage.example.com/signed/avatars/1/a.png',
+    }
+    fetchMock.mockImplementation((input, init) => {
+      const url = urlOf(input)
+      if (url.endsWith('/users/1/avatar') && init?.method === 'DELETE') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ ...withPhoto, avatarUrl: null }), { status: 200 }),
+        )
+      }
+      if (url.includes('/users/1')) {
+        return Promise.resolve(new Response(JSON.stringify(withPhoto), { status: 200 }))
+      }
+      return Promise.resolve(new Response('[]', { status: 200 }))
+    })
+    renderAt('/admin/users/1')
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Remove photo' }))
+
+    expect(await screen.findByRole('button', { name: 'Upload photo' })).toBeInTheDocument()
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init?.method === 'DELETE').map(([input]) => urlOf(input)),
+    ).toEqual([expect.stringMatching(/\/users\/1\/avatar$/)])
   })
 })

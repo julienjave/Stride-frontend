@@ -1,9 +1,9 @@
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { roleLabel } from '@/auth/roleLabel'
 import { userRoleSchema } from '@/auth/schemas'
-import { UserAvatar } from '@/common/UserAvatar'
 import { useUser } from './useUser'
 import { ProfileFields } from './ProfileFields'
+import { AvatarUpload } from './AvatarUpload'
 
 // /profile — the logged-in user's own profile, for every role (design
 // decisions §4). Reached from the account menu.
@@ -49,17 +49,16 @@ function ProfileView({ userId, activeRole }: { userId: number; activeRole: strin
 
   return (
     <div className="mx-auto mt-8 max-w-lg space-y-6 px-4 pb-8">
-      <div className="flex items-center gap-3">
-        <UserAvatar
-          firstName={user.firstName}
-          lastName={user.lastName}
-          className="size-12 text-sm"
-        />
-        <div>
-          <h1 className="text-xl font-semibold">My profile</h1>
-          <p className="text-sm text-muted-foreground">{roleNames}</p>
-        </div>
+      <div>
+        <h1 className="text-xl font-semibold">My profile</h1>
+        <p className="text-sm text-muted-foreground">{roleNames}</p>
       </div>
+
+      {/* The photo, with its Upload/Change/Remove buttons. It replaces the
+          plain avatar this header used to show — one avatar per page, and
+          it's the one you can act on. Your own photo is always yours to
+          change, whatever your role. */}
+      <AvatarUpload user={user} />
 
       {/* Only an admin may change a license number (§4). On your OWN
           profile that means: while your ACTIVE role is admin — the same

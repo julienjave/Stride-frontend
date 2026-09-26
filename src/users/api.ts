@@ -168,3 +168,32 @@ export function reactivateUser(id: number) {
 export function updateUser(id: number, payload: UpdateUserPayload) {
   return apiRequest<User>(`/users/${id}`, { method: 'PATCH', body: payload })
 }
+
+// POST /users/:id/avatar — the user themselves or an admin (the backend
+// answers anyone else with a 403). The file goes as multipart/form-data
+// under the field name "file", the name the backend's
+// FileInterceptor('file', …) reads — same as uploadClinicLogo().
+//
+// No Content-Type header is set here: given a FormData body, the browser
+// writes the header itself, INCLUDING the random "boundary" string that
+// separates the parts. A hand-written 'multipart/form-data' would lack it
+// and the backend couldn't parse the body (see client.ts).
+//
+// Returns the full updated User, with its new avatarUrl — so the caller
+// writes it straight into the cache, like a PATCH (see userCache.ts).
+export function uploadAvatar(id: number, file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  return apiRequest<User>(`/users/${id}/avatar`, {
+    method: 'POST',
+    body: formData,
+  })
+}
+
+// DELETE /users/:id/avatar — same who-may rule as uploadAvatar. Returns the
+// full updated User (avatarUrl: null). Idempotent on the backend: removing
+// a photo that isn't there is a success, not an error.
+export function removeAvatar(id: number) {
+  return apiRequest<User>(`/users/${id}/avatar`, { method: 'DELETE' })
+}

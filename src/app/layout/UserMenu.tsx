@@ -67,6 +67,7 @@ export function UserMenu() {
         <UserAvatar
           firstName={user.firstName}
           lastName={user.lastName}
+          avatarUrl={user.avatarUrl}
           className="size-8 text-xs"
         />
         {/* Name with the ACTIVE ROLE as text under it (§1), rather than a

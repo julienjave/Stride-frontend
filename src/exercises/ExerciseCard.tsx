@@ -20,7 +20,8 @@ export function ExerciseCard({ exercise, href }: ExerciseCardProps) {
       {/* A placeholder icon, not a real thumbnail, for every card
           regardless of whether mediaUrls is populated — mediaUrls
           stores raw storage keys, not usable URLs (no presigned-URL
-          conversion exists for exercises yet, same gap avatarPath has).
+          conversion exists for exercises yet; avatars and clinic logos
+          have one, exercises are still to do).
           Real thumbnails are the roadmap's own separate 🟡 "Exercise
           image upload" item, not part of this browse pass. */}
       <div

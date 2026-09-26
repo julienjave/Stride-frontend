@@ -4,6 +4,7 @@ import { roleLabel } from '@/auth/roleLabel'
 import { userRoleSchema } from '@/auth/schemas'
 import { useUser } from './useUser'
 import { ProfileFields } from './ProfileFields'
+import { AvatarUpload } from './AvatarUpload'
 import { UserClinicMemberships } from './UserClinicMemberships'
 import { GrantRoleForm } from './GrantRoleForm'
 import { DeactivateUserButton } from './DeactivateUserButton'
@@ -54,6 +55,12 @@ function UserEditView({ userId }: { userId: number }) {
         </h1>
         <p className="text-sm text-muted-foreground">{roleNames}</p>
       </div>
+
+      {/* An admin may set or remove anyone's photo (the backend allows
+          self or admin). This page is admin-only (RequireRole), so no
+          extra check is needed here — unlike canEditLicense below, there's
+          no field-level rule narrower than the page's own. */}
+      <AvatarUpload user={user} />
 
       {/* The same editable profile as /profile (design decisions §4) —
           this page was read-only since Phase 2, waiting for exactly this

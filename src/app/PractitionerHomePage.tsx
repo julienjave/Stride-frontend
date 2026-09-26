@@ -7,7 +7,7 @@ import { useCurrentDateTime } from './useCurrentDateTime'
 
 // The practitioner's real home page, replacing the bare placeholder from
 // the routing skeleton. Three areas, top to bottom:
-//   1. Avatar (initials only — see UserAvatar) + greeting
+//   1. Avatar (photo or initials — see UserAvatar) + greeting
 //   2. A card: today's date/time, plus two visibly-disabled "coming
 //      soon" slots (messaging notifications, a future to-do list) whose
 //      real data doesn't exist yet
@@ -46,11 +46,12 @@ export function PractitionerHomePage() {
     <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4">
       {/* Area 1: avatar + greeting */}
       <div className="flex items-center gap-3">
-        {/* Shared with the account menu — see UserAvatar for why it's
-            initials rather than a photo, and why it's aria-hidden. */}
+        {/* Shared with the account menu — see UserAvatar for the photo
+            and initials fallback, and why it's aria-hidden. */}
         <UserAvatar
           firstName={user.firstName}
           lastName={user.lastName}
+          avatarUrl={user.avatarUrl}
           className="size-12 text-sm"
         />
         <h1 className="text-xl font-semibold">Hello {user.firstName},</h1>
