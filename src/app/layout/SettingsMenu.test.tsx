@@ -1,34 +1,56 @@
-import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SettingsMenu } from './SettingsMenu'
 import { ThemeProvider } from '@/theme/ThemeProvider'
 import { THEME_STORAGE_KEY } from '@/theme/theme'
+import { currentUserQueryKey } from '@/auth/useCurrentUser'
 
-function renderMenu() {
-  return render(
-    <ThemeProvider>
-      <SettingsMenu />
-    </ThemeProvider>,
+const fetchMock = vi.fn<typeof fetch>()
+vi.stubGlobal('fetch', fetchMock)
+
+beforeEach(() => {
+  fetchMock.mockReset()
+})
+
+const me = { id: 7, firstName: 'Julien', activeRole: 'practitioner', preferredWeightUnit: 'kg' }
+
+// `currentUser: null` = nobody logged in. Seeded directly, so
+// useCurrentUser() never fetches /auth/me: every fetch a test sees is one
+// the menu itself made.
+function renderMenu(currentUser: typeof me | null = me) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  queryClient.setQueryData(currentUserQueryKey, currentUser)
+  render(
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <SettingsMenu />
+      </ThemeProvider>
+    </QueryClientProvider>,
   )
+  return { queryClient }
 }
 
 async function openMenu() {
   await userEvent.click(screen.getByRole('button', { name: 'Settings' }))
 }
 
-// Each option's name and whether it's ticked, in menu order.
-function themeOptions() {
-  return screen
+// Each option's name and whether it's ticked, in menu order — within ONE
+// named group, so the theme and weight-unit options never mix.
+function options(groupName: string) {
+  return within(screen.getByRole('group', { name: groupName }))
     .getAllByRole('menuitemradio')
     .map((item) => [item.textContent, item.getAttribute('aria-checked')])
 }
 
-describe('SettingsMenu', () => {
+describe('SettingsMenu — theme', () => {
   it('offers light, dark and system, with system chosen by default', async () => {
     renderMenu()
     await openMenu()
-    expect(themeOptions()).toEqual([
+    expect(options('Theme')).toEqual([
       ['Light', 'false'],
       ['Dark', 'false'],
       ['System', 'true'],
@@ -39,7 +61,7 @@ describe('SettingsMenu', () => {
     localStorage.setItem(THEME_STORAGE_KEY, 'light')
     renderMenu()
     await openMenu()
-    expect(themeOptions()).toEqual([
+    expect(options('Theme')).toEqual([
       ['Light', 'true'],
       ['Dark', 'false'],
       ['System', 'false'],
@@ -60,5 +82,77 @@ describe('SettingsMenu', () => {
     expect(
       screen.getByRole('menuitemradio', { name: 'Dark' }),
     ).toHaveAttribute('aria-checked', 'true')
+  })
+})
+
+describe('SettingsMenu — weight unit', () => {
+  it("ticks the account's saved unit", async () => {
+    renderMenu({ ...me, preferredWeightUnit: 'lbs' })
+    await openMenu()
+    expect(options('Weight unit')).toEqual([
+      ['kg', 'false'],
+      ['lbs', 'true'],
+    ])
+  })
+
+  it('is not offered without a logged-in user', async () => {
+    renderMenu(null)
+    await openMenu()
+    expect(screen.queryByRole('group', { name: 'Weight unit' })).not.toBeInTheDocument()
+  })
+
+  // The optimistic part: a fetch that NEVER answers, so anything the test
+  // sees happened before the server said a word.
+  it('shows the new unit at once — before the server has answered — and sends it as a PATCH', async () => {
+    fetchMock.mockReturnValue(new Promise(() => {}))
+    const { queryClient } = renderMenu()
+    await openMenu()
+    await userEvent.click(screen.getByRole('menuitemradio', { name: 'lbs' }))
+
+    await openMenu()
+    expect(options('Weight unit')).toEqual([
+      ['kg', 'false'],
+      ['lbs', 'true'],
+    ])
+    // The shared cache itself — what every weight on the page reads.
+    expect(queryClient.getQueryData(currentUserQueryKey)).toEqual({
+      ...me,
+      preferredWeightUnit: 'lbs',
+    })
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toEqual(expect.stringMatching(/\/users\/7$/))
+    expect(init?.method).toBe('PATCH')
+    expect(init?.body).toBe('{"preferredWeightUnit":"lbs"}')
+  })
+
+  it('puts the old unit back and explains, when the save fails', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ statusCode: 500, message: 'Internal error' }), {
+        status: 500,
+      }),
+    )
+    renderMenu()
+    await openMenu()
+    await userEvent.click(screen.getByRole('menuitemradio', { name: 'lbs' }))
+
+    await openMenu()
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Couldn't save your weight unit. Try again.",
+    )
+    expect(options('Weight unit')).toEqual([
+      ['kg', 'true'],
+      ['lbs', 'false'],
+    ])
+  })
+
+  it('picking the unit that is already chosen sends nothing', async () => {
+    renderMenu()
+    await openMenu()
+    await userEvent.click(screen.getByRole('menuitemradio', { name: 'kg' }))
+
+    // Give a (wrong) request every chance to go out before checking.
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })

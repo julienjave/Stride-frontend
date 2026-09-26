@@ -1,4 +1,5 @@
 import type { Address } from '@/common/address/types'
+import type { WeightUnit } from '@/common/weight'
 
 // The real shape GET /auth/me, POST /auth/login (post-MFA), and
 // POST /auth/switch-role all return — confirmed against the backend's own
@@ -29,6 +30,11 @@ export interface CurrentUser extends Address {
   // here would let code get away with skipping a null-check, on the false
   // assumption a missing key and a null value can't both happen.
   phone: string | null
+  // Always present: a NOT NULL column with a default ('kg') on the
+  // backend, so every account has one. Drives the unit weights are shown
+  // in, and the unit pre-selected when typing a new weight — read it
+  // through usePreferredWeightUnit(), not from here directly.
+  preferredWeightUnit: WeightUnit
   // Present ONLY if the account actually holds that role — a multi-role
   // account can have more than one of these at once, which is exactly why
   // they're optional, nested, named sub-objects rather than flattened

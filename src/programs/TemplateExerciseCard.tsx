@@ -4,6 +4,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { WeightValue } from '@/common/WeightValue'
 import type { TemplateExercise } from './types'
 
 // Two cards, one shared body:
@@ -54,9 +55,15 @@ function CardLink({ templateId, item, className }: CardLinkProps) {
   // != null, not a truthy check — a weight of exactly 0 is a real,
   // if unusual, value (matching the backend's own hasStartedWeight
   // reasoning), not the same as "no weight set."
-  if (item.weight != null && item.weightUnit) {
-    detailParts.push(`${item.weight} ${item.weightUnit}`)
-  }
+  //
+  // Captured as its own small object, rather than re-reading item.weight
+  // in the JSX: inside this ternary TypeScript KNOWS both values are
+  // non-null, and the object carries that knowledge along — so the JSX
+  // below needs no `!` assertions ("trust me, it's not null").
+  const prescribedWeight =
+    item.weight != null && item.weightUnit != null
+      ? { weight: item.weight, unit: item.weightUnit }
+      : null
 
   return (
     <Link
@@ -67,9 +74,19 @@ function CardLink({ templateId, item, className }: CardLinkProps) {
       {muscles.length > 0 && (
         <p className="text-sm text-muted-foreground">{muscles.join(', ')}</p>
       )}
-      {detailParts.length > 0 && (
+      {/* The weight isn't one of the plain-text parts: it's a component
+          (shown in the viewer's preferred unit, possibly converted), so it
+          is appended after them, with its own separator when there's
+          something before it. */}
+      {(detailParts.length > 0 || prescribedWeight) && (
         <p className="text-xs text-muted-foreground">
           {detailParts.join(' · ')}
+          {prescribedWeight && (
+            <>
+              {detailParts.length > 0 && ' · '}
+              <WeightValue weight={prescribedWeight.weight} unit={prescribedWeight.unit} />
+            </>
+          )}
         </p>
       )}
     </Link>

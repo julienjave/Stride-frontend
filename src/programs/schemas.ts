@@ -74,28 +74,35 @@ export const addTemplateExerciseSchema = z
     ),
     weightUnit: z.enum(['kg', 'lbs']).optional(),
   })
-  // Mirrors the backend's hasStartedWeight rule exactly (both fields
-  // required together, or neither) — same reasoning as that shared
-  // validator's own comment: a weight with no unit is ambiguous, a unit
-  // with no weight is meaningless clutter.
+  // The backend's hasStartedWeight rule: weight and unit together, or
+  // neither — a weight with no unit is ambiguous, a unit with no weight is
+  // meaningless clutter. Two halves, handled differently here:
+  //
+  // 1. A weight with no unit is an ERROR. The form pre-selects the user's
+  //    preferred unit, so this can't normally happen — kept anyway, so
+  //    the schema alone still guarantees the rule, whatever form uses it.
   .superRefine((data, ctx) => {
-    const hasWeight = data.weight !== undefined
-    const hasUnit = data.weightUnit !== undefined
-    if (hasWeight && !hasUnit) {
+    if (data.weight !== undefined && data.weightUnit === undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'Select a unit for the weight',
         path: ['weightUnit'],
       })
     }
-    if (hasUnit && !hasWeight) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Enter a weight for the selected unit',
-        path: ['weight'],
-      })
-    }
   })
+  // 2. A unit with no weight is NOT an error: the unit is simply dropped.
+  //    The unit toggle always has one unit selected (it's pre-selected
+  //    from the user's preference, and a toggle can't be "unselected"),
+  //    so "a unit but no weight" is what every exercise WITHOUT a weight
+  //    looks like in this form. Reporting it as an error would block
+  //    adding any weightless exercise; the only sensible reading is
+  //    "no weight".
+  //
+  //    .transform() runs after validation and changes the OUTPUT only —
+  //    what handleSubmit receives — never what the form fields show.
+  .transform((data) =>
+    data.weight === undefined ? { ...data, weightUnit: undefined } : data,
+  )
 
 export type AddTemplateExerciseFormValues = z.infer<
   typeof addTemplateExerciseSchema

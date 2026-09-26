@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { currentUserQueryKey } from '@/auth/useCurrentUser'
+import type { WeightUnit } from '@/common/weight'
 import { EditableWeightField } from './EditableWeightField'
 
 const fetchMock = vi.fn<typeof fetch>()
@@ -11,12 +13,17 @@ beforeEach(() => {
   fetchMock.mockReset()
 })
 
+// `preferredWeightUnit` is the VIEWER's setting, seeded into the current
+// user — which also means useCurrentUser() never fetches /auth/me here, so
+// every fetch a test sees is one the field itself made.
 function renderField(
   props: Partial<React.ComponentProps<typeof EditableWeightField>> = {},
+  preferredWeightUnit: WeightUnit = 'kg',
 ) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+  queryClient.setQueryData(currentUserQueryKey, { id: 7, preferredWeightUnit })
   return render(
     <QueryClientProvider client={queryClient}>
       <EditableWeightField
@@ -49,35 +56,68 @@ describe('EditableWeightField — display mode', () => {
     renderField({ weight: null, weightUnit: null })
     expect(screen.getByText('Not set')).toBeInTheDocument()
   })
+
+  // A viewer who prefers lbs, looking at a weight prescribed in kg.
+  it("converts to the viewer's preferred unit, with the prescribed value alongside", () => {
+    renderField({ weight: 62.5, weightUnit: 'kg' }, 'lbs')
+    // 62.5 / 0.45359237 = 137.789… → 137.8
+    expect(screen.getByText('137.8 lbs')).toBeInTheDocument()
+    expect(screen.getByText('(62.5 kg)')).toBeInTheDocument()
+  })
+
+  // …and opening the editor shows the prescription, NOT the converted
+  // value: saving untouched must never rewrite 62.5 kg as 137.8 lbs.
+  it('edits the stored value in its stored unit, whatever the viewer prefers', async () => {
+    const user = userEvent.setup()
+    renderField({ weight: 62.5, weightUnit: 'kg' }, 'lbs')
+    await user.click(screen.getByRole('button', { name: 'Edit Weight' }))
+
+    expect(screen.getByLabelText('Weight')).toHaveValue(62.5)
+    expect(screen.getByRole('button', { name: 'kg' })).toHaveAttribute('aria-pressed', 'true')
+  })
 })
 
 describe('EditableWeightField — editing', () => {
-  it('rejects a weight without a selected unit', async () => {
+  it("pre-selects the viewer's preferred unit when no weight is saved yet", async () => {
+    const user = userEvent.setup()
+    renderField({ weight: null, weightUnit: null }, 'lbs')
+    await user.click(screen.getByRole('button', { name: 'Edit Weight' }))
+
+    expect(screen.getByRole('button', { name: 'lbs' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'kg' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('saves a typed weight in the pre-selected unit, without touching the toggle', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ id: 1 }), { status: 200 }),
+    )
+    const user = userEvent.setup()
+    renderField({ weight: null, weightUnit: null }, 'lbs')
+    await user.click(screen.getByRole('button', { name: 'Edit Weight' }))
+    await user.type(screen.getByLabelText('Weight'), '45')
+    await user.click(screen.getByRole('button', { name: 'Save Weight' }))
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/programs/1/exercises/50'),
+        expect.objectContaining({ body: '{"weight":45,"weightUnit":"lbs"}' }),
+      ),
+    )
+  })
+
+  // With a unit always selected, an empty box is simply "no weight" —
+  // and with none saved either, nothing changed.
+  it('closes without a request when no weight is saved or entered', async () => {
     const user = userEvent.setup()
     renderField({ weight: null, weightUnit: null })
     await user.click(screen.getByRole('button', { name: 'Edit Weight' }))
-    await user.type(screen.getByLabelText('Weight'), '50')
     await user.click(screen.getByRole('button', { name: 'Save Weight' }))
 
-    expect(
-      await screen.findByText('Select a unit for the weight'),
-    ).toBeInTheDocument()
+    expect(screen.getByText('Not set')).toBeInTheDocument()
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('rejects a unit selected without a weight', async () => {
-    const user = userEvent.setup()
-    renderField({ weight: null, weightUnit: null })
-    await user.click(screen.getByRole('button', { name: 'Edit Weight' }))
-    await user.click(screen.getByRole('button', { name: 'kg' }))
-    await user.click(screen.getByRole('button', { name: 'Save Weight' }))
-
-    expect(
-      await screen.findByText('Enter a weight for the selected unit'),
-    ).toBeInTheDocument()
-  })
-
-  it('rejects clearing the weight while leaving a previously-selected unit in place', async () => {
+  it('refuses an emptied box over a saved weight, pointing at "Remove weight"', async () => {
     const user = userEvent.setup()
     renderField({ weight: 62.5, weightUnit: 'kg' })
     await user.click(screen.getByRole('button', { name: 'Edit Weight' }))
@@ -85,7 +125,7 @@ describe('EditableWeightField — editing', () => {
     await user.click(screen.getByRole('button', { name: 'Save Weight' }))
 
     expect(
-      await screen.findByText('Enter a weight for the selected unit'),
+      await screen.findByText('Enter a weight, or use "Remove weight" to clear it'),
     ).toBeInTheDocument()
     expect(fetchMock).not.toHaveBeenCalled()
   })

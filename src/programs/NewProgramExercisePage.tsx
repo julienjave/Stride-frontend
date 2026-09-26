@@ -1,4 +1,4 @@
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ApiError } from '@/api/client'
 import { useExercise } from '@/exercises/useExercise'
+import { usePreferredWeightUnit } from '@/auth/usePreferredWeightUnit'
 import { useProgram } from './useProgram'
 import { addTemplateExercise, programQueryKey } from './api'
 import {
@@ -43,6 +44,7 @@ function NewProgramExerciseView({ templateId }: { templateId: number }) {
     : null
 
   const { data: template } = useProgram(templateId)
+  const preferredWeightUnit = usePreferredWeightUnit()
   // enabled: only fetch once something's actually been picked — see
   // useExercise's own comment on why this couldn't just be a
   // conditional hook call.
@@ -64,6 +66,15 @@ function NewProgramExerciseView({ templateId }: { templateId: number }) {
     AddTemplateExerciseFormValues
   >({
     resolver: zodResolver(addTemplateExerciseSchema),
+    // The unit toggle starts on the practitioner's preferred unit, so a
+    // practitioner who works in lbs doesn't have to switch it for every
+    // exercise. Only a STARTING value: they can still pick the other
+    // unit, and whichever is selected is what gets stored.
+    //
+    // defaultValues is read once, when the form is created. That's fine
+    // here: the preference comes from /auth/me, loaded before any page
+    // renders, so it's already known at that moment.
+    defaultValues: { weightUnit: preferredWeightUnit },
   })
 
   const addMutation = useMutation({
@@ -89,7 +100,11 @@ function NewProgramExerciseView({ templateId }: { templateId: number }) {
   const pickerHref = `/practitioner/library/pick?returnTo=${encodeURIComponent(currentPath)}`
   const templateHref = `/practitioner/programs/templates/${templateId}`
 
-  const selectedWeightUnit = form.watch('weightUnit')
+  // useWatch, not form.watch(): same value, but a hook that subscribes
+  // to just this field. form.watch() makes the React Compiler skip
+  // optimizing this whole component (the "incompatible library" lint
+  // warning), because the compiler can't tell when its result changes.
+  const selectedWeightUnit = useWatch({ control: form.control, name: 'weightUnit' })
 
   return (
     <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4">

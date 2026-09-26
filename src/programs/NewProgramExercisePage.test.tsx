@@ -3,6 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router'
+import { currentUserQueryKey } from '@/auth/useCurrentUser'
+import type { WeightUnit } from '@/common/weight'
 import { NewProgramExercisePage } from './NewProgramExercisePage'
 
 const fetchMock = vi.fn<typeof fetch>()
@@ -84,10 +86,13 @@ function setupFetchMock(config: {
   })
 }
 
-function renderAt(path: string) {
+// The practitioner's own unit setting, seeded as the current user — which
+// also keeps useCurrentUser() from fetching /auth/me during the test.
+function renderAt(path: string, preferredWeightUnit: WeightUnit = 'kg') {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+  queryClient.setQueryData(currentUserQueryKey, { id: 7, preferredWeightUnit })
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[path]}>
@@ -215,27 +220,34 @@ describe('NewProgramExercisePage', () => {
     )
   })
 
-  it('rejects weight without a selected unit, without submitting', async () => {
+  it("pre-selects the practitioner's preferred unit, and a typed weight is saved in it", async () => {
     setupFetchMock({})
     const user = userEvent.setup()
     renderAt(
       '/practitioner/programs/templates/1/exercises/new?exerciseId=5',
+      'lbs',
     )
     await screen.findByRole('heading', { name: 'Squat' })
 
-    await user.type(screen.getByLabelText('Weight'), '62.5')
+    expect(screen.getByRole('button', { name: 'lbs' })).toHaveAttribute('aria-pressed', 'true')
+
+    // No click on the toggle: the pre-selected unit is what's sent.
+    await user.type(screen.getByLabelText('Weight'), '45')
     await user.click(screen.getByRole('button', { name: 'Add' }))
 
-    expect(
-      await screen.findByText('Select a unit for the weight'),
-    ).toBeInTheDocument()
-    expect(fetchMock).not.toHaveBeenCalledWith(
-      expect.stringContaining('/programs/1/exercises'),
-      expect.objectContaining({ method: 'POST' }),
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/programs/1/exercises'),
+        expect.objectContaining({
+          body: JSON.stringify({ exerciseId: 5, weight: 45, weightUnit: 'lbs', sortOrder: 1 }),
+        }),
+      ),
     )
   })
 
-  it('rejects a weight unit selected without a weight value, without submitting', async () => {
+  // A unit is ALWAYS selected, so "a unit but no weight" is simply an
+  // exercise without a weight: added normally, with no weight fields.
+  it('adds an exercise with no weight, without sending the pre-selected unit', async () => {
     setupFetchMock({})
     const user = userEvent.setup()
     renderAt(
@@ -243,12 +255,17 @@ describe('NewProgramExercisePage', () => {
     )
     await screen.findByRole('heading', { name: 'Squat' })
 
-    await user.click(screen.getByRole('button', { name: 'kg' }))
+    await user.type(screen.getByLabelText('Sets'), '3')
     await user.click(screen.getByRole('button', { name: 'Add' }))
 
-    expect(
-      await screen.findByText('Enter a weight for the selected unit'),
-    ).toBeInTheDocument()
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/programs/1/exercises'),
+        expect.objectContaining({
+          body: JSON.stringify({ exerciseId: 5, sets: 3, sortOrder: 1 }),
+        }),
+      ),
+    )
   })
 
   it('shows the API error message when the request fails', async () => {

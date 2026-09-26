@@ -61,7 +61,7 @@ const otherPractitioner = { id: 999, activeRole: 'practitioner' }
 
 function renderAt(
   path: string,
-  currentUser: { id: number; activeRole: string } = owner,
+  currentUser: { id: number; activeRole: string; preferredWeightUnit?: string } = owner,
 ) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -269,6 +269,22 @@ describe('TemplateDetailPage — as the owner', () => {
       await screen.findByText('3 sets · 10 reps · 62.5 kg'),
     ).toBeInTheDocument()
     expect(screen.getByText('0 kg')).toBeInTheDocument()
+  })
+
+  // Same card, seen by a practitioner whose setting is lbs: converted, with
+  // the prescription kept alongside.
+  it("shows each weight in the viewer's preferred unit, keeping the prescribed value", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(
+        makeTemplate({
+          exercises: [makeRow({ id: 1, sets: 3, weight: 20, weightUnit: 'kg' })],
+        }),
+      ),
+    )
+    renderAt('/practitioner/programs/templates/1', { ...owner, preferredWeightUnit: 'lbs' })
+
+    expect(await screen.findByText('3 sets · 44.1 lbs')).toBeInTheDocument()
+    expect(screen.getByText('(20 kg)')).toBeInTheDocument()
   })
 
   it('falls back gracefully when a row has no exercise details', async () => {

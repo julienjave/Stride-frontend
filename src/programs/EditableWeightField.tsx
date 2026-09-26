@@ -4,13 +4,16 @@ import { Check, Pencil, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ApiError } from '@/api/client'
+import { usePreferredWeightUnit } from '@/auth/usePreferredWeightUnit'
+import { WeightValue } from '@/common/WeightValue'
+import type { WeightUnit } from '@/common/weight'
 import { updateTemplateExercise, programQueryKey } from './api'
 
 interface EditableWeightFieldProps {
   templateId: number
   templateExerciseId: number
   weight: number | null
-  weightUnit: 'kg' | 'lbs' | null
+  weightUnit: WeightUnit | null
   // Same reasoning as EditableExerciseTitle's own canEdit — the pencil is
   // only rendered at all when the current user can actually modify this
   // template (its owner, and only while it isn't archived), not just
@@ -31,12 +34,17 @@ export function EditableWeightField({
   canEdit,
 }: EditableWeightFieldProps) {
   const queryClient = useQueryClient()
+  const preferredWeightUnit = usePreferredWeightUnit()
   const [isEditing, setIsEditing] = useState(false)
   const [draftWeight, setDraftWeight] = useState<number | undefined>(
     weight ?? undefined,
   )
-  const [draftUnit, setDraftUnit] = useState<'kg' | 'lbs' | undefined>(
-    weightUnit ?? undefined,
+  // Always a unit, never "none": the saved one when there's a weight,
+  // otherwise the user's preferred unit, pre-selected. The toggle below
+  // can't be unselected anyway — an empty weight box is what "no weight"
+  // looks like (see confirm()).
+  const [draftUnit, setDraftUnit] = useState<WeightUnit>(
+    weightUnit ?? preferredWeightUnit,
   )
   const [validationError, setValidationError] = useState<string | null>(null)
 
@@ -45,7 +53,7 @@ export function EditableWeightField({
     // as a PAIR, both set or both null, matching hasStartedWeight.
     mutationFn: (payload: {
       weight: number | null
-      weightUnit: 'kg' | 'lbs' | null
+      weightUnit: WeightUnit | null
     }) => updateTemplateExercise(templateId, templateExerciseId, payload),
     onSuccess: (updated) => {
       queryClient.setQueryData(programQueryKey(templateId), updated)
@@ -53,9 +61,14 @@ export function EditableWeightField({
     },
   })
 
+  // The edit box always starts from the STORED weight in its STORED unit —
+  // never the converted value the view may be showing. Otherwise a
+  // practitioner who prefers kg could open "45 lbs", see "20.4 kg", press
+  // Save without touching anything, and silently rewrite the
+  // prescription. Conversion is for reading only.
   function startEditing() {
     setDraftWeight(weight ?? undefined)
-    setDraftUnit(weightUnit ?? undefined)
+    setDraftUnit(weightUnit ?? preferredWeightUnit)
     setValidationError(null)
     setIsEditing(true)
   }
@@ -66,32 +79,32 @@ export function EditableWeightField({
   }
 
   function confirm() {
-    const hasWeight = draftWeight !== undefined
-    const hasUnit = draftUnit !== undefined
-    // Mirrors the backend's hasStartedWeight rule exactly — both
-    // together, or neither, never one alone.
-    if (hasWeight && !hasUnit) {
-      setValidationError('Select a unit for the weight')
+    // An empty weight box. The unit always has a value (pre-selected), so
+    // it can't be what decides "is there a weight" — the number does.
+    if (draftWeight === undefined) {
+      if (weight == null) {
+        // Nothing saved, nothing entered: nothing to do. Close without a
+        // request, like every other editor when nothing changed.
+        setIsEditing(false)
+        return
+      }
+      // A saved weight whose box was emptied. Clearing a prescription is
+      // deliberate enough to get its own explicit button, so an emptied
+      // box is pointed at it rather than silently treated as "remove".
+      setValidationError('Enter a weight, or use "Remove weight" to clear it')
       return
     }
-    if (hasUnit && !hasWeight) {
-      setValidationError('Enter a weight for the selected unit')
-      return
-    }
-    if (hasWeight && draftWeight < 0) {
+    if (draftWeight < 0) {
       setValidationError('Weight cannot be negative')
       return
     }
-    updateMutation.mutate({
-      weight: draftWeight ?? null,
-      weightUnit: draftUnit ?? null,
-    })
+    // Always a PAIR — the backend's hasStartedWeight rule.
+    updateMutation.mutate({ weight: draftWeight, weightUnit: draftUnit })
   }
 
-  // The unit toggle can select kg or lbs but never "no unit" — so once a
-  // weight exists, emptying the number input alone just triggers the
-  // "Enter a weight for the selected unit" error, and there was no way to
-  // clear a weight from the UI at all. This is the explicit way to do it:
+  // The unit toggle can select kg or lbs but never "no unit", and an
+  // emptied weight box is refused (see confirm()) — so this is the one
+  // way to clear a weight from the UI:
   // one action that clears both halves together, which is the only kind
   // of clearing the backend accepts anyway. An explicit button rather
   // than "click the selected unit again to unselect it," because that
@@ -106,9 +119,13 @@ export function EditableWeightField({
         <div>
           <p className="text-sm text-muted-foreground">Weight</p>
           <p>
-            {weight != null && weightUnit
-              ? `${weight} ${weightUnit}`
-              : 'Not set'}
+            {/* Shown in the VIEWER's preferred unit, with the prescribed
+                value alongside when that means converting. */}
+            {weight != null && weightUnit ? (
+              <WeightValue weight={weight} unit={weightUnit} />
+            ) : (
+              'Not set'
+            )}
           </p>
         </div>
         {canEdit && (

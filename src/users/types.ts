@@ -1,4 +1,5 @@
 import type { Address } from '@/common/address/types'
+import type { WeightUnit } from '@/common/weight'
 
 // The real shape POST /users, GET /users, and GET /users/:id all return —
 // confirmed directly against users.service.ts's toPublic() and
@@ -32,6 +33,7 @@ export interface User extends Address {
   isActive: boolean
   createdAt: string
   mfaEnabled: boolean
+  preferredWeightUnit: WeightUnit
   // Every role this account currently holds — a multi-role account (e.g.
   // an admin who is also a treating practitioner) can have more than one.
   roles: string[]
@@ -83,4 +85,7 @@ export interface UpdateUserPayload {
   bio?: string | null
   dateOfBirth?: string
   position?: string | null
+  // NOT NULL (always 'kg' or 'lbs'), so never null. Only the user
+  // themselves may send it — the backend answers anyone else with a 403.
+  preferredWeightUnit?: WeightUnit
 }
