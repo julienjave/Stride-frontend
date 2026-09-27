@@ -5,7 +5,11 @@ import { MemoryRouter } from 'react-router'
 import { PractitionerHomePage } from './PractitionerHomePage'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 
-function renderWithUser(user: { firstName: string; lastName: string }) {
+function renderWithUser(user: {
+  firstName: string
+  lastName: string
+  avatarUrl?: string | null
+}) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
@@ -35,6 +39,19 @@ describe('PractitionerHomePage', () => {
     renderWithUser({ firstName: 'Jamie', lastName: 'Rivera' })
     expect(screen.getByText('Hello Jamie,')).toBeInTheDocument()
     expect(screen.getByText('JR')).toBeInTheDocument()
+  })
+
+  it('shows their photo when they have one', () => {
+    renderWithUser({
+      firstName: 'Jamie',
+      lastName: 'Rivera',
+      avatarUrl: 'https://storage.example.com/signed/avatars/5/me.jpg',
+    })
+    // UserAvatar is aria-hidden, so its <img> is looked up in the DOM.
+    expect(document.querySelector('img')).toHaveAttribute(
+      'src',
+      'https://storage.example.com/signed/avatars/5/me.jpg',
+    )
   })
 
   it("shows today's date and time", () => {

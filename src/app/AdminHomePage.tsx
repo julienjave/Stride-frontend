@@ -1,26 +1,51 @@
-import { Link } from 'react-router'
+import { ChartColumn, History } from 'lucide-react'
+import { useCurrentUser } from '@/auth/useCurrentUser'
+import { HomeGreeting } from './home/HomeGreeting'
+import { ComingSoonSlot, HomeSummaryCard, TodaySlot } from './home/HomeSummaryCard'
+import { HomeShortcuts, type HomeShortcut } from './home/HomeShortcuts'
 
-// The bare /admin landing page. Used to be AdminPlaceholderPage — a
-// single static line — deliberately left that way until a SECOND admin
-// area existed to link alongside Clinics (see the comment that used to
-// sit at the top of ClinicsListPage.tsx). User management now exists.
-//
-// "Users" now points to the list page (UsersListPage), not straight to
-// the create form — the same relationship /admin/clinics already has
-// with /admin/clinics/new. This resolves this file's own earlier
-// comment, which anticipated exactly this once the list page existed.
+// The admin's two sections, both with real pages (list pages, which link on
+// to their "new" forms).
+const SHORTCUTS: HomeShortcut[] = [
+  { label: 'Clinics', to: '/admin/clinics' },
+  { label: 'Users', to: '/admin/users' },
+]
+
+// The admin's home page — the same structure as the practitioner's
+// (decisions §3), built from the same shared pieces in ./home/:
+//   1. Avatar + greeting
+//   2. A card: today's date/time, plus two "coming soon" slots:
+//      - Metrics: which numbers belong here (clinics, users by role, …)
+//        and whether they need backend count endpoints is still open —
+//        a Phase 6 item. Decided 2026-09-27: build the structure first.
+//      - Activity: recent changes, from the audit log the backend already
+//        records (GET /audit-logs) — goes with the Phase 6 audit log
+//        viewer.
+//   3. Links into the sections
+// Replaces the earlier bare page (an "Admin" heading and two links).
 export function AdminHomePage() {
+  const { data: user } = useCurrentUser()
+
+  // Defensive, not load-bearing — see PractitionerHomePage.
+  if (!user) {
+    return null
+  }
+
   return (
-    <div className="mx-auto mt-12 max-w-sm space-y-4">
-      <h1 className="text-xl font-semibold">Admin</h1>
-      <nav className="space-y-2">
-        <Link to="/admin/clinics" className="block rounded-lg border p-3 hover:bg-muted">
-          Clinics
-        </Link>
-        <Link to="/admin/users" className="block rounded-lg border p-3 hover:bg-muted">
-          Users
-        </Link>
-      </nav>
+    <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4">
+      <HomeGreeting
+        firstName={user.firstName}
+        lastName={user.lastName}
+        avatarUrl={user.avatarUrl}
+      />
+
+      <HomeSummaryCard>
+        <TodaySlot />
+        <ComingSoonSlot label="Metrics" icon={ChartColumn} />
+        <ComingSoonSlot label="Activity" icon={History} />
+      </HomeSummaryCard>
+
+      <HomeShortcuts links={SHORTCUTS} />
     </div>
   )
 }

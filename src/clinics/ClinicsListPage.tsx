@@ -5,9 +5,8 @@ import { useClinics } from './useClinics'
 
 // URL scheme for this feature: /admin/clinics (this page), /admin/clinics
 // /new (create), /admin/clinics/:id (the per-field edit view). Bare
-// /admin used to stay a static placeholder deliberately — see
-// AdminHomePage.tsx's own comment for why it's now a real hub linking
-// here and to user management, once that second admin area existed.
+// /admin is the admin home page (AdminHomePage), which links here and to
+// user management.
 export function ClinicsListPage() {
   // Off by default — findAll()'s own default matches (includeInactive
   // defaults to false server-side too), so an admin's normal browsing
