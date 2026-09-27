@@ -1,13 +1,24 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import type { Area } from 'react-easy-crop'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ApiError } from '@/api/client'
 import { UserAvatar } from '@/common/UserAvatar'
-import { IMAGE_FILE_ACCEPT, imageFileSchema } from '@/common/imageFile'
+import { IMAGE_FILE_ACCEPT } from '@/common/imageFile'
 import { removeAvatar, uploadAvatar } from './api'
 import { applyUpdatedUser } from './userCache'
+import { AvatarCropDialog } from './AvatarCropDialog'
+import { cropToAvatarFile } from './cropImage'
+import { avatarSourceFileSchema } from './avatarCrop'
 import type { User } from './types'
+
+// What one upload needs: the picked photo (as a local "blob:" URL) and the
+// square of it chosen in the crop dialog.
+interface CropRequest {
+  sourceUrl: string
+  area: Area
+}
 
 interface AvatarUploadProps {
   // The user whose photo this manages — on /profile the logged-in user,
@@ -16,9 +27,14 @@ interface AvatarUploadProps {
 }
 
 // The "Photo" section: the current avatar plus Upload/Change and Remove
-// buttons. Modeled on ClinicLogoUpload, with two deliberate differences
-// explained below (the shared cache helper, and dropping the preview when
-// an upload fails).
+// buttons. Modeled on ClinicLogoUpload, with three deliberate differences
+// explained below (the shared cache helper, dropping the preview when an
+// upload fails, and the crop step).
+//
+// The upload flow: pick a file → check its type and size → crop it in
+// AvatarCropDialog → draw the chosen square into a small JPEG
+// (cropToAvatarFile) → upload THAT. The original photo never leaves the
+// browser.
 //
 // Who may use it: the user themselves or an admin — the same rule the
 // backend enforces. Both pages that render it (/profile, and the
@@ -32,9 +48,14 @@ export function AvatarUpload({ user }: AvatarUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
 
-  // An instant local preview of the picked file while it uploads.
+  // The picked photo while it's being cropped, as a local URL for the crop
+  // dialog to display — and the dialog's on/off switch: set = open.
   // URL.createObjectURL() gives a browser-only "blob:" URL pointing at the
   // file's bytes already in memory — no network needed to show it.
+  const [cropSourceUrl, setCropSourceUrl] = useState<string | null>(null)
+
+  // An instant local preview of the CROPPED image while it uploads — what
+  // will actually be saved, not the original photo.
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   // Object URLs hold on to their file's memory until explicitly revoked
@@ -53,18 +74,34 @@ export function AvatarUpload({ user }: AvatarUploadProps) {
   // response arrives. And they go through applyUpdatedUser(), the same
   // function a profile PATCH uses — which is what makes the header's
   // avatar change the moment your own upload finishes.
+  //
+  // Cropping happens INSIDE mutationFn, as the first step of the upload.
+  // So "cropping, then uploading" is one pending state (isPending covers
+  // both: the buttons are disabled and say "Uploading…" from the moment
+  // Save is clicked), and a crop failure is reported exactly like an upload
+  // failure (isError), with no extra state to keep in sync.
   const uploadMutation = useMutation({
-    mutationFn: (file: File) => uploadAvatar(user.id, file),
+    mutationFn: async ({ sourceUrl, area }: CropRequest) => {
+      const file = await cropToAvatarFile(sourceUrl, area)
+      revokePreview()
+      setPreviewUrl(URL.createObjectURL(file))
+      return uploadAvatar(user.id, file)
+    },
     onSuccess: (updated) => applyUpdatedUser(queryClient, updated),
-    // onSettled runs after success OR failure. Dropping the preview in
-    // both cases is deliberate:
-    // - success: the real avatarUrl is now in the cache, so the page shows
-    //   the saved photo instead;
-    // - failure: the photo was NOT saved, so continuing to show it would
-    //   be a lie — the avatar goes back to what's really stored, next to
-    //   the error message. (ClinicLogoUpload keeps the preview after a
-    //   failed upload; noted in deferred-improvements.md.)
-    onSettled: revokePreview,
+    // onSettled runs after success OR failure, and receives the variables
+    // the mutation was called with — which is how it knows which source
+    // URL to release. Both object URLs go:
+    // - the original photo's: once cropped, it's not needed any more;
+    // - the preview: on success the real avatarUrl is now in the cache, so
+    //   the page shows the saved photo instead; on failure the photo was
+    //   NOT saved, so continuing to show it would be a lie — the avatar
+    //   goes back to what's really stored, next to the error message.
+    //   (ClinicLogoUpload keeps the preview after a failed upload; noted in
+    //   deferred-improvements.md.)
+    onSettled: (_data, _error, { sourceUrl }) => {
+      URL.revokeObjectURL(sourceUrl)
+      revokePreview()
+    },
   })
 
   const removeMutation = useMutation({
@@ -84,23 +121,41 @@ export function AvatarUpload({ user }: AvatarUploadProps) {
   }
 
   // Everything that happens once a file is chosen, kept separate from the
-  // <input> plumbing above. This is the seam for the planned crop step
-  // (roadmap: "Avatar crop"): it will open a crop dialog here and call
-  // the upload with the cropped image instead, without touching the rest.
+  // <input> plumbing above: check it, then open the crop dialog on it.
+  // Nothing is uploaded until the dialog's Save.
   function handleFileChosen(file: File) {
-    // A new attempt replaces any leftover message from a previous one.
+    // A new attempt replaces any leftover message from a previous one —
+    // from a removal OR an earlier upload.
     removeMutation.reset()
+    uploadMutation.reset()
 
-    const result = imageFileSchema.safeParse(file)
+    // Checked on the ORIGINAL: the type decides whether the browser can open
+    // it at all, and its size is capped at 20MB — larger than the backend's
+    // 5MB, because what's uploaded is the small cropped JPEG, not this file
+    // (see MAX_AVATAR_SOURCE_FILE_SIZE_BYTES for the reasoning).
+    const result = avatarSourceFileSchema.safeParse(file)
     if (!result.success) {
       setValidationError(result.error.issues[0]?.message ?? 'Invalid file')
       return
     }
 
     setValidationError(null)
-    revokePreview()
-    setPreviewUrl(URL.createObjectURL(file))
-    uploadMutation.mutate(file)
+    setCropSourceUrl(URL.createObjectURL(file))
+  }
+
+  function handleCropCancel() {
+    // Nothing will use the photo now: release its memory.
+    if (cropSourceUrl) URL.revokeObjectURL(cropSourceUrl)
+    setCropSourceUrl(null)
+  }
+
+  function handleCropConfirm(area: Area) {
+    if (!cropSourceUrl) return
+    // Close the dialog (clearing the URL is what closes it) and hand the
+    // URL over to the upload, which releases it in onSettled once the crop
+    // no longer needs it.
+    setCropSourceUrl(null)
+    uploadMutation.mutate({ sourceUrl: cropSourceUrl, area })
   }
 
   function handleRemove() {
@@ -170,6 +225,12 @@ export function AvatarUpload({ user }: AvatarUploadProps) {
           />
         </div>
       </div>
+
+      <AvatarCropDialog
+        imageUrl={cropSourceUrl}
+        onCancel={handleCropCancel}
+        onConfirm={handleCropConfirm}
+      />
 
       {/* role="alert" makes a screen reader announce the message as soon
           as it appears — otherwise a blind user who picked a wrong file

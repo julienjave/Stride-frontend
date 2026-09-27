@@ -21,17 +21,31 @@ export const MAX_IMAGE_FILE_SIZE_BYTES = 5 * 1024 * 1024
 // option), which is why imageFileSchema below still checks.
 export const IMAGE_FILE_ACCEPT = ALLOWED_IMAGE_MIME_TYPES.join(',')
 
-// Checks a picked file BEFORE uploading it, so an obviously wrong file (a
-// PDF, a 20MB photo) is refused instantly with a clear message, rather
-// than after a full upload that the backend then rejects.
+// Builds the check for a picked file: an allowed type, and at most
+// `maxSizeBytes`. A function rather than one fixed schema because the size
+// limit depends on what happens to the file next:
+// - uploaded AS PICKED (clinic logos, exercise photos): the backend's own
+//   5MB limit — see imageFileSchema below;
+// - cropped first (avatars): what's uploaded is the small cropped JPEG, so
+//   the original can be bigger — see avatarSourceFileSchema in
+//   users/avatarCrop.ts.
 //
 // z.instanceof(File) checks the value really is a browser File; each
 // .refine() adds one custom check with the message shown if it fails.
-export const imageFileSchema = z
-  .instanceof(File)
-  .refine((file) => ALLOWED_IMAGE_MIME_TYPES.includes(file.type), {
-    message: 'Only JPEG, PNG, and WebP images are allowed',
-  })
-  .refine((file) => file.size <= MAX_IMAGE_FILE_SIZE_BYTES, {
-    message: 'Image must be 5MB or smaller',
-  })
+export function makeImageFileSchema(maxSizeBytes: number) {
+  // Written as a whole number of MB: 5 * 1024 * 1024 → "5MB".
+  const maxSizeMb = maxSizeBytes / (1024 * 1024)
+  return z
+    .instanceof(File)
+    .refine((file) => ALLOWED_IMAGE_MIME_TYPES.includes(file.type), {
+      message: 'Only JPEG, PNG, and WebP images are allowed',
+    })
+    .refine((file) => file.size <= maxSizeBytes, {
+      message: `Image must be ${maxSizeMb}MB or smaller`,
+    })
+}
+
+// Checks a picked file BEFORE uploading it as it is, so an obviously wrong
+// file (a PDF, a 20MB photo) is refused instantly with a clear message,
+// rather than after a full upload that the backend then rejects.
+export const imageFileSchema = makeImageFileSchema(MAX_IMAGE_FILE_SIZE_BYTES)

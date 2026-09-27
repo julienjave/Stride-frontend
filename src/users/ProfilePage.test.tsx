@@ -8,6 +8,16 @@ import { UserMenu } from '@/app/layout/UserMenu'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import type { User } from './types'
 
+// The avatar upload now goes through a crop dialog. jsdom can't run the
+// real cropper or canvas, so both are replaced (same fakes as in
+// AvatarUpload.test.tsx, which covers the crop step itself).
+vi.mock('react-easy-crop', () => import('./FakeCropper'))
+vi.mock('./cropImage', () => ({
+  cropToAvatarFile: vi.fn(() =>
+    Promise.resolve(new File(['x'], 'avatar.jpg', { type: 'image/jpeg' })),
+  ),
+}))
+
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
 
@@ -315,6 +325,8 @@ describe('ProfilePage — photo', () => {
 
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     await userEvent.upload(input, new File(['x'], 'me.png', { type: 'image/png' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Simulate photo loaded' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save photo' }))
 
     const menuButton = screen.getByRole('button', { name: 'Account menu' })
     await waitFor(() => expect(menuButton.querySelector('img')).toHaveAttribute('src', newUrl))
