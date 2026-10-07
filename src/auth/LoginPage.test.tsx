@@ -4,12 +4,42 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
 import { LoginPage } from './LoginPage'
+import { setupStatusQueryKey } from './useSetupStatus'
 
+// Default: an install that's already set up, like nearly every real visit
+// to the sign-in page.
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
 
+// The page asks GET /auth/setup-status as soon as it renders (useSetupStatus),
+// on top of whatever call a test is about. Every OTHER request goes to
+// apiMock, so each test sets up and asserts on just the call it's about, as
+// if setup-status weren't there. One shared Response for both would break:
+// a Response's body can be read only once.
+const apiMock = vi.fn<typeof fetch>()
+// What GET /auth/setup-status answers. Reset before each test; a test that
+// needs another answer replaces it BEFORE rendering.
+let setupStatusResponse: () => Promise<Response>
+
+function setupStatusIs(setupComplete: boolean) {
+  setupStatusResponse = () =>
+    Promise.resolve(new Response(JSON.stringify({ setupComplete }), { status: 200 }))
+}
+
+// See CreateUserPage.test.tsx for why a Request needs .url, not toString().
+function urlOf(input: RequestInfo | URL): string {
+  if (typeof input === 'string') return input
+  if (input instanceof URL) return input.toString()
+  return input.url
+}
+
 beforeEach(() => {
   fetchMock.mockReset()
+  apiMock.mockReset()
+  setupStatusIs(true)
+  fetchMock.mockImplementation((input, init) =>
+    urlOf(input).endsWith('/auth/setup-status') ? setupStatusResponse() : apiMock(input, init),
+  )
 })
 
 function renderLoginPage() {
@@ -19,18 +49,28 @@ function renderLoginPage() {
   // MemoryRouter — a router that doesn't touch the real browser URL bar,
   // appropriate for tests. useNavigate() (used inside LoginPage) needs
   // SOME router context to exist above it, or it throws immediately.
-  return render(
+  render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={['/login']}>
         <LoginPage />
       </MemoryRouter>
     </QueryClientProvider>,
   )
+  return { queryClient }
+}
+
+// Resolves once the setup-status request has settled either way — so a
+// test asserting that the link is ABSENT asserts it after the answer
+// arrived, not before (when it would be absent no matter what).
+async function setupStatusSettled(queryClient: QueryClient) {
+  await waitFor(() =>
+    expect(queryClient.getQueryState(setupStatusQueryKey)?.status).not.toBe('pending'),
+  )
 }
 
 describe('LoginPage', () => {
   it('logs in directly when the account has no MFA enabled', async () => {
-    fetchMock.mockResolvedValue(
+    apiMock.mockResolvedValue(
       new Response(
         JSON.stringify({
           id: 1,
@@ -54,7 +94,7 @@ describe('LoginPage', () => {
     // Confirms the request was actually built correctly, end to end,
     // through the real form → real schema → real API function.
     await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
+      expect(apiMock).toHaveBeenCalledWith(
         expect.stringContaining('/auth/login'),
         expect.objectContaining({
           method: 'POST',
@@ -68,7 +108,7 @@ describe('LoginPage', () => {
   })
 
   it('shows the MFA step instead of completing login when mfaRequired is true', async () => {
-    fetchMock.mockResolvedValue(
+    apiMock.mockResolvedValue(
       new Response(JSON.stringify({ mfaRequired: true }), { status: 201 }),
     )
 
@@ -89,7 +129,7 @@ describe('LoginPage', () => {
   })
 
   it('shows a role picker when the backend reports a multi-role account, and resubmits with the chosen role', async () => {
-  fetchMock.mockResolvedValueOnce(
+  apiMock.mockResolvedValueOnce(
     new Response(
       JSON.stringify({
         statusCode: 400,
@@ -116,7 +156,7 @@ describe('LoginPage', () => {
   expect(screen.getByRole('button', { name: 'admin' })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'patient' })).not.toBeInTheDocument()
 
-  fetchMock.mockResolvedValueOnce(
+  apiMock.mockResolvedValueOnce(
     new Response(
       JSON.stringify({
         id: 1,
@@ -131,7 +171,7 @@ describe('LoginPage', () => {
   await user.click(practitionerButton)
 
   await waitFor(() =>
-    expect(fetchMock).toHaveBeenLastCalledWith(
+    expect(apiMock).toHaveBeenLastCalledWith(
       expect.stringContaining('/auth/login'),
       expect.objectContaining({
         method: 'POST',
@@ -158,6 +198,40 @@ describe('LoginPage', () => {
     ).toBeInTheDocument()
     // The whole point of client-side validation: catch this BEFORE
     // spending a network round trip on something already known invalid.
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(apiMock).not.toHaveBeenCalled()
+  })
+
+  describe('the first-time setup link', () => {
+    it('offers "Set up Stride" on an install that has not been set up yet', async () => {
+      setupStatusIs(false)
+      renderLoginPage()
+
+      expect(await screen.findByRole('link', { name: 'Set up Stride' })).toHaveAttribute(
+        'href',
+        '/register-clinic',
+      )
+    })
+
+    it('does not offer setup once Stride has been set up', async () => {
+      const { queryClient } = renderLoginPage()
+      await setupStatusSettled(queryClient)
+
+      expect(screen.queryByRole('link', { name: 'Set up Stride' })).not.toBeInTheDocument()
+    })
+
+    // An unknown status shows no link: the page doesn't guess.
+    it('does not offer setup when the setup status cannot be loaded', async () => {
+      setupStatusResponse = () =>
+        Promise.resolve(
+          new Response(JSON.stringify({ statusCode: 500, message: ['Internal server error'] }), {
+            status: 500,
+          }),
+        )
+      const { queryClient } = renderLoginPage()
+      await setupStatusSettled(queryClient)
+
+      expect(queryClient.getQueryState(setupStatusQueryKey)?.status).toBe('error')
+      expect(screen.queryByRole('link', { name: 'Set up Stride' })).not.toBeInTheDocument()
+    })
   })
 })

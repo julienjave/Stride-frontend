@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/select'
 import { registerClinic } from './api'
 import { currentUserQueryKey } from './useCurrentUser'
+import { setupStatusQueryKey, useSetupStatus } from './useSetupStatus'
+import type { SetupStatus } from './types'
 import { registerClinicSchema, type RegisterClinicFormValues } from './schemas'
 import { ApiError } from '@/api/client'
 
@@ -31,6 +33,15 @@ export function RegisterClinicPage() {
     resolver: zodResolver(registerClinicSchema),
   })
   const watchedClinicCountry = form.watch('clinicAddressCountry')
+  const setupStatus = useSetupStatus()
+
+  // Either way setup becomes complete, the cache is told directly — the
+  // query never refetches on its own (staleTime: Infinity, see
+  // useSetupStatus), so whatever reads it next must not see a stale
+  // `false` and offer setup again.
+  function markSetupComplete() {
+    queryClient.setQueryData<SetupStatus>(setupStatusQueryKey, { setupComplete: true })
+  }
 
   // Same "only one outcome shape" reasoning as RegisterPage's mutation —
   // registerClinic() always resolves to a plain RegisterClinicResult (see
@@ -39,18 +50,23 @@ export function RegisterClinicPage() {
     mutationFn: registerClinic,
     onSuccess: (user) => {
       queryClient.setQueryData(currentUserQueryKey, user)
+      markSetupComplete()
       void navigate('/')
+    },
+    // registerClinic() can ONLY ever return a 403 for one specific reason —
+    // an administrator already exists, so this one-time setup is closed.
+    // Checking statusCode alone is enough to identify that case (it's the
+    // only 403 this endpoint can produce), no need to inspect the message.
+    // It happens when setup was completed AFTER this page asked (someone
+    // else finished it in the meantime): the status in the cache is out of
+    // date, so it's corrected — and the page switches to the same "already
+    // set up" notice a later visitor gets straight away.
+    onError: (error) => {
+      if (error instanceof ApiError && error.statusCode === 403) markSetupComplete()
     },
   })
 
-  // Option B from the handoff: registerClinic() can ONLY ever return a 403
-  // for one specific reason — an administrator already exists somewhere,
-  // meaning this one-time setup step has already been permanently closed.
-  // Checking statusCode alone is sufficient to identify that exact case
-  // (confirmed against the backend: it's the only 403 this endpoint can
-  // produce), so there's no need to also inspect the message text.
   const error = registerClinicMutation.error
-  const isSetupAlreadyDone = error instanceof ApiError && error.statusCode === 403
 
   // Same cascading behavior as AddressFields.tsx's identical logic, just
   // inlined here rather than shared — this is the ONLY consumer with
@@ -62,6 +78,35 @@ export function RegisterClinicPage() {
     () => (watchedClinicCountry ? State.getStatesOfCountry(watchedClinicCountry) : []),
     [watchedClinicCountry],
   )
+
+  // Stride is already set up: no form at all — it could only be refused.
+  if (setupStatus.data?.setupComplete === true) {
+    return (
+      <div className="mx-auto mt-24 max-w-sm space-y-4">
+        <h1 className="text-xl font-semibold">Stride is already set up</h1>
+        <p className="text-sm text-muted-foreground">
+          This one-time setup step has already been completed. New accounts are created by your
+          clinic, which emails you an invitation.{' '}
+          <Link to="/login" className="underline">
+            Log in instead
+          </Link>
+        </p>
+      </div>
+    )
+  }
+
+  // Still asking: show nothing that could be clicked, rather than a form
+  // that might vanish a moment later. role="status" so a screen reader
+  // announces it. If asking FAILS (setupStatus.isError), the page falls
+  // through to the form below — the backend still refuses a second setup
+  // with a 403, which the onError above turns into the notice above.
+  if (setupStatus.isPending) {
+    return (
+      <p role="status" className="mx-auto mt-24 max-w-sm text-sm text-muted-foreground">
+        Loading…
+      </p>
+    )
+  }
 
   return (
     <div className="mx-auto mt-24 max-w-sm space-y-4">
@@ -364,20 +409,13 @@ export function RegisterClinicPage() {
           </div>
         </div>
 
-        {registerClinicMutation.isError &&
-          (isSetupAlreadyDone ? (
-            <p className="text-sm text-muted-foreground">
-              An administrator account already exists — this one-time setup step has already
-              been completed.{' '}
-              <Link to="/login" className="underline">
-                Log in instead
-              </Link>
-            </p>
-          ) : (
-            <p className="text-sm text-destructive">
-              {error instanceof ApiError ? error.messages.join(', ') : 'Something went wrong'}
-            </p>
-          ))}
+        {/* A 403 never shows here: onError turns it into the "already set
+            up" page above. */}
+        {registerClinicMutation.isError && (
+          <p className="text-sm text-destructive">
+            {error instanceof ApiError ? error.messages.join(', ') : 'Something went wrong'}
+          </p>
+        )}
 
         <Button type="submit" disabled={registerClinicMutation.isPending}>
           {registerClinicMutation.isPending ? 'Setting up…' : 'Create clinic'}

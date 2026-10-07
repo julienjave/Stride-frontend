@@ -74,3 +74,9 @@ export interface CurrentUser extends Address {
 // type isn't actually a narrower real response. CurrentUser is the accurate
 // model here, not a guess.
 export type RegisterClinicResult = CurrentUser & { clinicId: number }
+// GET /auth/setup-status — hand-written for the same generated-type gap as
+// the two types above (a plain object literal returned by the controller).
+// One field: has the one-time setup (register-clinic) already happened?
+export interface SetupStatus {
+  setupComplete: boolean
+}

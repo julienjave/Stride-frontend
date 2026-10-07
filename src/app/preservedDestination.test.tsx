@@ -7,6 +7,7 @@ import { RequireAuth } from './RequireAuth'
 import { RequireGuest } from './RequireGuest'
 import { LoginPage } from '@/auth/LoginPage'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
+import { setupStatusQueryKey } from '@/auth/useSetupStatus'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -33,6 +34,10 @@ describe('preserved destination through login', () => {
       defaultOptions: { queries: { retry: false } },
     })
     queryClient.setQueryData(currentUserQueryKey, null)
+    // LoginPage also asks whether Stride is set up; answered from the cache
+    // here (useSetupStatus never refetches a cached answer), so the only
+    // request this test sees is the login it's about.
+    queryClient.setQueryData(setupStatusQueryKey, { setupComplete: true })
 
     const router = createMemoryRouter(
       [
@@ -91,6 +96,10 @@ describe('preserved destination through login', () => {
       defaultOptions: { queries: { retry: false } },
     })
     queryClient.setQueryData(currentUserQueryKey, null)
+    // LoginPage also asks whether Stride is set up; answered from the cache
+    // here (useSetupStatus never refetches a cached answer), so the only
+    // request this test sees is the login it's about.
+    queryClient.setQueryData(setupStatusQueryKey, { setupComplete: true })
 
     const router = createMemoryRouter(
       [

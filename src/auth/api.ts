@@ -1,6 +1,6 @@
 import { apiRequest } from '@/api/client'
 import { toAddressPayload } from '@/common/address/api'
-import type { CurrentUser, RegisterClinicResult } from './types'
+import type { CurrentUser, RegisterClinicResult, SetupStatus } from './types'
 import type { 
   LoginFormValues, 
   MfaCodeFormValues, 
@@ -65,6 +65,15 @@ export function logout() {
 
 
 // --- CLINIC BOOTSTRAP (register-clinic) -------------------------------------
+
+// Public: answers before anyone has signed in. Whether Stride has been set
+// up decides two things — whether the sign-in page offers "First time? Set
+// up Stride", and whether /register-clinic shows its form or says setup is
+// already done. The backend uses the SAME check to decide whether
+// register-clinic still runs, so the two can never disagree.
+export function fetchSetupStatus() {
+  return apiRequest<SetupStatus>('/auth/setup-status')
+}
 
 // Same overall shape as register() just above — always a plain result
 // (never the login mfaRequired union, for the same reason: a bootstrap

@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate, useLocation } from 'react-router'
+import { useNavigate, useLocation, Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { login, verifyMfaCode } from './api'
 import { currentUserQueryKey } from './useCurrentUser'
+import { useSetupStatus } from './useSetupStatus'
 import {
   loginSchema,
   mfaCodeSchema,
@@ -43,6 +44,7 @@ export function LoginPage() {
   const navigate = useNavigate()
 
   const location = useLocation()
+  const setupStatus = useSetupStatus()
 
   // location.state is typed as `unknown` by React Router (it can hold
   // literally anything a caller passed) — narrowing it here, once, rather
@@ -232,6 +234,20 @@ export function LoginPage() {
       <p className="text-sm text-muted-foreground">
         No account yet? Your clinic creates it and emails you an invitation.
       </p>
+      {/* Only on a brand-new install: once the first clinic and admin exist,
+          the setup page would refuse anyway (the backend answers 403), so
+          the link would lead nowhere. `=== false`, not `!setupComplete`:
+          while the answer is loading, or if asking failed, data is
+          undefined — and an UNKNOWN status shows no link rather than
+          guessing. */}
+      {setupStatus.data?.setupComplete === false && (
+        <p className="text-sm text-muted-foreground">
+          First time?{' '}
+          <Link to="/register-clinic" className="underline">
+            Set up Stride
+          </Link>
+        </p>
+      )}
     </div>
   )
 }
