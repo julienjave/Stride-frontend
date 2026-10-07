@@ -9,6 +9,7 @@ import { UserClinicMemberships } from './UserClinicMemberships'
 import { GrantRoleForm } from './GrantRoleForm'
 import { DeactivateUserButton } from './DeactivateUserButton'
 import { ReactivateUserButton } from './ReactivateUserButton'
+import { InvitationStatus } from '@/invitations/InvitationStatus'
 
 export function UserEditPage() {
   const { id } = useParams<{ id: string }>()
@@ -72,6 +73,15 @@ function UserEditView({ userId }: { userId: number }) {
           asking the real question here keeps the component honest if the
           page is ever reused, and the backend enforces it regardless. */}
       <ProfileFields user={user} canEditLicense={me?.activeRole === 'admin'} />
+
+      {/* Renders nothing for an account with no invitation history (the
+          founding admin's, for one). */}
+      <InvitationStatus
+        userId={userId}
+        userName={`${user.firstName} ${user.lastName}`}
+        email={user.email}
+        isActive={user.isActive}
+      />
 
       <div className="rounded-lg border px-4">
         <UserClinicMemberships userId={userId} currentClinics={user.clinics} />

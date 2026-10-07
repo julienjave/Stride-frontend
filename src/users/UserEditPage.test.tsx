@@ -273,3 +273,44 @@ describe('UserEditPage — photo', () => {
     ).toEqual([expect.stringMatching(/\/users\/1\/avatar$/)])
   })
 })
+
+// The page's own part: it shows the account's invitation, for THIS user.
+// What the section does is tested in src/invitations/InvitationStatus.test.tsx.
+describe('UserEditPage — invitation', () => {
+  it("shows this user's invitation status", async () => {
+    fetchMock.mockImplementation((input) => {
+      const url = urlOf(input)
+      // Checked FIRST: '/users/1/invitations' also contains '/users/1'.
+      if (url.endsWith('/users/1/invitations')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify([
+              {
+                id: 10,
+                status: 'expired',
+                createdAt: '2026-09-20T10:00:00.000Z',
+                expiresAt: '2026-09-27T10:00:00.000Z',
+                acceptedAt: null,
+                revokedAt: null,
+                invitedBy: { id: 9, firstName: 'Ada', lastName: 'Admin' },
+                revokedBy: null,
+              },
+            ]),
+            { status: 200 },
+          ),
+        )
+      }
+      if (url.endsWith('/users/1')) {
+        return Promise.resolve(new Response(JSON.stringify(fullUser), { status: 200 }))
+      }
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }))
+    })
+    renderAt('/admin/users/1')
+
+    const region = await screen.findByRole('region', { name: 'Invitation' })
+    expect(region).toHaveTextContent('Expired')
+    expect(
+      fetchMock.mock.calls.some(([input]) => urlOf(input).endsWith('/users/1/invitations')),
+    ).toBe(true)
+  })
+})
