@@ -38,18 +38,54 @@ function urlOf(input: RequestInfo | URL): string {
 // both, which would break whichever one didn't get the shape it expected.
 // Branching on the URL is how every test below tells them apart, while
 // still going through the one real fetchMock the app itself calls.
-function mockClinicsAndUserCreation(userResponse: unknown, userStatus = 201) {
+//
+// A successful POST /users always returns the new account's first
+// invitation (accounts are created by invitation); a test that doesn't
+// care about it gets this pending one, emailed successfully. "Send the
+// invitation again" (POST /users/:id/invitations) answers with
+// `invitationResponse` — checked FIRST, since its URL contains /users too.
+const EXPIRES_AT = '2026-10-14T10:00:00.000Z'
+const sentInvitation = {
+  id: 500,
+  status: 'pending',
+  expiresAt: EXPIRES_AT,
+  emailSent: true,
+}
+
+function mockClinicsAndUserCreation(
+  userResponse: object,
+  userStatus = 201,
+  invitationResponse: { body: object; status: number } = {
+    body: sentInvitation,
+    status: 201,
+  },
+) {
+  const userBody =
+    userStatus === 201 ? { invitation: sentInvitation, ...userResponse } : userResponse
   fetchMock.mockImplementation((input) => {
     const url = urlOf(input)
     if (url.includes('/clinics')) {
       return Promise.resolve(new Response(JSON.stringify(mockClinics), { status: 200 }))
     }
+    if (url.includes('/invitations')) {
+      return Promise.resolve(
+        new Response(JSON.stringify(invitationResponse.body), {
+          status: invitationResponse.status,
+        }),
+      )
+    }
     if (url.includes('/users')) {
-      return Promise.resolve(new Response(JSON.stringify(userResponse), { status: userStatus }))
+      return Promise.resolve(new Response(JSON.stringify(userBody), { status: userStatus }))
     }
     throw new Error(`Unexpected fetch to ${url}`)
   })
 }
+
+// The expiry as the page shows it — formatted the same way (viewer's
+// locale and time zone), so the test doesn't depend on the machine's.
+const expiryLabel = new Intl.DateTimeFormat(undefined, { dateStyle: 'long' }).format(
+  new Date(EXPIRES_AT),
+)
 
 function renderCreateUserPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -79,7 +115,6 @@ async function selectCountry(user: ReturnType<typeof userEvent.setup>, countryNa
 
 async function fillCommonFields(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('Email'), 'new.user@example.com')
-  await user.type(screen.getByLabelText('Temporary password'), 'a-strong-password')
   await user.type(screen.getByLabelText('First name'), 'Jamie')
   await user.type(screen.getByLabelText('Last name'), 'Doe')
 }
@@ -220,7 +255,6 @@ describe('CreateUserPage — successful submission payloads', () => {
     const body = JSON.parse(requestInit?.body as string) as Record<string, unknown>
     expect(body).toEqual({
       email: 'new.user@example.com',
-      password: 'a-strong-password',
       firstName: 'Jamie',
       lastName: 'Doe',
       role: 'patient',
@@ -257,7 +291,6 @@ describe('CreateUserPage — successful submission payloads', () => {
     const body = JSON.parse(requestInit?.body as string) as Record<string, unknown>
     expect(body).toEqual({
       email: 'new.user@example.com',
-      password: 'a-strong-password',
       firstName: 'Jamie',
       lastName: 'Doe',
       role: 'patient',
@@ -304,7 +337,6 @@ describe('CreateUserPage — successful submission payloads', () => {
     const body = JSON.parse(requestInit?.body as string) as Record<string, unknown>
     expect(body).toEqual({
       email: 'new.user@example.com',
-      password: 'a-strong-password',
       firstName: 'Jamie',
       lastName: 'Doe',
       role: 'practitioner',
@@ -351,10 +383,98 @@ describe('CreateUserPage — successful submission payloads', () => {
     expect(
       await screen.findByText('Created Jamie Doe (new.user@example.com) as patient.'),
     ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        `We emailed them an invitation to choose their password. The link works until ${expiryLabel}.`,
+      ),
+    ).toBeInTheDocument()
+    // Nothing to resend when the email went out.
+    expect(
+      screen.queryByRole('button', { name: 'Send the invitation again' }),
+    ).not.toBeInTheDocument()
     // The form actually reset — email field is empty again, ready for
     // the next account, matching the demo target of creating SEVERAL
     // test accounts in a row without leaving the page.
     expect(screen.getByLabelText('Email')).toHaveValue('')
+  })
+})
+
+describe('CreateUserPage — invitations', () => {
+  // Accounts are created by invitation: whoever creates an account never
+  // sets its password (and the backend now refuses one in the request).
+  it('has no password field', () => {
+    mockClinicsAndUserCreation({})
+    renderCreateUserPage()
+    expect(screen.queryByLabelText(/password/i)).not.toBeInTheDocument()
+  })
+
+  async function createWithFailedEmail(user: ReturnType<typeof userEvent.setup>) {
+    renderCreateUserPage()
+    await fillCommonFields(user)
+    await user.type(screen.getByLabelText('Date of birth'), '2000-01-01')
+    await selectClinic(user, 'Acme Clinic')
+    await user.click(screen.getByRole('button', { name: 'Create user' }))
+    await screen.findByText('Created Jamie Doe (new.user@example.com) as patient.')
+  }
+
+  // The account exists even though the email failed — the page says so,
+  // and offers to send a NEW invitation, never to create the account again.
+  it('offers to send the invitation again when its email failed, and reports the new one', async () => {
+    mockClinicsAndUserCreation({
+      id: 44,
+      firstName: 'Jamie',
+      lastName: 'Doe',
+      email: 'new.user@example.com',
+      roles: ['patient'],
+      invitation: { ...sentInvitation, emailSent: false },
+    })
+    const user = userEvent.setup()
+    await createWithFailedEmail(user)
+
+    expect(
+      screen.getByText(
+        'The invitation email could not be sent. The account exists — send the invitation again so they can choose their password.',
+      ),
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Send the invitation again' }))
+
+    expect(
+      await screen.findByText(
+        `We emailed them an invitation to choose their password. The link works until ${expiryLabel}.`,
+      ),
+    ).toBeInTheDocument()
+    // The new invitation, for THIS account, created with a POST.
+    const call = fetchMock.mock.calls.find(([url]) => urlOf(url).includes('/invitations'))
+    expect(call).toBeDefined()
+    expect(urlOf(call![0])).toContain('/users/44/invitations')
+    expect(call![1]).toEqual(expect.objectContaining({ method: 'POST' }))
+  })
+
+  it("shows the backend's message when sending again fails", async () => {
+    mockClinicsAndUserCreation(
+      {
+        id: 44,
+        firstName: 'Jamie',
+        lastName: 'Doe',
+        email: 'new.user@example.com',
+        roles: ['patient'],
+        invitation: { ...sentInvitation, emailSent: false },
+      },
+      201,
+      {
+        body: { statusCode: 403, message: ['Not allowed to invite this account'] },
+        status: 403,
+      },
+    )
+    const user = userEvent.setup()
+    await createWithFailedEmail(user)
+
+    await user.click(screen.getByRole('button', { name: 'Send the invitation again' }))
+
+    expect(await screen.findByText('Not allowed to invite this account')).toBeInTheDocument()
+    // Still offered: the account still has no delivered invitation.
+    expect(screen.getByRole('button', { name: 'Send the invitation again' })).toBeEnabled()
   })
 })
 

@@ -1,5 +1,6 @@
 import type { Address } from '@/common/address/types'
 import type { WeightUnit } from '@/common/weight'
+import type { CreatedUserInvitation } from '@/invitations/types'
 
 // The real shape POST /users, GET /users, and GET /users/:id all return —
 // confirmed directly against users.service.ts's toPublic() and
@@ -88,4 +89,11 @@ export interface UpdateUserPayload {
   // NOT NULL (always 'kg' or 'lbs'), so never null. Only the user
   // themselves may send it — the backend answers anyone else with a 403.
   preferredWeightUnit?: WeightUnit
+}
+
+// What POST /users returns: the new account, plus its first invitation —
+// accounts are created without a password, and the person chooses theirs
+// by accepting the emailed invitation.
+export interface CreatedUser extends User {
+  invitation: CreatedUserInvitation
 }

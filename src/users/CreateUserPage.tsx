@@ -17,6 +17,7 @@ import { ApiError } from '@/api/client'
 import { useClinics } from '@/clinics/useClinics'
 import { AddressFields } from '@/common/address/AddressFields'
 import { TagListField } from '@/common/TagListField'
+import { sendInvitation } from '@/invitations/api'
 import { createUser } from './api'
 import {
   createUserSchema,
@@ -24,7 +25,7 @@ import {
   type CreateUserFormInput,
   type CreateUserFormValues,
 } from './schemas'
-import type { User } from './types'
+import type { CreatedUser } from './types'
 
 export function CreateUserPage() {
   // Three types, because the schema TRANSFORMS a value (specialties: a
@@ -71,12 +72,41 @@ export function CreateUserPage() {
   // On success, this just remembers the created user long enough to show
   // a confirmation and offer "create another," rather than navigating
   // anywhere — there's no /admin/users/:id page to send them to yet.
-  const [lastCreated, setLastCreated] = useState<User | null>(null)
+  //
+  // The created account comes back with its first invitation (accounts are
+  // created without a password — the person chooses theirs by accepting
+  // the emailed invitation), which is what the confirmation reports.
+  const [lastCreated, setLastCreated] = useState<CreatedUser | null>(null)
+
+  // Only offered when the invitation email failed: the account and its
+  // invitation exist either way, so the fix is sending a new one — not
+  // creating the account again (that would be a 409, email already taken).
+  const resendMutation = useMutation({
+    mutationFn: sendInvitation,
+    onSuccess: (sent) =>
+      // Replace the reported invitation with the new one: its emailSent
+      // says whether THIS attempt worked. The functional form reads the
+      // latest state, not the value captured when the click happened.
+      setLastCreated((created) =>
+        created && {
+          ...created,
+          invitation: {
+            id: sent.id,
+            status: sent.status,
+            expiresAt: sent.expiresAt,
+            emailSent: sent.emailSent,
+          },
+        },
+      ),
+  })
 
   const createUserMutation = useMutation({
     mutationFn: createUser,
     onSuccess: (user) => {
       setLastCreated(user)
+      // A new account starts with a clean slate: no leftover error or
+      // pending state from resending the PREVIOUS account's invitation.
+      resendMutation.reset()
       // reset() with NO arguments — not reset({ role: 'patient' }) — on
       // purpose. Verified directly, in isolation: this react-hook-form
       // version only reliably clears a registered input's actual DOM
@@ -95,10 +125,48 @@ export function CreateUserPage() {
       <h1 className="text-xl font-semibold">Add a user</h1>
 
       {lastCreated && (
-        <p className="rounded-lg border border-green-600/30 bg-green-600/10 p-3 text-sm">
-          Created {lastCreated.firstName} {lastCreated.lastName} ({lastCreated.email}) as{' '}
-          {lastCreated.roles.join(', ')}.
-        </p>
+        <div
+          role="status"
+          className={
+            lastCreated.invitation.emailSent
+              ? 'space-y-1 rounded-lg border border-green-600/30 bg-green-600/10 p-3 text-sm'
+              : 'space-y-2 rounded-lg border border-amber-600/40 bg-amber-500/10 p-3 text-sm'
+          }
+        >
+          <p>
+            Created {lastCreated.firstName} {lastCreated.lastName} ({lastCreated.email}) as{' '}
+            {lastCreated.roles.join(', ')}.
+          </p>
+          {lastCreated.invitation.emailSent ? (
+            <p>
+              We emailed them an invitation to choose their password. The link works until{' '}
+              {formatExpiry(lastCreated.invitation.expiresAt)}.
+            </p>
+          ) : (
+            <>
+              <p>
+                The invitation email could not be sent. The account exists — send the
+                invitation again so they can choose their password.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={resendMutation.isPending}
+                onClick={() => resendMutation.mutate(lastCreated.id)}
+              >
+                {resendMutation.isPending ? 'Sending…' : 'Send the invitation again'}
+              </Button>
+              {resendMutation.isError && (
+                <p className="text-destructive">
+                  {resendMutation.error instanceof ApiError
+                    ? resendMutation.error.messages.join(', ')
+                    : 'Something went wrong'}
+                </p>
+              )}
+            </>
+          )}
+        </div>
       )}
 
       <form
@@ -146,20 +214,6 @@ export function CreateUserPage() {
           />
           {form.formState.errors.email && (
             <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
-          )}
-        </div>
-
-        <div className="space-y-1">
-          <Label htmlFor="password">Temporary password</Label>
-          <Input
-            id="password"
-            type="password"
-            autoComplete="new-password"
-            aria-invalid={!!form.formState.errors.password}
-            {...form.register('password')}
-          />
-          {form.formState.errors.password && (
-            <p className="text-sm text-destructive">{form.formState.errors.password.message}</p>
           )}
         </div>
 
@@ -336,5 +390,14 @@ export function CreateUserPage() {
         </Link>
       </p>
     </div>
+  )
+}
+
+// When the invitation link stops working, in the viewer's own language and
+// time zone — an expiry is a moment in time, not a calendar date (unlike a
+// date of birth, which formatCalendarDate pins to UTC).
+function formatExpiry(expiresAt: string): string {
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'long' }).format(
+    new Date(expiresAt),
   )
 }

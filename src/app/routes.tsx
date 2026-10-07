@@ -1,6 +1,5 @@
 import { createBrowserRouter } from 'react-router'
 import { LoginPage } from '@/auth/LoginPage'
-import { RegisterPage } from '@/auth/RegisterPage'
 import { RegisterClinicPage } from '@/auth/RegisterClinicPage'
 import { DashboardRedirect } from '@/app/DashboardRedirect'
 import { ClinicsListPage } from '@/clinics/ClinicsListPage'
@@ -54,7 +53,6 @@ export const router = createBrowserRouter([
     element: <RequireGuest />,
     children: [
       { path: '/login', element: <LoginPage /> },
-      { path: '/register', element: <RegisterPage /> },
       { path: '/register-clinic', element: <RegisterClinicPage /> },
     ],
   },

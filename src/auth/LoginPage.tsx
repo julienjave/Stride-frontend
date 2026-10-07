@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate, useLocation, Link } from 'react-router'
+import { useNavigate, useLocation } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -226,11 +226,11 @@ export function LoginPage() {
           {loginMutation.isPending ? 'Logging in…' : 'Log in'}
         </Button>
       </form>
+      {/* No "Register" link: accounts are created by a clinic, and the
+          person receives an invitation email to choose their password
+          (public self-registration was removed). */}
       <p className="text-sm text-muted-foreground">
-        Don't have an account?{' '}
-        <Link to="/register" className="underline">
-          Register
-        </Link>
+        No account yet? Your clinic creates it and emails you an invitation.
       </p>
     </div>
   )

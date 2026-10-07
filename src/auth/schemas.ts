@@ -1,7 +1,5 @@
 import { z } from 'zod'
 import {
-  addressObjectShape,
-  addAddressIssues,
   addressLine1Schema,
   addressLine2Schema,
   addressCitySchema,
@@ -38,55 +36,6 @@ export const mfaCodeSchema = z.object({
 export type MfaCodeFormValues = z.infer<typeof mfaCodeSchema>
 
 
-// --- SELF-REGISTRATION ------------------------------------------------------
-
-// Matches RegisterDto (email, password, firstName, lastName, dateOfBirth)
-// PLUS one field the backend knows nothing about: confirmPassword. This is
-// purely a client-side UX check — catching a typo'd password before a
-// round trip, not something we ever send to the backend (see api.ts's
-// register() function, which strips it out before calling apiRequest).
-export const registerSchema = z
-  .object({
-    email: z.string().email('Enter a valid email address'),
-    // Mirrors the backend's actual constraint (RegisterDto: 8–128 chars) —
-    // catching a too-short password here is instant feedback instead of a
-    // round trip just to learn the same thing.
-    password: z.string().min(8, 'Password must be at least 8 characters').max(128),
-    confirmPassword: z.string(),
-    firstName: z.string().min(1, 'First name is required'),
-    lastName: z.string().min(1, 'Last name is required'),
-    dateOfBirth: z.string().min(1, 'Date of birth is required'),
-    // Both genuinely optional, per RegisterDto — .optional() means the KEY
-    // may be absent from the parsed result, but note this does NOT stop an
-    // untouched form input from producing an empty string '' here: RHF
-    // reads whatever's currently in the DOM, and an empty text input's
-    // value is '', not undefined. z.string() (with no .min()) happily
-    // accepts '' as valid — so Zod alone can't tell "left blank" apart
-    // from "typed then deleted." That distinction is handled one layer up,
-    // in api.ts's register(), right before the request is sent — see the
-    // comment there for why it matters.
-    phone: z.string().max(50, 'Phone number is too long').optional(),
-    ...addressObjectShape,
-  })
-  // .refine runs AFTER the per-field checks above all pass — this is for a
-  // check that depends on MORE THAN ONE field at once, which a single
-  // field's own validator can't express. `path: ['confirmPassword']`
-  // controls which field the resulting error attaches to (so it renders
-  // under the confirm-password input, not floating unattached).
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ['confirmPassword'],
-  })
-  // A second, separate refinement step, chained after the first — Zod
-  // composes .refine()/.superRefine() calls in sequence, so this doesn't
-  // need to be merged into the one above. Same core-fields-required-
-  // together rule as every other address-bearing form — see
-  // common/address/schemas.ts.
-  .superRefine(addAddressIssues)
-
-export type RegisterFormValues = z.infer<typeof registerSchema>
-
-
 // --- CLINIC BOOTSTRAP (register-clinic) -------------------------------------
 
 // Matches RegisterClinicDto — two logically distinct groups of fields living
@@ -94,10 +43,11 @@ export type RegisterFormValues = z.infer<typeof registerSchema>
 // created (clinicName/clinicEmail/clinicPhone/clinicWebsite/clinicAddress)
 // and the founding admin account that gets created alongside it
 // (email/password/firstName/lastName/position). A separate schema from
-// registerSchema, not a shared/extended one — despite the overlapping field
+// the user-creation schemas, not a shared/extended one — despite the overlapping field
 // NAMES (email, password, firstName, lastName), these mean something
 // different here (the admin's own account, always role=admin, created via a
-// one-time bootstrap endpoint) than they do for a self-registering patient,
+// one-time bootstrap endpoint) than they did for the self-registering patient
+// of the (since removed) public registration form,
 // and the two forms will keep diverging (this one will never grow a
 // dateOfBirth field, for instance). Sharing a base would couple two things
 // that only coincidentally look alike today.
@@ -160,9 +110,8 @@ export const registerClinicSchema = z
     // --- Clinic fields ---
     clinicName: z.string().min(1, 'Clinic name is required').max(255, 'Clinic name is too long'),
     clinicEmail: z.string().email('Enter a valid clinic email address'),
-    // All four of these are genuinely optional per RegisterClinicDto — same
-    // DOM-empty-string caveat as registerSchema's phone/address above
-    // applies to every one of them: Zod alone can't tell "left blank" apart
+    // All four of these are genuinely optional per RegisterClinicDto — and
+    // an untouched text input reads as '' (empty string), not undefined: Zod alone can't tell "left blank" apart
     // from "typed then deleted," so the '' → undefined conversion still has
     // to happen one layer up, in api.ts's registerClinic(), right before
     // the request is built.
@@ -185,9 +134,8 @@ export const registerClinicSchema = z
 
     // --- Founding admin fields ---
     email: z.string().email('Enter a valid email address'),
-    // Mirrors RegisterClinicDto's own constraint (8–128 chars), same
-    // reasoning as registerSchema's password field: instant feedback
-    // instead of a round trip to learn the same thing.
+    // Mirrors RegisterClinicDto's own constraint (8–128 chars): instant
+    // feedback instead of a round trip to learn the same thing.
     password: z.string().min(8, 'Password must be at least 8 characters').max(128),
     confirmPassword: z.string(),
     firstName: z.string().min(1, 'First name is required'),

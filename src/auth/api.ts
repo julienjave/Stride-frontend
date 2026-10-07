@@ -4,7 +4,6 @@ import type { CurrentUser, RegisterClinicResult } from './types'
 import type { 
   LoginFormValues, 
   MfaCodeFormValues, 
-  RegisterFormValues, 
   RegisterClinicFormValues,
   UserRole, 
 } from './schemas'
@@ -62,65 +61,6 @@ export function verifyMfaCode(payload: MfaCodeFormValues) {
 // the backend destroys whatever session the cookie currently points to.
 export function logout() {
   return apiRequest<void>('/auth/logout', { method: 'POST' })
-}
-
-
-// --- SELF-REGISTRATION -------------------------------------------------------
-
-// Unlike login(), this always returns a plain CurrentUser — never the
-// mfaRequired union, since a brand-new self-registered account can't
-// possibly have MFA already enabled. Registration also always logs the new
-// account in immediately (backend calls req.login() as part of this same
-// request) — no separate login call needed afterward.
-export function register(values: RegisterFormValues) {
-  // confirmPassword only ever existed for our own client-side validation
-  // (see schemas.ts) — RegisterDto on the backend has no such field, and
-  // the global ValidationPipe's `forbidNonWhitelisted` would reject the
-  // whole request outright if we sent it. Destructuring it out here, at
-  // the API boundary, keeps that "this field is UI-only" knowledge in one
-  // place rather than leaking into the component.
-  const {
-    confirmPassword: _confirmPassword,
-    phone,
-    addressLine1,
-    addressLine2,
-    addressCity,
-    addressState,
-    addressPostalCode,
-    addressCountry,
-    ...rest
-  } = values
-
-  // phone (and every address field) is optional on the backend, but an
-  // HTML text input that was simply never touched reads as '' (empty
-  // string), not undefined — the DOM has no concept of "this field was
-  // never filled in," only "this field currently contains zero
-  // characters." If we sent '' as-is, RegisterDto's @IsOptional() would
-  // NOT skip it (that decorator only treats undefined/null as "absent" —
-  // an empty string is a perfectly valid string, so it would sail
-  // through @IsString() and get stored as a literal empty string in the
-  // database. That's a different, worse outcome than the column
-  // genuinely being null: "we have a phone number and it's blank" vs.
-  // "we were never given one." Converting '' back to undefined here —
-  // right at the boundary before the request is built — means
-  // JSON.stringify (called inside apiRequest) drops the key entirely for
-  // an untouched field, which is what "optional" is actually supposed to
-  // mean.
-  return apiRequest<CurrentUser>('/auth/register', {
-    method: 'POST',
-    body: {
-      ...rest,
-      phone: phone === '' ? undefined : phone,
-      ...toAddressPayload({
-        addressLine1,
-        addressLine2,
-        addressCity,
-        addressState,
-        addressPostalCode,
-        addressCountry,
-      }),
-    },
-  })
 }
 
 

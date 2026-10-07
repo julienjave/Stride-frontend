@@ -5,14 +5,11 @@ import { tagDraftSchema, type TagRules } from '@/common/tagList'
 
 // --- BASE FIELDS (every role needs these) -------------------------------
 
-// Matches CreateUserDto's own constraints (@IsEmail, @MinLength(8),
-// @MaxLength) exactly — see users/dto/create-user.dto.ts on the backend.
+// Matches CreateUserDto's own constraints (@IsEmail, @MaxLength) — see
+// users/dto/create-user.dto.ts on the backend. No password: accounts are
+// created by invitation, and the person chooses their own password.
 const emailSchema = z.string().email('Enter a valid email address')
-const passwordSchema = z
-  .string()
-  .min(8, 'Password must be at least 8 characters')
-  .max(128, 'Password is too long')
-// Exported (the email/password ones stay private): the profile page's
+// Exported (the email one stays private): the profile page's
 // per-field editors validate a single value against these SAME rules, so
 // "what counts as a valid phone number" is written down exactly once.
 export const firstNameSchema = z.string().min(1, 'First name is required').max(100, 'First name is too long')
@@ -94,7 +91,6 @@ const specialtiesDraftSchema = tagDraftSchema(SPECIALTY_RULES).optional()
 // what's asserted about a given instance's fields.
 const baseObjectSchema = z.object({
   email: emailSchema,
-  password: passwordSchema,
   role: userRoleSchema,
   firstName: firstNameSchema,
   lastName: lastNameSchema,

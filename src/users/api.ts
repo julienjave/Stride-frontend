@@ -1,6 +1,6 @@
 import { apiRequest } from '@/api/client'
 import { toAddressPayload } from '@/common/address/api'
-import type { UpdateUserPayload, User } from './types'
+import type { CreatedUser, UpdateUserPayload, User } from './types'
 import type { CreateUserFormValues, GrantRoleFormValues } from './schemas'
 
 // --- QUERY KEYS --------------------------------------------------------
@@ -69,7 +69,7 @@ export function createUser(values: CreateUserFormValues) {
     ...rest
   } = values
 
-  return apiRequest<User>('/users', {
+  return apiRequest<CreatedUser>('/users', {
     method: 'POST',
     body: {
       ...rest,
