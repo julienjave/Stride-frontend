@@ -17,6 +17,7 @@ import { ApiError } from '@/api/client'
 import { useClinics } from '@/clinics/useClinics'
 import { AddressFields } from '@/common/address/AddressFields'
 import { TagListField } from '@/common/TagListField'
+import { ignoreEmptySelection } from '@/common/ignoreEmptySelection'
 import { sendInvitation } from '@/invitations/api'
 import { createUser } from './api'
 import {
@@ -273,8 +274,15 @@ export function CreateUserPage() {
               name="clinicId"
               render={({ field }) => (
                 <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
+                  // ?? '' keeps the Select CONTROLLED after a reset: given
+                  // undefined, Radix treats itself as uncontrolled and keeps
+                  // showing its last choice; '' means "nothing chosen — show
+                  // the placeholder". (Same as the address selects.)
+                  value={field.value ?? ''}
+                  // Not field.onChange directly: Radix echoes the reset after
+                  // a successful submit as an empty "change" — see
+                  // ignoreEmptySelection.
+                  onValueChange={ignoreEmptySelection(field.onChange)}
                   disabled={isLoadingClinics || clinics?.length === 0}
                 >
                   <SelectTrigger id="clinicId" className="w-full">

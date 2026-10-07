@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { AddressFormValues } from './schemas'
+import { ignoreEmptySelection } from '@/common/ignoreEmptySelection'
 
 // Loaded once at module scope, not per-render — Country.getAllCountries()
 // parses a real (if small) embedded dataset every time it's called, and
@@ -121,7 +122,14 @@ export function AddressFields<
             control={control}
             name={'addressCountry' as Path<TFieldValues>}
             render={({ field }) => (
-              <Select value={field.value ?? ''} onValueChange={field.onChange}>
+              <Select
+                value={field.value ?? ''}
+                // Ignores Radix's empty echo of a form reset — see
+                // ignoreEmptySelection. (The state select below doesn't need
+                // it: clearing the country turns the state back into a text
+                // input, so the state select is gone before any echo.)
+                onValueChange={ignoreEmptySelection(field.onChange)}
+              >
                 <SelectTrigger id="addressCountry" className="w-full">
                   <SelectValue placeholder="Select a country" />
                 </SelectTrigger>

@@ -478,6 +478,52 @@ describe('CreateUserPage — invitations', () => {
   })
 })
 
+// Found in manual testing (2026-10-07): after a successful creation, the
+// reset form showed "Select a clinic for this patient" — and "Country is
+// required" when a country had been chosen. Radix's Select reports the
+// reset of its value as an empty "change", which reached the form as if the
+// person had cleared the field (see common/ignoreEmptySelection.ts). The
+// success test above only checked that the email field was empty, so it
+// never noticed the errors.
+describe('CreateUserPage — the form after a successful creation', () => {
+  it('is empty AND free of errors — the reset is not taken for a user change', async () => {
+    mockClinicsAndUserCreation({
+      id: 45,
+      firstName: 'Jamie',
+      lastName: 'Doe',
+      email: 'new.user@example.com',
+      roles: ['patient'],
+    })
+    const user = userEvent.setup()
+    renderCreateUserPage()
+    await fillCommonFields(user)
+    await user.type(screen.getByLabelText('Date of birth'), '2000-01-01')
+    await selectClinic(user, 'Acme Clinic')
+    await user.type(screen.getByLabelText('Address line 1'), '1 Acme Way')
+    await user.type(screen.getByLabelText('City'), 'Springfield')
+    await user.type(screen.getByLabelText('Postal code'), '62704')
+    await selectCountry(user, 'United States')
+    await user.click(screen.getByRole('combobox', { name: 'State/Province (if applicable)' }))
+    await user.click(await screen.findByRole('option', { name: 'Illinois' }))
+    await user.click(screen.getByRole('button', { name: 'Create user' }))
+
+    await screen.findByText('Created Jamie Doe (new.user@example.com) as patient.')
+    // Every select is back on its placeholder…
+    expect(screen.getByRole('combobox', { name: 'Clinic' })).toHaveTextContent('Select a clinic')
+    expect(screen.getByRole('combobox', { name: 'Country' })).toHaveTextContent(
+      'Select a country',
+    )
+    // With no country chosen, the state is a plain text field again (the
+    // dropdown only exists for a country with a state list) — and empty.
+    expect(screen.getByLabelText('State/Province (if applicable)')).toHaveValue('')
+    // …and nothing is flagged: no field was touched since the reset.
+    await waitFor(() => {
+      expect(screen.queryByText('Select a clinic for this patient')).not.toBeInTheDocument()
+      expect(screen.queryByText('Country is required')).not.toBeInTheDocument()
+    })
+  })
+})
+
 describe('CreateUserPage — a failed submission', () => {
   it('shows the backend error message', async () => {
     mockClinicsAndUserCreation(
