@@ -52,11 +52,18 @@ export function LoginPage() {
   // Falls back to '/' when there's no preserved destination at all (the
   // common case: someone just visited /login directly, nothing to return
   // to).
-  const state = location.state as { from?: string } | null
+  //
+  // `email` and `passwordSet` come from the accept-invitation page, after
+  // the person chose their first password: the email is filled in for
+  // them, and a line confirms the password was set.
+  const state = location.state as { from?: string; email?: string; passwordSet?: boolean } | null
   const redirectTo = state?.from ?? '/'
 
   const credentialsForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
+    // defaultValues are read once, when the form is created — the right
+    // moment, since the state arrives with the navigation to this page.
+    defaultValues: { email: state?.email ?? '' },
   })
 
   const mfaForm = useForm<MfaCodeFormValues>({
@@ -179,6 +186,12 @@ export function LoginPage() {
   return (
     <div className="mx-auto mt-24 max-w-sm space-y-4">
       <h1 className="text-xl font-semibold">Log in</h1>
+      {/* role="status": announced by screen readers when the page opens. */}
+      {state?.passwordSet && (
+        <p role="status" className="text-sm text-muted-foreground">
+          Your password is set. Log in to continue.
+        </p>
+      )}
       <form
         onSubmit={(e) => void credentialsForm.handleSubmit((values) => loginMutation.mutate(values))(e)}
         className="space-y-4"

@@ -42,7 +42,9 @@ beforeEach(() => {
   )
 })
 
-function renderLoginPage() {
+// `state` = what the previous page passed with its navigate() call (the
+// accept-invitation page passes the email and passwordSet).
+function renderLoginPage(state?: unknown) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
@@ -51,7 +53,7 @@ function renderLoginPage() {
   // SOME router context to exist above it, or it throws immediately.
   render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/login']}>
+      <MemoryRouter initialEntries={[{ pathname: '/login', state }]}>
         <LoginPage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -232,6 +234,24 @@ describe('LoginPage', () => {
 
       expect(queryClient.getQueryState(setupStatusQueryKey)?.status).toBe('error')
       expect(screen.queryByRole('link', { name: 'Set up Stride' })).not.toBeInTheDocument()
+    })
+  })
+
+  describe('arriving from the accept-invitation page', () => {
+    it('fills in the email and confirms the password was set', () => {
+      renderLoginPage({ email: 'jane@example.com', passwordSet: true })
+
+      expect(screen.getByLabelText('Email')).toHaveValue('jane@example.com')
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Your password is set. Log in to continue.',
+      )
+    })
+
+    it('shows neither on an ordinary visit', () => {
+      renderLoginPage()
+
+      expect(screen.getByLabelText('Email')).toHaveValue('')
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
     })
   })
 })

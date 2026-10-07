@@ -39,3 +39,17 @@ export interface CreatedUserInvitation {
   expiresAt: string
   emailSent: boolean
 }
+
+// POST /invitations/lookup: what the accept page needs to greet the person
+// — nothing it could use to sign in. Public: the person has no session yet.
+export interface InvitationPreview {
+  email: string
+  firstName: string
+  lastName: string
+  clinicNames: string[]
+  expiresAt: string
+}
+
+// Why an invitation can't be used any more: the `reason` field of the
+// backend's 410 Gone (a 404 means the link doesn't exist at all).
+export type UnusableReason = 'accepted' | 'revoked' | 'expired' | 'deactivated'

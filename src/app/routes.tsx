@@ -1,6 +1,7 @@
 import { createBrowserRouter } from 'react-router'
 import { LoginPage } from '@/auth/LoginPage'
 import { RegisterClinicPage } from '@/auth/RegisterClinicPage'
+import { AcceptInvitationPage } from '@/invitations/AcceptInvitationPage'
 import { DashboardRedirect } from '@/app/DashboardRedirect'
 import { ClinicsListPage } from '@/clinics/ClinicsListPage'
 import { CreateClinicPage } from '@/clinics/CreateClinicPage'
@@ -48,6 +49,12 @@ import { currentUserQueryKey } from '@/auth/useCurrentUser'
 // IS the layout element for a group of routes, deciding whether the
 // matched child ever gets to render at all.
 export const router = createBrowserRouter([
+  // Under NO guard. Not RequireGuest: a signed-in visitor (a shared
+  // computer, or a practitioner testing their patient's link) would be
+  // bounced to their own home without a word about the invitation — the
+  // page instead tells them to log out first. Not RequireAuth: the person
+  // accepting has no password yet, so no session.
+  { path: '/accept-invitation', element: <AcceptInvitationPage /> },
   {
     // Routes only a logged-OUT visitor should reach.
     element: <RequireGuest />,
