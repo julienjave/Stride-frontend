@@ -52,6 +52,13 @@ export interface CurrentUser extends Address {
   }
   patientProfile?: { dateOfBirth: string }
   adminProfile?: { position: string | null }
+  // The clinics this account belongs to. /auth/me has always sent it (the
+  // same attachProfile() as GET /users/:id), but nothing read it until the
+  // patient roster (2026-10-08), which needs "MY clinics": to offer the
+  // clinic filter, to show which clinics I share with each patient, and to
+  // list the clinics I may invite a patient into. (GET /clinics is no use
+  // for that: for a practitioner it lists EVERY active clinic.)
+  clinics: { id: number; name: string }[]
 }
 
 // The real shape POST /auth/register-clinic returns — same generated-type

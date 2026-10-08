@@ -18,6 +18,8 @@ import { PractitionerHomePage } from './PractitionerHomePage'
 import { PatientHomePage } from './PatientHomePage'
 import { ComingSoonPage } from './ComingSoonPage'
 import { ProfilePage } from '@/users/ProfilePage'
+import { AddPatientPage } from '@/patients/AddPatientPage'
+import { InvitePatientPage } from '@/patients/InvitePatientPage'
 import { PatientsListPage } from '@/patients/PatientsListPage'
 import { ExerciseLibraryPage } from '@/exercises/ExerciseLibraryPage'
 import { ExercisePickerPage } from '@/exercises/ExercisePickerPage'
@@ -109,6 +111,25 @@ export const router = createBrowserRouter([
               {
                 path: '/practitioner/patients',
                 element: <PatientsListPage />,
+              },
+              // "Add patient": search the clinic directory first, then
+              // invite if they're not there (decisions §3, roster design).
+              // Static segments ('add', 'invite') always win over the
+              // ':id' pattern below, whatever the order they're listed in
+              // — React Router ranks routes by how specific they are.
+              {
+                path: '/practitioner/patients/add',
+                element: <AddPatientPage />,
+              },
+              {
+                path: '/practitioner/patients/invite',
+                element: <InvitePatientPage />,
+              },
+              // The patient page is the next roadmap item; the roster's
+              // rows already link here so nothing changes when it lands.
+              {
+                path: '/practitioner/patients/:id',
+                element: <ComingSoonPage title="Patient" />,
               },
               {
                 path: '/practitioner/library',

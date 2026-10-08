@@ -1,0 +1,189 @@
+import { useState } from 'react'
+import { Link } from 'react-router'
+import { useDebouncedValue } from '@/common/useDebouncedValue'
+import { cn } from '@/lib/utils'
+import { AddToMyPatientsDialog } from './AddToMyPatientsDialog'
+import { DIRECTORY_RESULT_LIMIT, MIN_SEARCH_LENGTH } from './api'
+import { PatientIdentity } from './PatientIdentity'
+import { directorySearchTerm, namesFromSearch } from './roster'
+import { useDirectoryPatients } from './useDirectoryPatients'
+
+// The same delay as the exercise library's search: long enough that typing
+// "martin" at normal speed sends one request, not six; short enough that
+// the results feel immediate once you stop.
+const SEARCH_DEBOUNCE_MS = 300
+
+// "Add patient" (/practitioner/patients/add) — SEARCH FIRST, then invite
+// (decisions §3, roster design, 2026-10-08).
+//
+// "Adding a patient" means one of two things, and this page makes the
+// practitioner find out which before choosing:
+//   - they're already in Stride, in one of my clinics → "Add to my
+//     patients" (= join their care team);
+//   - they aren't → "Invite a new patient" (a new account + an invitation
+//     email).
+// Looking first is how health records avoid DUPLICATE patients: an
+// account created for someone who already has one splits their history in
+// two (see deferred-improvements.md, "Duplicate patient accounts"). The
+// backend only refuses a second account with the exact same email.
+export function AddPatientPage() {
+  const [searchInput, setSearchInput] = useState('')
+  const debouncedInput = useDebouncedValue(searchInput, SEARCH_DEBOUNCE_MS)
+  // What's actually sent: '' (the default list) until 2 characters.
+  const search = directorySearchTerm(debouncedInput)
+
+  const { data: patients, isLoading, isError, isPlaceholderData } =
+    useDirectoryPatients(search)
+
+  // The name of the patient just added, for the confirmation line. Kept
+  // until the next addition replaces it.
+  const [lastAdded, setLastAdded] = useState<string | null>(null)
+
+  // Whether the box holds 1 character: not enough to search yet. Computed
+  // from the RAW input (not the debounced one) so the hint appears and
+  // disappears as you type, with no delay.
+  const tooShortToSearch =
+    searchInput.trim().length > 0 && searchInput.trim().length < MIN_SEARCH_LENGTH
+
+  return (
+    <div className="mx-auto mt-8 max-w-2xl space-y-4 px-4">
+      <div className="space-y-1">
+        <Link to="/practitioner/patients" className="text-sm text-muted-foreground hover:underline">
+          ← My patients
+        </Link>
+        <h1 className="text-xl font-semibold">Add a patient</h1>
+        <p className="text-sm text-muted-foreground">
+          First, check whether they're already in Stride: search the patients of your clinics by
+          name.
+        </p>
+      </div>
+
+      {lastAdded && (
+        // role="status": a screen reader announces this line when it
+        // appears, without moving the focus — the person may want to add
+        // someone else next.
+        <p
+          role="status"
+          className="rounded-lg border border-green-600/30 bg-green-600/10 p-3 text-sm"
+        >
+          {lastAdded} is now in your patients.{' '}
+          <Link to="/practitioner/patients" className="font-medium underline">
+            Go to my patients
+          </Link>
+        </p>
+      )}
+
+      <div className="space-y-1">
+        <input
+          type="search"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="Search by first or last name…"
+          aria-label="Search patients by name"
+          // The page has one job, and this field is how it starts.
+          autoFocus
+          // The backend refuses more than 100 characters (DirectoryQueryDto);
+          // no name needs more.
+          maxLength={100}
+          className="w-full rounded-md border px-3 py-2 text-sm"
+        />
+        {tooShortToSearch && (
+          <p className="text-xs text-muted-foreground">
+            Type at least {MIN_SEARCH_LENGTH} letters to search.
+          </p>
+        )}
+      </div>
+
+      {isLoading && <p className="text-sm text-muted-foreground">Loading patients…</p>}
+
+      {isError && (
+        <p className="text-sm text-destructive">Couldn't search the directory. Try again.</p>
+      )}
+
+      {patients && patients.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          {search
+            ? `No patient in your clinics matches "${search}".`
+            : 'Your clinics have no patients yet.'}
+        </p>
+      )}
+
+      {patients && patients.length > 0 && (
+        <ul
+          // Dimmed while the next search's results load (the previous ones
+          // stay on screen meanwhile — keepPreviousData in the hook).
+          className={cn(
+            'divide-y divide-border rounded-lg border transition-opacity',
+            isPlaceholderData && 'opacity-60',
+          )}
+        >
+          {patients.map((patient) => (
+            <li key={patient.id} className="flex items-center justify-between gap-3 px-4 py-3">
+              <PatientIdentity
+                firstName={patient.firstName}
+                lastName={patient.lastName}
+                avatarUrl={patient.avatarUrl}
+                dateOfBirth={patient.dateOfBirth}
+                clinics={patient.sharedClinics}
+              />
+              {patient.onMyCareTeam ? (
+                // Already mine: nothing to add — lead to them instead.
+                <div className="flex shrink-0 flex-col items-end gap-1 text-sm">
+                  <span className="text-muted-foreground">In your patients</span>
+                  <Link
+                    to={`/practitioner/patients/${patient.id}`}
+                    className="font-medium underline"
+                    aria-label={`Open ${patient.firstName} ${patient.lastName}`}
+                  >
+                    Open
+                  </Link>
+                </div>
+              ) : (
+                <div className="shrink-0">
+                  <AddToMyPatientsDialog
+                    patientId={patient.id}
+                    patientFirstName={patient.firstName}
+                    patientLastName={patient.lastName}
+                    onAdded={() => setLastAdded(`${patient.firstName} ${patient.lastName}`)}
+                  />
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* The backend sends at most 50 rows. Exactly 50 may mean "and
+          more": say so, rather than let the list look complete. */}
+      {patients && patients.length === DIRECTORY_RESULT_LIMIT && (
+        <p className="text-xs text-muted-foreground">
+          Showing the first {DIRECTORY_RESULT_LIMIT} patients. Type a name to narrow the list.
+        </p>
+      )}
+
+      <div className="rounded-lg border border-dashed p-4 text-sm">
+        <p className="font-medium">Not in the list?</p>
+        <p className="mb-2 text-muted-foreground">
+          If they're new to your clinic, invite them: they'll get an email to set up their account,
+          and you'll be on their care team.
+        </p>
+        <Link to={inviteLink(search)} className="font-medium underline">
+          Invite a new patient
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+// The invite form's address, carrying the searched name so the form starts
+// half filled in ("Marie Martin" → ?firstName=Marie&lastName=Martin). Only
+// a real search term is carried over — not a single stray letter — and an
+// empty part is left out of the address rather than sent as "lastName=".
+function inviteLink(search: string): string {
+  const { firstName, lastName } = namesFromSearch(search)
+  const params = new URLSearchParams()
+  if (firstName) params.set('firstName', firstName)
+  if (lastName) params.set('lastName', lastName)
+  const query = params.toString()
+  return `/practitioner/patients/invite${query ? `?${query}` : ''}`
+}

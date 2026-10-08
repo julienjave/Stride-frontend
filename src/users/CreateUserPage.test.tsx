@@ -87,8 +87,11 @@ const expiryLabel = new Intl.DateTimeFormat(undefined, { dateStyle: 'long' }).fo
   new Date(EXPIRES_AT),
 )
 
-function renderCreateUserPage() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+// The QueryClient can be passed in by a test that wants to look at the
+// cache afterwards (the users list's invalidation).
+function renderCreateUserPage(
+  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) {
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={['/admin/users/new']}>
@@ -397,6 +400,31 @@ describe('CreateUserPage — successful submission payloads', () => {
     // test accounts in a row without leaving the page.
     expect(screen.getByLabelText('Email')).toHaveValue('')
   })
+
+  // Found 2026-10-08: nothing refreshed the Users list after a creation,
+  // and cached queries stay fresh for 30 seconds (queryClient.ts) — going
+  // back to the list right away showed it without the new account.
+  it('marks the cached Users list stale, so it shows the new account', async () => {
+    mockClinicsAndUserCreation({
+      id: 44,
+      firstName: 'Jamie',
+      lastName: 'Doe',
+      email: 'new.user@example.com',
+      roles: ['patient'],
+    })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    // The list as the admin last saw it, before this account existed.
+    queryClient.setQueryData(['users-list', false], [])
+    const user = userEvent.setup()
+    renderCreateUserPage(queryClient)
+    await fillCommonFields(user)
+    await user.type(screen.getByLabelText('Date of birth'), '2000-01-01')
+    await selectClinic(user, 'Acme Clinic')
+    await user.click(screen.getByRole('button', { name: 'Create user' }))
+
+    await screen.findByText('Created Jamie Doe (new.user@example.com) as patient.')
+    expect(queryClient.getQueryState(['users-list', false])?.isInvalidated).toBe(true)
+  })
 })
 
 describe('CreateUserPage — invitations', () => {
@@ -475,6 +503,67 @@ describe('CreateUserPage — invitations', () => {
     expect(await screen.findByText('Not allowed to invite this account')).toBeInTheDocument()
     // Still offered: the account still has no delivered invitation.
     expect(screen.getByRole('button', { name: 'Send the invitation again' })).toBeEnabled()
+  })
+
+  // The notice is keyed by the account's id (InvitationSentNotice): the
+  // next account gets a FRESH notice, not the previous one's resend error.
+  it("doesn't carry a failed resend over to the next account created", async () => {
+    let nextId = 44
+    fetchMock.mockImplementation((input) => {
+      const url = urlOf(input)
+      if (url.includes('/clinics')) {
+        return Promise.resolve(new Response(JSON.stringify(mockClinics), { status: 200 }))
+      }
+      if (url.includes('/invitations')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ statusCode: 403, message: ['Not allowed to invite this account'] }),
+            { status: 403 },
+          ),
+        )
+      }
+      // Each creation answers with a new account, its email failed.
+      const id = nextId++
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            id,
+            firstName: 'Jamie',
+            lastName: `Doe${id}`,
+            email: `jamie${id}@example.com`,
+            roles: ['patient'],
+            invitation: { ...sentInvitation, id: id * 10, emailSent: false },
+          }),
+          { status: 201 },
+        ),
+      )
+    })
+    const user = userEvent.setup()
+    renderCreateUserPage()
+
+    async function createOne() {
+      // user.clear() before typing: user-event remembers what it typed into
+      // each field, and react-hook-form's reset() empties the field behind
+      // its back — typing straight after a reset would replay the old text
+      // ("new.user@…new.user@…"). A test-tool quirk, not the app's: a real
+      // browser has no such memory (checked in Chromium, 2026-10-08).
+      for (const label of ['Email', 'First name', 'Last name', 'Date of birth']) {
+        await user.clear(screen.getByLabelText(label))
+      }
+      await fillCommonFields(user)
+      await user.type(screen.getByLabelText('Date of birth'), '2000-01-01')
+      await selectClinic(user, 'Acme Clinic')
+      await user.click(screen.getByRole('button', { name: 'Create user' }))
+    }
+
+    await createOne()
+    await screen.findByText('Created Jamie Doe44 (jamie44@example.com) as patient.')
+    await user.click(screen.getByRole('button', { name: 'Send the invitation again' }))
+    await screen.findByText('Not allowed to invite this account')
+
+    await createOne()
+    await screen.findByText('Created Jamie Doe45 (jamie45@example.com) as patient.')
+    expect(screen.queryByText('Not allowed to invite this account')).not.toBeInTheDocument()
   })
 })
 

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useForm, useWatch, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,8 +18,7 @@ import { useClinics } from '@/clinics/useClinics'
 import { AddressFields } from '@/common/address/AddressFields'
 import { TagListField } from '@/common/TagListField'
 import { ignoreEmptySelection } from '@/common/ignoreEmptySelection'
-import { sendInvitation } from '@/invitations/api'
-import { formatExpiry } from '@/invitations/formatExpiry'
+import { InvitationSentNotice } from '@/invitations/InvitationSentNotice'
 import { createUser } from './api'
 import {
   createUserSchema,
@@ -69,46 +68,28 @@ export function CreateUserPage() {
 
   const { data: clinics, isLoading: isLoadingClinics } = useClinics()
 
-  // No usersQueryKey/list cache to update — there's no users list page
-  // yet (that's the next roadmap item), so there's nothing to invalidate.
-  // On success, this just remembers the created user long enough to show
-  // a confirmation and offer "create another," rather than navigating
-  // anywhere — there's no /admin/users/:id page to send them to yet.
+  // On success, this remembers the created user long enough to show a
+  // confirmation and offer "create another", rather than navigating away.
   //
   // The created account comes back with its first invitation (accounts are
   // created without a password — the person chooses theirs by accepting
   // the emailed invitation), which is what the confirmation reports.
   const [lastCreated, setLastCreated] = useState<CreatedUser | null>(null)
 
-  // Only offered when the invitation email failed: the account and its
-  // invitation exist either way, so the fix is sending a new one — not
-  // creating the account again (that would be a 409, email already taken).
-  const resendMutation = useMutation({
-    mutationFn: sendInvitation,
-    onSuccess: (sent) =>
-      // Replace the reported invitation with the new one: its emailSent
-      // says whether THIS attempt worked. The functional form reads the
-      // latest state, not the value captured when the click happened.
-      setLastCreated((created) =>
-        created && {
-          ...created,
-          invitation: {
-            id: sent.id,
-            status: sent.status,
-            expiresAt: sent.expiresAt,
-            emailSent: sent.emailSent,
-          },
-        },
-      ),
-  })
-
+  const queryClient = useQueryClient()
   const createUserMutation = useMutation({
     mutationFn: createUser,
     onSuccess: (user) => {
+      // A new account means a new InvitationSentNotice (it's keyed by the
+      // account's id below), so nothing is left from resending the
+      // PREVIOUS account's invitation.
       setLastCreated(user)
-      // A new account starts with a clean slate: no leftover error or
-      // pending state from resending the PREVIOUS account's invitation.
-      resendMutation.reset()
+      // The Users list (GET /users, cached under ['users-list', …]) now
+      // lacks this account. Cached queries count as fresh for 30 seconds
+      // (queryClient.ts), so going back to the list right away would show
+      // the OLD one without this invalidation. (Fixed 2026-10-08: the
+      // comment here still said there was no users list page to refresh.)
+      void queryClient.invalidateQueries({ queryKey: ['users-list'] })
       // reset() with NO arguments — not reset({ role: 'patient' }) — on
       // purpose. Verified directly, in isolation: this react-hook-form
       // version only reliably clears a registered input's actual DOM
@@ -127,48 +108,16 @@ export function CreateUserPage() {
       <h1 className="text-xl font-semibold">Add a user</h1>
 
       {lastCreated && (
-        <div
-          role="status"
-          className={
-            lastCreated.invitation.emailSent
-              ? 'space-y-1 rounded-lg border border-green-600/30 bg-green-600/10 p-3 text-sm'
-              : 'space-y-2 rounded-lg border border-amber-600/40 bg-amber-500/10 p-3 text-sm'
-          }
+        // key: a different account mounts a fresh notice — see
+        // InvitationSentNotice for why that matters.
+        <InvitationSentNotice
+          key={lastCreated.id}
+          userId={lastCreated.id}
+          invitation={lastCreated.invitation}
         >
-          <p>
-            Created {lastCreated.firstName} {lastCreated.lastName} ({lastCreated.email}) as{' '}
-            {lastCreated.roles.join(', ')}.
-          </p>
-          {lastCreated.invitation.emailSent ? (
-            <p>
-              We emailed them an invitation to choose their password. The link works until{' '}
-              {formatExpiry(lastCreated.invitation.expiresAt)}.
-            </p>
-          ) : (
-            <>
-              <p>
-                The invitation email could not be sent. The account exists — send the
-                invitation again so they can choose their password.
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={resendMutation.isPending}
-                onClick={() => resendMutation.mutate(lastCreated.id)}
-              >
-                {resendMutation.isPending ? 'Sending…' : 'Send the invitation again'}
-              </Button>
-              {resendMutation.isError && (
-                <p className="text-destructive">
-                  {resendMutation.error instanceof ApiError
-                    ? resendMutation.error.messages.join(', ')
-                    : 'Something went wrong'}
-                </p>
-              )}
-            </>
-          )}
-        </div>
+          Created {lastCreated.firstName} {lastCreated.lastName} ({lastCreated.email}) as{' '}
+          {lastCreated.roles.join(', ')}.
+        </InvitationSentNotice>
       )}
 
       <form

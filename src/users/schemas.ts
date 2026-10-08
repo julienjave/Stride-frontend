@@ -8,10 +8,12 @@ import { tagDraftSchema, type TagRules } from '@/common/tagList'
 // Matches CreateUserDto's own constraints (@IsEmail, @MaxLength) — see
 // users/dto/create-user.dto.ts on the backend. No password: accounts are
 // created by invitation, and the person chooses their own password.
-const emailSchema = z.string().email('Enter a valid email address')
-// Exported (the email one stays private): the profile page's
-// per-field editors validate a single value against these SAME rules, so
-// "what counts as a valid phone number" is written down exactly once.
+// Exported since the practitioner's invite-patient form (2026-10-08), which
+// needs the same rule as this form.
+export const emailSchema = z.string().email('Enter a valid email address')
+// Exported: the profile page's per-field editors validate a single value
+// against these SAME rules, and the invite-patient form builds on them too,
+// so "what counts as a valid phone number" is written down exactly once.
 export const firstNameSchema = z.string().min(1, 'First name is required').max(100, 'First name is too long')
 export const lastNameSchema = z.string().min(1, 'Last name is required').max(100, 'Last name is too long')
 export const phoneSchema = z.string().max(50, 'Phone number is too long')

@@ -1,0 +1,97 @@
+import { MIN_SEARCH_LENGTH } from './api'
+import type { ClinicRef } from './types'
+
+// Pure functions behind the roster screens — no React, no fetching, so each
+// rule is tested directly with plain values (roster.test.ts) instead of
+// through a rendered page. The components only call them.
+
+// --- SORTING -----------------------------------------------------------------
+
+interface Named {
+  firstName: string
+  lastName: string
+}
+
+// "My patients" sorted the way a paper roster is: by last name, then first
+// name. The backend returns them in no particular order (the query has no
+// ORDER BY — a set of ids turned into users), and an order that changes
+// between visits makes a list impossible to scan.
+//
+// localeCompare with sensitivity 'base' compares like a person would:
+// "émile" sorts with "Emile", and case doesn't matter ("de Vries" next to
+// "De Vries") — a plain `<` would put every lowercase name after every
+// capitalised one, and accented letters after "z".
+//
+// Returns a NEW array: `.sort()` sorts in place, and the array passed in is
+// TanStack Query's cached data — mutating it would quietly reorder the
+// cache behind React's back.
+export function sortByName<T extends Named>(people: readonly T[]): T[] {
+  return [...people].sort(
+    (a, b) =>
+      a.lastName.localeCompare(b.lastName, undefined, { sensitivity: 'base' }) ||
+      a.firstName.localeCompare(b.firstName, undefined, { sensitivity: 'base' }),
+  )
+}
+
+// --- CLINICS -----------------------------------------------------------------
+
+// The clinics a patient and I BOTH belong to — what the roster's badges
+// show, the same as the directory's `sharedClinics` (computed by the
+// backend there). A patient may attend a clinic I don't work at; that one
+// isn't mine to label, and the patient page's care team shows who treats
+// them there.
+//
+// The result keeps the PATIENT's order. A Set makes each lookup constant
+// time — irrelevant at roster sizes, but it also says "membership test"
+// more plainly than a nested .some().
+export function sharedClinics(
+  patientClinics: readonly ClinicRef[],
+  myClinics: readonly ClinicRef[],
+): ClinicRef[] {
+  const mine = new Set(myClinics.map((clinic) => clinic.id))
+  return patientClinics.filter((clinic) => mine.has(clinic.id))
+}
+
+// The clinic filter's value: 'all', or a clinic id as a string (a select's
+// value is always a string — see users/schemas.ts).
+export const ALL_CLINICS = 'all'
+
+// Keeps the patients who attend the chosen clinic, or everyone for 'all'.
+export function filterByClinic<T extends { clinics: readonly ClinicRef[] }>(
+  patients: readonly T[],
+  clinicFilter: string,
+): T[] {
+  if (clinicFilter === ALL_CLINICS) return [...patients]
+  const clinicId = Number(clinicFilter)
+  return patients.filter((patient) =>
+    patient.clinics.some((clinic) => clinic.id === clinicId),
+  )
+}
+
+// --- DIRECTORY SEARCH ------------------------------------------------------
+
+// What the search box's text becomes in the request: trimmed, and '' (= no
+// filter, the default list) while it's shorter than MIN_SEARCH_LENGTH.
+// Trimming first means "  a" counts as one character, not three, and a
+// trailing space typed after a name doesn't start a new request for the
+// "same" search.
+export function directorySearchTerm(input: string): string {
+  const trimmed = input.trim()
+  return trimmed.length >= MIN_SEARCH_LENGTH ? trimmed : ''
+}
+
+// --- INVITING ----------------------------------------------------------------
+
+// Turns what the practitioner typed in the search box into the invite
+// form's starting names, so a search that found nobody leads to a form
+// already half filled in: "Marie Martin" → Marie / Martin.
+//
+// The FIRST word is the first name and everything after it the last name,
+// because compound surnames are more common than compound first names in
+// what people type ("Ana de la Cruz" → Ana / de la Cruz). It's only a
+// starting point: both fields stay editable, and "Jean Pierre Dupont"
+// simply needs one correction.
+export function namesFromSearch(input: string): Named {
+  const [firstName = '', ...rest] = input.trim().split(/\s+/)
+  return { firstName, lastName: rest.join(' ') }
+}
