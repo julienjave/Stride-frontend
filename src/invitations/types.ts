@@ -21,6 +21,9 @@ export interface InvitationSummary {
   expiresAt: string
   acceptedAt: string | null
   revokedAt: string | null
+  // When the mail server accepted the invitation email; null = it couldn't
+  // be sent, so the person hasn't received the link.
+  emailSentAt: string | null
   invitedBy: PersonRef
   revokedBy: PersonRef | null
 }

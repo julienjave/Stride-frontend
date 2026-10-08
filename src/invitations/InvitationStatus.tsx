@@ -39,12 +39,25 @@ function personName(person: { firstName: string; lastName: string }) {
   return `${person.firstName} ${person.lastName}`
 }
 
+// A pending invitation whose email never left (the mail server was
+// unreachable when it was created). Only "pending" matters: once accepted,
+// expired or revoked, whether its email went out no longer changes what
+// can be done.
+function emailFailed(invitation: InvitationSummary): boolean {
+  return invitation.status === 'pending' && invitation.emailSentAt === null
+}
+
 // One sentence per status. The newest invitation IS the account's state:
 // older ones are history (a resend revokes the previous one).
 function describe(invitation: InvitationSummary): string {
   switch (invitation.status) {
     case 'pending':
-      return `Sent by ${personName(invitation.invitedBy)}. The link works until ${formatExpiry(invitation.expiresAt)}.`
+      // The invitation exists either way; whether its email ever left is
+      // recorded separately (emailSentAt). Saying "Sent" for one that
+      // wasn't would hide the reason the person never got the link.
+      return emailFailed(invitation)
+        ? `Created by ${personName(invitation.invitedBy)}, but the email couldn't be sent, so the link hasn't reached them. Send it again.`
+        : `Sent by ${personName(invitation.invitedBy)}. The link works until ${formatExpiry(invitation.expiresAt)}.`
     case 'accepted':
       return 'Accepted — the account is set up.'
     case 'expired':
@@ -133,7 +146,18 @@ export function InvitationStatus({ userId, userName, email, isActive }: Invitati
         </span>
       </div>
 
-      <p className="text-sm text-muted-foreground">{describe(latest)}</p>
+      {/* Amber when the email never left: something to act on, though
+          nothing is broken — the same box as the other "email couldn't be
+          sent" messages. */}
+      <p
+        className={
+          emailFailed(latest)
+            ? 'rounded-lg border border-amber-600/40 bg-amber-500/10 p-3 text-sm'
+            : 'text-sm text-muted-foreground'
+        }
+      >
+        {describe(latest)}
+      </p>
 
       {latest.status !== 'accepted' && !isActive && (
         <p className="text-sm text-muted-foreground">

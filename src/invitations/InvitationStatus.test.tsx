@@ -35,6 +35,7 @@ function invitation(overrides: Partial<InvitationSummary> = {}): InvitationSumma
     expiresAt: EXPIRES_AT,
     acceptedAt: null,
     revokedAt: null,
+    emailSentAt: '2026-10-07T10:00:01.000Z',
     invitedBy: admin,
     revokedBy: null,
     ...overrides,
@@ -110,6 +111,43 @@ describe('InvitationStatus', () => {
       ).toBeInTheDocument()
       expect(within(region).getByRole('button', { name: 'Send again' })).toBeInTheDocument()
       expect(within(region).getByRole('button', { name: 'Revoke' })).toBeInTheDocument()
+    })
+
+    // The live-testing find: the account page said "Sent by …" for an
+    // invitation whose email had failed, because nothing recorded it.
+    it("a pending invitation whose email couldn't be sent: says so, in amber, and offers to send again", async () => {
+      history = [invitation({ emailSentAt: null })]
+      renderStatus()
+
+      const region = await section()
+      const sentence = within(region).getByText(
+        "Created by Ada Admin, but the email couldn't be sent, so the link hasn't reached them. Send it again.",
+      )
+      expect(sentence).toHaveClass('bg-amber-500/10')
+      expect(within(region).queryByText(/^Sent by/)).not.toBeInTheDocument()
+      expect(within(region).getByRole('button', { name: 'Send again' })).toBeInTheDocument()
+    })
+
+    it('a pending invitation whose email went out: plain text, not amber', async () => {
+      renderStatus()
+
+      const sentence = within(await section()).getByText(/^Sent by Ada Admin\./)
+      expect(sentence).toHaveClass('text-muted-foreground')
+      expect(sentence).not.toHaveClass('bg-amber-500/10')
+    })
+
+    // Once it's no longer pending, the email no longer matters: an expired
+    // invitation reads the same whether or not its email went out.
+    it('an expired invitation reads the same whether or not its email went out', async () => {
+      history = [invitation({ status: 'expired', emailSentAt: null })]
+      renderStatus()
+
+      const region = await section()
+      expect(
+        within(region).getByText(
+          `The invitation expired on ${dateOf(EXPIRES_AT)}. The account can't be used until a new one is sent.`,
+        ),
+      ).not.toHaveClass('bg-amber-500/10')
     })
 
     it('an accepted invitation: no actions (the person has a password)', async () => {
@@ -192,6 +230,21 @@ describe('InvitationStatus', () => {
   })
 
   describe('sending again', () => {
+    it("replaces the \"couldn't be sent\" warning once the new email goes out", async () => {
+      history = [invitation({ emailSentAt: null })]
+      const user = userEvent.setup()
+      renderStatus()
+
+      await user.click(await screen.findByRole('button', { name: 'Send again' }))
+
+      expect(
+        await screen.findByText(
+          `Sent by Ada Admin. The link works until ${dateOf(NEW_EXPIRES_AT)}.`,
+        ),
+      ).toBeInTheDocument()
+      expect(screen.queryByText(/couldn't be sent, so the link/)).not.toBeInTheDocument()
+    })
+
     it('sends, confirms the email went out, and shows the NEW invitation', async () => {
       const user = userEvent.setup()
       renderStatus()
