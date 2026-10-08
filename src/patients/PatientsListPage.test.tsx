@@ -108,7 +108,7 @@ describe('PatientsListPage', () => {
     )
   })
 
-  it('shows each patient’s date of birth and the clinics we share — not the others', async () => {
+  it('shows each patient’s date of birth and ALL their clinics — mine or not', async () => {
     respondWithPatients([robin])
     renderRoster([riverside])
 
@@ -118,10 +118,11 @@ describe('PatientsListPage', () => {
     expect(
       within(row).getByText(`Born ${formatCalendarDate('1992-01-05')}`),
     ).toBeInTheDocument()
-    // Robin also attends Harbour, which isn't one of my clinics.
+    // Robin also attends Harbour, which isn't one of my clinics: shown too.
     const badges = within(row).getByRole('list', { name: 'Clinics' })
     expect(within(badges).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
       'Riverside Physio',
+      'Harbour Sports Clinic',
     ])
   })
 

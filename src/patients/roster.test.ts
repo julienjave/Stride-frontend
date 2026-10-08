@@ -4,7 +4,6 @@ import {
   directorySearchTerm,
   filterByClinic,
   namesFromSearch,
-  sharedClinics,
   sortByName,
 } from './roster'
 
@@ -47,20 +46,6 @@ describe('sortByName', () => {
     expect(sorted).not.toBe(people)
     // The input is TanStack Query's cached data in the real page.
     expect(people.map((p) => p.lastName)).toEqual(['Novak', 'Lee'])
-  })
-})
-
-describe('sharedClinics', () => {
-  it("keeps only the patient's clinics that are also mine, in the patient's order", () => {
-    expect(sharedClinics([harbour, riverside], [riverside, harbour])).toEqual([
-      harbour,
-      riverside,
-    ])
-    expect(sharedClinics([riverside, harbour], [riverside])).toEqual([riverside])
-  })
-
-  it('is empty when we share no clinic', () => {
-    expect(sharedClinics([harbour], [riverside])).toEqual([])
   })
 })
 

@@ -11,7 +11,7 @@ import {
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { useUsers } from '@/users/useUsers'
 import { PatientIdentity } from './PatientIdentity'
-import { ALL_CLINICS, filterByClinic, sharedClinics, sortByName } from './roster'
+import { ALL_CLINICS, filterByClinic, sortByName } from './roster'
 
 // "My patients" (/practitioner/patients) — the patients whose care team I'm
 // on (decisions §3: the roster IS my care-team links, nothing separate).
@@ -31,7 +31,7 @@ export function PatientsListPage() {
   const [clinicFilter, setClinicFilter] = useState(ALL_CLINICS)
 
   // `?? []` while /auth/me isn't there (in practice it always is — the
-  // route guard waited for it): no clinics means no filter, and no badges.
+  // route guard waited for it): no clinics means no filter.
   const myClinics = currentUser?.clinics ?? []
 
   // The filter only appears for a practitioner working in two clinics or
@@ -126,9 +126,14 @@ export function PatientsListPage() {
                   lastName={patient.lastName}
                   avatarUrl={patient.avatarUrl}
                   dateOfBirth={patient.patientProfile?.dateOfBirth ?? null}
-                  // Only the clinics we share — the same rule as the
-                  // directory's sharedClinics, so both lists agree.
-                  clinics={sharedClinics(patient.clinics, myClinics)}
+                  // ALL of the patient's clinics, including ones I don't
+                  // work at (decided 2026-10-08): on my care team I have
+                  // clinical access anyway, and "Robin is also seen at
+                  // Harbour" is useful to whoever treats Robin. The
+                  // directory search stays at the clinics we share — its
+                  // patients aren't mine, and it shows only what finding
+                  // them needs (decisions §3, directory level).
+                  clinics={patient.clinics}
                 />
               </Link>
             </li>

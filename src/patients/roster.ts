@@ -35,23 +35,6 @@ export function sortByName<T extends Named>(people: readonly T[]): T[] {
 
 // --- CLINICS -----------------------------------------------------------------
 
-// The clinics a patient and I BOTH belong to — what the roster's badges
-// show, the same as the directory's `sharedClinics` (computed by the
-// backend there). A patient may attend a clinic I don't work at; that one
-// isn't mine to label, and the patient page's care team shows who treats
-// them there.
-//
-// The result keeps the PATIENT's order. A Set makes each lookup constant
-// time — irrelevant at roster sizes, but it also says "membership test"
-// more plainly than a nested .some().
-export function sharedClinics(
-  patientClinics: readonly ClinicRef[],
-  myClinics: readonly ClinicRef[],
-): ClinicRef[] {
-  const mine = new Set(myClinics.map((clinic) => clinic.id))
-  return patientClinics.filter((clinic) => mine.has(clinic.id))
-}
-
 // The clinic filter's value: 'all', or a clinic id as a string (a select's
 // value is always a string — see users/schemas.ts).
 export const ALL_CLINICS = 'all'
