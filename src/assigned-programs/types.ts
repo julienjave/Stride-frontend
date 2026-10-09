@@ -11,6 +11,16 @@ export interface AssignedProgram {
   isArchived: boolean
 }
 
+// One row of GET /assigned-programs (every list form, ?patientId= included):
+// the program plus WHO assigned it — the name the patient page shows on a
+// colleague's program ("by Sam Okafor"). Added by the backend on 2026-10-08,
+// looked up for the whole list in one query. Typed `| null` like the
+// backend: it can't happen today (assigned_by is NOT NULL, its user can't be
+// deleted), but a screen must never crash on a missing name.
+export interface AssignedProgramListItem extends AssignedProgram {
+  assigner: { id: number; firstName: string; lastName: string } | null
+}
+
 export interface AssignedProgramExercise {
   id: number
   assignedProgramId: number

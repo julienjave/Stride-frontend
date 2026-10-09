@@ -40,6 +40,23 @@ export function fetchDirectoryPatients(search: string) {
   return apiRequest<DirectoryPatient[]>(`/directory/patients${query}`)
 }
 
+// A patient's care team. `includeEnded` is part of the key (like
+// usersListQueryKey's includeInactive): with and without the history are
+// two different answers, and each must have its own cache entry.
+// Invalidating ['care-team', patientId] refreshes both.
+export function careTeamQueryKey(patientId: number, includeEnded: boolean) {
+  return ['care-team', patientId, includeEnded] as const
+}
+
+// GET /users/:id/care-team[?includeEnded=true] — who treats this patient
+// (directory level: any practitioner sharing a clinic may ask, so a care-team
+// member certainly can). Without the flag, only the current members.
+export function fetchCareTeam(patientId: number, includeEnded: boolean) {
+  return apiRequest<CareTeamEntry[]>(
+    `/users/${patientId}/care-team${includeEnded ? '?includeEnded=true' : ''}`,
+  )
+}
+
 // --- MUTATIONS ---------------------------------------------------------------
 
 // POST /users/:id/care-team with no practitionerId = "I join" — the
@@ -76,5 +93,15 @@ export function invitePatient(values: InvitePatientFormValues) {
       dateOfBirth: values.dateOfBirth,
       clinicId: Number(values.clinicId),
     },
+  })
+}
+
+// POST /users/:id/care-team/:practitionerId/end — ends a care-team link
+// (links are ended, never deleted: the history stays). A practitioner may
+// end only their OWN link ("Leave care team"); an admin, anyone's. The
+// answer is the ended link.
+export function endCareTeamMembership(patientId: number, practitionerId: number) {
+  return apiRequest<CareTeamEntry>(`/users/${patientId}/care-team/${practitionerId}/end`, {
+    method: 'POST',
   })
 }

@@ -20,6 +20,7 @@ import { ComingSoonPage } from './ComingSoonPage'
 import { ProfilePage } from '@/users/ProfilePage'
 import { AddPatientPage } from '@/patients/AddPatientPage'
 import { InvitePatientPage } from '@/patients/InvitePatientPage'
+import { PatientPage } from '@/patients/PatientPage'
 import { PatientsListPage } from '@/patients/PatientsListPage'
 import { ExerciseLibraryPage } from '@/exercises/ExerciseLibraryPage'
 import { ExercisePickerPage } from '@/exercises/ExercisePickerPage'
@@ -125,11 +126,10 @@ export const router = createBrowserRouter([
                 path: '/practitioner/patients/invite',
                 element: <InvitePatientPage />,
               },
-              // The patient page is the next roadmap item; the roster's
-              // rows already link here so nothing changes when it lands.
+              // The patient page (care team only — see PatientPage).
               {
                 path: '/practitioner/patients/:id',
-                element: <ComingSoonPage title="Patient" />,
+                element: <PatientPage />,
               },
               {
                 path: '/practitioner/library',

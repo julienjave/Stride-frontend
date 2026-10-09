@@ -1,7 +1,15 @@
 import { apiRequest } from '@/api/client'
-import type { AssignedProgram, AssignedProgramDetail } from './types'
+import type { AssignedProgramDetail, AssignedProgramListItem } from './types'
 
 export const assignedProgramsListQueryKey = ['assigned-programs-list'] as const
+
+// One patient's programs (the patient page). It STARTS WITH the list's key
+// on purpose: anything that invalidates ['assigned-programs-list'] after
+// changing a program (a prefix match) refreshes every patient's list too,
+// with no extra line at each call site.
+export function patientAssignedProgramsQueryKey(patientId: number) {
+  return [...assignedProgramsListQueryKey, 'patient', patientId] as const
+}
 
 // No client-side ownership filtering needed here, unlike programs'
 // canModifyProgram — AssignedProgramsService.findAllForCurrentUser
@@ -10,7 +18,15 @@ export const assignedProgramsListQueryKey = ['assigned-programs-list'] as const
 // manage), so every item this returns is already something the
 // requesting practitioner can act on.
 export function fetchAssignedPrograms() {
-  return apiRequest<AssignedProgram[]>('/assigned-programs')
+  return apiRequest<AssignedProgramListItem[]>('/assigned-programs')
+}
+
+// GET /assigned-programs?patientId= — EVERY program of one patient, whoever
+// assigned it (the hub only ever shows your own). The backend allows it to
+// the patient's care team, the patient and admins; anyone else gets a 403,
+// never an empty list.
+export function fetchPatientAssignedPrograms(patientId: number) {
+  return apiRequest<AssignedProgramListItem[]>(`/assigned-programs?patientId=${patientId}`)
 }
 
 export function fetchAssignedProgram(id: number) {

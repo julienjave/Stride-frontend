@@ -25,6 +25,12 @@ export function applyUpdatedUser(queryClient: QueryClient, updated: User) {
   //    'users-list' covers both variants (active-only, include-inactive)
   //    and, thanks to the separate top-level key, never touches entry 1.
   void queryClient.invalidateQueries({ queryKey: ['users-list'] })
+  // The clinic directory search shows names, photos and dates of birth too
+  // (the practitioner's "Add patient" page): a patient edited on their page
+  // must not keep their old name there for the next 30 seconds. Added
+  // 2026-10-08 with the patient page, the first place a practitioner edits
+  // someone who also appears in the directory.
+  void queryClient.invalidateQueries({ queryKey: ['directory-patients'] })
 
   // 3. The logged-in user, IF that's who just changed. The header (account
   //    menu: name, avatar) reads this entry (the /auth/me data), a

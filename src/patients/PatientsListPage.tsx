@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -30,6 +30,13 @@ export function PatientsListPage() {
   const { data: patients, isLoading, isError } = useUsers()
   const [clinicFilter, setClinicFilter] = useState(ALL_CLINICS)
 
+  // A one-line confirmation another page can hand over through navigation
+  // state — the patient page does after "Leave care team" ("You left Pat
+  // Lee's care team."). Read defensively: location.state is whatever the
+  // previous page put there (or null), so it's checked, not trusted.
+  const location = useLocation()
+  const notice = readNotice(location.state)
+
   // `?? []` while /auth/me isn't there (in practice it always is — the
   // route guard waited for it): no clinics means no filter.
   const myClinics = currentUser?.clinics ?? []
@@ -58,6 +65,15 @@ export function PatientsListPage() {
           <Link to="/practitioner/patients/add">Add patient</Link>
         </Button>
       </div>
+
+      {notice && (
+        <p
+          role="status"
+          className="rounded-lg border border-green-600/30 bg-green-600/10 p-3 text-sm"
+        >
+          {notice}
+        </p>
+      )}
 
       {showClinicFilter && (
         <div className="flex items-center gap-2">
@@ -142,4 +158,14 @@ export function PatientsListPage() {
       )}
     </div>
   )
+}
+
+// `{ notice: string }` from navigation state, or null for anything else.
+function readNotice(state: unknown): string | null {
+  // Each check narrows the type for the next: after `'notice' in state`,
+  // TypeScript knows `state.notice` exists (as `unknown`) — no cast needed.
+  if (typeof state === 'object' && state !== null && 'notice' in state) {
+    return typeof state.notice === 'string' ? state.notice : null
+  }
+  return null
 }

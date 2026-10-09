@@ -61,7 +61,7 @@ function respondWithPatients(patients: object[]) {
 
 // The signed-in practitioner, put straight into the cache the way the app
 // has it once /auth/me has answered — only `clinics` matters to this page.
-function renderRoster(myClinics: object[] = [riverside]) {
+function renderRoster(myClinics: object[] = [riverside], navigationState?: unknown) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   queryClient.setQueryData(currentUserQueryKey, {
     id: 3,
@@ -73,7 +73,7 @@ function renderRoster(myClinics: object[] = [riverside]) {
   })
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/practitioner/patients']}>
+      <MemoryRouter initialEntries={[{ pathname: '/practitioner/patients', state: navigationState }]}>
         <PatientsListPage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -191,5 +191,19 @@ describe('PatientsListPage', () => {
     expect(
       await screen.findByText("Couldn't load your patients. Try refreshing."),
     ).toBeInTheDocument()
+  })
+
+  // Handed over by the patient page after "Leave care team".
+  it('shows a notice passed in the navigation state', async () => {
+    respondWithPatients([])
+    renderRoster([riverside], { notice: "You left Pat Lee's care team." })
+    expect(await screen.findByRole('status')).toHaveTextContent("You left Pat Lee's care team.")
+  })
+
+  it('ignores navigation state that is not a notice', async () => {
+    respondWithPatients([])
+    renderRoster([riverside], { notice: 42 })
+    await screen.findByText('No patients yet')
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 })
