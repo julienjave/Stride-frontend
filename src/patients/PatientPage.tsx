@@ -112,6 +112,9 @@ function PatientView({ patientId }: { patientId: number }) {
         patientFirstName={patient.firstName}
         patientLastName={patient.lastName}
         myId={currentUser.id}
+        // A practitioner: may add a colleague, may only leave themselves.
+        canAdd
+        canEndAny={false}
         onLeft={handleLeft}
       />
 

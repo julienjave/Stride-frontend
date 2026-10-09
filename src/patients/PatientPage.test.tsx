@@ -295,6 +295,11 @@ describe('PatientPage — care team', () => {
     expect(within(rows[0]).queryByText(/Added by/)).not.toBeInTheDocument()
     expect(within(rows[0]).getByRole('button', { name: 'Leave care team' })).toBeInTheDocument()
 
+    // A practitioner may add a colleague (not "someone" — that's an admin).
+    expect(
+      within(section('Care team')).getByRole('button', { name: 'Add a colleague' }),
+    ).toBeInTheDocument()
+
     expect(within(rows[1]).getByText('“Covering Mondays”')).toBeInTheDocument()
     expect(within(rows[1]).getByText('Added by Alex Moreau')).toBeInTheDocument()
     expect(within(rows[1]).queryByRole('button')).not.toBeInTheDocument()

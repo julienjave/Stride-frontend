@@ -129,6 +129,9 @@ describe('UserClinicMemberships — adding a clinic', () => {
         exact: true,
       }),
     )
+    // Care teams too: a membership change can add candidates, or (when
+    // removed) end links — for this user's team, or their patients'.
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['care-team'] })
   })
 
   it('shows an error and does not clear the selection on failure', async () => {
@@ -181,5 +184,8 @@ describe('UserClinicMemberships — removing a clinic', () => {
         exact: true,
       }),
     )
+    // Care teams too: a membership change can add candidates, or (when
+    // removed) end links — for this user's team, or their patients'.
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['care-team'] })
   })
 })

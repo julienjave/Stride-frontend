@@ -10,6 +10,7 @@ import { GrantRoleForm } from './GrantRoleForm'
 import { DeactivateUserButton } from './DeactivateUserButton'
 import { ReactivateUserButton } from './ReactivateUserButton'
 import { InvitationStatus } from '@/invitations/InvitationStatus'
+import { CareTeamSection } from '@/patients/CareTeamSection'
 
 export function UserEditPage() {
   const { id } = useParams<{ id: string }>()
@@ -82,6 +83,24 @@ function UserEditView({ userId }: { userId: number }) {
         email={user.email}
         isActive={user.isActive}
       />
+
+      {/* A patient's care team, with an admin's permissions: add any
+          practitioner of the patient's clinics, end any current link
+          (the backend allows both to admins — decided 2026-10-09). The
+          same component as the practitioner's patient page; only the
+          props differ. No onLeft: an admin doesn't lose access by ending
+          a link. `me` is always there on this page (RequireAuth waited for
+          it); the check just satisfies the type. */}
+      {user.roles.includes('patient') && me && (
+        <CareTeamSection
+          patientId={userId}
+          patientFirstName={user.firstName}
+          patientLastName={user.lastName}
+          myId={me.id}
+          canAdd
+          canEndAny
+        />
+      )}
 
       <div className="rounded-lg border px-4">
         <UserClinicMemberships userId={userId} currentClinics={user.clinics} />

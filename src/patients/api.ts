@@ -1,7 +1,8 @@
 import { apiRequest } from '@/api/client'
 import type { CreatedUser } from '@/users/types'
 import type { InvitePatientFormValues } from './schemas'
-import type { CareTeamEntry, DirectoryPatient } from './types'
+import type { AddCareTeamMemberInput, CareTeamCandidate, CareTeamEntry, DirectoryPatient } from './types'
+import { endOfLocalDay } from './patientPageRules'
 
 // --- RULES MIRRORED FROM THE BACKEND ----------------------------------------
 
@@ -57,6 +58,21 @@ export function fetchCareTeam(patientId: number, includeEnded: boolean) {
   )
 }
 
+// Who could be added to the care team. The key sits UNDER
+// ['care-team', patientId] on purpose: invalidating the care team after an
+// add or an end (a prefix match) refreshes the candidates' "on the team"
+// flags too, with no extra line.
+export function careTeamCandidatesQueryKey(patientId: number) {
+  return ['care-team', patientId, 'candidates'] as const
+}
+
+// GET /users/:id/care-team/candidates — the practitioners of the PATIENT's
+// clinics (backend: CareTeamService.listCandidates). For an admin or a
+// practitioner sharing a clinic with the patient.
+export function fetchCareTeamCandidates(patientId: number) {
+  return apiRequest<CareTeamCandidate[]>(`/users/${patientId}/care-team/candidates`)
+}
+
 // --- MUTATIONS ---------------------------------------------------------------
 
 // POST /users/:id/care-team with no practitionerId = "I join" — the
@@ -103,5 +119,26 @@ export function invitePatient(values: InvitePatientFormValues) {
 export function endCareTeamMembership(patientId: number, practitionerId: number) {
   return apiRequest<CareTeamEntry>(`/users/${patientId}/care-team/${practitionerId}/end`, {
     method: 'POST',
+  })
+}
+
+// POST /users/:id/care-team with a practitionerId — "add a colleague" (a
+// practitioner) or "add someone" (an admin, for whom it's required). The
+// same endpoint as "join", with the person named. Optional fields are LEFT
+// OUT when empty (not sent as '' — see joinCareTeam):
+//   - reason, trimmed;
+//   - endsAt, the END of the chosen day in the viewer's time zone — the
+//     backend stores a moment and refuses one in the past, so "until
+//     Friday" must mean "until Friday night", not "Friday 00:00" (which
+//     would end the cover before Friday's work even starts).
+export function addCareTeamMember(patientId: number, input: AddCareTeamMemberInput) {
+  const reason = input.reason.trim()
+  return apiRequest<CareTeamEntry>(`/users/${patientId}/care-team`, {
+    method: 'POST',
+    body: {
+      practitionerId: input.practitionerId,
+      ...(reason && { reason }),
+      ...(input.until && { endsAt: endOfLocalDay(input.until) }),
+    },
   })
 }

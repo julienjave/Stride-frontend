@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest'
 import type { AssignedProgram } from '@/assigned-programs/types'
 import {
   PROGRAM_STATUS_LABELS,
+  endOfLocalDay,
+  filterCandidates,
+  localDateString,
   isOnlyActiveMember,
   sortCareTeam,
   sortProgramsForPatientPage,
@@ -108,5 +111,49 @@ describe('isOnlyActiveMember', () => {
       ),
     ).toBe(false)
     expect(isOnlyActiveMember([entry(3, true, '2026-01-01T00:00:00Z')], 2)).toBe(false)
+  })
+})
+
+describe('endOfLocalDay', () => {
+  it("is the last moment of that day in the viewer's time zone", () => {
+    const moment = new Date(endOfLocalDay('2026-10-16'))
+    // Read back in LOCAL time (whatever zone the machine is in): still the
+    // 16th, at 23:59:59.999 — the cover lasts the whole chosen day.
+    expect([moment.getFullYear(), moment.getMonth() + 1, moment.getDate()]).toEqual([2026, 10, 16])
+    expect([moment.getHours(), moment.getMinutes(), moment.getSeconds(), moment.getMilliseconds()]).toEqual([
+      23, 59, 59, 999,
+    ])
+  })
+
+  it('is sent as a UTC ISO string', () => {
+    expect(endOfLocalDay('2026-10-16')).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+  })
+})
+
+describe('localDateString', () => {
+  it("is the viewer's local date, zero-padded", () => {
+    // Built from local parts, so 00:30 on 5 January is the 5th everywhere.
+    expect(localDateString(new Date(2026, 0, 5, 0, 30))).toBe('2026-01-05')
+    expect(localDateString(new Date(2026, 11, 31, 23, 30))).toBe('2026-12-31')
+  })
+})
+
+describe('filterCandidates', () => {
+  const sam = { firstName: 'Sam', lastName: 'Okafor', specialties: ['Sports'] }
+  const emile = { firstName: 'Émile', lastName: 'Durand', specialties: ['Vestibular rehab'] }
+
+  it('keeps everyone for an empty or blank text', () => {
+    expect(filterCandidates([sam, emile], '  ')).toEqual([sam, emile])
+  })
+
+  it('matches first name, last name, full name or a specialty', () => {
+    expect(filterCandidates([sam, emile], 'okafor')).toEqual([sam])
+    expect(filterCandidates([sam, emile], 'Sam Ok')).toEqual([sam])
+    expect(filterCandidates([sam, emile], 'vestib')).toEqual([emile])
+  })
+
+  it('ignores case and accents', () => {
+    expect(filterCandidates([sam, emile], 'EMILE')).toEqual([emile])
+    expect(filterCandidates([sam, emile], 'émi')).toEqual([emile])
   })
 })

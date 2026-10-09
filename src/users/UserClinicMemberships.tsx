@@ -33,8 +33,18 @@ export function UserClinicMemberships({
   // instead, so the next read pulls the real, authoritative clinics list
   // (with names) from GET /users/:id — the same reasoning as the comment
   // on addClinicMember/removeClinicMember in clinics/api.ts.
+  //
+  // Care teams too (added 2026-10-09, with the care team on this page): a
+  // membership change can change care teams. Removing one ENDS the links
+  // left without a shared clinic (the backend does it in the same
+  // transaction — decisions §3), and adding one brings new candidates. For a
+  // patient that's their own team; for a practitioner, the teams of any of
+  // their patients — so the whole ['care-team'] prefix is refreshed.
   const invalidateThisUser = () =>
-    queryClient.invalidateQueries({ queryKey: userQueryKey(userId), exact: true })
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: userQueryKey(userId), exact: true }),
+      queryClient.invalidateQueries({ queryKey: ['care-team'] }),
+    ])
 
   const addMutation = useMutation({
     mutationFn: (clinicId: number) => addClinicMember(clinicId, userId),

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router'
@@ -312,5 +312,61 @@ describe('UserEditPage — invitation', () => {
     expect(
       fetchMock.mock.calls.some(([input]) => urlOf(input).endsWith('/users/1/invitations')),
     ).toBe(true)
+  })
+
+  // Added 2026-10-09: an admin manages a PATIENT's care team here — the
+  // same section as the practitioner's patient page, with admin rights.
+  describe('care team', () => {
+    function mockUser(user: object) {
+      fetchMock.mockImplementation((input) => {
+        const url = urlOf(input)
+        if (url.endsWith('/care-team')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify([
+                {
+                  id: 1,
+                  patientId: 1,
+                  practitioner: { id: 4, firstName: 'Prac', lastName: 'Titioner', avatarUrl: null },
+                  startedAt: '2026-09-01T10:00:00.000Z',
+                  endsAt: null,
+                  isActive: true,
+                  reason: null,
+                  createdBy: null,
+                  endedBy: null,
+                },
+              ]),
+              { status: 200 },
+            ),
+          )
+        }
+        if (/\/users\/\d+$/.test(url)) {
+          return Promise.resolve(new Response(JSON.stringify(user), { status: 200 }))
+        }
+        return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }))
+      })
+    }
+
+    it("shows a patient's care team with an admin's actions", async () => {
+      mockUser(fullUser)
+      renderAt('/admin/users/1')
+
+      const region = await screen.findByRole('region', { name: 'Care team' })
+      expect(await within(region).findByText('Prac Titioner')).toBeInTheDocument()
+      expect(within(region).getByRole('button', { name: 'Add someone' })).toBeInTheDocument()
+      expect(
+        within(region).getByRole('button', { name: "End Prac Titioner's membership" }),
+      ).toBeInTheDocument()
+    })
+
+    it('shows no care team for an account that is not a patient', async () => {
+      mockUser(practitionerUser)
+      renderAt('/admin/users/4')
+      await screen.findByRole('heading', { name: 'Prac Titioner' })
+      expect(screen.queryByRole('region', { name: 'Care team' })).not.toBeInTheDocument()
+      expect(
+        fetchMock.mock.calls.some(([input]) => urlOf(input).includes('/care-team')),
+      ).toBe(false)
+    })
   })
 })

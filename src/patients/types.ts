@@ -57,3 +57,31 @@ export interface CareTeamEntry {
   createdBy: PersonRef | null
   endedBy: PersonRef | null
 }
+
+// One row of GET /users/:id/care-team/candidates — a practitioner who could
+// join this patient's care team ("Add a colleague" / the admin's "Add
+// someone"). Staff directory fields only: no email, phone or license.
+export interface CareTeamCandidate {
+  id: number
+  firstName: string
+  lastName: string
+  avatarUrl: string | null
+  // Why you'd pick this person ("vestibular rehab").
+  specialties: string[]
+  // The clinics where they work AND the patient attends — what makes them
+  // a possible member (clinical access needs a shared clinic).
+  sharedClinics: ClinicRef[]
+  // Already on the team (a current link): shown, but can't be picked —
+  // the backend would refuse an overlapping link with a 409.
+  onCareTeam: boolean
+}
+
+// The body of POST /users/:id/care-team when adding SOMEONE (not "join"):
+// who, and optionally why and until when.
+export interface AddCareTeamMemberInput {
+  practitionerId: number
+  reason: string
+  // A calendar date from the "Until" field ('2026-10-16'), or '' for an
+  // open-ended link. Turned into a moment by endOfLocalDay() before sending.
+  until: string
+}
