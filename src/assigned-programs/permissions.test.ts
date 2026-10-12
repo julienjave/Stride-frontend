@@ -8,11 +8,14 @@ function makeProgram(overrides: Partial<AssignedProgram> = {}): AssignedProgram 
     patientId: 50,
     assignedBy: 7,
     basedOnTemplateId: null,
+    basedOnProgramId: null,
     title: 'Shoulder Rehab',
     startDate: '2026-01-01',
     endDate: null,
     status: 'active',
     isArchived: false,
+    allowSwaps: true,
+    schedules: [],
     ...overrides,
   }
 }

@@ -6,6 +6,7 @@ function row(id: number): TemplateExercise {
   return {
     id,
     templateId: 1,
+    workoutId: 1,
     exerciseId: id + 100,
     sets: null,
     reps: null,

@@ -122,6 +122,17 @@ function TemplateDetailView({ templateId }: { templateId: number }) {
       </section>
 
       <div className="flex flex-wrap items-start gap-3">
+        {/* Anyone who can see a live template can assign it — a colleague's
+            too: assigning COPIES it, so their template never changes. Not
+            an archived one (the backend refuses it, 400). The form opens
+            with this template chosen. */}
+        {!isArchived && (
+          <Button asChild>
+            <Link to={`/practitioner/programs/assigned/new?templateId=${templateId}`}>
+              Assign to a patient
+            </Link>
+          </Button>
+        )}
         {/* Everyone who can see a live template can duplicate it — only
             archived templates are off-limits (the backend refuses those
             too, with a 400). */}

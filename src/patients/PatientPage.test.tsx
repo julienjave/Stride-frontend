@@ -252,15 +252,27 @@ describe('PatientPage — programs', () => {
     renderPatientPage()
     await screen.findByText('Current program')
 
-    const titles = within(section('Programs'))
-      .getAllByRole('listitem')
-      .map((row) => row.querySelector('p')?.textContent)
-    expect(titles).toEqual(['Current program', 'Old program'])
+    // Each row is ONE link to its program's page — so the links, in
+    // order, say both where each row leads and the order of the rows.
+    const rows = within(section('Programs')).getAllByRole('listitem')
+    expect(rows.map((row) => within(row).getByRole('link').getAttribute('href'))).toEqual([
+      '/practitioner/programs/assigned/11',
+      '/practitioner/programs/assigned/10',
+    ])
+    expect(rows[0]).toHaveTextContent('Current program')
+    expect(rows[1]).toHaveTextContent('Old program')
     expect(
       screen.getByText(
         `${formatCalendarDate('2026-01-01')} – ${formatCalendarDate('2026-03-01')} · Completed`,
       ),
     ).toBeInTheDocument()
+  })
+
+  it('offers "Assign a program", opening the form with this patient chosen', async () => {
+    renderPatientPage()
+    await screen.findByText('No programs assigned yet.')
+    const link = within(section('Programs')).getByRole('link', { name: 'Assign a program' })
+    expect(link).toHaveAttribute('href', '/practitioner/programs/assigned/new?patientId=6')
   })
 
   it('asks for THIS patient’s programs, and says when there are none', async () => {

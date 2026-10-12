@@ -4,7 +4,6 @@ import {
   PROGRAM_STATUS_LABELS,
   endOfLocalDay,
   filterCandidates,
-  localDateString,
   isOnlyActiveMember,
   sortCareTeam,
   sortProgramsForPatientPage,
@@ -21,11 +20,14 @@ function program(
     patientId: 6,
     assignedBy: 2,
     basedOnTemplateId: null,
+    basedOnProgramId: null,
     title: `Program ${id}`,
     startDate,
     endDate: null,
     status,
     isArchived: false,
+    allowSwaps: true,
+    schedules: [],
   }
 }
 
@@ -49,16 +51,15 @@ function entry(
 }
 
 describe('sortProgramsForPatientPage', () => {
-  it('puts current work first: active, on hold, then finished — newest first within each', () => {
+  it('puts current work first: active, then finished — newest first within each', () => {
     const sorted = sortProgramsForPatientPage([
       program(1, 'completed', '2026-01-01'),
       program(2, 'active', '2026-03-01'),
       program(3, 'cancelled', '2026-05-01'),
-      program(4, 'on_hold', '2026-02-01'),
       program(5, 'active', '2026-06-01'),
       program(6, 'completed', '2026-04-01'),
     ])
-    expect(sorted.map((p) => p.id)).toEqual([5, 2, 4, 6, 1, 3])
+    expect(sorted.map((p) => p.id)).toEqual([5, 2, 6, 1, 3])
   })
 
   it('returns a new array', () => {
@@ -72,7 +73,6 @@ describe('PROGRAM_STATUS_LABELS', () => {
   it('has a readable label for every status', () => {
     expect(PROGRAM_STATUS_LABELS).toEqual({
       active: 'Active',
-      on_hold: 'On hold',
       completed: 'Completed',
       cancelled: 'Cancelled',
     })
@@ -130,13 +130,6 @@ describe('endOfLocalDay', () => {
   })
 })
 
-describe('localDateString', () => {
-  it("is the viewer's local date, zero-padded", () => {
-    // Built from local parts, so 00:30 on 5 January is the 5th everywhere.
-    expect(localDateString(new Date(2026, 0, 5, 0, 30))).toBe('2026-01-05')
-    expect(localDateString(new Date(2026, 11, 31, 23, 30))).toBe('2026-12-31')
-  })
-})
 
 describe('filterCandidates', () => {
   const sam = { firstName: 'Sam', lastName: 'Okafor', specialties: ['Sports'] }

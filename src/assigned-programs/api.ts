@@ -1,5 +1,9 @@
 import { apiRequest } from '@/api/client'
-import type { AssignedProgramDetail, AssignedProgramListItem } from './types'
+import type {
+  AssignedProgramDetail,
+  AssignedProgramListItem,
+  CreateAssignedProgramInput,
+} from './types'
 
 export const assignedProgramsListQueryKey = ['assigned-programs-list'] as const
 
@@ -9,6 +13,14 @@ export const assignedProgramsListQueryKey = ['assigned-programs-list'] as const
 // with no extra line at each call site.
 export function patientAssignedProgramsQueryKey(patientId: number) {
   return [...assignedProgramsListQueryKey, 'patient', patientId] as const
+}
+
+// One program in full (workouts, exercises, schedules) — the program page's
+// entry. Its own top-level key, NOT under the list's: invalidating every
+// list after a change must not also throw away the detail just written
+// into the cache.
+export function assignedProgramQueryKey(id: number) {
+  return ['assigned-programs', id] as const
 }
 
 // No client-side ownership filtering needed here, unlike programs'
@@ -44,5 +56,16 @@ export async function assignExerciseToAssignedProgram(
   return apiRequest(`/assigned-programs/${assignedProgramId}/exercises`, {
     method: 'POST',
     body: { exerciseId, sortOrder: program.exercises.length },
+  })
+}
+
+// POST /assigned-programs — assigns a program to a patient: the backend
+// copies the template's workouts and exercises, creates the first schedule
+// version, and writes the audit entry, all in one transaction. Answers with
+// the full new program (the same shape as GET /assigned-programs/:id).
+export function createAssignedProgram(input: CreateAssignedProgramInput) {
+  return apiRequest<AssignedProgramDetail>('/assigned-programs', {
+    method: 'POST',
+    body: input,
   })
 }

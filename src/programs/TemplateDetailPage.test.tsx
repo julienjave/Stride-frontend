@@ -22,6 +22,7 @@ function makeRow(overrides: Partial<TemplateExercise> = {}): TemplateExercise {
   return {
     id: 1,
     templateId: 1,
+    workoutId: 1,
     exerciseId: 5,
     sets: null,
     reps: null,
@@ -44,6 +45,7 @@ function makeTemplate(
     title: 'Shoulder Rehab',
     description: 'Post-op, weeks 1–4',
     isArchived: false,
+    workouts: [{ id: 1, templateId: 1, name: null, sortOrder: 0 }],
     exercises: [],
     ...overrides,
   }
@@ -178,6 +180,17 @@ describe('TemplateDetailPage — as the owner', () => {
     expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute(
       'href',
       '/practitioner/programs',
+    )
+  })
+
+  it('offers "Assign to a patient", opening the form with this template chosen', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(makeTemplate()))
+    renderAt('/practitioner/programs/templates/1')
+    await screen.findByRole('heading', { name: 'Shoulder Rehab' })
+
+    expect(screen.getByRole('link', { name: 'Assign to a patient' })).toHaveAttribute(
+      'href',
+      '/practitioner/programs/assigned/new?templateId=1',
     )
   })
 
@@ -381,6 +394,8 @@ describe("TemplateDetailPage — someone else's template", () => {
     expectNoEditControls()
     expect(screen.getByText(/View only/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Duplicate' })).toBeInTheDocument()
+    // Assigning COPIES a template, so a colleague's can be assigned too.
+    expect(screen.getByRole('link', { name: 'Assign to a patient' })).toBeInTheDocument()
     // Not theirs — no badge. This is the exact case that caused the mix-up
     // with two identically-titled "Copy of ..." templates.
     expect(screen.queryByText('Yours')).not.toBeInTheDocument()
@@ -429,6 +444,8 @@ describe('TemplateDetailPage — an archived template', () => {
     expect(
       screen.queryByRole('button', { name: 'Duplicate' }),
     ).not.toBeInTheDocument()
+    // Nor assigned: the backend refuses an archived template (400).
+    expect(screen.queryByRole('link', { name: 'Assign to a patient' })).not.toBeInTheDocument()
     // The deleted notice already explains why — no second, misleading
     // "belongs to another practitioner" line for the owner.
     expect(screen.queryByText(/View only/)).not.toBeInTheDocument()

@@ -21,9 +21,23 @@ export interface TemplateExerciseDetails {
   primaryMuscles: string[]
 }
 
+// One of a template's workouts (backend step 2b-i): a template has one or
+// more, A, B… by `sortOrder` — the letter is derived from that order
+// (workoutLabel), never stored. `name` is optional (null = no name). A
+// template written before workouts existed has exactly one, unnamed.
+export interface TemplateWorkout {
+  id: number
+  templateId: number
+  name: string | null
+  sortOrder: number
+}
+
 export interface TemplateExercise {
   id: number
   templateId: number
+  // The workout it belongs to (one of the template's `workouts`). Its
+  // sortOrder below is the position WITHIN that workout.
+  workoutId: number
   exerciseId: number
   sets: number | null
   reps: number | null
@@ -40,9 +54,10 @@ export interface TemplateExercise {
   exercise: TemplateExerciseDetails | null
 }
 
-// The shape GET /programs/:id returns — ProgramsService.findOne spreads
-// the template row plus its ordered exercises array (see that method's
-// own `{ ...template, exercises: exerciseRows }` return).
+// The shape GET /programs/:id returns: the template row, its workouts in
+// order, and ONE flat exercise list, workout by workout (A's exercises in
+// order, then B's…), each with its workoutId.
 export interface ProgramTemplateDetail extends ProgramTemplate {
+  workouts: TemplateWorkout[]
   exercises: TemplateExercise[]
 }

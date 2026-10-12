@@ -73,7 +73,7 @@ export function ProgramsPage() {
       ? '/practitioner/programs/templates/new'
       : '/practitioner/programs/assigned/new'
   const addLabel =
-    kind === 'template' ? '+ Add New Template' : '+ Add New Assigned Program'
+    kind === 'template' ? '+ Add New Template' : '+ Assign a program'
 
   function detailHref(id: number) {
     return kind === 'template'

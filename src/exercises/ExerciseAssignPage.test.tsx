@@ -164,6 +164,9 @@ describe('ExerciseAssignPage', () => {
           endDate: null,
           status: 'active',
           isArchived: false,
+          basedOnProgramId: null,
+          allowSwaps: true,
+          schedules: [],
         },
       ],
     })
@@ -231,9 +234,10 @@ describe('ExerciseAssignPage', () => {
         title: 'Shoulder Rehab',
         description: null,
         isArchived: false,
+        workouts: [{ id: 1, templateId: 1, name: null, sortOrder: 0 }],
         exercises: [
-          { id: 10, templateId: 1, exerciseId: 5, sets: null, reps: null, durationInSeconds: null, weight: null, weightUnit: null, sortOrder: 0, notes: null, exercise: null },
-          { id: 11, templateId: 1, exerciseId: 6, sets: null, reps: null, durationInSeconds: null, weight: null, weightUnit: null, sortOrder: 1, notes: null, exercise: null },
+          { id: 10, templateId: 1, workoutId: 1, exerciseId: 5, sets: null, reps: null, durationInSeconds: null, weight: null, weightUnit: null, sortOrder: 0, notes: null, exercise: null },
+          { id: 11, templateId: 1, workoutId: 1, exerciseId: 6, sets: null, reps: null, durationInSeconds: null, weight: null, weightUnit: null, sortOrder: 1, notes: null, exercise: null },
         ],
       },
     })
@@ -271,6 +275,9 @@ describe('ExerciseAssignPage', () => {
           endDate: null,
           status: 'active',
           isArchived: false,
+          basedOnProgramId: null,
+          allowSwaps: true,
+          schedules: [],
         },
       ],
       assignedDetail: {
@@ -283,6 +290,10 @@ describe('ExerciseAssignPage', () => {
         endDate: null,
         status: 'active',
         isArchived: false,
+        basedOnProgramId: null,
+        allowSwaps: true,
+        schedules: [],
+        workouts: [],
         exercises: [],
       },
     })
@@ -316,6 +327,7 @@ describe('ExerciseAssignPage', () => {
         title: 'Shoulder Rehab',
         description: null,
         isArchived: false,
+        workouts: [{ id: 1, templateId: 1, name: null, sortOrder: 0 }],
         exercises: [],
       },
       addExerciseResponse: jsonResponse(

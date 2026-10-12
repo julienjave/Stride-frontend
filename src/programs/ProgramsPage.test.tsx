@@ -166,6 +166,9 @@ describe('ProgramsPage', () => {
           endDate: null,
           status: 'active',
           isArchived: false,
+          basedOnProgramId: null,
+          allowSwaps: true,
+          schedules: [],
         },
       ],
     })
@@ -190,6 +193,9 @@ describe('ProgramsPage', () => {
           endDate: null,
           status: 'active',
           isArchived: false,
+          basedOnProgramId: null,
+          allowSwaps: true,
+          schedules: [],
         },
         {
           id: 2,
@@ -201,6 +207,9 @@ describe('ProgramsPage', () => {
           endDate: null,
           status: 'active',
           isArchived: false,
+          basedOnProgramId: null,
+          allowSwaps: true,
+          schedules: [],
         },
       ],
     })
@@ -237,7 +246,7 @@ describe('ProgramsPage', () => {
     renderAt()
     await user.click(screen.getByRole('button', { name: 'Assigned' }))
 
-    const addLink = await screen.findByText('+ Add New Assigned Program')
+    const addLink = await screen.findByText('+ Assign a program')
     expect(addLink).toHaveAttribute(
       'href',
       '/practitioner/programs/assigned/new',
@@ -272,6 +281,9 @@ describe('ProgramsPage', () => {
           endDate: null,
           status: 'active',
           isArchived: false,
+          basedOnProgramId: null,
+          allowSwaps: true,
+          schedules: [],
         },
       ],
     })

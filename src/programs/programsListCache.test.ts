@@ -57,13 +57,18 @@ describe('upsertInProgramsList', () => {
     ).toEqual([1, 42])
   })
 
-  it('strips the exercises array, so the list keeps the real list endpoint shape', () => {
+  it('strips the workouts and exercises, so the list keeps the real list endpoint shape', () => {
     queryClient.setQueryData(programsListQueryKey, [])
-    const detail: ProgramTemplateDetail = { ...listItem({ id: 5 }), exercises: [] }
+    const detail: ProgramTemplateDetail = {
+      ...listItem({ id: 5 }),
+      workouts: [{ id: 1, templateId: 5, name: 'Mobility', sortOrder: 0 }],
+      exercises: [],
+    }
 
     upsertInProgramsList(queryClient, detail)
 
-    expect(queryClient.getQueryData(programsListQueryKey)).toEqual([
+    // toStrictEqual: an extra `workouts` key must fail, not be overlooked.
+    expect(queryClient.getQueryData(programsListQueryKey)).toStrictEqual([
       listItem({ id: 5 }),
     ])
   })

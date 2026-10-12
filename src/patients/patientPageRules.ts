@@ -11,19 +11,18 @@ import type { CareTeamEntry } from './types'
 // COMPILE error, not a blank badge discovered later.
 export const PROGRAM_STATUS_LABELS: Record<AssignedProgram['status'], string> = {
   active: 'Active',
-  on_hold: 'On hold',
   completed: 'Completed',
   cancelled: 'Cancelled',
 }
 
 // What a practitioner opening the page needs first: what the patient is
-// doing NOW. So: active, then on hold, then the finished ones (completed,
-// cancelled); within each group, the most recently started first.
+// doing NOW. So: active, then the finished ones (completed, cancelled);
+// within each group, the most recently started first. (`on_hold` was a
+// status until the backend's step 2b-ii; a pause is now a schedule version.)
 const STATUS_ORDER: Record<AssignedProgram['status'], number> = {
   active: 0,
-  on_hold: 1,
-  completed: 2,
-  cancelled: 3,
+  completed: 1,
+  cancelled: 2,
 }
 
 // Returns a new array (the input is cached data — see sortByName).
@@ -73,16 +72,6 @@ export function isOnlyActiveMember(entries: readonly CareTeamEntry[], myId: numb
 // UTC, which is how it travels and is stored.
 export function endOfLocalDay(date: string): string {
   return new Date(`${date}T23:59:59.999`).toISOString()
-}
-
-// Today as 'YYYY-MM-DD' in the viewer's time zone — the earliest day the
-// "Until" field accepts (its `min`). Built from the local parts, not from
-// toISOString(), which is UTC and can be "yesterday" or "tomorrow" around
-// midnight. `now` is a parameter so tests can pin it.
-export function localDateString(now: Date = new Date()): string {
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  return `${now.getFullYear()}-${month}-${day}`
 }
 
 // For matching typed text loosely: lower case, accents removed ("Émile" →
