@@ -116,6 +116,7 @@ function TemplateDetailView({ templateId }: { templateId: number }) {
         </h2>
         <TemplateExerciseList
           templateId={templateId}
+          workouts={template.workouts}
           exercises={template.exercises}
           canEdit={canEdit}
         />

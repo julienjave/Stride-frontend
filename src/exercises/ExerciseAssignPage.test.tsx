@@ -262,6 +262,46 @@ describe('ExerciseAssignPage', () => {
     ).toBeInTheDocument()
   })
 
+  it("on a two-workout template, adds it after the LAST exercise of workout A — not at the template's count", async () => {
+    // A holds positions 0 and 2 (one was removed); B has two more. The end of
+    // A is 3; the template's count (4) would be wrong too as soon as gaps
+    // or B's exercises are counted.
+    const row = (id: number, workoutId: number, sortOrder: number) => ({
+      id, templateId: 1, workoutId, exerciseId: id, sets: null, reps: null, durationInSeconds: null,
+      weight: null, weightUnit: null, sortOrder, notes: null, exercise: null,
+    })
+    setupFetchMock({
+      templates: [
+        { id: 1, practitionerId: 7, title: 'Knee Rehab', description: null, isArchived: false },
+      ],
+      templateDetail: {
+        id: 1,
+        practitionerId: 7,
+        title: 'Knee Rehab',
+        description: null,
+        isArchived: false,
+        workouts: [
+          { id: 57, templateId: 1, name: 'Mobility', sortOrder: 0 },
+          { id: 58, templateId: 1, name: null, sortOrder: 1 },
+        ],
+        exercises: [row(10, 57, 0), row(11, 57, 2), row(12, 58, 0), row(13, 58, 1)],
+      },
+    })
+    const user = userEvent.setup()
+    renderAt('/practitioner/library/42/assign')
+    await user.click(await screen.findByText('Knee Rehab'))
+    await screen.findByText('Assign to Knee Rehab?')
+
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/programs/1/exercises'),
+        expect.objectContaining({ method: 'POST', body: '{"exerciseId":42,"sortOrder":3}' }),
+      ),
+    )
+  })
+
   it('confirming an assigned-program assignment uses the assigned-programs endpoint instead', async () => {
     setupFetchMock({
       assignedPrograms: [

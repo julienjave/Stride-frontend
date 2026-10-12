@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ApiError } from '@/api/client'
+import { workoutLabel } from '@/common/workoutLabel'
 import { useExercise } from '@/exercises/useExercise'
 import { usePreferredWeightUnit } from '@/auth/usePreferredWeightUnit'
 import { useProgram } from './useProgram'
@@ -23,6 +24,11 @@ import { ExercisePhotoCarousel } from './ExercisePhotoCarousel'
 // own comment), which redirects back here with ?exerciseId=... in the
 // URL; everything else on this page (sets/reps/duration/weight) is
 // filled in only once that's present.
+//
+// Which WORKOUT it goes into travels in the address too: the Add card of a
+// several-workout template links here with ?workoutId=58, and this page
+// passes that on to the picker (inside `returnTo`), so it's still there
+// when the picker sends the person back with the exercise.
 export function NewProgramExercisePage() {
   const { id } = useParams<{ id: string }>()
   const templateId = Number(id)
@@ -43,7 +49,29 @@ function NewProgramExerciseView({ templateId }: { templateId: number }) {
     ? Number(pickedExerciseIdParam)
     : null
 
+  // The workout asked for, if any — a NUMBER from here on, or null when the
+  // address names none (a one-workout template's Add card).
+  const workoutIdParam = searchParams.get('workoutId')
+  const requestedWorkoutId = workoutIdParam === null ? null : Number(workoutIdParam)
+
   const { data: template } = useProgram(templateId)
+
+  // Where it will go, once the template is here: the workout asked for, or
+  // the first one (where the backend puts an exercise when none is named).
+  // -1 = the address names a workout this template doesn't have (deleted
+  // since the link was made, or a hand-edited address).
+  const targetPosition = !template
+    ? null
+    : requestedWorkoutId === null
+      ? 0
+      : template.workouts.findIndex((workout) => workout.id === requestedWorkoutId)
+  const workoutMissing = targetPosition === -1
+  // Shown only when there's a choice to be clear about: with one workout,
+  // "Adding to workout A" would only puzzle.
+  const targetWorkoutLabel =
+    template && targetPosition !== null && targetPosition >= 0 && template.workouts.length > 1
+      ? workoutLabel(targetPosition, template.workouts[targetPosition].name)
+      : null
   const preferredWeightUnit = usePreferredWeightUnit()
   // enabled: only fetch once something's actually been picked — see
   // useExercise's own comment on why this couldn't just be a
@@ -86,7 +114,7 @@ function NewProgramExerciseView({ templateId }: { templateId: number }) {
       if (pickedExerciseId == null) {
         throw new Error('No exercise selected')
       }
-      return addTemplateExercise(templateId, pickedExerciseId, values)
+      return addTemplateExercise(templateId, pickedExerciseId, values, requestedWorkoutId)
     },
     onSuccess: (updated) => {
       queryClient.setQueryData(programQueryKey(templateId), updated)
@@ -96,7 +124,10 @@ function NewProgramExerciseView({ templateId }: { templateId: number }) {
     },
   })
 
-  const currentPath = `/practitioner/programs/templates/${templateId}/exercises/new`
+  // This page's own address WITH its workout, so the picker comes back to
+  // the same workout.
+  const workoutQuery = requestedWorkoutId === null ? '' : `?workoutId=${requestedWorkoutId}`
+  const currentPath = `/practitioner/programs/templates/${templateId}/exercises/new${workoutQuery}`
   const pickerHref = `/practitioner/library/pick?returnTo=${encodeURIComponent(currentPath)}`
   const templateHref = `/practitioner/programs/templates/${templateId}`
 
@@ -111,7 +142,21 @@ function NewProgramExerciseView({ templateId }: { templateId: number }) {
       <div>
         <h1 className="text-xl font-semibold">{template?.title ?? '…'}</h1>
         <p className="text-sm text-muted-foreground">- Add Exercise -</p>
+        {targetWorkoutLabel && (
+          <p className="text-sm">
+            To workout <span className="font-medium">{targetWorkoutLabel}</span>
+          </p>
+        )}
       </div>
+
+      {/* Refused rather than guessed: adding to "the first workout instead"
+          would put the exercise somewhere the practitioner didn't choose. */}
+      {workoutMissing && (
+        <p role="alert" className="text-sm text-destructive">
+          This workout is no longer part of the template. Go back to the
+          template and use the Add card of the workout you want.
+        </p>
+      )}
 
       {pickedExerciseId == null ? (
         <div className="space-y-3 rounded-lg border border-dashed p-6 text-center">
@@ -316,7 +361,7 @@ function NewProgramExerciseView({ templateId }: { templateId: number }) {
           </Button>
           <Button
             type="submit"
-            disabled={pickedExerciseId == null || addMutation.isPending}
+            disabled={pickedExerciseId == null || workoutMissing || addMutation.isPending}
           >
             {addMutation.isPending ? 'Adding…' : 'Add'}
           </Button>

@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router'
 import { useDebouncedValue } from '@/common/useDebouncedValue'
 import { useExercises } from './useExercises'
 import { ExerciseCard } from './ExerciseCard'
+import { localPath, pickerReturnHref } from './pickerReturnHref'
 
 // A genuinely reusable "pick an exercise" page — not scoped to templates
 // specifically, and not a modal (see the design discussion: this app's
@@ -17,9 +18,12 @@ import { ExerciseCard } from './ExerciseCard'
 //
 // Driven by a `returnTo` query param rather than knowing anything about
 // templates or assigned programs itself: picking an exercise navigates
-// to `${returnTo}?exerciseId={picked}`, so any future caller (assigned-
-// program exercise creation, confirmed as a second real consumer) can
-// reuse this exact page with zero changes here.
+// back to `returnTo` with `exerciseId={picked}` added to its query, so any
+// future caller (assigned-program exercise creation, confirmed as a second
+// real consumer) can reuse this exact page with zero changes here.
+// `returnTo` may carry its own query (`?workoutId=58`), and comes from the
+// address bar, so both links are built by pickerReturnHref / localPath,
+// which keep it a path on this site (see that file).
 export function ExercisePickerPage() {
   const [searchParams] = useSearchParams()
   const returnTo = searchParams.get('returnTo')
@@ -63,7 +67,7 @@ export function ExercisePickerPage() {
     <div className="mx-auto mt-8 max-w-3xl space-y-6 px-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Select an Exercise</h1>
-        <Link to={returnTo} className="text-sm text-muted-foreground underline">
+        <Link to={localPath(returnTo)} className="text-sm text-muted-foreground underline">
           Cancel
         </Link>
       </div>
@@ -115,7 +119,7 @@ export function ExercisePickerPage() {
             <ExerciseCard
               key={exercise.id}
               exercise={exercise}
-              href={`${returnTo}?exerciseId=${exercise.id}`}
+              href={pickerReturnHref(returnTo, exercise.id)}
             />
           ))}
         </div>

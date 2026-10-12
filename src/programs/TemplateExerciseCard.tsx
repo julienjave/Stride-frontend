@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Link, useLocation } from 'react-router'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -98,6 +99,17 @@ interface TemplateExerciseCardProps {
   item: TemplateExercise
   onDelete: () => void
   deleting: boolean
+  // The card's workout ("A · Mobility") when the template has several.
+  // It goes into the buttons' accessible names — "Remove Squat from workout
+  // A · Mobility" — because with copies, the same exercise can appear in
+  // two workouts, and two buttons named "Remove Squat from template" can't
+  // be told apart by a screen-reader user. Absent for a one-workout
+  // template: the names stay as they were.
+  workoutLabel?: string
+  // The Move / Copy menu (ExerciseWorkoutMenu), drawn by the list — only
+  // when there's another workout to move or copy to. A slot rather than
+  // the menu's own props, so the card stays about showing one exercise.
+  menu?: ReactNode
 }
 
 // Same overall shape as SortableExerciseImage — a separate drag handle
@@ -111,6 +123,8 @@ export function TemplateExerciseCard({
   item,
   onDelete,
   deleting,
+  workoutLabel,
+  menu,
 }: TemplateExerciseCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.id })
@@ -122,32 +136,45 @@ export function TemplateExerciseCard({
   }
 
   const name = item.exercise?.name ?? 'Unknown exercise'
+  const inWorkout = workoutLabel ? ` in workout ${workoutLabel}` : ''
 
   return (
     <div ref={setNodeRef} style={style} className="relative rounded-lg border">
-      <CardLink templateId={templateId} item={item} className="pl-8 pr-10" />
+      {/* More room on the right when the menu sits beside the delete button. */}
+      <CardLink
+        templateId={templateId}
+        item={item}
+        className={menu ? 'pl-8 pr-18' : 'pl-8 pr-10'}
+      />
 
       <button
         type="button"
         {...attributes}
         {...listeners}
-        aria-label={`Drag to reorder ${name}`}
+        aria-label={`Drag to reorder ${name}${inWorkout}`}
         className="absolute left-1 top-1/2 -translate-y-1/2 cursor-grab rounded p-1 active:cursor-grabbing"
       >
         <GripVertical className="h-4 w-4" aria-hidden="true" />
       </button>
 
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        aria-label={`Remove ${name} from template`}
-        disabled={deleting}
-        onClick={onDelete}
-        className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </Button>
+      <div className="absolute right-1 top-1/2 flex -translate-y-1/2 gap-1">
+        {menu}
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          aria-label={
+            workoutLabel
+              ? `Remove ${name} from workout ${workoutLabel}`
+              : `Remove ${name} from template`
+          }
+          disabled={deleting}
+          onClick={onDelete}
+          className="h-7 w-7"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
     </div>
   )
 }

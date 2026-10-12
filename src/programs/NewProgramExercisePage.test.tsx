@@ -18,16 +18,20 @@ function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status })
 }
 
+// The real shape since workouts (backend step 2b-i): one workout here, with
+// the existing exercise in it.
 const template = {
   id: 1,
   practitionerId: 7,
   title: 'Shoulder Rehab',
   description: null,
   isArchived: false,
+  workouts: [{ id: 1, templateId: 1, name: null, sortOrder: 0 }],
   exercises: [
     {
       id: 50,
       templateId: 1,
+      workoutId: 1,
       exerciseId: 99,
       name: 'Existing',
       primaryMuscles: [],
@@ -296,5 +300,100 @@ describe('NewProgramExercisePage', () => {
       'href',
       '/practitioner/programs/templates/1',
     )
+  })
+})
+
+// A template with two workouts, as the Add card of workout B opens this page:
+// `?workoutId=58`. The positions are chosen so that only "one past B's LAST
+// position" is right: B holds 0 and 2 (one was removed), A holds 0 to 3 —
+// so B's count (2), the template's count (6) and the end of A (4) are all
+// wrong for B, and only 4 is right for A.
+const twoWorkoutTemplate = {
+  ...template,
+  workouts: [
+    { id: 57, templateId: 1, name: 'Mobility', sortOrder: 0 },
+    { id: 58, templateId: 1, name: 'Strength', sortOrder: 1 },
+  ],
+  exercises: [
+    { ...template.exercises[0], id: 50, workoutId: 57, sortOrder: 0 },
+    { ...template.exercises[0], id: 51, workoutId: 57, sortOrder: 1 },
+    { ...template.exercises[0], id: 52, workoutId: 57, sortOrder: 2 },
+    { ...template.exercises[0], id: 55, workoutId: 57, sortOrder: 3 },
+    { ...template.exercises[0], id: 53, workoutId: 58, sortOrder: 0 },
+    { ...template.exercises[0], id: 54, workoutId: 58, sortOrder: 2 },
+  ],
+}
+
+describe('NewProgramExercisePage — adding to a workout', () => {
+  it('says which workout it adds to, and keeps it in the picker\'s return address', async () => {
+    setupFetchMock({ templateOverride: twoWorkoutTemplate })
+    renderAt('/practitioner/programs/templates/1/exercises/new?workoutId=58')
+
+    expect(await screen.findByText('B · Strength')).toBeInTheDocument()
+    expect(screen.getByText(/To workout/)).toHaveTextContent('To workout B · Strength')
+    expect(screen.getByRole('link', { name: 'Select from Library' })).toHaveAttribute(
+      'href',
+      '/practitioner/library/pick?returnTo=' +
+        encodeURIComponent('/practitioner/programs/templates/1/exercises/new?workoutId=58'),
+    )
+  })
+
+  it("sends the workout and the position after that workout's last exercise", async () => {
+    setupFetchMock({ templateOverride: twoWorkoutTemplate })
+    const user = userEvent.setup()
+    renderAt('/practitioner/programs/templates/1/exercises/new?workoutId=58&exerciseId=5')
+    await screen.findByRole('heading', { name: 'Squat' })
+
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/programs/1/exercises'),
+        expect.objectContaining({
+          method: 'POST',
+          body: '{"exerciseId":5,"workoutId":58,"sortOrder":3}',
+        }),
+      ),
+    )
+  })
+
+  it('names no workout when the address names none — the first one, at its end — and says so', async () => {
+    setupFetchMock({ templateOverride: twoWorkoutTemplate })
+    const user = userEvent.setup()
+    renderAt('/practitioner/programs/templates/1/exercises/new?exerciseId=5')
+    await screen.findByRole('heading', { name: 'Squat' })
+
+    expect(screen.getByText(/To workout/)).toHaveTextContent('To workout A · Mobility')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/programs/1/exercises'),
+        expect.objectContaining({
+          method: 'POST',
+          body: '{"exerciseId":5,"sortOrder":4}',
+        }),
+      ),
+    )
+  })
+
+  it("doesn't say which workout when the template has only one", async () => {
+    setupFetchMock({})
+    renderAt('/practitioner/programs/templates/1/exercises/new?workoutId=1')
+    await screen.findByRole('heading', { name: 'Shoulder Rehab' })
+
+    expect(screen.queryByText(/To workout/)).not.toBeInTheDocument()
+  })
+
+  it("refuses a workout the template doesn't have, rather than adding it elsewhere", async () => {
+    setupFetchMock({ templateOverride: twoWorkoutTemplate })
+    renderAt('/practitioner/programs/templates/1/exercises/new?workoutId=999&exerciseId=5')
+    await screen.findByRole('heading', { name: 'Squat' })
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'This workout is no longer part of the template.',
+    )
+    expect(screen.queryByText(/To workout/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled()
   })
 })

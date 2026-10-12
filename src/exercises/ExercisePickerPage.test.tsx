@@ -88,6 +88,48 @@ describe('ExercisePickerPage', () => {
     )
   })
 
+  it('adds the exercise to a returnTo that already has a query with "&", never a second "?"', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        data: [
+          {
+            id: 5,
+            externalId: null,
+            name: 'Squat',
+            primaryMuscles: ['legs'],
+            secondaryMuscles: [],
+            equipment: [],
+            instructions: [],
+            images: [],
+            source: 'custom',
+            createdBy: 7,
+            isArchived: false,
+            author: null,
+          },
+        ],
+        meta: { total: 1, page: 1, limit: 20, totalPages: 1 },
+      }),
+    )
+    const returnTo = '/practitioner/programs/templates/1/exercises/new?workoutId=58'
+    renderAt(`/practitioner/library/pick?returnTo=${encodeURIComponent(returnTo)}`)
+
+    expect(await screen.findByRole('link', { name: /Squat/ })).toHaveAttribute(
+      'href',
+      '/practitioner/programs/templates/1/exercises/new?workoutId=58&exerciseId=5',
+    )
+  })
+
+  it('keeps the Cancel link on this site when returnTo names another one', () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ data: [], meta: { total: 0, page: 1, limit: 20, totalPages: 1 } }),
+    )
+    renderAt(
+      `/practitioner/library/pick?returnTo=${encodeURIComponent('https://elsewhere.example/login')}`,
+    )
+
+    expect(screen.getByRole('link', { name: 'Cancel' })).toHaveAttribute('href', '/login')
+  })
+
   it('does not render an Add New Exercise card — picking, not managing', () => {
     fetchMock.mockResolvedValue(
       jsonResponse({ data: [], meta: { total: 0, page: 1, limit: 20, totalPages: 1 } }),

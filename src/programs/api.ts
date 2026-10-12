@@ -1,5 +1,6 @@
 import { apiRequest } from '@/api/client'
-import type { ProgramTemplate, ProgramTemplateDetail } from './types'
+import { nextExercisePosition } from '@/workouts/workoutGroups'
+import type { ProgramTemplate, ProgramTemplateDetail, TemplateExercise } from './types'
 import type {
   CreateTemplateFormValues,
   AddTemplateExerciseFormValues,
@@ -27,14 +28,26 @@ export function fetchProgram(id: number) {
   return apiRequest<ProgramTemplateDetail>(`/programs/${id}`)
 }
 
+// The id of a template's first workout (A) — where an exercise goes when
+// no workout is named (the backend's default too). `workouts` arrives in
+// display order, and every template has at least one.
+function firstWorkoutId(template: ProgramTemplateDetail): number {
+  return template.workouts[0].id
+}
+
 // Combines two real requests into one function: GET the target
 // template's CURRENT exercise list (to compute where this exercise
 // lands — sortOrder is a required field on the backend, not something
 // it computes for you, per AddTemplateExerciseDto), then POST the add.
-// Appending at the end (exercises.length) rather than asking the person
-// to pick a position keeps the Assign flow exactly as simple as
-// designed — a confirm dialog, not a full reordering UI; reordering
-// within a template is that template's own future editing screen's job.
+// Appending at the end rather than asking the person to pick a position
+// keeps the Assign flow exactly as simple as designed — a confirm dialog,
+// not a full reordering UI.
+//
+// No workoutId is sent, so the backend puts it in the first workout (A);
+// the position is the end of THAT workout (nextExercisePosition), not the
+// whole template's count — positions restart at 0 in every workout, so
+// the count would leave a gap in A, or even land before A's last exercise
+// once removals have left gaps.
 export async function assignExerciseToProgram(
   programId: number,
   exerciseId: number,
@@ -42,7 +55,10 @@ export async function assignExerciseToProgram(
   const program = await fetchProgram(programId)
   return apiRequest(`/programs/${programId}/exercises`, {
     method: 'POST',
-    body: { exerciseId, sortOrder: program.exercises.length },
+    body: {
+      exerciseId,
+      sortOrder: nextExercisePosition(program.exercises, firstWorkoutId(program)),
+    },
   })
 }
 
@@ -105,13 +121,22 @@ export function duplicateTemplate(templateId: number) {
   )
 }
 
-// order is the full, reordered list of every existing row's own id
-// (template_exercises.id, NOT exerciseId) — the backend validates this
-// is an exact permutation of the template's current rows.
-export function reorderTemplateExercises(templateId: number, order: number[]) {
+// Reorders the exercises of ONE workout. `order` is the full, reordered
+// list of that workout's rows' own ids (template_exercises.id, NOT
+// exerciseId) — the backend checks it is exactly that workout's rows,
+// reordered. Exercises of other workouts keep their positions: each
+// workout's list is ordered on its own.
+//
+// The workout is always named, even in a one-workout template where the
+// backend would default to it: the request says what it means.
+export function reorderTemplateExercises(
+  templateId: number,
+  workoutId: number,
+  order: number[],
+) {
   return apiRequest<ProgramTemplateDetail>(`/programs/${templateId}/exercises`, {
     method: 'PATCH',
-    body: { order },
+    body: { workoutId, order },
   })
 }
 
@@ -161,29 +186,133 @@ export function updateTemplateExercise(
   )
 }
 
-// Same "fetch current count, then append" shape as
+// Same "fetch the current template, then append" shape as
 // assignExerciseToProgram — sortOrder is still a required field the
 // backend doesn't compute for you. This is the richer sibling of that
-// function: assignExerciseToProgram only ever sends {exerciseId,
-// sortOrder} (the Assign flow's own simple "just add it" contract),
-// while this one carries the full prescription (sets/reps/duration/
-// weight/unit) the New Program Exercise screen actually collects.
+// function: it carries the full prescription (sets/reps/duration/
+// weight/unit) the New Program Exercise screen collects, and the workout
+// the exercise goes to.
+//
+// `workoutId` null = no workout named (a one-workout template's add card):
+// the key is left out of the body, and the backend uses the first workout.
+// Either way the position is the end of the workout it goes to.
+//
+// Why fetch the template here rather than use what the page has: the page
+// may have been open a while (or reached by a bookmark); the freshest list
+// gives the right "end of the workout".
 export async function addTemplateExercise(
   templateId: number,
   exerciseId: number,
   values: AddTemplateExerciseFormValues,
+  workoutId: number | null = null,
 ) {
   const template = await fetchProgram(templateId)
   return apiRequest<ProgramTemplateDetail>(`/programs/${templateId}/exercises`, {
     method: 'POST',
     body: {
       exerciseId,
+      // undefined (not null) when no workout is named: JSON.stringify drops
+      // the key, so the body says nothing about workouts at all.
+      workoutId: workoutId ?? undefined,
       sets: values.sets,
       reps: values.reps,
       durationInSeconds: values.durationInSeconds,
       weight: values.weight,
       weightUnit: values.weightUnit,
-      sortOrder: template.exercises.length,
+      sortOrder: nextExercisePosition(
+        template.exercises,
+        workoutId ?? firstWorkoutId(template),
+      ),
+    },
+  })
+}
+
+// --- WORKOUTS (step 3a-w) ---------------------------------------------------
+//
+// Every one of these answers with the FULL template (workouts + exercises),
+// like every other template write: the caller writes it straight into the
+// template's cache entry.
+
+// A new, unnamed workout after the last one (the backend picks its
+// position). An empty body, not `{ name: null }`: the name is optional, and
+// the practitioner names the workout afterwards, on its header.
+export function addTemplateWorkout(templateId: number) {
+  return apiRequest<ProgramTemplateDetail>(`/programs/${templateId}/workouts`, {
+    method: 'POST',
+    body: {},
+  })
+}
+
+// `name` null clears it ("B" instead of "B · Strength"). The key is required
+// by the backend: a rename that sends no name is a mistake, not "no change".
+export function renameTemplateWorkout(
+  templateId: number,
+  workoutId: number,
+  name: string | null,
+) {
+  return apiRequest<ProgramTemplateDetail>(
+    `/programs/${templateId}/workouts/${workoutId}`,
+    { method: 'PATCH', body: { name } },
+  )
+}
+
+// The complete new order of the template's workouts — the first becomes A.
+export function reorderTemplateWorkouts(templateId: number, order: number[]) {
+  return apiRequest<ProgramTemplateDetail>(`/programs/${templateId}/workouts`, {
+    method: 'PATCH',
+    body: { order },
+  })
+}
+
+// Only an empty workout, never the last (the backend answers 409 otherwise,
+// with a message saying why).
+export function removeTemplateWorkout(templateId: number, workoutId: number) {
+  return apiRequest<ProgramTemplateDetail>(
+    `/programs/${templateId}/workouts/${workoutId}`,
+    { method: 'DELETE' },
+  )
+}
+
+// MOVE an exercise to another workout: the same row, with a new workoutId.
+// No position is sent, so the backend puts it at the END of that workout.
+export function moveTemplateExercise(
+  templateId: number,
+  templateExerciseId: number,
+  workoutId: number,
+) {
+  return apiRequest<ProgramTemplateDetail>(
+    `/programs/${templateId}/exercises/${templateExerciseId}`,
+    { method: 'PATCH', body: { workoutId } },
+  )
+}
+
+// COPY an exercise into a workout: a NEW row through the ordinary add route,
+// with the same exercise and the same prescription. The two rows are then
+// independent — "copy, not reference", like assigning a template: changing
+// the copy's reps never changes the original. (Nothing makes an exercise
+// unique within a template, so the backend needs no special route for this.)
+//
+// The prescription is sent exactly as stored, nulls included: null means
+// "not set" on both sides (and a weight and its unit are both null or both
+// set, which the backend checks).
+export function copyTemplateExercise(
+  templateId: number,
+  source: TemplateExercise,
+  workoutId: number,
+  sortOrder: number,
+) {
+  return apiRequest<ProgramTemplateDetail>(`/programs/${templateId}/exercises`, {
+    method: 'POST',
+    body: {
+      exerciseId: source.exerciseId,
+      workoutId,
+      sets: source.sets,
+      reps: source.reps,
+      durationInSeconds: source.durationInSeconds,
+      weight: source.weight,
+      weightUnit: source.weightUnit,
+      notes: source.notes,
+      sortOrder,
     },
   })
 }
