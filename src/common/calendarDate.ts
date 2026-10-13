@@ -46,6 +46,17 @@ export function addDays(date: string, days: number): string {
   return fromUtcMidnight(value)
 }
 
+// The number of days from `from` to `to`: '2026-10-12' → '2026-10-15' is 3,
+// and the other way round −3. Both are UTC midnights, so their difference
+// is an exact multiple of 24 hours (86,400,000 ms) — no daylight-saving day
+// to leave a remainder — and the division is exact: whole numbers of
+// milliseconds this size are represented exactly, so no rounding is needed.
+// (The backend's calendar-date.ts has the same function, written the same
+// way.)
+export function daysBetween(from: string, to: string): number {
+  return (toUtcMidnight(to).getTime() - toUtcMidnight(from).getTime()) / 86_400_000
+}
+
 // ISO weekday: 1 = Monday … 7 = Sunday — the encoding the backend uses
 // everywhere (Postgres `isodow`). getUTCDay() counts from Sunday = 0, so
 // Sunday is moved to the end.

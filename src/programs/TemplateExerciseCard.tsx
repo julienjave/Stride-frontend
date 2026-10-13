@@ -5,7 +5,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { WeightValue } from '@/common/WeightValue'
+import { PrescriptionSummary } from '@/common/PrescriptionSummary'
 import type { TemplateExercise } from './types'
 
 // Two cards, one shared body:
@@ -49,23 +49,6 @@ function CardLink({ templateId, item, className }: CardLinkProps) {
   const name = item.exercise?.name ?? 'Unknown exercise'
   const muscles = item.exercise?.primaryMuscles ?? []
 
-  const detailParts: string[] = []
-  if (item.sets) detailParts.push(`${item.sets} sets`)
-  if (item.reps) detailParts.push(`${item.reps} reps`)
-  if (item.durationInSeconds) detailParts.push(`${item.durationInSeconds}s`)
-  // != null, not a truthy check — a weight of exactly 0 is a real,
-  // if unusual, value (matching the backend's own hasStartedWeight
-  // reasoning), not the same as "no weight set."
-  //
-  // Captured as its own small object, rather than re-reading item.weight
-  // in the JSX: inside this ternary TypeScript KNOWS both values are
-  // non-null, and the object carries that knowledge along — so the JSX
-  // below needs no `!` assertions ("trust me, it's not null").
-  const prescribedWeight =
-    item.weight != null && item.weightUnit != null
-      ? { weight: item.weight, unit: item.weightUnit }
-      : null
-
   return (
     <Link
       to={`/practitioner/programs/templates/${templateId}/exercises/${item.id}?returnTo=${encodeURIComponent(returnTo)}`}
@@ -75,21 +58,9 @@ function CardLink({ templateId, item, className }: CardLinkProps) {
       {muscles.length > 0 && (
         <p className="text-sm text-muted-foreground">{muscles.join(', ')}</p>
       )}
-      {/* The weight isn't one of the plain-text parts: it's a component
-          (shown in the viewer's preferred unit, possibly converted), so it
-          is appended after them, with its own separator when there's
-          something before it. */}
-      {(detailParts.length > 0 || prescribedWeight) && (
-        <p className="text-xs text-muted-foreground">
-          {detailParts.join(' · ')}
-          {prescribedWeight && (
-            <>
-              {detailParts.length > 0 && ' · '}
-              <WeightValue weight={prescribedWeight.weight} unit={prescribedWeight.unit} />
-            </>
-          )}
-        </p>
-      )}
+      {/* The prescription line, shared with the program page's exercise
+          list (common/PrescriptionSummary). */}
+      <PrescriptionSummary prescription={item} />
     </Link>
   )
 }

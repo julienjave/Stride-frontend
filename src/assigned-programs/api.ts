@@ -3,6 +3,7 @@ import type {
   AssignedProgramDetail,
   AssignedProgramListItem,
   CreateAssignedProgramInput,
+  ScheduleSummary,
 } from './types'
 
 export const assignedProgramsListQueryKey = ['assigned-programs-list'] as const
@@ -21,6 +22,16 @@ export function patientAssignedProgramsQueryKey(patientId: number) {
 // into the cache.
 export function assignedProgramQueryKey(id: number) {
   return ['assigned-programs', id] as const
+}
+
+// A program's progress, as judged on `today` (the viewer's date). UNDER the
+// program's own key on purpose: invalidating ['assigned-programs', id] after
+// a change to the program (a new schedule, closing it — 3a-2's actions) is a
+// prefix match, so it refreshes the summary too. And `today` is part of the
+// key: the same program judged on another day is another answer, so a page
+// left open past midnight asks again instead of showing yesterday's.
+export function assignedProgramSummaryQueryKey(id: number, today: string) {
+  return [...assignedProgramQueryKey(id), 'summary', today] as const
 }
 
 // No client-side ownership filtering needed here, unlike programs'
@@ -43,6 +54,14 @@ export function fetchPatientAssignedPrograms(patientId: number) {
 
 export function fetchAssignedProgram(id: number) {
   return apiRequest<AssignedProgramDetail>(`/assigned-programs/${id}`)
+}
+
+// GET /assigned-programs/:id/summary?today= — `today` is required: only the
+// viewer's device knows its time zone, so it says which day it is (the
+// backend refuses a date that can't be today anywhere). Same access as the
+// program itself.
+export function fetchAssignedProgramSummary(id: number, today: string) {
+  return apiRequest<ScheduleSummary>(`/assigned-programs/${id}/summary?today=${today}`)
 }
 
 // Same two-step shape as programs' assignExerciseToProgram — sortOrder

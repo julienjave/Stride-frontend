@@ -111,6 +111,114 @@ export interface AssignedProgramDetail extends AssignedProgram {
   exercises: AssignedProgramExercise[]
 }
 
+// --- ITS PROGRESS (GET /assigned-programs/:id/summary?today=) -----------------
+//
+// What the backend's schedule module (summarizeSchedule, decisions §5) says
+// about a program: every scheduled day and weekly count, judged. Copied
+// from the backend's schedule-summary.ts and checked against live answers
+// for the seeded programs (2026-10-12). The screen only DISPLAYS these
+// judgements — it never decides itself whether a day was missed: one
+// module decides, every screen asks it.
+
+// A scheduled day of a specific-days schedule:
+//   done       — a session of that day's workout, on that day;
+//   made_up    — done later, on an unscheduled day before the next scheduled one;
+//   done_early — done AHEAD, on a free day before it in the same week;
+//   swapped    — exchanged with another scheduled day of the same week (each
+//                did the other's workout);
+//   missed   — not done, and its make-up window has closed;
+//   due      — not done yet, and still possible (today, or a window still open);
+//   upcoming — in the future.
+export type DayState =
+  | 'done'
+  | 'made_up'
+  | 'done_early'
+  | 'swapped'
+  | 'missed'
+  | 'due'
+  | 'upcoming'
+
+export interface ScheduledDay {
+  date: string
+  // The workout the day expects (one of the program's workout ids).
+  workoutId: number
+  state: DayState
+  sessionId: number | null
+  // The session that made it up and the day it was done (state made_up).
+  madeUpBy: { sessionId: number; date: string } | null
+  // The session done ahead of time and its (free) day (state done_early).
+  doneEarlyBy: { sessionId: number; date: string } | null
+  // The session done on the OTHER scheduled day of the swap, and that day
+  // (state swapped).
+  swappedBy: { sessionId: number; date: string } | null
+}
+
+export type WeekState = 'met' | 'missed' | 'in_progress' | 'upcoming'
+
+// A stretch of a program week under an "N times a week" version — the whole
+// week, or the part of it left by an end date, a schedule change or a pause
+// (its target is then scaled to its length).
+export interface CountedWeek {
+  // 1 = the week starting on the program's start date.
+  programWeek: number
+  start: string
+  end: string
+  timesPerWeek: number
+  target: number
+  // The rotation positions this stretch needs, in order, and the session
+  // that did each (null = not yet).
+  workouts: { workoutId: number; sessionId: number | null }[]
+  done: number
+  state: WeekState
+  sessionIds: number[]
+}
+
+// Why a completed session didn't count for anything — see the backend's
+// ExtraReason for each rule. The screen words each one (extraReasonText).
+export type ExtraReason =
+  | 'same_day'
+  | 'outside_program'
+  | 'no_missed_day'
+  | 'beyond_target'
+  | 'wrong_workout'
+  | 'repeated_workout'
+  | 'paused'
+  | 'swap_not_counted'
+  | 'already_done'
+
+export interface ExtraSession {
+  sessionId: number
+  date: string
+  reason: ExtraReason
+}
+
+export interface ScheduleSummary {
+  // The days covered: the start date to the end date — or, open-ended, to
+  // the end of the current program week.
+  firstDay: string
+  lastDay: string
+  today: string
+  totals: {
+    // null for an open-ended program: it has no total (a count, no bar).
+    expected: number | null
+    done: number
+    madeUp: number
+    doneEarly: number
+    swapped: number
+    missed: number
+    extra: number
+  }
+  days: ScheduledDay[]
+  weeks: CountedWeek[]
+  extraSessions: ExtraSession[]
+  // `to` null = nothing ends the pause.
+  pauses: { from: string; to: string | null }[]
+  // What to do next: a specific day's workout (forDay; a make-up names the
+  // MISSED day), or the next workout a week still needs (programWeek).
+  // null when nothing is left, or while paused.
+  nextWorkout: { workoutId: number; forDay: string | null; programWeek: number | null } | null
+}
+
 // --- CREATING ONE (POST /assigned-programs) -----------------------------------
 
 // The FIRST schedule version, which applies from the start date. Days and

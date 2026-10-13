@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   addDays,
+  daysBetween,
   formatShortDate,
   isCalendarDate,
   isoWeekday,
@@ -56,6 +57,24 @@ describe('addDays', () => {
   it('counts whole days across a daylight-saving change, North America (9 March 2031)', () => {
     expect(addDays('2031-03-08', 1)).toBe('2031-03-09')
     expect(addDays('2031-03-08', 2)).toBe('2031-03-10')
+  })
+})
+
+describe('daysBetween', () => {
+  it('counts the days from one date to another, negative backwards', () => {
+    expect(daysBetween('2031-06-05', '2031-06-05')).toBe(0)
+    expect(daysBetween('2031-06-05', '2031-06-12')).toBe(7)
+    expect(daysBetween('2031-06-12', '2031-06-05')).toBe(-7)
+    // Across a month and a year end.
+    expect(daysBetween('2031-12-30', '2032-01-02')).toBe(3)
+  })
+
+  it('counts whole days across both daylight-saving changes', () => {
+    // Europe (30 March 2031) and North America (9 March 2031): computed in
+    // UTC, a day is always 24 hours. In local time the 23-hour day would
+    // give 6.958… days — the reason the strings are read as UTC midnights.
+    expect(daysBetween('2031-03-29', '2031-04-05')).toBe(7)
+    expect(daysBetween('2031-03-08', '2031-03-15')).toBe(7)
   })
 })
 

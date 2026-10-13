@@ -1,10 +1,131 @@
-// Placeholder for a single assigned program's detail/edit page —
-// deliberately separate from TemplateDetailPage, per the programs hub
-// discussion.
+import { useState } from 'react'
+import { Link, useParams } from 'react-router'
+import { ApiError } from '@/api/client'
+import { useCurrentUser } from '@/auth/useCurrentUser'
+import { localDateString } from '@/common/calendarDate'
+import { useUser } from '@/users/useUser'
+import { ProgramExercisesSection } from './ProgramExercisesSection'
+import { ProgramHeader } from './ProgramHeader'
+import { ProgramScheduleProgress } from './ProgramScheduleProgress'
+import { currentAndPlanned, workoutNames } from './programSchedule'
+import { useAssignedProgram } from './useAssignedProgram'
+import { useAssignedProgramSummary } from './useAssignedProgramSummary'
+import { usePatientAssignedPrograms } from './usePatientAssignedPrograms'
+
+// The program page (/practitioner/programs/assigned/:id) — step 3a-2,
+// planned 2026-10-12 (decisions §5). Top to bottom: who and what (header),
+// the schedule and how it has gone (Schedule & progress), and the
+// exercises. This first part is read-only; the actions (change the
+// schedule, pause, complete, cancel, assign again, swaps) come next, and
+// tailoring the exercises is step 3b.
 export function AssignedProgramDetailPage() {
+  const { id } = useParams<{ id: string }>()
+  const programId = Number(id)
+
+  if (!id || !Number.isInteger(programId) || programId < 1) {
+    return <p className="mx-auto mt-8 max-w-2xl px-4 text-sm text-destructive">Invalid program.</p>
+  }
+
+  // key={programId}: going from one program to another (the "Continues …"
+  // link — same route, new :id) mounts a FRESH view, so nothing — an open
+  // week, a dialog later — carries over to the next program. The patient
+  // page's rule (deep-dive §9.2).
+  return <ProgramView key={programId} programId={programId} />
+}
+
+function ProgramView({ programId }: { programId: number }) {
+  // The viewer's today, read ONCE when the page opens. Not on every render:
+  // the summary's cache key holds it, so a value changing under the page
+  // (past midnight) would fetch a new summary in the middle of reading.
+  // Reopening the page gives the new day. useState's initialiser function
+  // runs only on the first render — the standard way to compute a value once.
+  const [today] = useState(() => localDateString())
+
+  const { data: currentUser } = useCurrentUser()
+  const { data: program, isLoading, error } = useAssignedProgram(programId)
+  // Asked for only once the program is known to be visible: a 404 program
+  // needs no summary (it would only 404 too).
+  const summary = useAssignedProgramSummary(programId, today, { enabled: !!program })
+  // The patient's name, and their programs (for who assigned this one and
+  // the "Continues" links) — both usually cached from the patient page.
+  // `program?.patientId ?? 0` with `enabled`: hooks can't be called
+  // conditionally, so the switch is an option; 0 is never fetched.
+  const patientId = program?.patientId ?? 0
+  const { data: patient } = useUser(patientId, { enabled: !!program })
+  const { data: patientPrograms } = usePatientAssignedPrograms(patientId, { enabled: !!program })
+
+  if (isLoading) {
+    return (
+      <p className="mx-auto mt-8 max-w-2xl px-4 text-sm text-muted-foreground">Loading program…</p>
+    )
+  }
+
+  if (error) {
+    return error instanceof ApiError && error.statusCode === 404 ? (
+      <ProgramNotFound />
+    ) : (
+      <p className="mx-auto mt-8 max-w-2xl px-4 text-sm text-destructive">
+        Couldn't load this program. Try refreshing.
+      </p>
+    )
+  }
+
+  if (!program || !currentUser) return null
+
+  const names = workoutNames(program.workouts)
+  const isPaused = currentAndPlanned(program.schedules, today).current?.type === 'paused'
+
   return (
-    <div className="mx-auto mt-12 max-w-sm space-y-4">
-      <h1 className="text-xl font-semibold">Assigned Program (placeholder)</h1>
+    <div className="mx-auto mt-8 max-w-2xl space-y-8 px-4 pb-8">
+      <ProgramHeader
+        program={program}
+        isPaused={isPaused}
+        patient={
+          patient
+            ? {
+                name: `${patient.firstName} ${patient.lastName}`,
+                dateOfBirth: patient.patientProfile?.dateOfBirth ?? null,
+              }
+            : null
+        }
+        patientPrograms={patientPrograms}
+        myId={currentUser.id}
+      />
+      <ProgramScheduleProgress
+        program={program}
+        today={today}
+        names={names}
+        summary={summary.data}
+        summaryLoading={summary.isLoading}
+        summaryFailed={summary.isError}
+      />
+      <ProgramExercisesSection program={program} />
+    </div>
+  )
+}
+
+// A 404 means one of two things the backend deliberately doesn't tell
+// apart: no such program, or a program of a patient whose care team I'm
+// not on (row-level security makes it invisible, so it reads as "not
+// found" — telling them apart would confirm that it exists). The page says
+// both, honestly, and where to go. (The roadmap's Phase 6 item on "honest
+// copy for the RLS 404s" — assigned_programs is one of the four.)
+function ProgramNotFound() {
+  return (
+    <div className="mx-auto mt-8 max-w-2xl space-y-3 px-4">
+      <h1 className="text-xl font-semibold">Program not found</h1>
+      <p className="text-sm text-muted-foreground">
+        This program doesn't exist, or it belongs to a patient whose care team you're not on. Only
+        a patient's care team can open their programs.
+      </p>
+      <div className="flex flex-wrap gap-4 text-sm">
+        <Link to="/practitioner/patients" className="font-medium underline">
+          My patients
+        </Link>
+        <Link to="/practitioner/programs" className="font-medium underline">
+          Programs
+        </Link>
+      </div>
     </div>
   )
 }
