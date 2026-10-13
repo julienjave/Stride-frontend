@@ -10,6 +10,7 @@ import { NativeSelect } from '@/common/NativeSelect'
 import { formatCalendarDate } from '@/common/formatCalendarDate'
 import { formatShortDate, isCalendarDate, localDateString } from '@/common/calendarDate'
 import { workoutLabel, workoutLetter } from '@/common/workoutLabel'
+import { PROGRAM_STATUS_LABELS } from '@/patients/patientPageRules'
 import { sortByName } from '@/patients/roster'
 import { isOwnTemplate } from '@/programs/permissions'
 import { usePrograms } from '@/programs/usePrograms'
@@ -31,11 +32,15 @@ import { describeSchedule } from './describeSchedule'
 import { nextMonday, programWeekRange } from './programDates'
 import { ScheduleFields, type ScheduleWorkoutOption } from './ScheduleFields'
 import {
+  draftFromVersion,
   emptyScheduleDraft,
   forgetWorkoutChoices,
   resolveDays,
   resolveRotation,
+  type ScheduleDraft,
 } from './scheduleDraft'
+import type { AssignedProgramDetail } from './types'
+import { useAssignedProgram } from './useAssignedProgram'
 import { useCreateAssignedProgram } from './useCreateAssignedProgram'
 
 // "Assign a program" — /practitioner/programs/assigned/new. ONE page for the
@@ -44,13 +49,41 @@ import { useCreateAssignedProgram } from './useCreateAssignedProgram'
 // on the program's own page — no wizard holding an unsaved copy of the
 // exercise list.
 //
-// Three ways in, told apart by the query string:
-//   ?templateId=1  — "Assign to a patient" on a template's page;
-//   ?patientId=6   — "Assign a program" on a patient's page (the patient is
-//                    then fixed, shown as text);
-//   nothing        — "+ Assign a program" on the Programs page.
+// Four ways in, told apart by the query string:
+//   ?templateId=1        — "Assign to a patient" on a template's page;
+//   ?patientId=6         — "Assign a program" on a patient's page (the
+//                          patient is then fixed, shown as text);
+//   ?basedOnProgramId=12 — "Assign again" on a completed or cancelled
+//                          program's page (3a-2): the source is that program
+//                          — its workouts and tailored exercises are copied —
+//                          and the patient is its patient;
+//   nothing              — "+ Assign a program" on the Programs page.
 export function NewAssignedProgramPage() {
   const [searchParams] = useSearchParams()
+  const continuedId = searchParams.get('basedOnProgramId')
+  // Only CHOOSES which page to show — it calls no hook of its own. Hooks
+  // must run in the same order on every render (React matches them by
+  // position), so an early return BEFORE them would break as soon as the
+  // query string switched modes on the same page. Two components = two
+  // separate hook lists, and switching mounts the other one fresh.
+  return continuedId !== null ? (
+    <AssignAgainPage continuedId={continuedId} />
+  ) : (
+    <AssignFromTemplatePage
+      requestedPatientId={searchParams.get('patientId')}
+      requestedTemplateId={searchParams.get('templateId')}
+    />
+  )
+}
+
+// The usual way in: a template as the source.
+function AssignFromTemplatePage({
+  requestedPatientId,
+  requestedTemplateId,
+}: {
+  requestedPatientId: string | null
+  requestedTemplateId: string | null
+}) {
   // As a practitioner, GET /users answers MY patients (my care-team links)
   // — exactly who I may assign a program to. The same cached list the
   // roster uses.
@@ -76,8 +109,70 @@ export function NewAssignedProgramPage() {
         <AssignProgramForm
           patients={patientsQuery.data ?? []}
           templates={templatesQuery.data ?? []}
-          requestedPatientId={searchParams.get('patientId')}
-          requestedTemplateId={searchParams.get('templateId')}
+          requestedPatientId={requestedPatientId}
+          requestedTemplateId={requestedTemplateId}
+        />
+      )}
+    </div>
+  )
+}
+
+// "Assign again" — /practitioner/programs/assigned/new?basedOnProgramId=12.
+// Loads the program to continue and my patients, checks it CAN be continued
+// (the backend's rules, said before the form is filled in), then shows the
+// same form with that program as the source. Its own component, because it
+// asks different questions first than the template form.
+function AssignAgainPage({ continuedId }: { continuedId: string }) {
+  const id = Number(continuedId)
+  const isValidId = Number.isInteger(id) && id > 0
+  const patientsQuery = useUsers()
+  const sourceQuery = useAssignedProgram(id, { enabled: isValidId })
+  const source = sourceQuery.data
+
+  // Why it can't be assigned again, or null. Only a COMPLETED or CANCELLED
+  // program may be continued (an active one is still running — the backend
+  // answers 409; a deleted one had nothing happen in it — 400), and only for
+  // its own patient, who must be one of mine (the form can't change them).
+  let refusal: string | null = null
+  if (!isValidId) refusal = "That link doesn't name a program."
+  else if (sourceQuery.isError) {
+    refusal =
+      "That program can't be found — it doesn't exist, or it belongs to a patient whose care team you're not on."
+  } else if (source?.isArchived) {
+    refusal = 'That program was deleted before any session, so there is nothing to continue.'
+  } else if (source && source.status === 'active') {
+    refusal =
+      'That program is still running: complete or cancel it first, then assign it again.'
+  } else if (source && patientsQuery.data && !patientsQuery.data.some((p) => p.id === source.patientId)) {
+    refusal = "That program's patient isn't one of your patients any more, so you can't continue it."
+  }
+
+  return (
+    <div className="mx-auto mt-8 max-w-xl space-y-6 px-4 pb-12">
+      <h1 className="text-xl font-semibold">Assign again</h1>
+      {refusal ? (
+        <div className="space-y-2">
+          <p className="text-sm text-destructive">{refusal}</p>
+          {isValidId && !sourceQuery.isError && (
+            <Link to={`/practitioner/programs/assigned/${id}`} className="text-sm underline">
+              Back to the program
+            </Link>
+          )}
+        </div>
+      ) : patientsQuery.isLoading || !source ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : patientsQuery.isError ? (
+        <p className="text-sm text-destructive">Couldn't load your patients. Try refreshing.</p>
+      ) : (
+        // As for templates: the form only once its data is here (its
+        // defaultValues are read once — the title and schedule come from
+        // the program).
+        <AssignProgramForm
+          patients={patientsQuery.data ?? []}
+          templates={[]}
+          requestedPatientId={String(source.patientId)}
+          requestedTemplateId={null}
+          continued={source}
         />
       )}
     </div>
@@ -89,6 +184,26 @@ interface AssignProgramFormProps {
   templates: ProgramTemplate[]
   requestedPatientId: string | null
   requestedTemplateId: string | null
+  // "Assign again": the closed program this one continues — the source,
+  // instead of a template.
+  continued?: AssignedProgramDetail
+}
+
+// The schedule the continued program had last — the one to start from, as
+// "go on as before" is the likely intent. A pause isn't a schedule to go on
+// with: the latest version that isn't one. None at all → a new draft.
+function lastScheduleDraft(program: AssignedProgramDetail): ScheduleDraft {
+  const last = [...program.schedules].reverse().find((version) => version.type !== 'paused')
+  if (!last) return emptyScheduleDraft()
+  // Its workouts by POSITION (the new program's workouts don't exist yet):
+  // the program's order — the order they're copied in.
+  const ordered = [...program.workouts].sort((a, b) => a.sortOrder - b.sortOrder)
+  const positions = new Map(ordered.map((workout, position) => [workout.id, position]))
+  return draftFromVersion(
+    last,
+    (workoutId) => positions.get(workoutId) ?? null,
+    ordered.map((_, position) => position),
+  )
 }
 
 function AssignProgramForm({
@@ -96,6 +211,7 @@ function AssignProgramForm({
   templates,
   requestedPatientId,
   requestedTemplateId,
+  continued,
 }: AssignProgramFormProps) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -115,13 +231,14 @@ function AssignProgramForm({
     defaultValues: {
       patientId: fixedPatient ? String(fixedPatient.id) : '',
       templateId: preselectedTemplate ? String(preselectedTemplate.id) : '',
-      title: preselectedTemplate?.title ?? '',
+      basedOnProgramId: continued ? String(continued.id) : '',
+      title: continued?.title ?? preselectedTemplate?.title ?? '',
       // The viewer's own today (not UTC's): the patient's first day.
       startDate: localDateString(),
       endMode: 'none',
       durationWeeks: '',
       endDate: '',
-      schedule: emptyScheduleDraft(),
+      schedule: continued ? lastScheduleDraft(continued) : emptyScheduleDraft(),
     },
   })
   const errors = form.formState.errors
@@ -135,15 +252,24 @@ function AssignProgramForm({
 
   // The chosen template IN FULL — the list has no workouts, and the
   // schedule needs them. Not requested until a template is chosen.
+  // (Never when continuing a program: its template field stays empty.)
   const templateQuery = useProgram(Number(templateId), { enabled: templateId !== '' })
   const template = templateQuery.data
-  const problem = template ? templateProblem(template) : null
+  // The source the new program is copied from: the continued program, or
+  // the chosen template. Both carry `workouts` and `exercises` in the same
+  // shape, which is all the rest of the form reads.
+  const source = continued ?? template
+  const problem = continued
+    ? templateProblem(continued, 'program')
+    : template
+      ? templateProblem(template)
+      : null
 
-  // The template's workouts as the schedule editor's options. When
+  // The source's workouts as the schedule editor's options. When
   // assigning, a workout is named by its POSITION (0 = A): the program's
   // own workouts don't exist yet (see scheduleDraft.ts).
-  const workoutOptions: ScheduleWorkoutOption[] = template
-    ? [...template.workouts]
+  const workoutOptions: ScheduleWorkoutOption[] = source
+    ? [...source.workouts]
         .sort((a, b) => a.sortOrder - b.sortOrder)
         .map((workout, position) => ({
           ref: position,
@@ -160,10 +286,10 @@ function AssignProgramForm({
   })
 
   function submit(values: AssignFormValues) {
-    // The schedule needs the template's workouts, and a template the backend
+    // The schedule needs the source's workouts, and a source the backend
     // would refuse is already explained on screen: nothing to send.
-    if (!template || problem) return
-    createMutation.mutate(toCreateInput(values, template.workouts.length))
+    if (!source || problem) return
+    createMutation.mutate(toCreateInput(values, source.workouts.length))
   }
 
   // Cancel goes back where the practitioner came from (the template, the
@@ -176,7 +302,7 @@ function AssignProgramForm({
   }
 
   const endPreview = plannedEndDate({ startDate, endMode, durationWeeks, endDate })
-  const summary = template && !problem ? scheduleSummary() : null
+  const summary = source && !problem ? scheduleSummary() : null
 
   // The schedule in words, from exactly what will be sent — so a
   // practitioner can check "Mon A · Wed B · Fri A" before saving.
@@ -250,65 +376,91 @@ function AssignProgramForm({
       )}
 
       {/* --- WHAT -------------------------------------------------------- */}
-      <div className="space-y-1">
-        <Label htmlFor="templateId">Template</Label>
-        <Controller
-          control={form.control}
-          name="templateId"
-          render={({ field }) => (
-            <NativeSelect
-              id="templateId"
-              aria-invalid={!!errors.templateId || !!problem}
-              value={field.value}
-              onBlur={field.onBlur}
-              onChange={(event) => {
-                // Choosing another template changes two OTHER fields, which
-                // is why this is a Controller with its own onChange rather
-                // than a plain register(): the title follows the template
-                // (unless typed by hand), and the previous template's
-                // workout choices no longer mean anything.
-                const previous = templates.find((t) => String(t.id) === field.value)
-                const next = templates.find((t) => String(t.id) === event.target.value)
-                field.onChange(event.target.value)
-                if (next) {
-                  form.setValue(
-                    'title',
-                    suggestTitle(form.getValues('title'), previous?.title ?? null, next.title),
-                  )
-                }
-                form.setValue('schedule', forgetWorkoutChoices(form.getValues('schedule')))
-              }}
-            >
-              <option value="">Choose a template</option>
-              {templates.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.title}
-                  {currentUser && isOwnTemplate(option, currentUser) ? ' (yours)' : ''}
-                </option>
-              ))}
-            </NativeSelect>
-          )}
-        />
-        {errors.templateId && (
-          <p className="text-sm text-destructive">{errors.templateId.message}</p>
-        )}
-        {templateQuery.isLoading && (
-          <p className="text-sm text-muted-foreground">Loading the template…</p>
-        )}
-        {templateQuery.isError && (
-          <p className="text-sm text-destructive">Couldn't load this template. Try again.</p>
-        )}
-        {problem && <p className="text-sm text-destructive">{problem}</p>}
-        {template && !problem && workoutOptions.length > 1 && (
-          <p className="text-sm text-muted-foreground">
-            Workouts: {workoutOptions.map((option) => option.label).join(', ')}
+      {continued ? (
+        <div className="space-y-1">
+          <p className="text-sm font-medium">Continues</p>
+          <p>
+            {continued.title}
+            {continued.endDate && (
+              <span className="text-muted-foreground">
+                {' '}
+                ({PROGRAM_STATUS_LABELS[continued.status].toLowerCase()}, ended{' '}
+                {formatCalendarDate(continued.endDate)})
+              </span>
+            )}
           </p>
-        )}
-        <p className="text-sm text-muted-foreground">
-          Its exercises are copied into the patient's program: you can tailor them there
-          afterwards, and later changes to the template won't affect it.
-        </p>
-      </div>
+          {problem && <p className="text-sm text-destructive">{problem}</p>}
+          {!problem && workoutOptions.length > 1 && (
+            <p className="text-sm text-muted-foreground">
+              Workouts: {workoutOptions.map((option) => option.label).join(', ')}
+            </p>
+          )}
+          <p className="text-sm text-muted-foreground">
+            Its workouts and exercises, as tailored for this patient, are copied into the new
+            program. The schedule starts as it was last — change it if needed.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-1">
+          <Label htmlFor="templateId">Template</Label>
+          <Controller
+            control={form.control}
+            name="templateId"
+            render={({ field }) => (
+              <NativeSelect
+                id="templateId"
+                aria-invalid={!!errors.templateId || !!problem}
+                value={field.value}
+                onBlur={field.onBlur}
+                onChange={(event) => {
+                  // Choosing another template changes two OTHER fields, which
+                  // is why this is a Controller with its own onChange rather
+                  // than a plain register(): the title follows the template
+                  // (unless typed by hand), and the previous template's
+                  // workout choices no longer mean anything.
+                  const previous = templates.find((t) => String(t.id) === field.value)
+                  const next = templates.find((t) => String(t.id) === event.target.value)
+                  field.onChange(event.target.value)
+                  if (next) {
+                    form.setValue(
+                      'title',
+                      suggestTitle(form.getValues('title'), previous?.title ?? null, next.title),
+                    )
+                  }
+                  form.setValue('schedule', forgetWorkoutChoices(form.getValues('schedule')))
+                }}
+              >
+                <option value="">Choose a template</option>
+                {templates.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.title}
+                    {currentUser && isOwnTemplate(option, currentUser) ? ' (yours)' : ''}
+                  </option>
+                ))}
+              </NativeSelect>
+            )}
+          />
+          {errors.templateId && (
+            <p className="text-sm text-destructive">{errors.templateId.message}</p>
+          )}
+          {templateQuery.isLoading && (
+            <p className="text-sm text-muted-foreground">Loading the template…</p>
+          )}
+          {templateQuery.isError && (
+            <p className="text-sm text-destructive">Couldn't load this template. Try again.</p>
+          )}
+          {problem && <p className="text-sm text-destructive">{problem}</p>}
+          {template && !problem && workoutOptions.length > 1 && (
+            <p className="text-sm text-muted-foreground">
+              Workouts: {workoutOptions.map((option) => option.label).join(', ')}
+            </p>
+          )}
+          <p className="text-sm text-muted-foreground">
+            Its exercises are copied into the patient's program: you can tailor them there
+            afterwards, and later changes to the template won't affect it.
+          </p>
+        </div>
+      )}
 
       <div className="space-y-1">
         <Label htmlFor="title">Title</Label>
@@ -417,7 +569,7 @@ function AssignProgramForm({
       </fieldset>
 
       {/* --- HOW OFTEN ---------------------------------------------------- */}
-      {template && !problem ? (
+      {source && !problem ? (
         <Controller
           control={form.control}
           name="schedule"

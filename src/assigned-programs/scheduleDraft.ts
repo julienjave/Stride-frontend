@@ -195,3 +195,60 @@ export function forgetWorkoutChoices(draft: ScheduleDraft): ScheduleDraft {
     rotation: null,
   }
 }
+
+// --- FROM A STORED VERSION -------------------------------------------------------
+
+// A stored schedule version → a draft to edit, for starting from what the
+// patient already follows: "Assign again" (the source program's schedule,
+// with POSITIONS as references) and "Change schedule" (3a-2's batch 2b,
+// with the program's own ids). `refOf` turns a stored workout id into the
+// form's reference — or null when there's none, which leaves that day's
+// workout to the suggestion (a draft's null means exactly that).
+//
+// `refs` (the available references, in order): a stored rotation that is
+// exactly the suggestion — every workout in order — comes back as null
+// ("suggested"), not as an edited order, so the editor shows it as it was
+// chosen. (When assigning, the backend stores the suggestion as a real
+// list: a draft can't tell them apart without this.)
+//
+// A pause has nothing to edit: the caller picks the version to start from
+// (the latest one that isn't a pause); given one anyway, it's a new draft.
+export function draftFromVersion(
+  version: {
+    type: 'weekdays' | 'times_per_week' | 'paused'
+    days: readonly { weekday: number; workoutId: number }[]
+    timesPerWeek: number | null
+    rotation: readonly number[]
+  },
+  refOf: (workoutId: number) => number | null,
+  refs: readonly number[],
+): ScheduleDraft {
+  const empty = emptyScheduleDraft()
+  if (version.type === 'weekdays') {
+    return {
+      ...empty,
+      days: [...version.days]
+        .sort((a, b) => a.weekday - b.weekday)
+        .map((day) => ({ weekday: day.weekday, workout: refOf(day.workoutId) })),
+    }
+  }
+  if (version.type === 'times_per_week') {
+    const rotation = version.rotation.map(refOf)
+    const isSuggestion =
+      rotation.length === refs.length && rotation.every((ref, i) => ref === refs[i])
+    return {
+      ...empty,
+      type: 'times_per_week',
+      timesPerWeek: version.timesPerWeek ?? empty.timesPerWeek,
+      // The order as stored — unless it IS the suggestion, or a workout of
+      // it can't be named (half of an old order means nothing —
+      // resolveRotation's rule): then null, the suggestion. `every`
+      // narrows nothing for TypeScript, hence the filter.
+      rotation:
+        !isSuggestion && rotation.every((ref) => ref !== null)
+          ? rotation.filter((ref): ref is number => ref !== null)
+          : null,
+    }
+  }
+  return empty
+}

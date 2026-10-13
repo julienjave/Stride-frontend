@@ -104,6 +104,59 @@ const CREATED = {
   exercises: [],
 }
 
+function sourceVersion(id: number, effectiveFrom: string, fields: object) {
+  return {
+    id,
+    assignedProgramId: 9,
+    type: 'weekdays',
+    timesPerWeek: null,
+    effectiveFrom,
+    createdBy: ME.id,
+    createdAt: `${effectiveFrom}T08:00:00.000Z`,
+    days: [],
+    rotation: [],
+    ...fields,
+  }
+}
+
+// "Assign again": Pat's cancelled program 9, with two workouts — ids 57 / 58,
+// listed B first on purpose (the positions must come from sortOrder) — and
+// its schedule history: Mon B · Thu A, then Tue A · Fri B, then a pause.
+// The form starts from the LAST schedule that isn't a pause: Tue A · Fri B
+// (not the first one, and not the pause).
+const CONTINUED = {
+  ...CREATED,
+  id: 9,
+  title: 'Knee Rehab — Pat',
+  status: 'cancelled',
+  startDate: '2031-05-01',
+  endDate: '2031-06-01',
+  basedOnTemplateId: 1,
+  workouts: [
+    { id: 58, assignedProgramId: 9, name: 'Strength', sortOrder: 1 },
+    { id: 57, assignedProgramId: 9, name: 'Mobility', sortOrder: 0 },
+  ],
+  exercises: [
+    { ...exercise(901, 9, 57), assignedProgramId: 9 },
+    { ...exercise(902, 9, 58), assignedProgramId: 9 },
+  ],
+  schedules: [
+    sourceVersion(1, '2031-05-01', {
+      days: [
+        { weekday: 1, workoutId: 58 },
+        { weekday: 4, workoutId: 57 },
+      ],
+    }),
+    sourceVersion(2, '2031-05-12', {
+      days: [
+        { weekday: 2, workoutId: 57 },
+        { weekday: 5, workoutId: 58 },
+      ],
+    }),
+    sourceVersion(3, '2031-05-20', { type: 'paused' }),
+  ],
+}
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status })
 }
@@ -111,12 +164,22 @@ function json(body: unknown, status = 200) {
 // What POST /assigned-programs answers — replaced by a test that needs a
 // refusal.
 let createResponse: () => Response
+// GET /assigned-programs/:id — the program to continue ("Assign again").
+let sourcePrograms: Record<number, () => Response>
 
 beforeEach(() => {
   fetchMock.mockReset()
   createResponse = () => json(CREATED, 201)
+  sourcePrograms = { 9: () => json(CONTINUED) }
   fetchMock.mockImplementation((input, init) => {
     const url = urlOf(input)
+    const source = /\/assigned-programs\/(\d+)$/.exec(url)
+    if (init?.method === 'GET' && source) {
+      const answer = sourcePrograms[Number(source[1])]
+      return Promise.resolve(
+        answer ? answer() : json({ statusCode: 404, message: ['Assigned program not found'], error: 'Not Found' }, 404),
+      )
+    }
     if (init?.method === 'POST' && url.endsWith('/assigned-programs')) {
       return Promise.resolve(createResponse())
     }
@@ -150,6 +213,18 @@ function ProgramPageStub() {
   )
 }
 
+// A link to the plain form that stays on the SAME route: the page isn't
+// remounted, only its query string changes — as with the browser's Back
+// from "Assign again" to a plain form.
+function PlainFormLink() {
+  const navigate = useNavigate()
+  return (
+    <button type="button" onClick={() => void navigate('/practitioner/programs/assigned/new')}>
+      test: plain form
+    </button>
+  )
+}
+
 function renderPage(query = '', { openedDirectly = false } = {}) {
   // staleTime as in the app (see PatientPage.test.tsx on why).
   const queryClient = new QueryClient({
@@ -170,7 +245,13 @@ function renderPage(query = '', { openedDirectly = false } = {}) {
         <Routes>
           <Route path="/came-from" element={<p>Where I came from</p>} />
           <Route path="/practitioner/programs" element={<p>Programs page</p>} />
-          <Route path="/practitioner/programs/assigned/new" element={<NewAssignedProgramPage />} />
+          <Route path="/practitioner/programs/assigned/new" element={
+              <>
+                <NewAssignedProgramPage />
+                <PlainFormLink />
+              </>
+            }
+          />
           <Route path="/practitioner/programs/assigned/:id" element={<ProgramPageStub />} />
         </Routes>
       </MemoryRouter>
@@ -497,5 +578,130 @@ describe('NewAssignedProgramPage — saving', () => {
     renderPage('', { openedDirectly: true })
     await user.click(await screen.findByRole('button', { name: 'Cancel' }))
     expect(await screen.findByText('Programs page')).toBeInTheDocument()
+  })
+})
+
+describe('NewAssignedProgramPage — assigning again', () => {
+  it('continues the program: its patient, its title, its last schedule — no template to choose', async () => {
+    renderPage('?basedOnProgramId=9')
+    expect(await screen.findByRole('heading', { name: 'Assign again' })).toBeInTheDocument()
+    expect(await screen.findByText('Continues')).toBeInTheDocument()
+    expect(
+      screen.getByText(`(cancelled, ended ${formatCalendarDate('2031-06-01')})`, { exact: false }),
+    ).toBeInTheDocument()
+    // The patient is fixed: text, no select.
+    expect(screen.getByText(`Pat Lee · born ${formatCalendarDate('1988-04-12')}`)).toBeInTheDocument()
+    expect(screen.queryByLabelText('Patient')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Template')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Title')).toHaveValue('Knee Rehab — Pat')
+    // The last schedule that isn't a pause, its workouts by position.
+    expect(screen.getByText('Schedule:').closest('p')).toHaveTextContent('Schedule: Tue A · Fri B')
+    // No template list asked for: it has no use here.
+    expect(requests((url) => url.endsWith('/programs'))).toEqual([])
+  })
+
+  // The page only chooses between two components: switching modes on the
+  // same page must not change the hooks a component calls (React would
+  // throw "Rendered more hooks than during the previous render").
+  it('switches to the plain form on the same page without breaking', async () => {
+    const user = userEvent.setup()
+    renderPage('?basedOnProgramId=9')
+    expect(await screen.findByRole('heading', { name: 'Assign again' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'test: plain form' }))
+    expect(await screen.findByRole('heading', { name: 'Assign a program' })).toBeInTheDocument()
+    expect(await screen.findByLabelText('Template')).toBeInTheDocument()
+  })
+
+  it('sends the continued program as the only source', async () => {
+    const user = userEvent.setup()
+    renderPage('?basedOnProgramId=9')
+    await user.click(await screen.findByRole('button', { name: 'Assign program' }))
+
+    await screen.findByText('Program page')
+    expect(
+      requests((url, init) => init?.method === 'POST' && url.endsWith('/assigned-programs')).map(
+        ([, init]) => init?.body,
+      ),
+    ).toEqual([
+      '{"patientId":6,"basedOnProgramId":9,"title":"Knee Rehab — Pat","startDate":"2031-06-05","schedule":{"type":"weekdays","days":[{"weekday":2,"workoutIndex":0},{"weekday":5,"workoutIndex":1}]}}',
+    ])
+  })
+
+  // A weekly count whose order is the suggestion comes back as "suggested":
+  // no rotation is sent (the backend's default is the same order).
+  it('keeps a suggested order as suggested', async () => {
+    sourcePrograms[9] = () =>
+      json({
+        ...CONTINUED,
+        schedules: [
+          {
+            ...CONTINUED.schedules[0],
+            type: 'times_per_week',
+            timesPerWeek: 2,
+            days: [],
+            rotation: [57, 58],
+          },
+        ],
+      })
+    const user = userEvent.setup()
+    renderPage('?basedOnProgramId=9')
+    // Shown as the suggestion: "Edit order" is offered, not the editor's
+    // "Use the suggested order" (which only an edited order has).
+    expect(await screen.findByRole('button', { name: 'Edit order' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Use the suggested order' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Assign program' }))
+    await screen.findByText('Program page')
+    expect(
+      requests((url, init) => init?.method === 'POST' && url.endsWith('/assigned-programs')).map(
+        ([, init]) => JSON.parse(init?.body as string) as { schedule: unknown },
+      )[0].schedule,
+    ).toStrictEqual({ type: 'times_per_week', timesPerWeek: 2 })
+  })
+
+  it('explains a program that can\'t be continued, and sends nothing', async () => {
+    sourcePrograms[9] = () =>
+      json({ ...CONTINUED, exercises: [CONTINUED.exercises[0]] })
+    const user = userEvent.setup()
+    renderPage('?basedOnProgramId=9')
+    expect(
+      await screen.findByText(
+        "Workout B of the program to continue has no exercises, so it can't be assigned again. Assign a template instead.",
+      ),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Assign program' }))
+    expect(requests((_url, init) => init?.method === 'POST')).toEqual([])
+  })
+
+  it.each<[string, () => void, string, string]>([
+    [
+      'a program still running',
+      () => (sourcePrograms[9] = () => json({ ...CONTINUED, status: 'active', endDate: null })),
+      '?basedOnProgramId=9',
+      'That program is still running: complete or cancel it first, then assign it again.',
+    ],
+    [
+      'a deleted program',
+      () => (sourcePrograms[9] = () => json({ ...CONTINUED, status: 'active', isArchived: true })),
+      '?basedOnProgramId=9',
+      'That program was deleted before any session, so there is nothing to continue.',
+    ],
+    [
+      'another practitioner\'s patient',
+      () => (sourcePrograms[9] = () => json({ ...CONTINUED, patientId: 99 })),
+      '?basedOnProgramId=9',
+      "That program's patient isn't one of your patients any more, so you can't continue it.",
+    ],
+    [
+      'a program that can\'t be found',
+      () => {},
+      '?basedOnProgramId=404',
+      "That program can't be found — it doesn't exist, or it belongs to a patient whose care team you're not on.",
+    ],
+    ['a link without a program id', () => {}, '?basedOnProgramId=abc', "That link doesn't name a program."],
+  ])('refuses %s, with the reason and no form', async (_label, arrange, query, message) => {
+    arrange()
+    renderPage(query)
+    expect(await screen.findByText(message)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Assign program' })).not.toBeInTheDocument()
   })
 })

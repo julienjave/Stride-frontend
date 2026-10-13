@@ -33,7 +33,12 @@ export const assignFormSchema = z
     // selects' placeholders ("Choose a patient") on purpose, as there: the
     // same words twice on screen read as one thing.
     patientId: z.string().min(1, 'Select who this program is for'),
-    templateId: z.string().min(1, 'Select the template to start from'),
+    // The source: a template — or, when assigning again, the closed program
+    // it continues (fixed by the page, never chosen in the form). Exactly
+    // one is used; the template is required only when there's no program
+    // (superRefine below).
+    templateId: z.string(),
+    basedOnProgramId: z.string(),
     // trim() first, so "   " counts as empty; 200 = the backend's limit.
     title: z
       .string()
@@ -54,6 +59,13 @@ export const assignFormSchema = z
   // each problem on the field it belongs to (`path`), so the message shows
   // under the right input.
   .superRefine((values, ctx) => {
+    if (values.basedOnProgramId === '' && values.templateId === '') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['templateId'],
+        message: 'Select the template to start from',
+      })
+    }
     if (values.endMode === 'weeks') {
       const weeks = Number(values.durationWeeks)
       // /^\d+$/ refuses '', '2.5', '-1' and '1e2' — Number() alone would
@@ -106,9 +118,12 @@ export function plannedEndDate(
   return null
 }
 
-// Validated values → the request body. `workoutCount` is the chosen
-// template's number of workouts: when assigning, workouts are named by
-// POSITION (0 = A), so the references are simply 0 … count − 1.
+// Validated values → the request body. `workoutCount` is the source's
+// number of workouts (the template's, or the continued program's): when
+// assigning, workouts are named by POSITION (0 = A), so the references are
+// simply 0 … count − 1. The source is the continued program when there is
+// one, the template otherwise — never both (the backend refuses two
+// sources, and CreateAssignedProgramInput can't even express it).
 //
 // Only the chosen schedule type's fields are sent (the backend refuses the
 // other type's fields — sending both would be a 400). A rotation is sent
@@ -121,9 +136,13 @@ export function toCreateInput(
 ): CreateAssignedProgramInput {
   const workouts = Array.from({ length: workoutCount }, (_, position) => position)
   const endDate = plannedEndDate(values)
+  const source =
+    values.basedOnProgramId !== ''
+      ? { basedOnProgramId: Number(values.basedOnProgramId) }
+      : { basedOnTemplateId: Number(values.templateId) }
   return {
     patientId: Number(values.patientId),
-    basedOnTemplateId: Number(values.templateId),
+    ...source,
     title: values.title.trim(),
     startDate: values.startDate,
     // A key that's absent, not `endDate: undefined`: JSON.stringify drops
@@ -168,22 +187,34 @@ export function suggestTitle(
   return untouched ? nextTemplateTitle : currentTitle
 }
 
-// Why a template can't be assigned yet, or null. The backend refuses both
-// cases (400): a template with no exercises at all, and one with an EMPTY
-// workout ("Workout B of program template 1 has no exercises") — an empty
-// workout is fine while a template is being written, not on a patient's
-// schedule. Saying it as soon as the template is chosen beats a refusal
-// after the whole form is filled in.
-export function templateProblem(template: {
-  workouts: readonly { id: number; sortOrder: number }[]
-  exercises: readonly { workoutId: number }[]
-}): string | null {
+// Why a source can't be assigned, or null. The backend refuses both cases
+// (400): a source with no exercises at all, and one with an EMPTY workout
+// ("Workout B of program template 1 has no exercises") — an empty workout
+// is fine while a template is being written, not on a patient's schedule.
+// Saying it as soon as the source is known beats a refusal after the whole
+// form is filled in.
+//
+// The same rules for a closed program assigned again (its workouts and
+// exercises are copied the same way) — only the advice differs: a template
+// can be fixed on its page, a closed program can't change any more.
+// (Programs and templates both fit: only these fields are read.)
+export function templateProblem(
+  template: {
+    workouts: readonly { id: number; sortOrder: number }[]
+    exercises: readonly { workoutId: number }[]
+  },
+  kind: 'template' | 'program' = 'template',
+): string | null {
   if (template.exercises.length === 0) {
-    return 'This template has no exercises yet. Add some on its page before assigning it.'
+    return kind === 'template'
+      ? 'This template has no exercises yet. Add some on its page before assigning it.'
+      : 'The program to continue has no exercises, so it can\'t be assigned again. Assign a template instead.'
   }
   const emptyPosition = [...template.workouts]
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .findIndex((workout) => !template.exercises.some((ex) => ex.workoutId === workout.id))
   if (emptyPosition === -1) return null
-  return `Workout ${workoutLetter(emptyPosition)} of this template has no exercises yet. Add some on the template's page before assigning it.`
+  return kind === 'template'
+    ? `Workout ${workoutLetter(emptyPosition)} of this template has no exercises yet. Add some on the template's page before assigning it.`
+    : `Workout ${workoutLetter(emptyPosition)} of the program to continue has no exercises, so it can't be assigned again. Assign a template instead.`
 }

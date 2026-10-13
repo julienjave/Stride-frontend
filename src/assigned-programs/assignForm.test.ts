@@ -14,6 +14,7 @@ function values(overrides: Partial<AssignFormValues> = {}): AssignFormValues {
   return {
     patientId: '6',
     templateId: '1',
+    basedOnProgramId: '',
     title: 'Knee Rehab — Pat',
     startDate: '2031-06-05',
     endMode: 'none',
@@ -48,6 +49,12 @@ describe('assignFormSchema', () => {
       templateId: 'Select the template to start from',
       title: 'Give the program a title',
     })
+  })
+
+  // Assigning again: the source is the continued program, so no template
+  // is needed — and none is asked for.
+  it('needs no template when continuing a program', () => {
+    expect(messages(values({ templateId: '', basedOnProgramId: '12' }))).toStrictEqual({})
   })
 
   it('limits the title to 200 characters, like the backend', () => {
@@ -140,6 +147,14 @@ describe('toCreateInput', () => {
         ],
       },
     })
+  })
+
+  // Assigning again: the continued program is the source, ALONE — a
+  // template id left in the form isn't sent with it (two sources = 400).
+  it('names the continued program as the only source when there is one', () => {
+    const body = toCreateInput(values({ templateId: '1', basedOnProgramId: '12' }), 2)
+    expect(body).toMatchObject({ patientId: 6, basedOnProgramId: 12 })
+    expect(body).not.toHaveProperty('basedOnTemplateId')
   })
 
   it('sends the end date the chosen mode gives', () => {
@@ -237,6 +252,16 @@ describe('templateProblem', () => {
   it('says so when the template has no exercises at all', () => {
     expect(templateProblem({ workouts, exercises: [] })).toBe(
       'This template has no exercises yet. Add some on its page before assigning it.',
+    )
+  })
+
+  // A closed program can't change any more: the advice is another source.
+  it('words both cases for a program to continue', () => {
+    expect(templateProblem({ workouts, exercises: [{ workoutId: 1 }] }, 'program')).toBe(
+      "Workout B of the program to continue has no exercises, so it can't be assigned again. Assign a template instead.",
+    )
+    expect(templateProblem({ workouts, exercises: [] }, 'program')).toBe(
+      "The program to continue has no exercises, so it can't be assigned again. Assign a template instead.",
     )
   })
 })

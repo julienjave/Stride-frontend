@@ -2,8 +2,11 @@ import { apiRequest } from '@/api/client'
 import type {
   AssignedProgramDetail,
   AssignedProgramListItem,
+  ClosingPreview,
+  CloseResult,
   CreateAssignedProgramInput,
   ScheduleSummary,
+  UpdateAssignedProgramInput,
 } from './types'
 
 export const assignedProgramsListQueryKey = ['assigned-programs-list'] as const
@@ -54,6 +57,38 @@ export function fetchPatientAssignedPrograms(patientId: number) {
 
 export function fetchAssignedProgram(id: number) {
   return apiRequest<AssignedProgramDetail>(`/assigned-programs/${id}`)
+}
+
+// What closing WOULD do today. Under the program's key, like the summary,
+// so everything about one program sits under one prefix. Freshness doesn't
+// depend on it: the preview is asked again each time the dialog opens
+// (staleTime 0, useClosingPreview) — a mutation check confirmed moving the
+// key changes nothing visible. `today` is in the key for the same reason
+// as the summary's.
+export function closingPreviewQueryKey(id: number, today: string) {
+  return [...assignedProgramQueryKey(id), 'closing', today] as const
+}
+
+export function fetchClosingPreview(id: number, today: string) {
+  return apiRequest<ClosingPreview>(`/assigned-programs/${id}/closing?today=${today}`)
+}
+
+// POST /assigned-programs/:id/cancel or …/complete, with the practitioner's
+// today (the end date depends on it — yesterday, or today if a session was
+// completed today). Answers { outcome, program }.
+export function closeAssignedProgram(id: number, action: 'cancel' | 'complete', today: string) {
+  return apiRequest<CloseResult>(`/assigned-programs/${id}/${action}`, {
+    method: 'POST',
+    body: { today },
+  })
+}
+
+// PATCH /assigned-programs/:id — answers with the full program.
+export function updateAssignedProgram(id: number, input: UpdateAssignedProgramInput) {
+  return apiRequest<AssignedProgramDetail>(`/assigned-programs/${id}`, {
+    method: 'PATCH',
+    body: input,
+  })
 }
 
 // GET /assigned-programs/:id/summary?today= — `today` is required: only the

@@ -229,17 +229,49 @@ export type NewProgramSchedule =
   // rotation omitted = every workout in order (the backend's default).
   | { type: 'times_per_week'; timesPerWeek: number; rotation?: number[] }
 
-// The body the assign form sends. The backend also accepts
-// `basedOnProgramId` ("Assign again", 3a-2) or an inline `exercises` list
-// instead of a template — exactly one source. Only the template form exists
-// today.
-export interface CreateAssignedProgramInput {
+// The body the assign form sends: exactly ONE source — a template, or a
+// closed program to continue ("Assign again", 3a-2; its workouts and
+// tailored exercises are copied). (The backend also accepts an inline
+// `exercises` list, which no screen uses.) A union, so a body naming both
+// sources — or neither — can't even be written.
+export type CreateAssignedProgramInput = (
+  | { basedOnTemplateId: number; basedOnProgramId?: never }
+  | { basedOnProgramId: number; basedOnTemplateId?: never }
+) & {
   patientId: number
-  basedOnTemplateId: number
   title: string
   startDate: string
   // Omitted = open-ended. (Not null: the create DTO's @IsOptional accepts
   // both, but "absent" says it best.)
   endDate?: string
   schedule: NewProgramSchedule
+}
+
+// --- CLOSING IT (POST …/cancel, …/complete; GET …/closing) --------------------
+
+// What cancelling or completing does (or WOULD do — the preview). Archived =
+// cancelled before any session: deleted, so no end date.
+export interface ClosingPlan {
+  outcome: 'archived' | 'cancelled' | 'completed'
+  endDate: string | null
+}
+
+// GET /assigned-programs/:id/closing?today= — both answers at once, decided
+// by the backend's own rule (planClosing), from facts the page can't see
+// (unfinished sessions; a session completed today).
+export interface ClosingPreview {
+  cancel: ClosingPlan
+  complete: ClosingPlan
+}
+
+// The answer of POST …/cancel and …/complete: the program as it now is —
+// null when archived (it's gone).
+export interface CloseResult {
+  outcome: ClosingPlan['outcome']
+  program: AssignedProgramDetail | null
+}
+
+// PATCH /assigned-programs/:id — the fields the program page changes.
+export interface UpdateAssignedProgramInput {
+  allowSwaps?: boolean
 }

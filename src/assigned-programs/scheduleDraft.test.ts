@@ -15,6 +15,7 @@ import {
   toggleDay,
   weekdayName,
   type ScheduleDraft,
+  draftFromVersion,
 } from './scheduleDraft'
 
 // Workout references as the program page will use them — ids, not 0, 1 —
@@ -219,5 +220,94 @@ describe('forgetWorkoutChoices', () => {
       timesPerWeek: 2,
       rotation: null,
     })
+  })
+})
+
+describe('draftFromVersion', () => {
+  // Stored ids 57 / 58; the form's references here are positions 0 / 1 —
+  // as when assigning again. A rule that kept the ids would fail.
+  const refOf = (workoutId: number) => ({ 57: 0, 58: 1 })[workoutId] ?? null
+
+  it('turns specific days into ticked days with their workouts, in week order', () => {
+    expect(
+      draftFromVersion(
+        {
+          type: 'weekdays',
+          days: [
+            { weekday: 5, workoutId: 57 },
+            { weekday: 1, workoutId: 57 },
+            { weekday: 3, workoutId: 58 },
+          ],
+          timesPerWeek: null,
+          rotation: [],
+        },
+        refOf,
+        [0, 1],
+      ),
+    ).toStrictEqual({
+      type: 'weekdays',
+      days: [
+        { weekday: 1, workout: 0 },
+        { weekday: 3, workout: 1 },
+        { weekday: 5, workout: 0 },
+      ],
+      timesPerWeek: 3,
+      rotation: null,
+    })
+  })
+
+  it('leaves a day whose workout it can\'t name to the suggestion', () => {
+    const draft = draftFromVersion(
+      { type: 'weekdays', days: [{ weekday: 2, workoutId: 99 }], timesPerWeek: null, rotation: [] },
+      refOf,
+      [0, 1],
+    )
+    expect(draft.days).toStrictEqual([{ weekday: 2, workout: null }])
+  })
+
+  it('keeps a weekly count and its order', () => {
+    expect(
+      draftFromVersion(
+        { type: 'times_per_week', days: [], timesPerWeek: 2, rotation: [58, 57, 58] },
+        refOf,
+        [0, 1],
+      ),
+    ).toStrictEqual({ type: 'times_per_week', days: [], timesPerWeek: 2, rotation: [1, 0, 1] })
+  })
+
+  // A, B with workouts A, B is the suggestion itself: shown as suggested,
+  // not as an edited order. (B, A, B above is a real choice.)
+  it('gives back the suggestion as "suggested", not as an edited order', () => {
+    expect(
+      draftFromVersion(
+        { type: 'times_per_week', days: [], timesPerWeek: 2, rotation: [57, 58] },
+        refOf,
+        [0, 1],
+      ).rotation,
+    ).toBeNull()
+    // …but a shorter order isn't the suggestion: A alone, with A and B.
+    expect(
+      draftFromVersion(
+        { type: 'times_per_week', days: [], timesPerWeek: 2, rotation: [57] },
+        refOf,
+        [0, 1],
+      ).rotation,
+    ).toStrictEqual([0])
+  })
+
+  it('falls back to the suggested order when a workout of it can\'t be named', () => {
+    expect(
+      draftFromVersion(
+        { type: 'times_per_week', days: [], timesPerWeek: 2, rotation: [58, 99] },
+        refOf,
+        [0, 1],
+      ).rotation,
+    ).toBeNull()
+  })
+
+  it('starts a new draft from a pause', () => {
+    expect(
+      draftFromVersion({ type: 'paused', days: [], timesPerWeek: null, rotation: [] }, refOf, [0, 1]),
+    ).toStrictEqual(emptyScheduleDraft())
   })
 })

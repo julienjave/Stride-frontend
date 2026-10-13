@@ -1,4 +1,5 @@
 import { Link } from 'react-router'
+import { Button } from '@/components/ui/button'
 import { YoursBadge } from '@/common/YoursBadge'
 import { formatCalendarDate } from '@/common/formatCalendarDate'
 import { PROGRAM_STATUS_LABELS } from '@/patients/patientPageRules'
@@ -144,6 +145,10 @@ export function ProgramHeader({
 // Why nothing on the page can change: the program is deleted, or closed.
 // Plain text in a box, not an alert — it's the page's standing state, not
 // news (role="alert" would interrupt a screen reader on every visit).
+// A completed or cancelled program can be continued: "Assign again" opens the
+// assign form with it as the source (decided 2026-10-11 — never reopened in
+// place, which would bring back weeks already judged). Not a deleted one:
+// nothing happened in it to continue (the backend refuses it, 400).
 function ClosedNotice({ program }: { program: AssignedProgramDetail }) {
   let text: string | null = null
   if (program.isArchived) {
@@ -162,5 +167,17 @@ function ClosedNotice({ program }: { program: AssignedProgramDetail }) {
       : `${verb}: this program is now read-only.`
   }
   if (!text) return null
-  return <p className="rounded-md border bg-muted p-3 text-sm">{text}</p>
+  const canAssignAgain = !program.isArchived
+  return (
+    <div className="space-y-2 rounded-md border bg-muted p-3 text-sm">
+      <p>{text}</p>
+      {canAssignAgain && (
+        <Button asChild size="sm" variant="outline">
+          <Link to={`/practitioner/programs/assigned/new?basedOnProgramId=${program.id}`}>
+            Assign again
+          </Link>
+        </Button>
+      )}
+    </div>
+  )
 }

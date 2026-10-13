@@ -5,6 +5,7 @@ import { useCurrentUser } from '@/auth/useCurrentUser'
 import { localDateString } from '@/common/calendarDate'
 import { useUser } from '@/users/useUser'
 import { ProgramExercisesSection } from './ProgramExercisesSection'
+import { ProgramActions } from './ProgramActions'
 import { ProgramHeader } from './ProgramHeader'
 import { ProgramScheduleProgress } from './ProgramScheduleProgress'
 import { currentAndPlanned, workoutNames } from './programSchedule'
@@ -45,7 +46,12 @@ function ProgramView({ programId }: { programId: number }) {
   const { data: program, isLoading, error } = useAssignedProgram(programId)
   // Asked for only once the program is known to be visible: a 404 program
   // needs no summary (it would only 404 too).
-  const summary = useAssignedProgramSummary(programId, today, { enabled: !!program })
+  // …and not for a DELETED program: deleted because nothing happened in it,
+  // so there's no progress to judge (the schedule module doesn't know about
+  // deletion, and would show its weeks as if it were running).
+  const summary = useAssignedProgramSummary(programId, today, {
+    enabled: !!program && !program.isArchived,
+  })
   // The patient's name, and their programs (for who assigned this one and
   // the "Continues" links) — both usually cached from the patient page.
   // `program?.patientId ?? 0` with `enabled`: hooks can't be called
@@ -74,6 +80,9 @@ function ProgramView({ programId }: { programId: number }) {
 
   const names = workoutNames(program.workouts)
   const isPaused = currentAndPlanned(program.schedules, today).current?.type === 'paused'
+  // Only an open program can change: the backend refuses every write on a
+  // completed, cancelled or deleted one (409), so their controls aren't drawn.
+  const isOpen = program.status === 'active' && !program.isArchived
 
   return (
     <div className="mx-auto mt-8 max-w-2xl space-y-8 px-4 pb-8">
@@ -91,9 +100,11 @@ function ProgramView({ programId }: { programId: number }) {
         patientPrograms={patientPrograms}
         myId={currentUser.id}
       />
+      {isOpen && <ProgramActions programId={program.id} today={today} />}
       <ProgramScheduleProgress
         program={program}
         today={today}
+        isOpen={isOpen}
         names={names}
         summary={summary.data}
         summaryLoading={summary.isLoading}

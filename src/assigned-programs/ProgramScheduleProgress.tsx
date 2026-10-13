@@ -1,6 +1,7 @@
 import { ChevronRight } from 'lucide-react'
 import { formatShortDate } from '@/common/calendarDate'
 import { ProgramPageSection } from './ProgramPageSection'
+import { RearrangeWeekSwitch } from './RearrangeWeekSwitch'
 import { StateBadge } from './StateBadge'
 import { arrangeWeeks, groupProgressByWeek, type FocusRole, type ProgressWeek } from './programProgress'
 import { currentAndPlanned, describeVersion, type WorkoutNames } from './programSchedule'
@@ -20,6 +21,9 @@ import type { AssignedProgramDetail, CountedWeek, ExtraSession, ScheduleSummary 
 interface ProgramScheduleProgressProps {
   program: AssignedProgramDetail
   today: string
+  // Whether the program can still change (active, not deleted) — decided
+  // once, by the page, for every control on it.
+  isOpen: boolean
   names: WorkoutNames
   // The summary query's state, passed down rather than fetched here: the
   // page owns the requests (it decides when the summary may be asked for).
@@ -35,13 +39,13 @@ interface ProgramScheduleProgressProps {
 export function ProgramScheduleProgress({
   program,
   today,
+  isOpen,
   names,
   summary,
   summaryLoading,
   summaryFailed,
 }: ProgramScheduleProgressProps) {
   const { current, planned } = currentAndPlanned(program.schedules, today)
-  const isOpen = program.status === 'active' && !program.isArchived
   const isPaused = current?.type === 'paused'
   // "since Mon 5 Oct" only when the schedule CHANGED: the first version
   // starts with the program, whose dates the header already shows.
@@ -72,6 +76,13 @@ export function ProgramScheduleProgress({
         </div>
       )}
 
+      {isOpen && <RearrangeWeekSwitch programId={program.id} allowSwaps={program.allowSwaps} />}
+
+      {program.isArchived && (
+        <p className="text-sm text-muted-foreground">
+          Deleted before any session: there's no progress to show.
+        </p>
+      )}
       {summaryLoading && <p className="text-sm text-muted-foreground">Loading progress…</p>}
       {summaryFailed && (
         <p className="text-sm text-destructive">Couldn't load the progress. Try refreshing.</p>

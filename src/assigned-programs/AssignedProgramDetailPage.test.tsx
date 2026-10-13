@@ -161,14 +161,40 @@ function listRow(program: AssignedProgramDetail, assigner = ME) {
 let programs: Record<number, () => Response>
 let summaries: Record<number, () => Response>
 let patientList: () => Response
+// GET …/closing (what closing WOULD do), and the writes: POST …/cancel or
+// …/complete, PATCH the program. Each test can replace them.
+// (A promise that never settles stands for an answer still on its way.)
+let closingPreview: () => Response | Promise<Response>
+let closeAnswer: (action: string) => Response
+let patchAnswer: (body: { allowSwaps?: boolean }) => Response
 
 beforeEach(() => {
   fetchMock.mockReset()
   programs = { 12: () => json(PROGRAM) }
   summaries = { 12: () => json(SUMMARY) }
   patientList = () => json([listRow(PROGRAM)])
-  fetchMock.mockImplementation((input) => {
+  closingPreview = () =>
+    json({
+      cancel: { outcome: 'cancelled', endDate: '2031-06-11' },
+      complete: { outcome: 'completed', endDate: '2031-06-11' },
+    })
+  // Closing works like the server: the program's later GETs answer it
+  // closed (the page refetches after closing).
+  closeAnswer = (action) => {
+    const status = action === 'cancel' ? 'cancelled' : 'completed'
+    const closed = { ...PROGRAM, status, endDate: '2031-06-11' }
+    programs[12] = () => json(closed)
+    return json({ outcome: status, program: closed })
+  }
+  patchAnswer = (body) => json({ ...PROGRAM, ...body })
+  fetchMock.mockImplementation((input, init) => {
     const url = urlOf(input)
+    const close = /\/assigned-programs\/12\/(cancel|complete)$/.exec(url)
+    if (init?.method === 'POST' && close) return Promise.resolve(closeAnswer(close[1]))
+    if (init?.method === 'PATCH' && url.endsWith('/assigned-programs/12')) {
+      return Promise.resolve(patchAnswer(JSON.parse(init.body as string) as { allowSwaps?: boolean }))
+    }
+    if (/\/assigned-programs\/12\/closing\?today=/.test(url)) return Promise.resolve(closingPreview())
     const summary = /\/assigned-programs\/(\d+)\/summary\?today=/.exec(url)
     if (summary) return Promise.resolve(summaries[Number(summary[1])]())
     const one = /\/assigned-programs\/(\d+)$/.exec(url)
@@ -214,6 +240,15 @@ function renderPage(id: string | number = 12) {
 
 function requested(match: (url: string) => boolean) {
   return fetchMock.mock.calls.map(([input]) => urlOf(input)).filter(match)
+}
+
+// The bodies sent with one method to URLs that match — as LITERAL strings
+// (the project's rule: a body built with the same JSON.stringify as the
+// code would hide a missing or undefined key).
+function bodiesSent(method: string, match: (url: string) => boolean) {
+  return fetchMock.mock.calls
+    .filter(([input, init]) => init?.method === method && match(urlOf(input)))
+    .map(([, init]) => init?.body)
 }
 
 // A <details> by the week title its <summary> shows.
@@ -329,8 +364,13 @@ describe('AssignedProgramDetailPage — the header', () => {
         'This program was deleted before any session was done. It no longer appears in any list and can no longer change.',
       ),
     ).toBeInTheDocument()
-    await screen.findByText('This week')
+    // Deleted because nothing happened in it: no progress to show, and none
+    // asked for (the schedule module would judge its weeks as running).
+    expect(
+      screen.getByText("Deleted before any session: there's no progress to show."),
+    ).toBeInTheDocument()
     expect(screen.queryByText(/Up next/)).not.toBeInTheDocument()
+    expect(requested((url) => url.includes('/summary'))).toStrictEqual([])
   })
 })
 
@@ -752,5 +792,250 @@ describe('AssignedProgramDetailPage — going to another program', () => {
     await user.click(await screen.findByRole('link', { name: 'Knee Rehab — block 2' }))
     expect(await screen.findByRole('heading', { level: 1, name: 'Knee Rehab — block 2' })).toBeInTheDocument()
     expect(weekDetails(2).open).toBe(true)
+  })
+})
+
+describe('AssignedProgramDetailPage — closing the program', () => {
+  it('offers Complete and Cancel on an open program only', async () => {
+    renderPage()
+    expect(await screen.findByRole('button', { name: 'Complete program' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel program' })).toBeInTheDocument()
+  })
+
+  it.each([
+    ['completed', { status: 'completed', endDate: '2031-06-11' }],
+    ['cancelled', { status: 'cancelled', endDate: '2031-06-11' }],
+    ['deleted', { isArchived: true }],
+  ])('offers neither on a %s program', async (_label, state) => {
+    programs[12] = () => json({ ...PROGRAM, ...state })
+    renderPage()
+    await screen.findByRole('heading', { level: 1, name: 'Knee Rehab — Pat' })
+    expect(screen.queryByRole('button', { name: 'Complete program' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cancel program' })).not.toBeInTheDocument()
+  })
+
+  it("asks the server what closing would do only once the dialog opens, and says it", async () => {
+    const user = userEvent.setup()
+    renderPage()
+    const complete = await screen.findByRole('button', { name: 'Complete program' })
+    expect(requested((url) => url.includes('/closing'))).toStrictEqual([])
+
+    await user.click(complete)
+    const dialog = await screen.findByRole('dialog', { name: 'Complete this program?' })
+    expect(
+      await within(dialog).findByText(
+        `It will end on ${formatShortDate('2031-06-11')}, and become read-only. Its sessions and progress stay on the patient's record; to go on with it later, assign it again.`,
+      ),
+    ).toBeInTheDocument()
+    expect(requested((url) => url.includes('/closing'))).toStrictEqual([
+      expect.stringMatching(/\/assigned-programs\/12\/closing\?today=2031-06-12$/),
+    ])
+  })
+
+  it('completes it with today, then shows it closed', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Complete program' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(await within(dialog).findByRole('button', { name: 'Complete program' }))
+
+    expect(
+      await screen.findByText(
+        `Completed: this program ended on ${formatCalendarDate('2031-06-11')} and is now read-only.`,
+      ),
+    ).toBeInTheDocument()
+    expect(bodiesSent('POST', (url) => url.endsWith('/assigned-programs/12/complete'))).toStrictEqual([
+      '{"today":"2031-06-12"}',
+    ])
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    // The actions are gone with the open state; Assign again is offered.
+    expect(screen.queryByRole('button', { name: 'Cancel program' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Assign again' })).toHaveAttribute(
+      'href',
+      '/practitioner/programs/assigned/new?basedOnProgramId=12',
+    )
+  })
+
+  it('says cancelling deletes a program with no session, and the page then shows it deleted', async () => {
+    const user = userEvent.setup()
+    closingPreview = () =>
+      json({
+        cancel: { outcome: 'archived', endDate: null },
+        complete: { outcome: 'completed', endDate: '2031-06-11' },
+      })
+    closeAnswer = () => {
+      programs[12] = () => json({ ...PROGRAM, isArchived: true })
+      return json({ outcome: 'archived', program: null })
+    }
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Cancel program' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Delete this program?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Delete program' }))
+
+    expect(await screen.findByText('Deleted')).toBeInTheDocument()
+    expect(bodiesSent('POST', (url) => url.endsWith('/assigned-programs/12/cancel'))).toStrictEqual([
+      '{"today":"2031-06-12"}',
+    ])
+    // A deleted program can't be continued.
+    expect(screen.queryByRole('link', { name: 'Assign again' })).not.toBeInTheDocument()
+  })
+
+  // While the request runs, the button can't be pressed again (a second
+  // press would close an already closed program: a 409) — and says so.
+  it('disables the confirm button while closing', async () => {
+    const user = userEvent.setup()
+    closeAnswer = () => {
+      throw new Error('unreachable')
+    }
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Cancel program' }))
+    const dialog = await screen.findByRole('dialog')
+    const confirm = await within(dialog).findByRole('button', { name: 'Cancel program' })
+    // From now on, the close request never settles.
+    fetchMock.mockImplementationOnce(() => new Promise(() => {}))
+    await user.click(confirm)
+    expect(await within(dialog).findByRole('button', { name: 'Cancelling…' })).toBeDisabled()
+    expect(within(dialog).getByRole('button', { name: 'Keep it' })).toBeDisabled()
+  })
+
+  // Every list shows the program's status: the patient's list (which the
+  // header reads too) is asked again.
+  it("refreshes the patient's programs after closing", async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Complete program' }))
+    const dialog = await screen.findByRole('dialog')
+    const listRequests = () => requested((url) => url.endsWith('/assigned-programs?patientId=6')).length
+    const before = listRequests()
+    await user.click(await within(dialog).findByRole('button', { name: 'Complete program' }))
+    await screen.findByText(/^Completed: this program ended/)
+    expect(listRequests()).toBeGreaterThan(before)
+  })
+
+  it("never asks to confirm what it couldn't check", async () => {
+    const user = userEvent.setup()
+    closingPreview = () => apiError(500, 'Internal server error')
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Cancel program' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Cancel this program?' })
+    expect(
+      await within(dialog).findByText("Couldn't check what this would do. Close this and try again."),
+    ).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Cancel program' })).toBeDisabled()
+  })
+
+  it('waits for the answer before allowing to confirm', async () => {
+    const user = userEvent.setup()
+    closingPreview = () => new Promise<Response>(() => {})
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Cancel program' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText('Checking what this would do…')).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Cancel program' })).toBeDisabled()
+  })
+
+  it('asks again each time the dialog opens — a session may have started since', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    const button = await screen.findByRole('button', { name: 'Complete program' })
+    await user.click(button)
+    await within(await screen.findByRole('dialog')).findByText(/It will end on/)
+    await user.click(screen.getByRole('button', { name: 'Keep it' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    await user.click(button)
+    await within(await screen.findByRole('dialog')).findByText(/It will end on/)
+    await vi.waitFor(() =>
+      expect(requested((url) => url.includes('/closing'))).toHaveLength(2),
+    )
+  })
+
+  it("shows the server's refusal, and forgets it when the dialog closes", async () => {
+    const user = userEvent.setup()
+    closeAnswer = () => apiError(409, 'This program is completed, so it can no longer change')
+    renderPage()
+    const button = await screen.findByRole('button', { name: 'Cancel program' })
+    await user.click(button)
+    const dialog = await screen.findByRole('dialog')
+    await user.click(await within(dialog).findByRole('button', { name: 'Cancel program' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'This program is completed, so it can no longer change',
+    )
+
+    await user.click(within(dialog).getByRole('button', { name: 'Keep it' }))
+    await user.click(button)
+    const reopened = await screen.findByRole('dialog')
+    await within(reopened).findByText(/It will end on/)
+    expect(within(reopened).queryByRole('alert')).not.toBeInTheDocument()
+  })
+})
+
+describe('AssignedProgramDetailPage — letting the patient rearrange the week', () => {
+  it("shows the program's setting, and saves a change", async () => {
+    const user = userEvent.setup()
+    renderPage()
+    const box = await screen.findByRole('checkbox', { name: 'Let the patient rearrange the week' })
+    expect(box).toBeChecked()
+
+    await user.click(box)
+    await vi.waitFor(() => expect(box).not.toBeChecked())
+    expect(bodiesSent('PATCH', (url) => url.endsWith('/assigned-programs/12'))).toStrictEqual([
+      '{"allowSwaps":false}',
+    ])
+  })
+
+  it('saves the other way too', async () => {
+    const user = userEvent.setup()
+    programs[12] = () => json({ ...PROGRAM, allowSwaps: false })
+    renderPage()
+    const box = await screen.findByRole('checkbox', { name: 'Let the patient rearrange the week' })
+    expect(box).not.toBeChecked()
+    await user.click(box)
+    await vi.waitFor(() => expect(box).toBeChecked())
+    expect(bodiesSent('PATCH', (url) => url.endsWith('/assigned-programs/12'))).toStrictEqual([
+      '{"allowSwaps":true}',
+    ])
+  })
+
+  it('is disabled while saving, and refreshes the lists after', async () => {
+    const user = userEvent.setup()
+    let answer: (response: Response) => void = () => {}
+    patchAnswer = () => {
+      throw new Error('unreachable')
+    }
+    renderPage()
+    const box = await screen.findByRole('checkbox', { name: 'Let the patient rearrange the week' })
+    const listRequests = () => requested((url) => url.endsWith('/assigned-programs?patientId=6')).length
+    const before = listRequests()
+    fetchMock.mockImplementationOnce(
+      () => new Promise<Response>((resolve) => (answer = resolve)),
+    )
+    await user.click(box)
+    await vi.waitFor(() => expect(box).toBeDisabled())
+
+    answer(json({ ...PROGRAM, allowSwaps: false }))
+    await vi.waitFor(() => expect(box).toBeEnabled())
+    expect(box).not.toBeChecked()
+    await vi.waitFor(() => expect(listRequests()).toBeGreaterThan(before))
+  })
+
+  // The box shows what the SERVER holds: refused, it stays as it was.
+  it('stays as it was, with the reason, when the change is refused', async () => {
+    const user = userEvent.setup()
+    patchAnswer = () => apiError(409, 'This program is completed, so it can no longer change')
+    renderPage()
+    const box = await screen.findByRole('checkbox', { name: 'Let the patient rearrange the week' })
+    await user.click(box)
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'This program is completed, so it can no longer change',
+    )
+    expect(box).toBeChecked()
+  })
+
+  it('is not offered on a closed program', async () => {
+    programs[12] = () => json({ ...PROGRAM, status: 'cancelled', endDate: '2031-06-11' })
+    renderPage()
+    await screen.findByRole('heading', { level: 1, name: 'Knee Rehab — Pat' })
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
   })
 })
