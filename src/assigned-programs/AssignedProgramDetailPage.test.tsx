@@ -83,6 +83,8 @@ function exercise(id: number, workoutId: number, name: string, fields: object = 
     weightUnit: null,
     sortOrder: 0,
     notes: null,
+    retiredAt: null,
+    retiredBy: null,
     ...fields,
   }
 }
@@ -113,6 +115,7 @@ const PROGRAM: AssignedProgramDetail = {
       notes: 'Keep the pelvis level.',
     }),
   ],
+  retiredExercises: [],
 }
 
 function day(date: string, workoutId: number, state: string, fields: object = {}) {
@@ -702,7 +705,11 @@ describe('AssignedProgramDetailPage — progress', () => {
 })
 
 describe('AssignedProgramDetailPage — exercises', () => {
-  it("lists the program's own exercises under their workouts, read-only", async () => {
+  // A CLOSED program's exercises are read-only (the backend refuses every
+  // write on it). An open program's are the editor (step 3b-1) — tested in
+  // ProgramExercisesSection.test.tsx.
+  it("lists a closed program's own exercises under their workouts, read-only", async () => {
+    programs[12] = () => json({ ...PROGRAM, status: 'completed' })
     renderPage()
     const section = (await screen.findByRole('heading', { level: 2, name: 'Exercises' }))
       .parentElement as HTMLElement
@@ -714,7 +721,7 @@ describe('AssignedProgramDetailPage — exercises', () => {
     expect(bridge).toHaveTextContent('Glute Bridge')
     expect(within(bridge).getByText('3 sets · 8 reps · 20 kg')).toBeInTheDocument()
     expect(within(bridge).getByText('Keep the pelvis level.')).toBeInTheDocument()
-    // Read-only: no rename, no delete (that's step 3b).
+    // Read-only: no rename, no delete, no drag.
     expect(within(section).queryByRole('button')).not.toBeInTheDocument()
   })
 
@@ -728,8 +735,8 @@ describe('AssignedProgramDetailPage — exercises', () => {
     expect(within(section).queryByRole('heading', { level: 3 })).not.toBeInTheDocument()
   })
 
-  it('says when the program has no exercises at all', async () => {
-    programs[12] = () => json({ ...PROGRAM, exercises: [] })
+  it('says when a closed program has no exercises at all', async () => {
+    programs[12] = () => json({ ...PROGRAM, status: 'cancelled', exercises: [] })
     renderPage()
     expect(await screen.findByText('No exercises in this program.')).toBeInTheDocument()
     expect(screen.queryByText('No exercises in this workout.')).not.toBeInTheDocument()

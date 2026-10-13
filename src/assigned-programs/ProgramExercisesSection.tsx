@@ -1,64 +1,195 @@
-import { PrescriptionSummary } from '@/common/PrescriptionSummary'
+import { useState } from 'react'
+import { ShowHiddenToggle } from '@/common/ShowHiddenToggle'
+import { formatMomentDate } from '@/common/formatMomentDate'
 import { WorkoutHeader } from '@/workouts/WorkoutHeader'
-import { groupExercisesByWorkout } from '@/workouts/workoutGroups'
+import { WorkoutListEditor } from '@/workouts/WorkoutListEditor'
+import { groupExercisesByWorkout, type WorkoutGroup } from '@/workouts/workoutGroups'
 import { ProgramPageSection } from './ProgramPageSection'
-import type { AssignedProgramDetail, AssignedProgramExercise } from './types'
+import { ProgramExerciseItem, SortableProgramExerciseCard } from './ProgramExerciseCard'
+import {
+  canDeleteProgramWorkout,
+  emptiesScheduledWorkout,
+  isWorkoutInSchedule,
+  programWorkoutNote,
+} from './programExerciseRules'
+import { useProgramWorkoutEditing } from './useProgramWorkoutEditing'
+import type { AssignedProgramDetail, AssignedProgramExercise, ProgramWorkout } from './types'
 
-// The program's exercises, READ-ONLY for now: tailoring them is step 3b,
-// which will swap this list for the editor (the template editor's
-// components, with a program twin of useTemplateWorkoutEditing).
-//
-// Grouped by workout with the template editor's own rules
-// (groupExercisesByWorkout) and header (WorkoutHeader, given no onRename /
-// onDelete, so it draws only the label). The same shape rule as templates
-// (3a-w): ONE workout → just the list, no header — "A" above everything
-// would say nothing.
-export function ProgramExercisesSection({ program }: { program: AssignedProgramDetail }) {
+type Group = WorkoutGroup<ProgramWorkout, AssignedProgramExercise>
+
+// The program's exercises (step 3a-2 read-only; step 3b-1 tailoring).
+//   - An OPEN program: the editor — the template page's own list
+//     (WorkoutListEditor, src/workouts/), with the program's card, its
+//     removal dialog and its delete rule.
+//   - A closed (completed, cancelled, deleted) program: read-only, as before
+//     — the backend refuses every write on it.
+// Either way, the REMOVED exercises (retired: kept for the sessions that
+// used them) are hidden behind "Show N removed exercises" (decided
+// 2026-10-13): part of the record, not of the program.
+export function ProgramExercisesSection({
+  program,
+  isOpen,
+  today,
+}: {
+  program: AssignedProgramDetail
+  isOpen: boolean
+  today: string
+}) {
+  const [showRemoved, setShowRemoved] = useState(false)
   const groups = groupExercisesByWorkout(program.workouts, program.exercises)
-  const several = groups.length > 1
+  const removed = program.retiredExercises
 
   return (
     <ProgramPageSection title="Exercises">
-      {program.exercises.length === 0 && (
-        <p className="text-sm text-muted-foreground">No exercises in this program.</p>
+      {isOpen ? (
+        <ProgramExerciseEditor program={program} groups={groups} today={today} />
+      ) : (
+        <ReadOnlyExercises groups={groups} />
       )}
-      {program.exercises.length > 0 &&
-        groups.map((group) => (
-          <div key={group.workout.id} className="space-y-2">
-            {several && (
-              <WorkoutHeader
-                position={group.position}
-                name={group.workout.name}
-                label={group.label}
-              />
-            )}
-            {group.exercises.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No exercises in this workout.</p>
-            ) : (
-              <ul className="space-y-2">
-                {group.exercises.map((exercise) => (
-                  <ExerciseItem key={exercise.id} exercise={exercise} />
-                ))}
-              </ul>
-            )}
-          </div>
-        ))}
+      <ShowHiddenToggle
+        count={removed.length}
+        singular="removed exercise"
+        plural="removed exercises"
+        checked={showRemoved}
+        onChange={setShowRemoved}
+      />
+      {showRemoved && removed.length > 0 && <RemovedExercises removed={removed} groups={groups} />}
     </ProgramPageSection>
   )
 }
 
-// One exercise as the patient was given it: the program's own SNAPSHOT
-// (name, muscles, prescription, notes — copied when assigned, decisions §1),
-// never the library's current version.
-function ExerciseItem({ exercise }: { exercise: AssignedProgramExercise }) {
+// --- EDITABLE (an open program) ---------------------------------------------
+
+function ProgramExerciseEditor({
+  program,
+  groups,
+  today,
+}: {
+  program: AssignedProgramDetail
+  groups: Group[]
+  today: string
+}) {
+  const editing = useProgramWorkoutEditing(program.id)
+  const several = groups.length > 1
+
+  // What the delete rule and the note need to know about one workout.
+  function stateOf(group: Group) {
+    return {
+      workoutCount: groups.length,
+      exerciseCount: group.exercises.length,
+      retiredCount: program.retiredExercises.filter(
+        (exercise) => exercise.workoutId === group.workout.id,
+      ).length,
+      inSchedule: isWorkoutInSchedule(program.schedules, group.workout.id),
+    }
+  }
+
   return (
-    <li className="space-y-0.5 rounded-lg border p-3">
-      <p className="font-medium">{exercise.name}</p>
-      {exercise.primaryMuscles.length > 0 && (
-        <p className="text-sm text-muted-foreground">{exercise.primaryMuscles.join(', ')}</p>
-      )}
-      <PrescriptionSummary prescription={exercise} />
-      {exercise.notes && <p className="text-sm">{exercise.notes}</p>}
-    </li>
+    <WorkoutListEditor
+      groups={groups}
+      editing={editing}
+      exerciseName={(exercise) => exercise.name}
+      renderCard={(exercise, { workoutLabel, menu }) => {
+        const label = groups.find((group) => group.workout.id === exercise.workoutId)?.label
+        return (
+          <SortableProgramExerciseCard
+            programId={program.id}
+            exercise={exercise}
+            workoutLabel={workoutLabel}
+            menu={menu}
+            remove={editing.removeExercise}
+            emptied={
+              label !== undefined && emptiesScheduledWorkout(program, exercise, today)
+                ? { label, several }
+                : null
+            }
+            disabled={editing.isBusy}
+          />
+        )
+      }}
+      // Adding exercises to a program comes with its add page (step 3b-1b).
+      // Until then an empty workout says so, where its Add card will go.
+      renderAddCard={(group) =>
+        group.exercises.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No exercises in this workout.</p>
+        ) : null
+      }
+      canDeleteWorkout={(group) => canDeleteProgramWorkout(stateOf(group))}
+      workoutNote={(group) => programWorkoutNote(stateOf(group))}
+      deleteHint="To delete a workout, move or remove its exercises first. A workout the schedule uses — now, planned or in its history — can't be deleted."
+    />
+  )
+}
+
+// --- READ-ONLY (a closed program) -------------------------------------------
+//
+// The template editor's shape rule (3a-w): ONE workout → just the list, no
+// header — "A" above everything would say nothing.
+
+function ReadOnlyExercises({ groups }: { groups: Group[] }) {
+  const several = groups.length > 1
+  if (groups.every((group) => group.exercises.length === 0)) {
+    return <p className="text-sm text-muted-foreground">No exercises in this program.</p>
+  }
+  return (
+    <>
+      {groups.map((group) => (
+        <div key={group.workout.id} className="space-y-2">
+          {several && (
+            <WorkoutHeader position={group.position} name={group.workout.name} label={group.label} />
+          )}
+          {group.exercises.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No exercises in this workout.</p>
+          ) : (
+            <ul className="space-y-2">
+              {group.exercises.map((exercise) => (
+                <ProgramExerciseItem key={exercise.id} exercise={exercise} />
+              ))}
+            </ul>
+          )}
+        </div>
+      ))}
+    </>
+  )
+}
+
+// --- REMOVED (shown on request) ---------------------------------------------
+//
+// In the order they were removed (the backend's). Each says when it was
+// removed and, with several workouts, which one it was in — the sessions
+// that used it did that workout.
+
+function RemovedExercises({
+  removed,
+  groups,
+}: {
+  removed: AssignedProgramExercise[]
+  groups: Group[]
+}) {
+  const several = groups.length > 1
+  return (
+    <section aria-label="Removed exercises" className="space-y-2">
+      <h3 className="text-sm font-medium">Removed exercises</h3>
+      <p className="text-xs text-muted-foreground">
+        No longer part of the program; kept because sessions used them.
+      </p>
+      <ul className="space-y-2">
+        {removed.map((exercise) => {
+          const label = groups.find((group) => group.workout.id === exercise.workoutId)?.label
+          return (
+            <ProgramExerciseItem
+              key={exercise.id}
+              exercise={exercise}
+              extra={
+                <p className="text-xs text-muted-foreground">
+                  Removed {exercise.retiredAt ? formatMomentDate(exercise.retiredAt) : ''}
+                  {several && label ? ` · was in workout ${label}` : ''}
+                </p>
+              }
+            />
+          )
+        })}
+      </ul>
+    </section>
   )
 }

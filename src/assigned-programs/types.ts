@@ -100,15 +100,34 @@ export interface AssignedProgramExercise {
   // The position WITHIN its workout (it restarts at 0 in each one).
   sortOrder: number
   notes: string | null
+  // Set when the exercise was REMOVED from the program after sessions used
+  // it (backend step 3b-0): kept for those sessions' records, out of the
+  // program. null for every exercise still in it. `retiredBy` = who removed
+  // it (a user id).
+  retiredAt: string | null
+  retiredBy: number | null
 }
 
 // GET /assigned-programs/:id, and the answer to every write on a program.
 // `exercises` is ONE flat list, workout by workout (A's in order, then
 // B's…), each carrying its workoutId — flat so a screen that doesn't group
-// by workout still lists everything in a sensible order.
+// by workout still lists everything in a sensible order. Only the exercises
+// IN the program: the removed ones (retired — kept for the sessions that
+// used them) come apart, in `retiredExercises`, in the order they were
+// removed (step 3b-0), so a screen that doesn't care never sees them.
 export interface AssignedProgramDetail extends AssignedProgram {
   workouts: ProgramWorkout[]
   exercises: AssignedProgramExercise[]
+  retiredExercises: AssignedProgramExercise[]
+}
+
+// GET /assigned-programs/:id/exercises/:rowId/removal (step 3b-1) — what
+// removing that exercise WOULD do: deleted (no session used it), or retired
+// (kept for the `sessionCount` sessions that did). The same rule the
+// removal follows; the removal decides again when it happens.
+export interface RemovalPreview {
+  outcome: 'deleted' | 'retired'
+  sessionCount: number
 }
 
 // --- ITS PROGRESS (GET /assigned-programs/:id/summary?today=) -----------------

@@ -302,7 +302,9 @@ describe('ExerciseAssignPage', () => {
     )
   })
 
-  it('confirming an assigned-program assignment uses the assigned-programs endpoint instead', async () => {
+  // One request, no position: the backend appends to the first workout
+  // (step 3b-0). The program is not read first any more.
+  it('confirming an assigned-program assignment POSTs just the exercise to the assigned-programs endpoint', async () => {
     setupFetchMock({
       assignedPrograms: [
         {
@@ -320,22 +322,6 @@ describe('ExerciseAssignPage', () => {
           schedules: [],
         },
       ],
-      assignedDetail: {
-        id: 9,
-        patientId: 50,
-        assignedBy: 7,
-        basedOnTemplateId: null,
-        title: 'Patient A Program',
-        startDate: '2026-01-01',
-        endDate: null,
-        status: 'active',
-        isArchived: false,
-        basedOnProgramId: null,
-        allowSwaps: true,
-        schedules: [],
-        workouts: [],
-        exercises: [],
-      },
     })
     const user = userEvent.setup()
     renderAt('/practitioner/library/42/assign')
@@ -348,12 +334,14 @@ describe('ExerciseAssignPage', () => {
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining('/assigned-programs/9/exercises'),
-        expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify({ exerciseId: 42, sortOrder: 0 }),
-        }),
+        expect.objectContaining({ method: 'POST', body: '{"exerciseId":42}' }),
       ),
     )
+    expect(
+      fetchMock.mock.calls.filter(([url]) =>
+        /\/assigned-programs\/9$/.test(url as string),
+      ),
+    ).toEqual([])
   })
 
   it('shows the API error and keeps the dialog open when confirming fails', async () => {

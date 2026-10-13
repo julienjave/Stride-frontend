@@ -1,10 +1,12 @@
 import { apiRequest } from '@/api/client'
 import type {
   AssignedProgramDetail,
+  AssignedProgramExercise,
   AssignedProgramListItem,
   ClosingPreview,
   CloseResult,
   CreateAssignedProgramInput,
+  RemovalPreview,
   ScheduleSummary,
   ScheduleVersionInput,
   UpdateAssignedProgramInput,
@@ -112,18 +114,23 @@ export function fetchAssignedProgramSummary(id: number, today: string) {
   return apiRequest<ScheduleSummary>(`/assigned-programs/${id}/summary?today=${today}`)
 }
 
-// Same two-step shape as programs' assignExerciseToProgram — sortOrder
-// is a required field the backend doesn't compute for you, so the
-// current exercise count has to be read first.
-export async function assignExerciseToAssignedProgram(
+// The library's "Assign → Assigned Program": ONE request. No position is
+// sent: since step 3b-0 the backend puts the exercise after the LAST one of
+// the workout (the first workout, as none is named here), working it out
+// inside its own transaction. This used to read the program first and send
+// `program.exercises.length` — every workout's exercises counted, while
+// positions restart at 0 in each workout and removals leave gaps, so on a
+// two-workout program the new exercise could land in the middle of A or
+// clash with a position already taken. Leaving the position to the side
+// that holds the data is also one request instead of two.
+export function assignExerciseToAssignedProgram(
   assignedProgramId: number,
   exerciseId: number,
 ) {
-  const program = await fetchAssignedProgram(assignedProgramId)
-  return apiRequest(`/assigned-programs/${assignedProgramId}/exercises`, {
-    method: 'POST',
-    body: { exerciseId, sortOrder: program.exercises.length },
-  })
+  return apiRequest<AssignedProgramDetail>(
+    `/assigned-programs/${assignedProgramId}/exercises`,
+    { method: 'POST', body: { exerciseId } },
+  )
 }
 
 // POST /assigned-programs — assigns a program to a patient: the backend
@@ -135,4 +142,107 @@ export function createAssignedProgram(input: CreateAssignedProgramInput) {
     method: 'POST',
     body: input,
   })
+}
+// --- TAILORING: WORKOUTS AND EXERCISES (step 3b-1) ---------------------------
+//
+// The program twins of the template routes (src/programs/api.ts), under
+// /assigned-programs/:id. Every one answers with the FULL program — the
+// caller writes it into the program's cache entry — and the backend writes
+// ONE audit entry per change (step 3b-0: the convention for every route that
+// changes a patient's prescription).
+
+// A new, unnamed workout after the last one; named afterwards on its header.
+export function addProgramWorkout(id: number) {
+  return apiRequest<AssignedProgramDetail>(`/assigned-programs/${id}/workouts`, {
+    method: 'POST',
+    body: {},
+  })
+}
+
+// `name` null clears it ("B" instead of "B · Strength"); the key is required.
+export function renameProgramWorkout(id: number, workoutId: number, name: string | null) {
+  return apiRequest<AssignedProgramDetail>(`/assigned-programs/${id}/workouts/${workoutId}`, {
+    method: 'PATCH',
+    body: { name },
+  })
+}
+
+// The complete new order of the program's workouts — the first becomes A.
+export function reorderProgramWorkouts(id: number, order: number[]) {
+  return apiRequest<AssignedProgramDetail>(`/assigned-programs/${id}/workouts`, {
+    method: 'PATCH',
+    body: { order },
+  })
+}
+
+// Only an empty workout, never the last, never one a session did or a
+// schedule version names (the backend answers 409 otherwise, saying why).
+export function removeProgramWorkout(id: number, workoutId: number) {
+  return apiRequest<AssignedProgramDetail>(`/assigned-programs/${id}/workouts/${workoutId}`, {
+    method: 'DELETE',
+  })
+}
+
+// One workout's ACTIVE exercises in their new order (the rows' own ids).
+export function reorderProgramExercises(id: number, workoutId: number, order: number[]) {
+  return apiRequest<AssignedProgramDetail>(`/assigned-programs/${id}/exercises`, {
+    method: 'PATCH',
+    body: { workoutId, order },
+  })
+}
+
+// MOVE: the same row, another workout; the backend puts it at the END.
+export function moveProgramExercise(id: number, exerciseRowId: number, workoutId: number) {
+  return apiRequest<AssignedProgramDetail>(
+    `/assigned-programs/${id}/exercises/${exerciseRowId}`,
+    { method: 'PATCH', body: { workoutId } },
+  )
+}
+
+// COPY: a NEW row through the ordinary add route — the same exercise and
+// prescription, nulls included (null = "not set" on both sides). Unlike the
+// template's copy, no position is sent: since step 3b-0 the backend appends
+// after the target workout's last exercise itself, inside its transaction.
+// (The backend copies the exercise's description — name, muscles,
+// instructions — from the library, as for any exercise added to a program.)
+export function copyProgramExercise(
+  id: number,
+  source: AssignedProgramExercise,
+  workoutId: number,
+) {
+  return apiRequest<AssignedProgramDetail>(`/assigned-programs/${id}/exercises`, {
+    method: 'POST',
+    body: {
+      exerciseId: source.exerciseId,
+      workoutId,
+      sets: source.sets,
+      reps: source.reps,
+      durationInSeconds: source.durationInSeconds,
+      weight: source.weight,
+      weightUnit: source.weightUnit,
+      notes: source.notes,
+    },
+  })
+}
+
+// REMOVE: deleted when no session used it, RETIRED otherwise (kept for those
+// sessions' records, listed in `retiredExercises`) — the backend decides.
+export function removeProgramExercise(id: number, exerciseRowId: number) {
+  return apiRequest<AssignedProgramDetail>(
+    `/assigned-programs/${id}/exercises/${exerciseRowId}`,
+    { method: 'DELETE' },
+  )
+}
+
+// What removing it WOULD do — for the confirmation dialog. Under the
+// program's key, like the summary and the closing preview, so everything
+// about one program sits under one prefix.
+export function removalPreviewQueryKey(id: number, exerciseRowId: number) {
+  return [...assignedProgramQueryKey(id), 'removal', exerciseRowId] as const
+}
+
+export function fetchRemovalPreview(id: number, exerciseRowId: number) {
+  return apiRequest<RemovalPreview>(
+    `/assigned-programs/${id}/exercises/${exerciseRowId}/removal`,
+  )
 }

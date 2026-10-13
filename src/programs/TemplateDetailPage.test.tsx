@@ -335,6 +335,22 @@ describe('TemplateDetailPage — as the owner', () => {
     expect(screen.getByText('Lunge')).toBeInTheDocument()
   })
 
+  // While one removal is on its way, only THAT card's Remove is disabled —
+  // the others still work (the list decides from the request's variables).
+  it('disables only the card being removed', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(makeTemplate({ exercises: twoExercises })))
+    const user = userEvent.setup()
+    renderAt('/practitioner/programs/templates/1')
+    await screen.findByText('Squat')
+
+    // An answer that never comes: the removal stays on its way.
+    fetchMock.mockReturnValueOnce(new Promise<Response>(() => {}))
+    await user.click(screen.getByRole('button', { name: 'Remove Squat from template' }))
+
+    expect(screen.getByRole('button', { name: 'Remove Squat from template' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Remove Lunge from template' })).toBeEnabled()
+  })
+
   it('shows an error message when removal fails', async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse(makeTemplate({ exercises: [twoExercises[0]] })),

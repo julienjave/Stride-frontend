@@ -74,6 +74,7 @@ const PROGRAM: AssignedProgramDetail = {
     { id: 58, assignedProgramId: 12, name: 'Strength', sortOrder: 1 },
   ],
   exercises: [],
+  retiredExercises: [],
 }
 
 // The answer to POST …/schedules — each test may replace it. By default,

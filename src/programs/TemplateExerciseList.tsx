@@ -1,33 +1,10 @@
-import type { ReactNode } from 'react'
 import {
-  DndContext,
-  PointerSensor,
-  KeyboardSensor,
-  useSensor,
-  useSensors,
-  closestCenter,
-  type DragEndEvent,
-} from '@dnd-kit/core'
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, Plus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { computeReorderedIds } from '@/common/reorderIds'
-import { sortableAnnouncements } from '@/common/sortableAnnouncements'
-import {
-  MAX_WORKOUTS,
   groupExercisesByWorkout,
   isWorkoutRemovable,
-  nextExercisePosition,
   type WorkoutGroup,
 } from '@/workouts/workoutGroups'
 import { WorkoutHeader } from '@/workouts/WorkoutHeader'
-import { ExerciseWorkoutMenu } from '@/workouts/ExerciseWorkoutMenu'
+import { WorkoutListEditor } from '@/workouts/WorkoutListEditor'
 import {
   TemplateExerciseCard,
   ReadOnlyTemplateExerciseCard,
@@ -37,7 +14,6 @@ import { useTemplateWorkoutEditing } from './useTemplateWorkoutEditing'
 import type { TemplateExercise, TemplateWorkout } from './types'
 
 type Group = WorkoutGroup<TemplateWorkout, TemplateExercise>
-type Editing = ReturnType<typeof useTemplateWorkoutEditing>
 
 interface TemplateExerciseListProps {
   templateId: number
@@ -49,7 +25,8 @@ interface TemplateExerciseListProps {
   canEdit: boolean
 }
 
-// A template's exercises, workout by workout (step 3a-w).
+// A template's exercises, workout by workout (step 3a-w; the editable list
+// is the shared WorkoutListEditor since 3b-1).
 //
 // The SHAPE depends on how many workouts there are (decisions §5: "a
 // one-workout program shows just its exercises"):
@@ -122,300 +99,55 @@ function ReadOnlyCards({
 }
 
 // --- EDITABLE --------------------------------------------------------------
-
-// The drag sensors every sortable list here uses: a mouse / finger (the
-// pointer), and the keyboard — Space on a drag handle picks the item up, the
-// arrow keys move it, Space drops it, Escape cancels.
-// `sortableKeyboardCoordinates` makes the arrows move from slot to slot.
-function useSortableSensors() {
-  return useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  )
-}
+//
+// The list itself — the workouts as sortable sections, each workout's
+// sortable exercises, the Move / Copy menu, "Add a workout" — is the shared
+// WorkoutListEditor (src/workouts/, lifted out of this file in 3b-1 for the
+// program page). What is a TEMPLATE's here: its card (a link to the
+// exercise's page; removed at once, no dialog), its Add card, and its
+// delete rule (empty, not the last).
 
 function EditableWorkouts({ templateId, groups }: { templateId: number; groups: Group[] }) {
   const editing = useTemplateWorkoutEditing(templateId)
-  const isSeveral = groups.length > 1
-  const atLimit = groups.length >= MAX_WORKOUTS
+  const exerciseName = (exercise: TemplateExercise) => exercise.exercise?.name ?? 'Unknown exercise'
 
   return (
-    <div className="space-y-4">
-      {editing.problem && (
-        <p role="alert" className="text-sm text-destructive">
-          {editing.problem}
-        </p>
+    <WorkoutListEditor
+      groups={groups}
+      editing={editing}
+      exerciseName={exerciseName}
+      renderCard={(exercise, { workoutLabel, menu }) => (
+        <TemplateExerciseCard
+          templateId={templateId}
+          item={exercise}
+          workoutLabel={workoutLabel}
+          menu={menu}
+          onDelete={() =>
+            editing.removeExercise.mutate({
+              exerciseRowId: exercise.id,
+              name: exerciseName(exercise),
+            })
+          }
+          deleting={
+            editing.removeExercise.isPending &&
+            editing.removeExercise.variables?.exerciseRowId === exercise.id
+          }
+        />
       )}
-
-      {isSeveral ? (
-        <SortableWorkouts templateId={templateId} groups={groups} editing={editing} />
-      ) : (
-        // One workout: no header, no menu — the list as it always was.
-        <WorkoutExercises templateId={templateId} group={groups[0]} groups={groups} editing={editing} />
+      renderAddCard={(group, several) => (
+        <AddTemplateExerciseCard
+          templateId={templateId}
+          workoutId={several ? group.workout.id : undefined}
+          workoutLabel={several ? group.label : undefined}
+        />
       )}
-
-      {/* A polite live region, ALWAYS in the page (only its text changes):
-          screen readers announce a change of text in a region that already
-          exists, while one that appears with its text already inside is
-          often missed. It says what a move or copy did — the card has just
-          jumped to another workout, maybe off screen. */}
-      <p aria-live="polite" className="text-sm text-muted-foreground empty:hidden">
-        {editing.notice}
-      </p>
-
-      <div className="space-y-1">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => editing.addWorkout.mutate()}
-          disabled={atLimit || editing.isBusy}
-        >
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          {editing.addWorkout.isPending ? 'Adding…' : 'Add a workout'}
-        </Button>
-        {/* Each sentence explains what the screen can't show on its own. */}
-        {atLimit ? (
-          <p className="text-xs text-muted-foreground">
-            A template can have at most {MAX_WORKOUTS} workouts (A to J).
-          </p>
-        ) : isSeveral ? (
-          <p className="text-xs text-muted-foreground">
-            To delete a workout, move or remove its exercises first.
-          </p>
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            Workouts let different days use different exercises — say upper
-            body on Monday, lower body on Wednesday.
-          </p>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// The workouts as a sortable list of sections — each section (header AND its
-// exercises) moves as one block. This DndContext only sorts WORKOUTS; each
-// section holds its own DndContext for its exercises (WorkoutExercises).
-// Two separate contexts keep the two kinds of drag from ever mixing — and
-// workout ids and exercise ids are both plain numbers that could collide
-// (workout 3 and exercise 3) inside a single one.
-function SortableWorkouts({
-  templateId,
-  groups,
-  editing,
-}: {
-  templateId: number
-  groups: Group[]
-  editing: Editing
-}) {
-  const sensors = useSortableSensors()
-  const workouts = groups.map((group) => group.workout)
-
-  function handleDragEnd({ active, over }: DragEndEvent) {
-    if (!over) return
-    const order = computeReorderedIds(workouts, Number(active.id), Number(over.id))
-    if (order) editing.reorderWorkouts.mutate(order)
-  }
-
-  return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragEnd={handleDragEnd}
-      accessibility={{
-        announcements: sortableAnnouncements(
-          groups.map((group) => ({ id: group.workout.id, name: `Workout ${group.label}` })),
-        ),
-      }}
-    >
-      <SortableContext items={workouts.map((workout) => workout.id)} strategy={verticalListSortingStrategy}>
-        <div className="space-y-6">
-          {groups.map((group) => (
-            <SortableWorkoutSection
-              key={group.workout.id}
-              templateId={templateId}
-              group={group}
-              groups={groups}
-              editing={editing}
-            />
-          ))}
-        </div>
-      </SortableContext>
-    </DndContext>
-  )
-}
-
-function SortableWorkoutSection({
-  templateId,
-  group,
-  groups,
-  editing,
-}: {
-  templateId: number
-  group: Group
-  groups: Group[]
-  editing: Editing
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: group.workout.id,
-  })
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  }
-  const removable = isWorkoutRemovable({
-    workoutCount: groups.length,
-    exerciseCount: group.exercises.length,
-  })
-
-  return (
-    <section
-      ref={setNodeRef}
-      style={style}
-      aria-label={`Workout ${group.label}`}
-      className="space-y-2 rounded-lg bg-background"
-    >
-      <WorkoutHeader
-        position={group.position}
-        name={group.workout.name}
-        label={group.label}
-        // The handle, not the whole section, carries the drag listeners — so
-        // the cards' links, buttons and their own handles inside the section
-        // keep working.
-        dragHandle={
-          <button
-            type="button"
-            {...attributes}
-            {...listeners}
-            aria-label={`Drag to reorder workout ${group.label}`}
-            className="cursor-grab rounded p-1 active:cursor-grabbing"
-          >
-            <GripVertical className="h-4 w-4" aria-hidden="true" />
-          </button>
-        }
-        onRename={(name) => editing.renameWorkout(group.workout.id, name)}
-        onDelete={removable ? () => editing.removeWorkout.mutate(group.workout.id) : undefined}
-        disabled={editing.isBusy}
-      />
-      <WorkoutExercises templateId={templateId} group={group} groups={groups} editing={editing} />
-    </section>
-  )
-}
-
-// One workout's exercises: sortable among themselves only, then the Add
-// card. Used for the single workout of a one-workout template too (then
-// without workout labels or menus).
-function WorkoutExercises({
-  templateId,
-  group,
-  groups,
-  editing,
-}: {
-  templateId: number
-  group: Group
-  groups: Group[]
-  editing: Editing
-}) {
-  const sensors = useSortableSensors()
-  const isSeveral = groups.length > 1
-  const workoutId = group.workout.id
-
-  // Reached only by a real drag, which jsdom can't perform (dnd-kit measures
-  // layout): the order rule is tested in reorderIds.test.ts, the request and
-  // the on-screen guess in useTemplateWorkoutEditing.test.tsx, and THIS
-  // wiring — the dragged workout's own id and exercises — in Chromium (the
-  // backend refuses an order that isn't exactly that workout's exercises).
-  function handleDragEnd({ active, over }: DragEndEvent) {
-    if (!over) return
-    const order = computeReorderedIds(group.exercises, Number(active.id), Number(over.id))
-    if (order) editing.reorderExercises.mutate({ workoutId, order })
-  }
-
-  const addCard = (
-    <AddTemplateExerciseCard
-      templateId={templateId}
-      workoutId={isSeveral ? workoutId : undefined}
-      workoutLabel={isSeveral ? group.label : undefined}
+      canDeleteWorkout={(group) =>
+        isWorkoutRemovable({
+          workoutCount: groups.length,
+          exerciseCount: group.exercises.length,
+        })
+      }
+      deleteHint="To delete a workout, move or remove its exercises first."
     />
-  )
-
-  // Empty: the Add card alone, FIRST — nothing to sort, no DndContext.
-  if (group.exercises.length === 0) return addCard
-
-  // The other workouts, for the menu: where this one's exercises can go.
-  const targets = groups
-    .filter((other) => other.workout.id !== workoutId)
-    .map((other) => ({ id: other.workout.id, label: other.label }))
-
-  function menuFor(exercise: TemplateExercise): ReactNode {
-    if (!isSeveral) return undefined
-    const name = exercise.exercise?.name ?? 'Unknown exercise'
-    return (
-      <ExerciseWorkoutMenu
-        triggerLabel={`More actions for ${name} in workout ${group.label}`}
-        targets={targets}
-        disabled={editing.isBusy}
-        onMove={(target) =>
-          editing.moveExercise.mutate({
-            exerciseRowId: exercise.id,
-            workoutId: target.id,
-            name,
-            targetLabel: target.label,
-          })
-        }
-        onCopy={(target) =>
-          editing.copyExercise.mutate({
-            source: exercise,
-            workoutId: target.id,
-            // The end of the TARGET workout, from the template on screen.
-            sortOrder: nextExercisePosition(
-              groups.flatMap((other) => other.exercises),
-              target.id,
-            ),
-            name,
-            targetLabel: target.label,
-          })
-        }
-      />
-    )
-  }
-
-  return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragEnd={handleDragEnd}
-      accessibility={{
-        announcements: sortableAnnouncements(
-          group.exercises.map((exercise) => ({
-            id: exercise.id,
-            name: exercise.exercise?.name ?? 'Unknown exercise',
-          })),
-        ),
-      }}
-    >
-      <SortableContext
-        items={group.exercises.map((exercise) => exercise.id)}
-        strategy={verticalListSortingStrategy}
-      >
-        <div className="space-y-2">
-          {group.exercises.map((exercise) => (
-            <TemplateExerciseCard
-              key={exercise.id}
-              templateId={templateId}
-              item={exercise}
-              workoutLabel={isSeveral ? group.label : undefined}
-              menu={menuFor(exercise)}
-              onDelete={() => editing.removeExercise.mutate(exercise.id)}
-              deleting={editing.removeExercise.isPending && editing.removeExercise.variables === exercise.id}
-            />
-          ))}
-          {/* LAST once the workout has exercises — outside the sortable
-              items, so it's never treated as a draggable row itself. */}
-          {addCard}
-        </div>
-      </SortableContext>
-    </DndContext>
   )
 }

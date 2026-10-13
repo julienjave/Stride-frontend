@@ -17,8 +17,8 @@ import { usePatientAssignedPrograms } from './usePatientAssignedPrograms'
 // built 2026-10-12/13 (decisions §5). Top to bottom: who and what (header,
 // with Complete / Cancel, or "Assign again" once closed), the schedule and
 // how it has gone (Schedule & progress — with Change schedule / Pause /
-// Resume and the "rearrange the week" switch), and the exercises, still
-// read-only: tailoring them is step 3b.
+// Resume and the "rearrange the week" switch), and the exercises —
+// tailored on an open program (step 3b-1), read-only on a closed one.
 export function AssignedProgramDetailPage() {
   const { id } = useParams<{ id: string }>()
   const programId = Number(id)
@@ -110,7 +110,7 @@ function ProgramView({ programId }: { programId: number }) {
         summaryLoading={summary.isLoading}
         summaryFailed={summary.isError}
       />
-      <ProgramExercisesSection program={program} />
+      <ProgramExercisesSection program={program} isOpen={isOpen} today={today} />
     </div>
   )
 }
