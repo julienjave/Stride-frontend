@@ -5,11 +5,11 @@ import {
 } from '@/workouts/workoutGroups'
 import { WorkoutHeader } from '@/workouts/WorkoutHeader'
 import { WorkoutListEditor } from '@/workouts/WorkoutListEditor'
+import { AddWorkoutExerciseCard } from '@/workouts/AddWorkoutExerciseCard'
 import {
   TemplateExerciseCard,
   ReadOnlyTemplateExerciseCard,
 } from './TemplateExerciseCard'
-import { AddTemplateExerciseCard } from './AddTemplateExerciseCard'
 import { useTemplateWorkoutEditing } from './useTemplateWorkoutEditing'
 import type { TemplateExercise, TemplateWorkout } from './types'
 
@@ -135,8 +135,8 @@ function EditableWorkouts({ templateId, groups }: { templateId: number; groups: 
         />
       )}
       renderAddCard={(group, several) => (
-        <AddTemplateExerciseCard
-          templateId={templateId}
+        <AddWorkoutExerciseCard
+          resourcePath={`/practitioner/programs/templates/${templateId}`}
           workoutId={several ? group.workout.id : undefined}
           workoutLabel={several ? group.label : undefined}
         />

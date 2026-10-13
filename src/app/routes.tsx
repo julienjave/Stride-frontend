@@ -35,6 +35,8 @@ import { ProgramExercisePage } from '@/programs/ProgramExercisePage'
 import { TemplateDetailPage } from '@/programs/TemplateDetailPage'
 import { NewAssignedProgramPage } from '@/assigned-programs/NewAssignedProgramPage'
 import { AssignedProgramDetailPage } from '@/assigned-programs/AssignedProgramDetailPage'
+import { NewAssignedProgramExercisePage } from '@/assigned-programs/NewAssignedProgramExercisePage'
+import { AssignedProgramExercisePage } from '@/assigned-programs/AssignedProgramExercisePage'
 import { setUnauthorizedHandler } from '@/api/client'
 import { queryClient } from '@/api/queryClient'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
@@ -179,6 +181,16 @@ export const router = createBrowserRouter([
               {
                 path: '/practitioner/programs/assigned/:id',
                 element: <AssignedProgramDetailPage />,
+              },
+              // A program's exercises (step 3b-1b): adding one (through the
+              // library picker), and one exercise's prescription.
+              {
+                path: '/practitioner/programs/assigned/:id/exercises/new',
+                element: <NewAssignedProgramExercisePage />,
+              },
+              {
+                path: '/practitioner/programs/assigned/:id/exercises/:rowId',
+                element: <AssignedProgramExercisePage />,
               },
               // Listed in the navigation (sections.ts) before the feature
               // exists — see ComingSoonPage for why.

@@ -198,6 +198,13 @@ describe('ExerciseAssignPage', () => {
     expect(
       await screen.findByText('Assign to Shoulder Rehab?'),
     ).toBeInTheDocument()
+    // Where it goes, said as it really is: the FIRST workout (step 3b-1b —
+    // "the end of the exercise list" was exact only with one workout).
+    expect(
+      screen.getByText(
+        "This adds the exercise at the end of Shoulder Rehab's first workout. To add it to another workout, use that workout's Add card on the template's page.",
+      ),
+    ).toBeInTheDocument()
   })
 
   it('Cancel closes the dialog without calling the assign endpoint', async () => {
@@ -328,6 +335,9 @@ describe('ExerciseAssignPage', () => {
     await user.click(screen.getByRole('button', { name: 'Assigned Program' }))
     await user.click(await screen.findByText('Patient A Program'))
     await screen.findByText('Assign to Patient A Program?')
+    expect(
+      screen.getByText(/use that workout's Add card on the program's page\.$/),
+    ).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
 

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { act, render, renderHook, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router'
 import { assignedProgramQueryKey } from './api'
 import { ProgramExercisesSection } from './ProgramExercisesSection'
 import { useAssignedProgram } from './useAssignedProgram'
@@ -163,7 +164,12 @@ function renderSection(program: AssignedProgramDetail = PROGRAM) {
   queryClient.setQueryData(assignedProgramQueryKey(12), program)
   render(
     <QueryClientProvider client={queryClient}>
-      <Harness />
+      {/* The cards and Add cards are links (3b-1b): they need a router.
+          `?tab=x` on the page's address shows that returnTo keeps the
+          query, not only the path. */}
+      <MemoryRouter initialEntries={['/practitioner/programs/assigned/12?tab=x']}>
+        <Harness />
+      </MemoryRouter>
     </QueryClientProvider>,
   )
   return { queryClient, user: userEvent.setup() }
@@ -191,8 +197,37 @@ describe('ProgramExercisesSection — the editor on an open program', () => {
     // The program's own copy: prescription and notes.
     expect(screen.getByText('3 sets · 8 reps · 20 kg')).toBeInTheDocument()
     expect(screen.getByText('Keep the pelvis level.')).toBeInTheDocument()
-    // An empty workout says so (adding comes with step 3b-1b).
-    expect(screen.getByText('No exercises in this workout.')).toBeInTheDocument()
+  })
+
+  // Step 3b-1b: each workout's Add card opens the program's add page FOR
+  // that workout — the empty one too, where it is the only card.
+  it("gives each workout an Add card for the program's add page, naming its workout", () => {
+    renderSection()
+    const addLinks = screen.getAllByRole('link', { name: /^Add New Exercise/ })
+    expect(addLinks.map((link) => [link.getAttribute('aria-label'), link.getAttribute('href')])).toStrictEqual([
+      ['Add New Exercise to workout A · Mobility', '/practitioner/programs/assigned/12/exercises/new?workoutId=57'],
+      ['Add New Exercise to workout B · Strength', '/practitioner/programs/assigned/12/exercises/new?workoutId=58'],
+      ['Add New Exercise to workout C', '/practitioner/programs/assigned/12/exercises/new?workoutId=59'],
+    ])
+    expect(screen.queryByText('No exercises in this workout.')).not.toBeInTheDocument()
+  })
+
+  it('names no workout in the Add link when the program has only one', () => {
+    renderSection({ ...PROGRAM, workouts: [PROGRAM.workouts[0]], exercises: [HEEL] })
+    expect(screen.getByRole('link', { name: 'Add New Exercise' })).toHaveAttribute(
+      'href',
+      '/practitioner/programs/assigned/12/exercises/new',
+    )
+  })
+
+  // The card's body opens the exercise's own page, which comes back here.
+  it("links each card to the exercise's page, with the way back", () => {
+    renderSection()
+    const link = screen.getByRole('link', { name: /Glute Bridge/ })
+    expect(link).toHaveAttribute(
+      'href',
+      `/practitioner/programs/assigned/12/exercises/102?returnTo=${encodeURIComponent('/practitioner/programs/assigned/12?tab=x')}`,
+    )
   })
 
   // The limit sentence names the resource: "program" here, "template" on

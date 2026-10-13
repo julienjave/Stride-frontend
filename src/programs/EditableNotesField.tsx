@@ -1,18 +1,18 @@
 import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { Check, Pencil, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ApiError } from '@/api/client'
-import { updateTemplateExercise, programQueryKey } from './api'
+import type { PrescriptionChanges } from '@/common/PrescriptionSummary'
 
 interface EditableNotesFieldProps {
-  templateId: number
-  templateExerciseId: number
+  // What saving means — the page's job (see EditableNumberField).
+  save: (changes: PrescriptionChanges) => Promise<unknown>
   notes: string | null
   // Same reasoning as EditableExerciseTitle's own canEdit — the pencil is
   // only rendered at all when the current user can actually modify this
-  // template (its owner, and only while it isn't archived), not just
-  // disabled, so a read-only view never suggests editing is possible.
+  // template or program (see EditableNumberField), not just disabled, so a
+  // read-only view never suggests editing is possible.
   canEdit: boolean
 }
 
@@ -20,25 +20,17 @@ interface EditableNotesFieldProps {
 // a multiline optional text field, mirroring AddTemplateExerciseDto's
 // own notes constraint (max 2000 characters).
 export function EditableNotesField({
-  templateId,
-  templateExerciseId,
+  save,
   notes,
   canEdit,
 }: EditableNotesFieldProps) {
-  const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState(notes ?? '')
   const [validationError, setValidationError] = useState<string | null>(null)
 
   const updateMutation = useMutation({
-    mutationFn: (newValue: string | null) =>
-      updateTemplateExercise(templateId, templateExerciseId, {
-        notes: newValue,
-      }),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(programQueryKey(templateId), updated)
-      setIsEditing(false)
-    },
+    mutationFn: (newValue: string | null) => save({ notes: newValue }),
+    onSuccess: () => setIsEditing(false),
   })
 
   function startEditing() {

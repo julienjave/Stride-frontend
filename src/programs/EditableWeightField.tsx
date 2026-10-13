@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { Check, Pencil, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -7,17 +7,17 @@ import { ApiError } from '@/api/client'
 import { usePreferredWeightUnit } from '@/auth/usePreferredWeightUnit'
 import { WeightValue } from '@/common/WeightValue'
 import type { WeightUnit } from '@/common/weight'
-import { updateTemplateExercise, programQueryKey } from './api'
+import type { PrescriptionChanges } from '@/common/PrescriptionSummary'
 
 interface EditableWeightFieldProps {
-  templateId: number
-  templateExerciseId: number
+  // What saving means — the page's job (see EditableNumberField).
+  save: (changes: PrescriptionChanges) => Promise<unknown>
   weight: number | null
   weightUnit: WeightUnit | null
   // Same reasoning as EditableExerciseTitle's own canEdit — the pencil is
   // only rendered at all when the current user can actually modify this
-  // template (its owner, and only while it isn't archived), not just
-  // disabled, so a read-only view never suggests editing is possible.
+  // template or program (see EditableNumberField), not just disabled, so a
+  // read-only view never suggests editing is possible.
   canEdit: boolean
 }
 
@@ -27,13 +27,11 @@ interface EditableWeightFieldProps {
 // together in one edit session rather than being two separate fields
 // that could end up saved independently and briefly inconsistent.
 export function EditableWeightField({
-  templateId,
-  templateExerciseId,
+  save,
   weight,
   weightUnit,
   canEdit,
 }: EditableWeightFieldProps) {
-  const queryClient = useQueryClient()
   const preferredWeightUnit = usePreferredWeightUnit()
   const [isEditing, setIsEditing] = useState(false)
   const [draftWeight, setDraftWeight] = useState<number | undefined>(
@@ -49,16 +47,13 @@ export function EditableWeightField({
   const [validationError, setValidationError] = useState<string | null>(null)
 
   const updateMutation = useMutation({
-    // null for "cleared" — see UpdateTemplateExercisePayload. Always sent
-    // as a PAIR, both set or both null, matching hasStartedWeight.
+    // null for "cleared" — see PrescriptionChanges. Always sent as a PAIR,
+    // both set or both null, matching hasStartedWeight.
     mutationFn: (payload: {
       weight: number | null
       weightUnit: WeightUnit | null
-    }) => updateTemplateExercise(templateId, templateExerciseId, payload),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(programQueryKey(templateId), updated)
-      setIsEditing(false)
-    },
+    }) => save(payload),
+    onSuccess: () => setIsEditing(false),
   })
 
   // The edit box always starts from the STORED weight in its STORED unit —

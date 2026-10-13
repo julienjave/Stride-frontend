@@ -742,8 +742,11 @@ describe('AssignedProgramDetailPage — exercises', () => {
     expect(screen.queryByText('No exercises in this workout.')).not.toBeInTheDocument()
   })
 
-  it('says when a workout has no exercises', async () => {
-    programs[12] = () => json({ ...PROGRAM, exercises: [PROGRAM.exercises[0]] })
+  // On a CLOSED program: an open one shows the workout's Add card there
+  // instead (step 3b-1b, ProgramExercisesSection.test).
+  it('says when a workout of a closed program has no exercises', async () => {
+    programs[12] = () =>
+      json({ ...PROGRAM, status: 'completed', exercises: [PROGRAM.exercises[0]] })
     renderPage()
     expect(await screen.findByText('No exercises in this workout.')).toBeInTheDocument()
   })

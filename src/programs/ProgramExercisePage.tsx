@@ -3,9 +3,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { useExercise } from '@/exercises/useExercise'
+import { localPath } from '@/exercises/pickerReturnHref'
+import type { PrescriptionChanges } from '@/common/PrescriptionSummary'
 import { useProgram } from './useProgram'
 import { canEditTemplate } from './permissions'
-import { removeTemplateExercise, programQueryKey } from './api'
+import { removeTemplateExercise, programQueryKey, updateTemplateExercise } from './api'
 import { EditableNumberField } from './EditableNumberField'
 import { EditableWeightField } from './EditableWeightField'
 import { EditableNotesField } from './EditableNotesField'
@@ -57,9 +59,15 @@ function ProgramExerciseView({
   // one, same defensive reasoning as ExercisePickerPage's own returnTo
   // check. The template page is the ONE place a template is managed
   // now, so it's the only sensible default.
-  const returnTo =
-    searchParams.get('returnTo') ??
-    `/practitioner/programs/templates/${templateId}`
+  //
+  // Through localPath (step 3b-1b): `returnTo` comes from the address bar,
+  // so anyone can write a link with returnTo=https://elsewhere.example —
+  // and Done / Remove would send the practitioner to another site (an
+  // "open redirect"). localPath keeps only the path, on this site (see
+  // pickerReturnHref.ts, where the picker got the same fix in 3a-w).
+  const returnTo = localPath(
+    searchParams.get('returnTo') ?? `/practitioner/programs/templates/${templateId}`,
+  )
 
   const { data: template, isLoading, isError } = useProgram(templateId)
   const { data: currentUser } = useCurrentUser()
@@ -72,6 +80,16 @@ function ProgramExerciseView({
     isLoading: isLoadingExercise,
     isError: isExerciseError,
   } = useExercise(row?.exerciseId ?? -1, row != null)
+
+  // What saving one prescription field means HERE: PATCH the template's row,
+  // then put the template the server answers with into its cache entry —
+  // the template page and this one both read it. Handed to each field as
+  // its `save` (the fields themselves are shared with the program's
+  // exercise page, which saves to a program instead).
+  async function save(changes: PrescriptionChanges) {
+    const updated = await updateTemplateExercise(templateId, rowId, changes)
+    queryClient.setQueryData(programQueryKey(templateId), updated)
+  }
 
   const removeMutation = useMutation({
     mutationFn: () => removeTemplateExercise(templateId, rowId),
@@ -183,24 +201,21 @@ function ProgramExerciseView({
           own definition above — editable only when canEdit. */}
       <div className="divide-y divide-border rounded-lg border px-4">
         <EditableNumberField
-          templateId={templateId}
-          templateExerciseId={rowId}
+          save={save}
           canEdit={canEdit}
           fieldKey="sets"
           label="Sets"
           value={row.sets}
         />
         <EditableNumberField
-          templateId={templateId}
-          templateExerciseId={rowId}
+          save={save}
           canEdit={canEdit}
           fieldKey="reps"
           label="Reps"
           value={row.reps}
         />
         <EditableNumberField
-          templateId={templateId}
-          templateExerciseId={rowId}
+          save={save}
           canEdit={canEdit}
           fieldKey="durationInSeconds"
           label="Duration"
@@ -208,15 +223,13 @@ function ProgramExerciseView({
           displaySuffix="s"
         />
         <EditableWeightField
-          templateId={templateId}
-          templateExerciseId={rowId}
+          save={save}
           canEdit={canEdit}
           weight={row.weight}
           weightUnit={row.weightUnit}
         />
         <EditableNotesField
-          templateId={templateId}
-          templateExerciseId={rowId}
+          save={save}
           canEdit={canEdit}
           notes={row.notes}
         />

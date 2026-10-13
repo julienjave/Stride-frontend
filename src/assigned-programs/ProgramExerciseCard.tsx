@@ -1,8 +1,10 @@
 import { useState, type ReactNode } from 'react'
+import { Link, useLocation } from 'react-router'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import {
   Dialog,
   DialogClose,
@@ -69,9 +71,10 @@ interface SortableProgramExerciseCardProps {
   disabled: boolean
 }
 
-// The editable card of an OPEN program: a drag handle, the menu, and Remove
-// — which, unlike a template's, opens a confirmation that asks the backend
-// what removing will do (decided 2026-10-13). The template card's layout
+// The editable card of an OPEN program: a body that opens the exercise's
+// page (3b-1b), a drag handle, the menu, and Remove — which, unlike a
+// template's, opens a confirmation that asks the backend what removing will
+// do (decided 2026-10-13). The template card's layout
 // (TemplateExerciseCard): handle and buttons are SIBLINGS of the body, so
 // dnd-kit's listeners don't swallow their clicks.
 export function SortableProgramExerciseCard({
@@ -92,12 +95,25 @@ export function SortableProgramExerciseCard({
     opacity: isDragging ? 0.5 : 1,
   }
   const inWorkout = workoutLabel ? ` in workout ${workoutLabel}` : ''
+  // The body links to the exercise's own page, where its prescription is
+  // edited (step 3b-1b) — the template card's pattern (TemplateExerciseCard).
+  // `returnTo` = this page's own address, so Done comes back here.
+  const location = useLocation()
+  const returnTo = `${location.pathname}${location.search}`
+  const exerciseHref = `/practitioner/programs/assigned/${programId}/exercises/${exercise.id}?returnTo=${encodeURIComponent(returnTo)}`
 
   return (
     <div ref={setNodeRef} style={style} className="relative rounded-lg border">
-      <div className={menu ? 'p-3 pl-8 pr-18' : 'p-3 pl-8 pr-10'}>
+      {/* The padding leaves room for the handle (left) and the buttons
+          (right), which sit OVER the card as siblings of the link — a
+          button inside a link would be invalid HTML, and its clicks would
+          follow the link. */}
+      <Link
+        to={exerciseHref}
+        className={cn('block rounded-lg p-3 pl-8 hover:bg-muted', menu ? 'pr-18' : 'pr-10')}
+      >
         <ExerciseBody exercise={exercise} />
-      </div>
+      </Link>
 
       <button
         type="button"

@@ -1,14 +1,17 @@
 import { Link } from 'react-router'
 import { Plus } from 'lucide-react'
 
-interface AddTemplateExerciseCardProps {
-  templateId: number
-  // The workout the new exercise goes into, when the template has several
-  // (each workout has its own Add card). It travels in the address,
+interface AddWorkoutExerciseCardProps {
+  // The template's or program's own page (`/practitioner/programs/
+  // templates/12`, `/practitioner/programs/assigned/46`): its add page is
+  // `${resourcePath}/exercises/new` (NewWorkoutExerciseView, either way).
+  resourcePath: string
+  // The workout the new exercise goes into, when there are several (each
+  // workout has its own Add card). It travels in the address,
   // `…/exercises/new?workoutId=58`, so the add page — and the library
-  // picker it sends you through and back — knows where it goes. Absent for
-  // a one-workout template: the link stays as it always was, and the
-  // backend uses the only workout.
+  // picker it sends you through and back — knows where it goes. Absent with
+  // one workout: the link stays as it always was, and the backend uses the
+  // only workout.
   workoutId?: number
   // "B · Strength", for the link's accessible name: every workout has an
   // Add card, and a screen-reader user listing the page's links would
@@ -17,20 +20,25 @@ interface AddTemplateExerciseCardProps {
   workoutLabel?: string
 }
 
+// The dashed "Add New Exercise" card at the end of a workout's list.
+// Built for templates (AddTemplateExerciseCard, 3a-w); since step 3b-1b the
+// program page uses it too, so it takes the resource's address instead of
+// a template id — the only thing that differed.
+//
 // Positioned LAST when its workout already has exercises, but FIRST when it
 // has none — deliberately different from the exercise Library's own
 // AddExerciseCard (always first regardless), per the design discussion.
-// Positioning is handled by the caller (TemplateExerciseList), not this
+// Positioning is handled by the caller (WorkoutListEditor), not this
 // component, since it depends on how many OTHER cards exist.
-export function AddTemplateExerciseCard({
-  templateId,
+export function AddWorkoutExerciseCard({
+  resourcePath,
   workoutId,
   workoutLabel,
-}: AddTemplateExerciseCardProps) {
+}: AddWorkoutExerciseCardProps) {
   const query = workoutId === undefined ? '' : `?workoutId=${workoutId}`
   return (
     <Link
-      to={`/practitioner/programs/templates/${templateId}/exercises/new${query}`}
+      to={`${resourcePath}/exercises/new${query}`}
       // An explicit name rather than a visually hidden " to workout B" span:
       // how the space at a hidden span's edge is counted differs between
       // tools (jsdom drops it: "Exerciseto"). The visible words START the

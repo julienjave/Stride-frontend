@@ -13,6 +13,13 @@ export interface Prescription {
   weightUnit: WeightUnit | null
 }
 
+// A change to a prescription, as the per-field editors send it (step 3b-1b):
+// only the fields being changed, each a value or null = "cleared". The same
+// shape for a template exercise and a program exercise, so the editors
+// (EditableNumberField, EditableWeightField, EditableNotesField) don't need
+// to know which one they edit — the page gives them a `save` that does.
+export type PrescriptionChanges = Partial<Prescription & { notes: string | null }>
+
 // An exercise's prescription on one line: "3 sets · 10 reps · 30s · 20 kg".
 // Moved out of the template's exercise card (2026-10-12) when the program
 // page needed the same line: one wording for a prescription everywhere.

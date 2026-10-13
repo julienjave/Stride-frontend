@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isOwnAssignedProgram } from './permissions'
+import { isOwnAssignedProgram, isProgramOpen } from './permissions'
 import type { AssignedProgram } from './types'
 
 function makeProgram(overrides: Partial<AssignedProgram> = {}): AssignedProgram {
@@ -31,5 +31,19 @@ describe('isOwnAssignedProgram', () => {
     expect(
       isOwnAssignedProgram(makeProgram({ assignedBy: 999 }), { id: 7 }),
     ).toBe(false)
+  })
+})
+
+describe('isProgramOpen', () => {
+  it('is open while active and not deleted', () => {
+    expect(isProgramOpen(makeProgram())).toBe(true)
+  })
+
+  it.each([
+    ['completed', { status: 'completed' as const }],
+    ['cancelled', { status: 'cancelled' as const }],
+    ['deleted (archived) while still active', { isArchived: true }],
+  ])('is closed when %s', (_label, change) => {
+    expect(isProgramOpen(makeProgram(change))).toBe(false)
   })
 })

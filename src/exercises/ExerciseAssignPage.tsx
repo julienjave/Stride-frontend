@@ -160,9 +160,15 @@ function ExerciseAssignView({ exerciseId }: { exerciseId: number }) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Assign to {selected?.title}?</DialogTitle>
+            {/* Where it really goes (step 3b-1b): no workout is named from
+                here, so the backend puts it at the end of the FIRST one —
+                "the end of the exercise list" was exact only with one
+                workout. The lists this page reads carry no workouts, so the
+                sentence names the rule, and where to choose instead. */}
             <DialogDescription>
-              This adds the exercise to the end of {selected?.title}'s
-              exercise list.
+              This adds the exercise at the end of {selected?.title}'s first
+              workout. To add it to another workout, use that workout's Add
+              card on the {target === 'template' ? 'template' : 'program'}'s page.
             </DialogDescription>
           </DialogHeader>
 

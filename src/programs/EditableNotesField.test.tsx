@@ -2,27 +2,52 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ApiError } from '@/api/client'
+import type { PrescriptionChanges } from '@/common/PrescriptionSummary'
 import { EditableNotesField } from './EditableNotesField'
 
-const fetchMock = vi.fn<typeof fetch>()
-vi.stubGlobal('fetch', fetchMock)
+// Since step 3b-1b the field doesn't send requests itself: the page gives it
+// a `save` (a template's page PATCHes the template, a program's page the
+// program). So these tests give it a MOCK save and check what it's asked to
+// save — exactly the field's job. Whether a page turns that into the right
+// request (URL, literal body, cache) is tested on each page
+// (ProgramExercisePage.test, AssignedProgramExercisePage.test).
+//
+// `toHaveBeenCalledWith({ sets: null })` tells null from undefined (`{ sets:
+// undefined }` would NOT match), so "cleared is sent as null" is still
+// checked; what it can't see is JSON dropping undefined keys — hence the
+// literal-body tests on the pages.
+const save = vi.fn<(changes: PrescriptionChanges) => Promise<unknown>>()
 
 beforeEach(() => {
-  fetchMock.mockReset()
+  save.mockReset()
+  save.mockResolvedValue(undefined)
 })
+
+// What a failed save rejects with: the page's request threw this ApiError.
+function failWith(message: string) {
+  save.mockRejectedValue(
+    new ApiError({
+      statusCode: 500,
+      message: [message],
+      error: 'Internal Server Error',
+      timestamp: '2031-06-20T10:00:00Z',
+      path: '/x',
+    }),
+  )
+}
 
 function renderField(
   notes: string | null = 'Go slow on the way down',
   canEdit = true,
 ) {
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    defaultOptions: { mutations: { retry: false } },
   })
   return render(
     <QueryClientProvider client={queryClient}>
       <EditableNotesField
-        templateId={1}
-        templateExerciseId={50}
+        save={save}
         notes={notes}
         canEdit={canEdit}
       />
@@ -60,13 +85,10 @@ describe('EditableNotesField', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel editing Notes' }))
 
     expect(screen.getByText('Original')).toBeInTheDocument()
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(save).not.toHaveBeenCalled()
   })
 
   it('saves the new notes', async () => {
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ id: 1 }), { status: 200 }),
-    )
     const user = userEvent.setup()
     renderField('Original')
     await user.click(screen.getByRole('button', { name: 'Edit Notes' }))
@@ -74,41 +96,21 @@ describe('EditableNotesField', () => {
     await user.type(screen.getByLabelText('Notes'), 'Updated notes')
     await user.click(screen.getByRole('button', { name: 'Save Notes' }))
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('/programs/1/exercises/50'),
-        expect.objectContaining({
-          body: JSON.stringify({ notes: 'Updated notes' }),
-        }),
-      ),
-    )
+    await waitFor(() => expect(save).toHaveBeenCalledWith({ notes: 'Updated notes' }))
   })
 
-  it('clears the notes by sending an explicit null, not an empty string', async () => {
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ id: 1 }), { status: 200 }),
-    )
+  it('clears the notes by saving an explicit null, not an empty string', async () => {
     const user = userEvent.setup()
     renderField('Original')
     await user.click(screen.getByRole('button', { name: 'Edit Notes' }))
     await user.clear(screen.getByLabelText('Notes'))
     await user.click(screen.getByRole('button', { name: 'Save Notes' }))
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('/programs/1/exercises/50'),
-        expect.objectContaining({ body: '{"notes":null}' }),
-      ),
-    )
+    await waitFor(() => expect(save).toHaveBeenCalledWith({ notes: null }))
   })
 
   it('shows the API error message on a failed save', async () => {
-    fetchMock.mockResolvedValue(
-      new Response(
-        JSON.stringify({ statusCode: 500, message: ['Internal error'] }),
-        { status: 500 },
-      ),
-    )
+    failWith('Internal error')
     const user = userEvent.setup()
     renderField('Original')
     await user.click(screen.getByRole('button', { name: 'Edit Notes' }))

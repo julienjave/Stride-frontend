@@ -17,3 +17,11 @@ export function isOwnAssignedProgram(
 ): boolean {
   return program.assignedBy === currentUser.id
 }
+// Whether the program can still change: only an ACTIVE program that isn't
+// deleted. The backend refuses every write on a completed, cancelled or
+// deleted one (409 — decisions §5, "The closed-program guard"), so the pages
+// don't draw what would only be refused. One rule for the three pages that
+// ask (step 3b-1b): the program page, and its exercise add / edit pages.
+export function isProgramOpen(program: Pick<AssignedProgram, 'status' | 'isArchived'>): boolean {
+  return program.status === 'active' && !program.isArchived
+}

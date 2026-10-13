@@ -3,24 +3,48 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { EditableNumberField } from './EditableNumberField'
-import { programQueryKey } from './api'
+import { ApiError } from '@/api/client'
+import type { PrescriptionChanges } from '@/common/PrescriptionSummary'
 
-const fetchMock = vi.fn<typeof fetch>()
-vi.stubGlobal('fetch', fetchMock)
+// Since step 3b-1b the field doesn't send requests itself: the page gives it
+// a `save` (a template's page PATCHes the template, a program's page the
+// program). So these tests give it a MOCK save and check what it's asked to
+// save — exactly the field's job. Whether a page turns that into the right
+// request (URL, literal body, cache) is tested on each page
+// (ProgramExercisePage.test, AssignedProgramExercisePage.test).
+//
+// `toHaveBeenCalledWith({ sets: null })` tells null from undefined (`{ sets:
+// undefined }` would NOT match), so "cleared is sent as null" is still
+// checked; what it can't see is JSON dropping undefined keys — hence the
+// literal-body tests on the pages.
+const save = vi.fn<(changes: PrescriptionChanges) => Promise<unknown>>()
 
 beforeEach(() => {
-  fetchMock.mockReset()
+  save.mockReset()
+  save.mockResolvedValue(undefined)
 })
+
+// What a failed save rejects with: the page's request threw this ApiError.
+function failWith(message: string) {
+  save.mockRejectedValue(
+    new ApiError({
+      statusCode: 500,
+      message: [message],
+      error: 'Internal Server Error',
+      timestamp: '2031-06-20T10:00:00Z',
+      path: '/x',
+    }),
+  )
+}
 
 function renderField(
   props: Partial<React.ComponentProps<typeof EditableNumberField>> = {},
-  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
 ) {
+  const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
   return render(
     <QueryClientProvider client={queryClient}>
       <EditableNumberField
-        templateId={1}
-        templateExerciseId={50}
+        save={save}
         fieldKey="sets"
         label="Sets"
         value={3}
@@ -69,7 +93,7 @@ describe('EditableNumberField — editing', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel editing Sets' }))
 
     expect(screen.getByText('3')).toBeInTheDocument()
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(save).not.toHaveBeenCalled()
   })
 
   it('rejects a non-positive value without calling the API', async () => {
@@ -83,77 +107,52 @@ describe('EditableNumberField — editing', () => {
     expect(
       await screen.findByText('Sets must be a positive whole number'),
     ).toBeInTheDocument()
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(save).not.toHaveBeenCalled()
   })
 
-  it('clears the field by sending an explicit null — the literal request body is checked', async () => {
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ id: 1 }), { status: 200 }),
-    )
+  it('clears the field by saving an explicit null', async () => {
     const user = userEvent.setup()
     renderField({ value: 3 })
     await user.click(screen.getByRole('button', { name: 'Edit Sets' }))
     await user.clear(screen.getByLabelText('Sets'))
     await user.click(screen.getByRole('button', { name: 'Save Sets' }))
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('/programs/1/exercises/50'),
-        expect.objectContaining({
-          method: 'PATCH',
-          // A LITERAL string on purpose. This assertion used to be
-          // JSON.stringify({ sets: undefined }) — which is itself just
-          // "{}", because JSON.stringify drops undefined keys. It was
-          // comparing an empty body to an empty body, so it passed while
-          // clearing silently did nothing. A literal can't hide that.
-          body: '{"sets":null}',
-        }),
-      ),
-    )
+    await waitFor(() => expect(save).toHaveBeenCalledWith({ sets: null }))
   })
 
-  it('saves a valid value under the correct field key, updating the cache', async () => {
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ id: 1, exercises: [] }), { status: 200 }),
-    )
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    })
+  it('saves a valid value under the correct field key, then closes', async () => {
     const user = userEvent.setup()
-    renderField({ value: 3 }, queryClient)
+    renderField({ fieldKey: 'reps', label: 'Reps', value: 10 })
+    await user.click(screen.getByRole('button', { name: 'Edit Reps' }))
+    await user.clear(screen.getByLabelText('Reps'))
+    await user.type(screen.getByLabelText('Reps'), '5')
+    await user.click(screen.getByRole('button', { name: 'Save Reps' }))
+
+    await waitFor(() => expect(save).toHaveBeenCalledWith({ reps: 5 }))
+    expect(save).toHaveBeenCalledTimes(1)
+    // Back to display mode — `value` is a static prop here, with no parent
+    // re-passing it after the save, so this only checks what THIS
+    // component alone is responsible for: closing once the save finished.
+    expect(await screen.findByRole('button', { name: 'Edit Reps' })).toBeInTheDocument()
+  })
+
+  // Closing waits for the save: a field that closed at once would hide a
+  // failure behind the old value.
+  it('stays open, disabled, while the save is on its way', async () => {
+    let finish: () => void = () => {}
+    save.mockReturnValue(new Promise<void>((resolve) => (finish = resolve)))
+    const user = userEvent.setup()
+    renderField({ value: 3 })
     await user.click(screen.getByRole('button', { name: 'Edit Sets' }))
-    await user.clear(screen.getByLabelText('Sets'))
-    await user.type(screen.getByLabelText('Sets'), '5')
     await user.click(screen.getByRole('button', { name: 'Save Sets' }))
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('/programs/1/exercises/50'),
-        expect.objectContaining({
-          body: JSON.stringify({ sets: 5 }),
-        }),
-      ),
-    )
-    // Back to display mode — same reasoning as EditableExerciseTitle's
-    // own equivalent test: `value` is a static prop here, with no
-    // parent re-passing it after the cache changes, so this only checks
-    // what THIS component alone is responsible for.
-    expect(
-      await screen.findByRole('button', { name: 'Edit Sets' }),
-    ).toBeInTheDocument()
-    expect(queryClient.getQueryData(programQueryKey(1))).toEqual({
-      id: 1,
-      exercises: [],
-    })
+    expect(screen.getByLabelText('Sets')).toBeDisabled()
+    finish()
+    expect(await screen.findByRole('button', { name: 'Edit Sets' })).toBeInTheDocument()
   })
 
   it('shows the API error message on a failed save', async () => {
-    fetchMock.mockResolvedValue(
-      new Response(
-        JSON.stringify({ statusCode: 500, message: ['Internal error'] }),
-        { status: 500 },
-      ),
-    )
+    failWith('Internal error')
     const user = userEvent.setup()
     renderField({ value: 3 })
     await user.click(screen.getByRole('button', { name: 'Edit Sets' }))

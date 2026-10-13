@@ -75,6 +75,17 @@ function setupFetchMock(config: {
     if (method === 'GET' && /\/exercises\/\d+$/.test(url)) {
       return Promise.resolve(jsonResponse(fullExercise))
     }
+    // Saving a field (step 3b-1b: the page's own `save`): the template as
+    // the backend answers, with the change applied to the row.
+    if (method === 'PATCH' && /\/programs\/\d+\/exercises\/\d+$/.test(url)) {
+      const changes = JSON.parse(init?.body as string) as Record<string, unknown>
+      return Promise.resolve(
+        jsonResponse({
+          ...template,
+          exercises: [{ ...template.exercises[0], ...changes }],
+        }),
+      )
+    }
     if (method === 'DELETE' && /\/programs\/\d+\/exercises\/\d+$/.test(url)) {
       return Promise.resolve(
         config.removeResponse ??
@@ -225,6 +236,53 @@ describe('ProgramExercisePage', () => {
     )
     await user.click(screen.getByRole('link', { name: 'Done' }))
     expect(await screen.findByText('Somewhere else')).toBeInTheDocument()
+  })
+
+  // Since 3b-1b returnTo goes through localPath: it comes from the address
+  // bar, and an absolute address would send Done to another site.
+  it('never sends Done to another site', async () => {
+    setupFetchMock({})
+    renderAt(
+      `/practitioner/programs/templates/1/exercises/50?returnTo=${encodeURIComponent('https://elsewhere.example/login')}`,
+    )
+    await screen.findByRole('heading', { name: 'Squat' })
+
+    expect(screen.getByRole('link', { name: 'Done' })).toHaveAttribute('href', '/login')
+  })
+
+  // The fields save through the page (step 3b-1b): the request is the
+  // TEMPLATE's — a literal body — and the answer lands in the template's
+  // cache entry, which the page reads, so the new value shows.
+  it("saves a field as a PATCH of the template's row, then shows the answered value", async () => {
+    setupFetchMock({})
+    const user = userEvent.setup()
+    renderAt('/practitioner/programs/templates/1/exercises/50')
+    await user.click(await screen.findByRole('button', { name: 'Edit Sets' }))
+    await user.clear(screen.getByLabelText('Sets'))
+    await user.type(screen.getByLabelText('Sets'), '5')
+    await user.click(screen.getByRole('button', { name: 'Save Sets' }))
+
+    expect(await screen.findByText('5')).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringMatching(/\/programs\/1\/exercises\/50$/),
+      expect.objectContaining({ method: 'PATCH', body: '{"sets":5}' }),
+    )
+  })
+
+  it('clears a field with an explicit null in the request', async () => {
+    setupFetchMock({})
+    const user = userEvent.setup()
+    renderAt('/practitioner/programs/templates/1/exercises/50')
+    await user.click(await screen.findByRole('button', { name: 'Edit Reps' }))
+    await user.clear(screen.getByLabelText('Reps'))
+    await user.click(screen.getByRole('button', { name: 'Save Reps' }))
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringMatching(/\/programs\/1\/exercises\/50$/),
+        expect.objectContaining({ method: 'PATCH', body: '{"reps":null}' }),
+      ),
+    )
   })
 
   it('Remove from Template calls DELETE immediately, with no confirmation dialog, and navigates to returnTo', async () => {

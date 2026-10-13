@@ -8,6 +8,7 @@ import { ProgramExercisesSection } from './ProgramExercisesSection'
 import { ProgramActions } from './ProgramActions'
 import { ProgramHeader } from './ProgramHeader'
 import { ProgramScheduleProgress } from './ProgramScheduleProgress'
+import { isProgramOpen } from './permissions'
 import { currentAndPlanned, workoutNames } from './programSchedule'
 import { useAssignedProgram } from './useAssignedProgram'
 import { useAssignedProgramSummary } from './useAssignedProgramSummary'
@@ -82,7 +83,7 @@ function ProgramView({ programId }: { programId: number }) {
   const isPaused = currentAndPlanned(program.schedules, today).current?.type === 'paused'
   // Only an open program can change: the backend refuses every write on a
   // completed, cancelled or deleted one (409), so their controls aren't drawn.
-  const isOpen = program.status === 'active' && !program.isArchived
+  const isOpen = isProgramOpen(program)
 
   return (
     <div className="mx-auto mt-8 max-w-2xl space-y-8 px-4 pb-8">

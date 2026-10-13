@@ -4,31 +4,56 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import type { WeightUnit } from '@/common/weight'
+import { ApiError } from '@/api/client'
+import type { PrescriptionChanges } from '@/common/PrescriptionSummary'
 import { EditableWeightField } from './EditableWeightField'
 
-const fetchMock = vi.fn<typeof fetch>()
-vi.stubGlobal('fetch', fetchMock)
+// Since step 3b-1b the field doesn't send requests itself: the page gives it
+// a `save` (a template's page PATCHes the template, a program's page the
+// program). So these tests give it a MOCK save and check what it's asked to
+// save — exactly the field's job. Whether a page turns that into the right
+// request (URL, literal body, cache) is tested on each page
+// (ProgramExercisePage.test, AssignedProgramExercisePage.test).
+//
+// `toHaveBeenCalledWith({ sets: null })` tells null from undefined (`{ sets:
+// undefined }` would NOT match), so "cleared is sent as null" is still
+// checked; what it can't see is JSON dropping undefined keys — hence the
+// literal-body tests on the pages.
+const save = vi.fn<(changes: PrescriptionChanges) => Promise<unknown>>()
 
 beforeEach(() => {
-  fetchMock.mockReset()
+  save.mockReset()
+  save.mockResolvedValue(undefined)
 })
 
+// What a failed save rejects with: the page's request threw this ApiError.
+function failWith(message: string) {
+  save.mockRejectedValue(
+    new ApiError({
+      statusCode: 500,
+      message: [message],
+      error: 'Internal Server Error',
+      timestamp: '2031-06-20T10:00:00Z',
+      path: '/x',
+    }),
+  )
+}
+
 // `preferredWeightUnit` is the VIEWER's setting, seeded into the current
-// user — which also means useCurrentUser() never fetches /auth/me here, so
-// every fetch a test sees is one the field itself made.
+// user — which also means useCurrentUser() never fetches /auth/me here (no
+// network at all: the field saves through the mock `save`).
 function renderField(
   props: Partial<React.ComponentProps<typeof EditableWeightField>> = {},
   preferredWeightUnit: WeightUnit = 'kg',
 ) {
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
   queryClient.setQueryData(currentUserQueryKey, { id: 7, preferredWeightUnit })
   return render(
     <QueryClientProvider client={queryClient}>
       <EditableWeightField
-        templateId={1}
-        templateExerciseId={50}
+        save={save}
         weight={62.5}
         weightUnit="kg"
         canEdit
@@ -88,21 +113,13 @@ describe('EditableWeightField — editing', () => {
   })
 
   it('saves a typed weight in the pre-selected unit, without touching the toggle', async () => {
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ id: 1 }), { status: 200 }),
-    )
     const user = userEvent.setup()
     renderField({ weight: null, weightUnit: null }, 'lbs')
     await user.click(screen.getByRole('button', { name: 'Edit Weight' }))
     await user.type(screen.getByLabelText('Weight'), '45')
     await user.click(screen.getByRole('button', { name: 'Save Weight' }))
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('/programs/1/exercises/50'),
-        expect.objectContaining({ body: '{"weight":45,"weightUnit":"lbs"}' }),
-      ),
-    )
+    await waitFor(() => expect(save).toHaveBeenCalledWith({ weight: 45, weightUnit: 'lbs' }))
   })
 
   // With a unit always selected, an empty box is simply "no weight" —
@@ -114,7 +131,7 @@ describe('EditableWeightField — editing', () => {
     await user.click(screen.getByRole('button', { name: 'Save Weight' }))
 
     expect(screen.getByText('Not set')).toBeInTheDocument()
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(save).not.toHaveBeenCalled()
   })
 
   it('refuses an emptied box over a saved weight, pointing at "Remove weight"', async () => {
@@ -127,7 +144,7 @@ describe('EditableWeightField — editing', () => {
     expect(
       await screen.findByText('Enter a weight, or use "Remove weight" to clear it'),
     ).toBeInTheDocument()
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(save).not.toHaveBeenCalled()
   })
 
   it('rejects a negative weight', async () => {
@@ -144,9 +161,6 @@ describe('EditableWeightField — editing', () => {
   })
 
   it('saves a valid weight and unit together', async () => {
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ id: 1 }), { status: 200 }),
-    )
     const user = userEvent.setup()
     renderField({ weight: null, weightUnit: null })
     await user.click(screen.getByRole('button', { name: 'Edit Weight' }))
@@ -155,35 +169,19 @@ describe('EditableWeightField — editing', () => {
     await user.click(screen.getByRole('button', { name: 'Save Weight' }))
 
     await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('/programs/1/exercises/50'),
-        expect.objectContaining({
-          body: JSON.stringify({ weight: 61.25, weightUnit: 'lbs' }),
-        }),
-      ),
+      expect(save).toHaveBeenCalledWith({ weight: 61.25, weightUnit: 'lbs' }),
     )
   })
 
   it('"Remove weight" clears BOTH halves together, with explicit nulls', async () => {
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ id: 1 }), { status: 200 }),
-    )
     const user = userEvent.setup()
     renderField({ weight: 62.5, weightUnit: 'kg' })
     await user.click(screen.getByRole('button', { name: 'Edit Weight' }))
     await user.click(screen.getByRole('button', { name: 'Remove weight' }))
 
+    // Both halves, both null — never one alone (hasStartedWeight).
     await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('/programs/1/exercises/50'),
-        expect.objectContaining({
-          method: 'PATCH',
-          // Literal on purpose — see EditableNumberField.test's clearing
-          // test for why JSON.stringify({ ...: undefined }) can't be
-          // trusted in an assertion like this.
-          body: '{"weight":null,"weightUnit":null}',
-        }),
-      ),
+      expect(save).toHaveBeenCalledWith({ weight: null, weightUnit: null }),
     )
   })
 
@@ -209,16 +207,11 @@ describe('EditableWeightField — editing', () => {
     )
 
     expect(screen.getByText('62.5 kg')).toBeInTheDocument()
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(save).not.toHaveBeenCalled()
   })
 
   it('shows the API error message on a failed save', async () => {
-    fetchMock.mockResolvedValue(
-      new Response(
-        JSON.stringify({ statusCode: 500, message: ['Internal error'] }),
-        { status: 500 },
-      ),
-    )
+    failWith('Internal error')
     const user = userEvent.setup()
     renderField({ weight: 62.5, weightUnit: 'kg' })
     await user.click(screen.getByRole('button', { name: 'Edit Weight' }))

@@ -1,14 +1,18 @@
 import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { Check, Pencil, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ApiError } from '@/api/client'
-import { updateTemplateExercise, programQueryKey } from './api'
+import type { PrescriptionChanges } from '@/common/PrescriptionSummary'
 
 interface EditableNumberFieldProps {
-  templateId: number
-  templateExerciseId: number
+  // What saving means — the caller's job, not the field's (step 3b-1b): a
+  // template's page sends PATCH /programs/…, a program's PATCH
+  // /assigned-programs/…, and each writes its own cache entry. The field
+  // only needs to know when that finished, and whether it failed — the
+  // `save` prop of EditableField (src/common/), for the same reason.
+  save: (changes: PrescriptionChanges) => Promise<unknown>
   fieldKey: 'sets' | 'reps' | 'durationInSeconds'
   label: string
   value: number | null
@@ -17,8 +21,9 @@ interface EditableNumberFieldProps {
   displaySuffix?: string
   // Same reasoning as EditableExerciseTitle's own canEdit — the pencil is
   // only rendered at all when the current user can actually modify this
-  // template (its owner, and only while it isn't archived), not just
-  // disabled, so a read-only view never suggests editing is possible.
+  // template or program (a template: its owner, while not archived; a
+  // program: while open), not just disabled, so a read-only view never
+  // suggests editing is possible.
   canEdit: boolean
 }
 
@@ -28,29 +33,25 @@ interface EditableNumberFieldProps {
 // no page-level Save button) — applied here to a single optional
 // number instead of a string or an array of strings.
 export function EditableNumberField({
-  templateId,
-  templateExerciseId,
+  save,
   fieldKey,
   label,
   value,
   displaySuffix = '',
   canEdit,
 }: EditableNumberFieldProps) {
-  const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState<number | undefined>(value ?? undefined)
   const [validationError, setValidationError] = useState<string | null>(null)
 
+  // One mutation per field: its own pending state and error. onSuccess
+  // in the mutation's OPTIONS (not a per-call mutate(…, { onSuccess })),
+  // which runs even if the field unmounted meanwhile — EditableField's
+  // reasoning.
   const updateMutation = useMutation({
-    // null, not undefined, for "cleared" — see UpdateTemplateExercisePayload.
-    mutationFn: (newValue: number | null) =>
-      updateTemplateExercise(templateId, templateExerciseId, {
-        [fieldKey]: newValue,
-      }),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(programQueryKey(templateId), updated)
-      setIsEditing(false)
-    },
+    // null, not undefined, for "cleared" — see PrescriptionChanges.
+    mutationFn: (newValue: number | null) => save({ [fieldKey]: newValue }),
+    onSuccess: () => setIsEditing(false),
   })
 
   function startEditing() {

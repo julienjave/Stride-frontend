@@ -1,4 +1,6 @@
 import { apiRequest } from '@/api/client'
+import type { PrescriptionChanges } from '@/common/PrescriptionSummary'
+import type { AddTemplateExerciseFormValues } from '@/programs/schemas'
 import type {
   AssignedProgramDetail,
   AssignedProgramExercise,
@@ -223,6 +225,53 @@ export function copyProgramExercise(
       notes: source.notes,
     },
   })
+}
+
+// ADD (step 3b-1b): an exercise from the library, with its prescription,
+// into one workout — the program's add page (NewAssignedProgramExercisePage).
+// No position: the backend appends after the workout's last exercise
+// inside its own transaction (3b-0), so nothing has to be read first —
+// unlike the template's add, which still computes it (programs/api.ts).
+// The backend copies the exercise's description (name, muscles,
+// instructions) from the library: the program keeps its own copy.
+//
+// `workoutId` null = the page's address named no workout (a one-workout
+// program): the key is left out (undefined is dropped by JSON) and the
+// backend uses the first workout. The form has no notes field (the
+// template's form doesn't either); they're added on the exercise's page.
+export function addProgramExercise(
+  id: number,
+  exerciseId: number,
+  values: AddTemplateExerciseFormValues,
+  workoutId: number | null,
+) {
+  return apiRequest<AssignedProgramDetail>(`/assigned-programs/${id}/exercises`, {
+    method: 'POST',
+    body: {
+      exerciseId,
+      workoutId: workoutId ?? undefined,
+      sets: values.sets,
+      reps: values.reps,
+      durationInSeconds: values.durationInSeconds,
+      weight: values.weight,
+      weightUnit: values.weightUnit,
+    },
+  })
+}
+
+// EDIT (step 3b-1b): change the prescription of one exercise — only the
+// fields given, null = cleared (the per-field editors send one field, or
+// the weight's pair). The backend records what changed, from → to, in ONE
+// audit entry (3b-0), and refuses a removed (retired) exercise (409).
+export function updateProgramExercise(
+  id: number,
+  exerciseRowId: number,
+  changes: PrescriptionChanges,
+) {
+  return apiRequest<AssignedProgramDetail>(
+    `/assigned-programs/${id}/exercises/${exerciseRowId}`,
+    { method: 'PATCH', body: changes },
+  )
 }
 
 // REMOVE: deleted when no session used it, RETIRED otherwise (kept for those

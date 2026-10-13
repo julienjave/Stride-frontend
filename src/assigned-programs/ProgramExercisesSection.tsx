@@ -3,6 +3,7 @@ import { ShowHiddenToggle } from '@/common/ShowHiddenToggle'
 import { formatMomentDate } from '@/common/formatMomentDate'
 import { WorkoutHeader } from '@/workouts/WorkoutHeader'
 import { WorkoutListEditor } from '@/workouts/WorkoutListEditor'
+import { AddWorkoutExerciseCard } from '@/workouts/AddWorkoutExerciseCard'
 import { groupExercisesByWorkout, type WorkoutGroup } from '@/workouts/workoutGroups'
 import { ProgramPageSection } from './ProgramPageSection'
 import { ProgramExerciseItem, SortableProgramExerciseCard } from './ProgramExerciseCard'
@@ -17,7 +18,8 @@ import type { AssignedProgramDetail, AssignedProgramExercise, ProgramWorkout } f
 
 type Group = WorkoutGroup<ProgramWorkout, AssignedProgramExercise>
 
-// The program's exercises (step 3a-2 read-only; step 3b-1 tailoring).
+// The program's exercises (step 3a-2 read-only; step 3b-1 tailoring — 3b-1a
+// reorganising and removing, 3b-1b adding and the exercise's own page).
 //   - An OPEN program: the editor — the template page's own list
 //     (WorkoutListEditor, src/workouts/), with the program's card, its
 //     removal dialog and its delete rule.
@@ -107,13 +109,16 @@ function ProgramExerciseEditor({
           />
         )
       }}
-      // Adding exercises to a program comes with its add page (step 3b-1b).
-      // Until then an empty workout says so, where its Add card will go.
-      renderAddCard={(group) =>
-        group.exercises.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No exercises in this workout.</p>
-        ) : null
-      }
+      // The template's Add card (src/workouts/), pointing at the program's
+      // add page (3b-1b). With several workouts it names its own, in the
+      // address (`?workoutId=`) and in its accessible name.
+      renderAddCard={(group, several) => (
+        <AddWorkoutExerciseCard
+          resourcePath={`/practitioner/programs/assigned/${program.id}`}
+          workoutId={several ? group.workout.id : undefined}
+          workoutLabel={several ? group.label : undefined}
+        />
+      )}
       canDeleteWorkout={(group) => canDeleteProgramWorkout(stateOf(group))}
       workoutNote={(group) => programWorkoutNote(stateOf(group))}
       deleteHint="To delete a workout, move or remove its exercises first. A workout the schedule uses — now, planned or in its history — can't be deleted."
