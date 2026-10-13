@@ -247,6 +247,22 @@ export type CreateAssignedProgramInput = (
   schedule: NewProgramSchedule
 }
 
+// --- CHANGING ITS SCHEDULE (POST /assigned-programs/:id/schedules) ------------
+
+// A later schedule version: "from effectiveFrom on, the schedule is …". The
+// program exists, so workouts are named by the PROGRAM's own ids (not
+// positions, as when assigning). A version starting on that day or later
+// is REPLACED (the backend's rule — decisions §5, point 5). A union again:
+// each kind carries only its own fields, as the backend requires (it
+// refuses another kind's fields with a 400).
+export type ScheduleVersionInput = { effectiveFrom: string } & (
+  | { type: 'weekdays'; days: { weekday: number; workoutId: number }[] }
+  // rotation omitted = every workout in order (the backend's default).
+  | { type: 'times_per_week'; timesPerWeek: number; rotation?: number[] }
+  // Nothing is due from that day until a later version resumes it.
+  | { type: 'paused' }
+)
+
 // --- CLOSING IT (POST …/cancel, …/complete; GET …/closing) --------------------
 
 // What cancelling or completing does (or WOULD do — the preview). Archived =

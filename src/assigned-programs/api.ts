@@ -6,6 +6,7 @@ import type {
   CloseResult,
   CreateAssignedProgramInput,
   ScheduleSummary,
+  ScheduleVersionInput,
   UpdateAssignedProgramInput,
 } from './types'
 
@@ -87,6 +88,16 @@ export function closeAssignedProgram(id: number, action: 'cancel' | 'complete', 
 export function updateAssignedProgram(id: number, input: UpdateAssignedProgramInput) {
   return apiRequest<AssignedProgramDetail>(`/assigned-programs/${id}`, {
     method: 'PATCH',
+    body: input,
+  })
+}
+
+// POST /assigned-programs/:id/schedules — a new schedule version (a change,
+// a pause or a resume). Answers with the full program, every version
+// included.
+export function addScheduleVersion(id: number, input: ScheduleVersionInput) {
+  return apiRequest<AssignedProgramDetail>(`/assigned-programs/${id}/schedules`, {
+    method: 'POST',
     body: input,
   })
 }

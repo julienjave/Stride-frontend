@@ -28,15 +28,13 @@ import {
   type AssignFormValues,
   type EndMode,
 } from './assignForm'
-import { describeSchedule } from './describeSchedule'
+import { describeDraft } from './describeSchedule'
 import { nextMonday, programWeekRange } from './programDates'
 import { ScheduleFields, type ScheduleWorkoutOption } from './ScheduleFields'
 import {
   draftFromVersion,
   emptyScheduleDraft,
   forgetWorkoutChoices,
-  resolveDays,
-  resolveRotation,
   type ScheduleDraft,
 } from './scheduleDraft'
 import type { AssignedProgramDetail } from './types'
@@ -304,20 +302,12 @@ function AssignProgramForm({
   const endPreview = plannedEndDate({ startDate, endMode, durationWeeks, endDate })
   const summary = source && !problem ? scheduleSummary() : null
 
-  // The schedule in words, from exactly what will be sent — so a
-  // practitioner can check "Mon A · Wed B · Fri A" before saving.
+  // The schedule in words, from exactly what will be sent (describeDraft).
   function scheduleSummary(): string | null {
-    const refs = workoutOptions.map((option) => option.ref)
-    if (schedule.type === 'weekdays' && schedule.days.length === 0) return null
-    return describeSchedule(
-      {
-        type: schedule.type,
-        days: resolveDays(schedule.days, refs),
-        timesPerWeek: schedule.timesPerWeek,
-        rotation: resolveRotation(schedule, refs),
-      },
-      // One workout: don't name it ("Mon · Wed · Fri").
-      refs.length > 1 ? workoutLetter : null,
+    return describeDraft(
+      schedule,
+      workoutOptions.map((option) => option.ref),
+      workoutLetter,
       isCalendarDate(startDate) ? startDate : undefined,
     )
   }

@@ -1,5 +1,5 @@
 import { isoWeekday } from '@/common/calendarDate'
-import { weekdayName } from './scheduleDraft'
+import { resolveDays, resolveRotation, weekdayName, type ScheduleDraft } from './scheduleDraft'
 
 // A schedule in words — "Mon A · Wed B · Fri A", "3× a week · weeks start
 // Thursday · A → B", "Paused". One function for every place that shows a
@@ -50,4 +50,32 @@ export function describeSchedule(
   // A rotation is worth showing only when there are workouts to name.
   if (labelOf) parts.push(schedule.rotation.map(labelOf).join(' → '))
   return parts.join(' · ')
+}
+
+// A DRAFT in words, from exactly what saving it will send — so the
+// practitioner can check "Mon A · Wed B · Fri A" before saving: days whose
+// workout was left to the suggestion show the suggested one, an unedited
+// rotation shows the suggested order. Shared by the assign form and the
+// program page's "Change schedule", so a draft is worded one way only.
+//
+// `refs` are the available workout references in order (positions when
+// assigning, ids on a program). null while there's nothing to describe
+// (specific days, none ticked yet). One workout: none named.
+export function describeDraft(
+  draft: ScheduleDraft,
+  refs: readonly number[],
+  letterOf: (ref: number) => string,
+  weekStart?: string,
+): string | null {
+  if (draft.type === 'weekdays' && draft.days.length === 0) return null
+  return describeSchedule(
+    {
+      type: draft.type,
+      days: resolveDays(draft.days, refs),
+      timesPerWeek: draft.timesPerWeek,
+      rotation: resolveRotation(draft, refs),
+    },
+    refs.length > 1 ? letterOf : null,
+    weekStart,
+  )
 }

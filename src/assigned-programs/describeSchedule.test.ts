@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { describeSchedule, type ScheduleToDescribe } from './describeSchedule'
+import { describeDraft, describeSchedule, type ScheduleToDescribe } from './describeSchedule'
+import { emptyScheduleDraft } from './scheduleDraft'
 
 // Workout references 0 and 1 named by their letters; `none` for a
 // one-workout program, which names no workout at all.
@@ -52,5 +53,40 @@ describe('describeSchedule — paused', () => {
     expect(
       describeSchedule({ type: 'paused', days: [], timesPerWeek: null, rotation: [] }, letters),
     ).toBe('Paused')
+  })
+})
+
+describe('describeDraft', () => {
+  // Program workout ids, as on the program page.
+  const refs = [57, 58]
+  const letterOf = (ref: number) => ({ 57: 'A', 58: 'B' })[ref] ?? '?'
+
+  it('words what will be sent: a day left to the suggestion shows the suggested workout', () => {
+    const draft = {
+      ...emptyScheduleDraft(),
+      days: [
+        { weekday: 1, workout: null },
+        { weekday: 3, workout: 57 },
+        { weekday: 5, workout: null },
+      ],
+    }
+    expect(describeDraft(draft, refs, letterOf)).toBe('Mon A · Wed A · Fri B')
+  })
+
+  it('shows the suggested order for an unedited rotation, and the program weeks', () => {
+    const draft = { ...emptyScheduleDraft(), type: 'times_per_week' as const, timesPerWeek: 2 }
+    // 2031-06-03 is a Tuesday.
+    expect(describeDraft(draft, refs, letterOf, '2031-06-03')).toBe(
+      '2× a week · weeks start Tuesday · A → B',
+    )
+  })
+
+  it('names no workout when there is only one', () => {
+    const draft = { ...emptyScheduleDraft(), days: [{ weekday: 2, workout: null }] }
+    expect(describeDraft(draft, [57], letterOf)).toBe('Tue')
+  })
+
+  it('is nothing while no day is ticked', () => {
+    expect(describeDraft(emptyScheduleDraft(), refs, letterOf)).toBeNull()
   })
 })
