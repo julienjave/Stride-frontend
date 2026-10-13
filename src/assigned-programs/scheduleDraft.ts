@@ -1,5 +1,5 @@
-// The schedule being edited — in the assign form today, in the program
-// page's "Change schedule" next (3a-2) — and the pure rules that change it.
+// The schedule being edited — in the assign form, and in the program page's
+// "Change schedule" / "Resume" (3a-2) — and the pure rules that change it.
 // The component (ScheduleFields) only calls these; the tests check them
 // with plain values.
 //

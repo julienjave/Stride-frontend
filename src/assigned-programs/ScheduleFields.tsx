@@ -18,8 +18,8 @@ import {
 } from './scheduleDraft'
 
 // The schedule editor: "Specific days" (a workout per ticked day) or "N
-// times a week" (with a rotation). Used by the assign form today, by the
-// program page's "Change schedule" next (3a-2).
+// times a week" (with a rotation). Used by the assign form and by the
+// program page's "Change schedule" / "Resume" (ScheduleChangeForm, 3a-2).
 //
 // CONTROLLED: it holds no state of its own. The draft comes in as `value`,
 // every change goes out through `onChange` as a NEW draft built by a pure

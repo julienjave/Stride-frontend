@@ -14,11 +14,11 @@ import { useAssignedProgramSummary } from './useAssignedProgramSummary'
 import { usePatientAssignedPrograms } from './usePatientAssignedPrograms'
 
 // The program page (/practitioner/programs/assigned/:id) — step 3a-2,
-// planned 2026-10-12 (decisions §5). Top to bottom: who and what (header),
-// the schedule and how it has gone (Schedule & progress), and the
-// exercises. This first part is read-only; the actions (change the
-// schedule, pause, complete, cancel, assign again, swaps) come next, and
-// tailoring the exercises is step 3b.
+// built 2026-10-12/13 (decisions §5). Top to bottom: who and what (header,
+// with Complete / Cancel, or "Assign again" once closed), the schedule and
+// how it has gone (Schedule & progress — with Change schedule / Pause /
+// Resume and the "rearrange the week" switch), and the exercises, still
+// read-only: tailoring them is step 3b.
 export function AssignedProgramDetailPage() {
   const { id } = useParams<{ id: string }>()
   const programId = Number(id)

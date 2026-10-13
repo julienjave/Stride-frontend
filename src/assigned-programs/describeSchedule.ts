@@ -3,8 +3,9 @@ import { resolveDays, resolveRotation, weekdayName, type ScheduleDraft } from '.
 
 // A schedule in words — "Mon A · Wed B · Fri A", "3× a week · weeks start
 // Thursday · A → B", "Paused". One function for every place that shows a
-// schedule (the assign form's summary now; the program page and its
-// planned changes in 3a-2), so they can never word it differently.
+// schedule (the assign form's summary, the program page's schedule and its
+// planned changes, the editor's "New schedule:"), so they can never word
+// it differently.
 //
 // It takes a plain shape rather than the API's types, because the form
 // describes a DRAFT (workouts by position) and the program page a stored
