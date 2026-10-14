@@ -1,41 +1,41 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ApiError } from '@/api/client'
 import { EditableExerciseListField } from './EditableExerciseListField'
-import { exerciseQueryKey } from './api'
+import { EXERCISE_LIST_RULES } from './descriptionRules'
 
-const fetchMock = vi.fn<typeof fetch>()
-vi.stubGlobal('fetch', fetchMock)
-
-beforeEach(() => {
-  fetchMock.mockReset()
-})
+// The field no longer sends requests (step D-3): it is given a `save`, and
+// its job is to ask for the right list — trimmed, once, with exactly one
+// argument — or to say why it won't. The requests themselves are each
+// page's, tested there (ExerciseDetailPage, AssignedProgramExercisePage).
 
 function renderField(
-  props: Partial<
-    React.ComponentProps<typeof EditableExerciseListField>
-  > = {},
-  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+  props: Partial<React.ComponentProps<typeof EditableExerciseListField>> = {},
 ) {
-  const utils = render(
+  const save = vi.fn<(changes: object) => Promise<unknown>>(() =>
+    Promise.resolve(),
+  )
+  const queryClient = new QueryClient({
+    defaultOptions: { mutations: { retry: false } },
+  })
+  render(
     <QueryClientProvider client={queryClient}>
       <EditableExerciseListField
-        exerciseId={1}
+        save={save}
         fieldKey="primaryMuscles"
-        label="Primary Muscles"
-        addButtonLabel="Add primary muscle"
         values={['shoulders']}
         canEdit
-        itemMaxLength={100}
-        minCount={1}
-        maxCount={20}
-        itemLabel="primary muscle"
+        // The rules of the list under test — spread whole, so an optional
+        // list never inherits another list's minCount.
+        {...EXERCISE_LIST_RULES[props.fieldKey ?? 'primaryMuscles']}
         {...props}
       />
     </QueryClientProvider>,
   )
-  return { ...utils, queryClient }
+  // The default mock; a test that passes its own `save` keeps its own reference.
+  return { save, user: userEvent.setup() }
 }
 
 describe('EditableExerciseListField — display mode', () => {
@@ -45,6 +45,19 @@ describe('EditableExerciseListField — display mode', () => {
     expect(
       screen.getByRole('button', { name: 'Edit Primary Muscles' }),
     ).toBeInTheDocument()
+  })
+
+  // Steps are read in order: a numbered list, one item per step.
+  it('shows a multi-line field as a numbered list', () => {
+    renderField({
+      fieldKey: 'instructions',
+      values: ['Lie on your back', 'Lift your hips'],
+    })
+    const items = within(screen.getByRole('list')).getAllByRole('listitem')
+    expect(items.map((item) => item.textContent)).toStrictEqual([
+      'Lie on your back',
+      'Lift your hips',
+    ])
   })
 
   it('shows "None" for an empty array', () => {
@@ -62,8 +75,7 @@ describe('EditableExerciseListField — display mode', () => {
 
 describe('EditableExerciseListField — editing', () => {
   it('adds a new row and removes a specific one', async () => {
-    const user = userEvent.setup()
-    renderField({ values: ['shoulders', 'traps'] })
+    const { user } = renderField({ values: ['shoulders', 'traps'] })
     await user.click(screen.getByRole('button', { name: 'Edit Primary Muscles' }))
 
     await user.click(
@@ -78,9 +90,8 @@ describe('EditableExerciseListField — editing', () => {
     expect(screen.getByLabelText('Primary Muscles 1')).toHaveValue('traps')
   })
 
-  it('Cancel discards every change and never calls the API', async () => {
-    const user = userEvent.setup()
-    renderField({ values: ['shoulders'] })
+  it('Cancel discards every change and saves nothing', async () => {
+    const { save, user } = renderField({ values: ['shoulders'] })
     await user.click(screen.getByRole('button', { name: 'Edit Primary Muscles' }))
     await user.click(
       screen.getByRole('button', { name: '+ Add primary muscle' }),
@@ -91,12 +102,11 @@ describe('EditableExerciseListField — editing', () => {
     )
 
     expect(screen.getByText('shoulders')).toBeInTheDocument()
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(save).not.toHaveBeenCalled()
   })
 
-  it('rejects removing the only entry from a required field, without calling the API', async () => {
-    const user = userEvent.setup()
-    renderField({ values: ['shoulders'], minCount: 1 })
+  it('refuses removing the only entry of a required list, and saves nothing', async () => {
+    const { save, user } = renderField({ values: ['shoulders'] })
     await user.click(screen.getByRole('button', { name: 'Edit Primary Muscles' }))
     await user.click(
       screen.getByRole('button', { name: 'Delete Primary Muscles 1' }),
@@ -108,14 +118,16 @@ describe('EditableExerciseListField — editing', () => {
     expect(
       await screen.findByText('At least one primary muscle is required'),
     ).toBeInTheDocument()
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(save).not.toHaveBeenCalled()
   })
 
-  it('rejects an entry left blank, without calling the API', async () => {
-    const user = userEvent.setup()
-    renderField({ values: ['shoulders'] })
+  // An entry of spaces is blank: the field trims before checking (the
+  // backend refuses it too since D-1).
+  it.each([[''], ['   ']])('refuses an entry left blank (%j), and saves nothing', async (text) => {
+    const { save, user } = renderField({ values: ['shoulders'] })
     await user.click(screen.getByRole('button', { name: 'Edit Primary Muscles' }))
     await user.clear(screen.getByLabelText('Primary Muscles 1'))
+    if (text) await user.type(screen.getByLabelText('Primary Muscles 1'), text)
     await user.click(
       screen.getByRole('button', { name: 'Save Primary Muscles' }),
     )
@@ -123,92 +135,73 @@ describe('EditableExerciseListField — editing', () => {
     expect(
       await screen.findByText('This field cannot be empty'),
     ).toBeInTheDocument()
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(save).not.toHaveBeenCalled()
   })
 
-  it('saves valid changes under the correct field key, updating the cache and leaving edit mode', async () => {
-    fetchMock.mockResolvedValue(
-      new Response(
-        JSON.stringify({ id: 1, primaryMuscles: ['shoulders', 'traps'] }),
-        { status: 200 },
-      ),
-    )
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    })
-    queryClient.setQueryData(exerciseQueryKey(1), {
-      id: 1,
-      primaryMuscles: ['shoulders'],
-    })
-
-    const user = userEvent.setup()
-    renderField({ values: ['shoulders'] }, queryClient)
+  // The whole list, each entry trimmed, under the field's API key — exactly
+  // one argument (never the mutation library's context).
+  it('asks to save the trimmed list, and leaves edit mode once saved', async () => {
+    const { save, user } = renderField({ values: ['shoulders'] })
     await user.click(screen.getByRole('button', { name: 'Edit Primary Muscles' }))
     await user.click(
       screen.getByRole('button', { name: '+ Add primary muscle' }),
     )
-    await user.type(screen.getByLabelText('Primary Muscles 2'), 'traps')
+    await user.type(screen.getByLabelText('Primary Muscles 2'), '  traps ')
     await user.click(
       screen.getByRole('button', { name: 'Save Primary Muscles' }),
     )
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('/exercises/1'),
-        expect.objectContaining({
-          method: 'PATCH',
-          body: JSON.stringify({ primaryMuscles: ['shoulders', 'traps'] }),
-        }),
-      ),
-    )
-    // Back to display mode — same reasoning as EditableExerciseTitle's
-    // own equivalent test: `values` is a static prop in this isolated
-    // test, so the DISPLAYED text staying as the old value here doesn't
-    // mean the real app is wrong. ExerciseDetailPage.test.tsx's own
-    // integration test covers the full wired-together behavior instead.
     expect(
       await screen.findByRole('button', { name: 'Edit Primary Muscles' }),
     ).toBeInTheDocument()
-    expect(queryClient.getQueryData(exerciseQueryKey(1))).toEqual({
-      id: 1,
-      primaryMuscles: ['shoulders', 'traps'],
-    })
+    expect(save.mock.calls).toStrictEqual([
+      [{ primaryMuscles: ['shoulders', 'traps'] }],
+    ])
   })
 
-  it('shows the API error message on a failed save', async () => {
-    fetchMock.mockResolvedValue(
-      new Response(
-        JSON.stringify({ statusCode: 500, message: ['Internal server error'] }),
-        { status: 500 },
+  it('shows why saving failed, and stays in edit mode', async () => {
+    const save = vi.fn(() =>
+      Promise.reject(
+        new ApiError({
+          statusCode: 400,
+          message: ["A primary muscle can't be blank"],
+          error: 'Bad Request',
+          timestamp: '2031-06-20T10:00:00Z',
+          path: '/x',
+        }),
       ),
     )
-    const user = userEvent.setup()
-    renderField({ values: ['shoulders'] })
+    const { user } = renderField({ values: ['shoulders'], save })
     await user.click(screen.getByRole('button', { name: 'Edit Primary Muscles' }))
     await user.click(
       screen.getByRole('button', { name: 'Save Primary Muscles' }),
     )
 
     expect(
-      await screen.findByText('Internal server error'),
+      await screen.findByText("A primary muscle can't be blank"),
     ).toBeInTheDocument()
+    expect(screen.getByLabelText('Primary Muscles 1')).toHaveValue('shoulders')
+  })
+
+  it("says something went wrong when the failure isn't the backend's", async () => {
+    const save = vi.fn(() => Promise.reject(new TypeError('Failed to fetch')))
+    const { user } = renderField({ save })
+    await user.click(screen.getByRole('button', { name: 'Edit Primary Muscles' }))
+    await user.click(
+      screen.getByRole('button', { name: 'Save Primary Muscles' }),
+    )
+
+    expect(await screen.findByText('Something went wrong')).toBeInTheDocument()
   })
 })
 
-describe('EditableExerciseListField — an optional field with no minimum', () => {
-  it('accepts saving down to zero entries', async () => {
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ id: 1, secondaryMuscles: [] }), {
-        status: 200,
-      }),
-    )
-    const user = userEvent.setup()
-    renderField({
+describe('EditableExerciseListField — an optional list', () => {
+  // "None" is an empty list — what the backend expects for these two lists
+  // (it refuses null since D-1).
+  it('saves down to zero entries, as []', async () => {
+    const { save, user } = renderField({
       fieldKey: 'secondaryMuscles',
-      label: 'Secondary Muscles',
       values: ['core'],
-      minCount: undefined,
-      itemLabel: 'secondary muscle',
     })
     await user.click(
       screen.getByRole('button', { name: 'Edit Secondary Muscles' }),
@@ -220,13 +213,9 @@ describe('EditableExerciseListField — an optional field with no minimum', () =
       screen.getByRole('button', { name: 'Save Secondary Muscles' }),
     )
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('/exercises/1'),
-        expect.objectContaining({
-          body: JSON.stringify({ secondaryMuscles: [] }),
-        }),
-      ),
-    )
+    expect(
+      await screen.findByRole('button', { name: 'Edit Secondary Muscles' }),
+    ).toBeInTheDocument()
+    expect(save.mock.calls).toStrictEqual([[{ secondaryMuscles: [] }]])
   })
 })

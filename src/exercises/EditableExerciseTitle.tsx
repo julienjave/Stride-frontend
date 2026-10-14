@@ -1,52 +1,65 @@
 import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { Check, Pencil, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ApiError } from '@/api/client'
-import { updateExercise, exerciseQueryKey } from './api'
+import {
+  EXERCISE_NAME_MAX_LENGTH,
+  type ExerciseDescriptionChanges,
+} from './descriptionRules'
 
 interface EditableExerciseTitleProps {
-  exerciseId: number
   name: string
+  // What saving means — the caller's job, not the field's (step D-3, as the
+  // prescription fields did in 3b-1b): the library's page sends PATCH
+  // /exercises/:id and writes the exercise's cache entry; a program's page
+  // sends PATCH /assigned-programs/:id/exercises/:rowId and writes the
+  // program's. The field only needs to know when that finished, and whether
+  // it failed.
+  save: (changes: ExerciseDescriptionChanges) => Promise<unknown>
   // Same reasoning as ExerciseDetailPage's other editable fields — the
   // pencil icon is only rendered at all when the current user can
   // actually modify this exercise, not just disabled, so there's no
   // confusion about whether editing is possible for a shared/other
   // practitioner's exercise (see the design discussion).
   canEdit: boolean
+  // The library's page has the exercise as its title (h1); a program's page
+  // has the PROGRAM as its title, the exercise below it (h2). Headings say
+  // how a page is organised — screen reader users jump between them.
+  headingLevel?: 1 | 2
 }
 
-// One field, styled as the page's main heading rather than a labeled row
-// like EditableExerciseListField below it — name is the only scalar
-// string field on this page, so this stays a dedicated component rather
+// The two looks, one per level: a page title, or a section heading.
+const HEADING_STYLE = {
+  1: 'text-2xl font-semibold',
+  2: 'text-lg font-medium',
+} as const
+
+// One field, styled as a heading rather than a labeled row like
+// EditableExerciseListField below it — name is the only scalar string
+// field of a description, so this stays a dedicated component rather
 // than a generic "editable text field" built for a case that doesn't
 // exist here.
 export function EditableExerciseTitle({
-  exerciseId,
   name,
+  save,
   canEdit,
+  headingLevel = 1,
 }: EditableExerciseTitleProps) {
-  const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState(name)
   const [validationError, setValidationError] = useState<string | null>(null)
 
+  // One mutation per field: its own pending state and error. onSuccess in
+  // the mutation's OPTIONS, which runs even if the field unmounted
+  // meanwhile (EditableField's reasoning). The mutationFn passes `save`
+  // exactly ONE argument: TanStack Query v5 calls a mutationFn with a
+  // second, context argument, which must not leak into the caller's `save`
+  // (found in EditableField, 3b-2).
   const updateMutation = useMutation({
-    mutationFn: (newName: string) =>
-      updateExercise(exerciseId, { name: newName }),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(exerciseQueryKey(exerciseId), updated)
-      // The library's list cards also show the name — same "write the
-      // detail cache directly, invalidate the list" split every other
-      // editable field in this codebase already uses (useSaveClinic
-      // has the identical reasoning, including why 'exercises-list' is a
-      // safe prefix match: it's a distinct top-level key from
-      // exerciseQueryKey(id), so this can never also invalidate the
-      // entry setQueryData just wrote).
-      void queryClient.invalidateQueries({ queryKey: ['exercises-list'] })
-      setIsEditing(false)
-    },
+    mutationFn: (newName: string) => save({ name: newName }),
+    onSuccess: () => setIsEditing(false),
   })
 
   function startEditing() {
@@ -61,22 +74,30 @@ export function EditableExerciseTitle({
   }
 
   function confirm() {
+    // Trimmed before checking AND before sending: "   " is no name (the
+    // backend refuses it too, "The exercise's name can't be blank"), and
+    // spaces around a real name are only noise.
     const trimmed = draft.trim()
     if (trimmed.length === 0) {
       setValidationError('Name is required')
       return
     }
-    if (trimmed.length > 200) {
-      setValidationError('Name must be 200 characters or fewer')
+    if (trimmed.length > EXERCISE_NAME_MAX_LENGTH) {
+      setValidationError(
+        `Name must be ${EXERCISE_NAME_MAX_LENGTH} characters or fewer`,
+      )
       return
     }
     updateMutation.mutate(trimmed)
   }
 
+  // A component chosen at render time: 'h1' or 'h2' as a JSX tag.
+  const Heading = headingLevel === 1 ? 'h1' : 'h2'
+
   if (!isEditing) {
     return (
       <div className="flex items-start gap-2">
-        <h1 className="text-2xl font-semibold">{name}</h1>
+        <Heading className={HEADING_STYLE[headingLevel]}>{name}</Heading>
         {canEdit && (
           <Button
             type="button"
@@ -105,7 +126,7 @@ export function EditableExerciseTitle({
           aria-label="Exercise name"
           aria-invalid={!!validationError}
           disabled={updateMutation.isPending}
-          className="text-2xl font-semibold"
+          className={HEADING_STYLE[headingLevel]}
         />
         <Button
           type="button"

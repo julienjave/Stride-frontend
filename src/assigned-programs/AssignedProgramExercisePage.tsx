@@ -2,30 +2,39 @@ import { Link, useParams, useSearchParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { ApiError } from '@/api/client'
-import type { PrescriptionChanges } from '@/common/PrescriptionSummary'
+import { EditableExerciseListField } from '@/exercises/EditableExerciseListField'
+import { EditableExerciseTitle } from '@/exercises/EditableExerciseTitle'
+import { EXERCISE_LIST_RULES } from '@/exercises/descriptionRules'
 import { localPath } from '@/exercises/pickerReturnHref'
 import { EditableNumberField } from '@/programs/EditableNumberField'
 import { EditableWeightField } from '@/programs/EditableWeightField'
 import { EditableNotesField } from '@/programs/EditableNotesField'
-import { assignedProgramQueryKey, updateProgramExercise } from './api'
+import {
+  assignedProgramQueryKey,
+  updateProgramExercise,
+  type ProgramExerciseChanges,
+} from './api'
 import { isProgramOpen } from './permissions'
 import { useAssignedProgram } from './useAssignedProgram'
 import type { AssignedProgramExercise } from './types'
 
-// One exercise of a patient's program, and its prescription — editable
-// while the program is open (step 3b-1b):
+// One exercise of a patient's program — its description (step D-3) and its
+// prescription (step 3b-1b), editable while the program is open:
 // `/practitioner/programs/assigned/:id/exercises/:rowId`, reached by
 // clicking an exercise card on the program page (`?returnTo=` that page).
 //
 // The template's exercise page (ProgramExercisePage) has the same shape,
 // and the same per-field editors — given a `save` that PATCHes the PROGRAM
 // here. Two differences, both because a program keeps its own COPY:
-//   - the description shown (name, muscles, equipment, instructions) is the
+//   - the description (name, muscles, equipment, instructions) is the
 //     program's copy, made when it was assigned — not the library's
-//     current version, which a template shows. (Photos aren't copied yet,
-//     so there are none here — deferred-improvements.md.)
-//   - each session keeps a copy of the prescription it was given (3b-0), so
-//     a change applies to NEW sessions only; the page says so.
+//     current version, which a template shows (read-only there). Here it is
+//     EDITABLE, for this patient only (step D-3), with the library page's
+//     own fields given this page's `save`. (Photos aren't copied yet, so
+//     there are none here — deferred-improvements.md.)
+//   - each session keeps a copy of what it was given — the prescription
+//     (3b-0) and the description (D-2) — so a change applies to NEW
+//     sessions only; the page says so.
 //
 // No Remove here: removing has its dialog on the program page, where the
 // workout and the schedule it may empty are in view (3b-1a).
@@ -62,10 +71,11 @@ function ProgramExerciseView({
 
   const { data: program, isLoading, error } = useAssignedProgram(programId)
 
-  // What saving one field means here: PATCH the program's exercise, then
-  // put the program the server answers with into its cache entry — this
-  // page and the program page both read it, so both show the new value.
-  async function save(changes: PrescriptionChanges) {
+  // What saving one field means here — for the prescription's fields and the
+  // description's alike: PATCH the program's exercise, then put the program
+  // the server answers with into its cache entry — this page and the program
+  // page both read it, so both show the new value.
+  async function save(changes: ProgramExerciseChanges) {
     const updated = await updateProgramExercise(programId, exerciseRowId, changes)
     queryClient.setQueryData(assignedProgramQueryKey(programId), updated)
   }
@@ -121,7 +131,12 @@ function ProgramExerciseView({
         </p>
       </div>
 
-      <ProgramExerciseDescription exercise={exercise} libraryHref={libraryHref} />
+      <ProgramExerciseDescription
+        exercise={exercise}
+        libraryHref={libraryHref}
+        save={save}
+        canEdit={canEdit}
+      />
 
       <div className="space-y-2">
         <div className="divide-y divide-border rounded-lg border px-4">
@@ -172,46 +187,61 @@ function ProgramExerciseView({
   )
 }
 
-// The program's own copy of the exercise's description, read-only here.
-// Each list says "None" when empty, as the template's page does.
+// The program's own copy of the exercise's description (step D-3): the
+// library page's fields — EditableExerciseTitle and EditableExerciseListField,
+// with the same rules (EXERCISE_LIST_RULES) — given THIS page's `save`, so
+// what they change is this patient's copy, never the library's exercise.
+// Read-only (no pencils) on a closed program: `canEdit`.
 function ProgramExerciseDescription({
   exercise,
   libraryHref,
+  save,
+  canEdit,
 }: {
   exercise: AssignedProgramExercise
   libraryHref: string
+  save: (changes: ProgramExerciseChanges) => Promise<unknown>
+  canEdit: boolean
 }) {
-  const lists = [
-    ['Primary Muscles', exercise.primaryMuscles],
-    ['Secondary Muscles', exercise.secondaryMuscles],
-    ['Equipment', exercise.equipment],
-  ] as const
-
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="text-lg font-medium">{exercise.name}</h2>
-        <Button asChild variant="outline" size="sm">
+    <div className="space-y-2">
+      <div className="flex items-start justify-between gap-4">
+        {/* An h2: the PROGRAM is this page's title (h1). */}
+        <EditableExerciseTitle
+          headingLevel={2}
+          name={exercise.name}
+          save={save}
+          canEdit={canEdit}
+        />
+        <Button asChild variant="outline" size="sm" className="shrink-0">
           <Link to={libraryHref}>Find it in Library</Link>
         </Button>
       </div>
-      <div className="space-y-3">
-        {lists.map(([label, items]) => (
-          <div key={label}>
-            <p className="text-sm text-muted-foreground">{label}</p>
-            <p className="text-sm">{items.length > 0 ? items.join(', ') : 'None'}</p>
-          </div>
-        ))}
+      <div className="divide-y divide-border rounded-lg border px-4">
+        {(['primaryMuscles', 'secondaryMuscles', 'equipment', 'instructions'] as const).map(
+          (fieldKey) => (
+            <EditableExerciseListField
+              key={fieldKey}
+              save={save}
+              fieldKey={fieldKey}
+              values={exercise[fieldKey]}
+              canEdit={canEdit}
+              {...EXERCISE_LIST_RULES[fieldKey]}
+            />
+          ),
+        )}
       </div>
-      {exercise.instructions.length > 0 && (
-        <div>
-          <p className="text-sm text-muted-foreground">Instructions</p>
-          <ol className="list-decimal space-y-1 pl-5 text-sm">
-            {exercise.instructions.map((step, index) => (
-              <li key={index}>{step}</li>
-            ))}
-          </ol>
-        </div>
+      {/* Whose copy this is — the question a practitioner rewriting a step
+          for one patient will have: not the library, not other programs,
+          and not the sessions already done (they keep their own copy, D-2).
+          Nothing on a closed program: the prescription's note below says
+          it can no longer change. */}
+      {canEdit && (
+        <p className="text-xs text-muted-foreground">
+          This description is this program's own copy: changing it doesn't change the
+          exercise in the library or in other programs. Sessions already done keep
+          the description they were given.
+        </p>
       )}
     </div>
   )

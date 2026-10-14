@@ -1,6 +1,11 @@
 import { useParams, useSearchParams, Link } from 'react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { Button } from '@/components/ui/button'
+import { exerciseQueryKey, updateExercise } from './api'
+import type { UpdateExercisePayload } from './api'
+import { EXERCISE_LIST_RULES } from './descriptionRules'
+import { localPath } from './pickerReturnHref'
 import { useExercise } from './useExercise'
 import { canModifyExercise } from './permissions'
 import { EditableExerciseTitle } from './EditableExerciseTitle'
@@ -28,13 +33,30 @@ function ExerciseDetailView({ exerciseId }: { exerciseId: number }) {
   // RequireRole's own identical defensive reasoning for why checking
   // anyway costs nothing.
   const { data: currentUser } = useCurrentUser()
+  const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
   // Backward-compatible: the normal Library-browse-then-view flow never
-  // sets this, so it stays undefined there and the button below keeps
+  // sets this, so it stays null there and the button below keeps
   // its exact original behavior and wording. Only set when something
-  // links here with a specific place to return to — currently
-  // ProgramExercisePage's own "Find it in Library" link.
-  const returnTo = searchParams.get('returnTo')
+  // links here with a specific place to return to — the exercise pages'
+  // "Find it in Library" links. It comes from the address bar, so it is
+  // kept a path on THIS site (localPath): `returnTo=https://elsewhere…`
+  // would otherwise make Back an open redirect (deferred-improvements.md,
+  // closed in step D-3, the next change to this page).
+  const rawReturnTo = searchParams.get('returnTo')
+  const returnTo = rawReturnTo === null ? null : localPath(rawReturnTo)
+
+  // What saving one field of the description means HERE (the fields take a
+  // `save` since step D-3; a program's page passes its own): PATCH the
+  // exercise, put the answer in its cache entry — this page reads it, so it
+  // shows the new value — and mark the library's lists stale: their cards
+  // show the name and muscles too. (`exercises-list` is its own top-level
+  // key, so this can't also invalidate the entry just written.)
+  async function save(changes: UpdateExercisePayload) {
+    const updated = await updateExercise(exerciseId, changes)
+    queryClient.setQueryData(exerciseQueryKey(exerciseId), updated)
+    void queryClient.invalidateQueries({ queryKey: ['exercises-list'] })
+  }
 
   if (isLoading) {
     return (
@@ -57,7 +79,7 @@ function ExerciseDetailView({ exerciseId }: { exerciseId: number }) {
   return (
     <div className="mx-auto mt-8 max-w-2xl space-y-4 px-4">
       <EditableExerciseTitle
-        exerciseId={exerciseId}
+        save={save}
         name={exercise.name}
         canEdit={canEdit}
       />
@@ -74,40 +96,18 @@ function ExerciseDetailView({ exerciseId }: { exerciseId: number }) {
       )}
 
       <div className="divide-y divide-border rounded-lg border px-4">
-        <EditableExerciseListField
-          exerciseId={exerciseId}
-          fieldKey="primaryMuscles"
-          label="Primary Muscles"
-          addButtonLabel="Add primary muscle"
-          values={exercise.primaryMuscles}
-          canEdit={canEdit}
-          itemMaxLength={100}
-          minCount={1}
-          maxCount={20}
-          itemLabel="primary muscle"
-        />
-        <EditableExerciseListField
-          exerciseId={exerciseId}
-          fieldKey="secondaryMuscles"
-          label="Secondary Muscles"
-          addButtonLabel="Add secondary muscle"
-          values={exercise.secondaryMuscles}
-          canEdit={canEdit}
-          itemMaxLength={100}
-          maxCount={20}
-          itemLabel="secondary muscle"
-        />
-        <EditableExerciseListField
-          exerciseId={exerciseId}
-          fieldKey="equipment"
-          label="Equipment"
-          addButtonLabel="Add equipment"
-          values={exercise.equipment}
-          canEdit={canEdit}
-          itemMaxLength={100}
-          maxCount={20}
-          itemLabel="equipment item"
-        />
+        {(['primaryMuscles', 'secondaryMuscles', 'equipment'] as const).map(
+          (fieldKey) => (
+            <EditableExerciseListField
+              key={fieldKey}
+              save={save}
+              fieldKey={fieldKey}
+              values={exercise[fieldKey]}
+              canEdit={canEdit}
+              {...EXERCISE_LIST_RULES[fieldKey]}
+            />
+          ),
+        )}
       </div>
 
       <ExercisePhotosSection
@@ -119,17 +119,11 @@ function ExerciseDetailView({ exerciseId }: { exerciseId: number }) {
 
       <div className="rounded-lg border px-4">
         <EditableExerciseListField
-          exerciseId={exerciseId}
+          save={save}
           fieldKey="instructions"
-          label="Instructions"
-          addButtonLabel="Add a Step"
           values={exercise.instructions}
           canEdit={canEdit}
-          multiline
-          itemMaxLength={500}
-          minCount={1}
-          maxCount={50}
-          itemLabel="instruction"
+          {...EXERCISE_LIST_RULES.instructions}
         />
       </div>
 

@@ -1,5 +1,6 @@
 import { apiRequest } from '@/api/client'
 import type { PrescriptionChanges } from '@/common/PrescriptionSummary'
+import type { ExerciseDescriptionChanges } from '@/exercises/descriptionRules'
 import type { AddTemplateExerciseFormValues } from '@/programs/schemas'
 import type {
   AssignedProgramDetail,
@@ -259,14 +260,20 @@ export function addProgramExercise(
   })
 }
 
-// EDIT (step 3b-1b): change the prescription of one exercise — only the
-// fields given, null = cleared (the per-field editors send one field, or
-// the weight's pair). The backend records what changed, from → to, in ONE
-// audit entry (3b-0), and refuses a removed (retired) exercise (409).
+// What one PATCH of a program's exercise may change: its prescription (step
+// 3b-1b — null = cleared) and, since step D-3, the program's own copy of its
+// description (never null — "none" is [] for the two optional lists; the
+// backend refuses null since D-1).
+export type ProgramExerciseChanges = PrescriptionChanges & ExerciseDescriptionChanges
+
+// EDIT: change one exercise of the program — only the fields given (the
+// per-field editors send one field, or the weight's pair). The backend
+// records what changed, from → to, in ONE audit entry (3b-0; lists compared
+// item by item), and refuses a removed (retired) exercise (409).
 export function updateProgramExercise(
   id: number,
   exerciseRowId: number,
-  changes: PrescriptionChanges,
+  changes: ProgramExerciseChanges,
 ) {
   return apiRequest<AssignedProgramDetail>(
     `/assigned-programs/${id}/exercises/${exerciseRowId}`,

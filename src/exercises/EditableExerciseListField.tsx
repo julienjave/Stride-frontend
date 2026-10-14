@@ -1,16 +1,26 @@
 import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { Check, Pencil, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ApiError } from '@/api/client'
-import { updateExercise, exerciseQueryKey } from './api'
 import { validateStringListField } from './schemas'
-import type { UpdateExercisePayload } from './api'
+import type {
+  ExerciseDescriptionChanges,
+  ExerciseListKey,
+} from './descriptionRules'
 
+// The limits and words (label, addButtonLabel, itemLabel, minCount,
+// maxCount, itemMaxLength, multiline) come from EXERCISE_LIST_RULES
+// (descriptionRules.ts) — pages spread them in: `{...EXERCISE_LIST_RULES.
+// equipment}`. The field itself stays generic: it checks what it's given.
 interface EditableExerciseListFieldProps {
-  exerciseId: number
-  fieldKey: keyof UpdateExercisePayload
+  // What saving means — the caller's job (step D-3; the same `save` as
+  // EditableExerciseTitle's): the library's page PATCHes the exercise, a
+  // program's page PATCHes the program's own copy, and each writes its own
+  // cache entry.
+  save: (changes: ExerciseDescriptionChanges) => Promise<unknown>
+  fieldKey: ExerciseListKey
   label: string
   addButtonLabel: string
   values: string[]
@@ -37,7 +47,7 @@ interface EditableExerciseListFieldProps {
 // coordinate with. The visual row/add/delete shape is intentionally
 // similar; the state management underneath is intentionally different.
 export function EditableExerciseListField({
-  exerciseId,
+  save,
   fieldKey,
   label,
   addButtonLabel,
@@ -49,21 +59,17 @@ export function EditableExerciseListField({
   maxCount,
   itemLabel,
 }: EditableExerciseListFieldProps) {
-  const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState<string[]>(values)
   const [validationError, setValidationError] = useState<string | null>(null)
 
+  // One argument to `save`, never the mutation's own second (context)
+  // argument — EditableExerciseTitle's reasoning. What the cache needs (the
+  // exercise's entry, the library's lists, or the program's entry) is now
+  // the page's `save`'s business.
   const updateMutation = useMutation({
-    mutationFn: (newValues: string[]) =>
-      updateExercise(exerciseId, { [fieldKey]: newValues }),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(exerciseQueryKey(exerciseId), updated)
-      // Muscles show up on the Library's own cards too (ExerciseCard) —
-      // same list-invalidation reasoning as EditableExerciseTitle.
-      void queryClient.invalidateQueries({ queryKey: ['exercises-list'] })
-      setIsEditing(false)
-    },
+    mutationFn: (newValues: string[]) => save({ [fieldKey]: newValues }),
+    onSuccess: () => setIsEditing(false),
   })
 
   function startEditing() {
@@ -99,7 +105,12 @@ export function EditableExerciseListField({
   }
 
   function confirm() {
-    const error = validateStringListField(draft, {
+    // Each item trimmed before checking AND before sending (step D-3): a
+    // muscle typed as " traps " is "traps", and an item of spaces is blank —
+    // refused here ("This field cannot be empty") as the backend refuses it
+    // since D-1 ("A primary muscle can't be blank").
+    const cleaned = draft.map((value) => value.trim())
+    const error = validateStringListField(cleaned, {
       itemMaxLength,
       minCount,
       maxCount,
@@ -109,7 +120,7 @@ export function EditableExerciseListField({
       setValidationError(error)
       return
     }
-    updateMutation.mutate(draft)
+    updateMutation.mutate(cleaned)
   }
 
   if (!isEditing) {
@@ -129,7 +140,15 @@ export function EditableExerciseListField({
             </Button>
           )}
         </div>
-        {values.length > 0 ? (
+        {/* Steps are sentences in an order: a numbered list. Muscles and
+            equipment are words: one line, comma-separated. */}
+        {values.length > 0 && multiline ? (
+          <ol className="list-decimal space-y-1 pl-5">
+            {values.map((value, index) => (
+              <li key={index}>{value}</li>
+            ))}
+          </ol>
+        ) : values.length > 0 ? (
           <p>{values.join(', ')}</p>
         ) : (
           <p className="text-muted-foreground italic">None</p>

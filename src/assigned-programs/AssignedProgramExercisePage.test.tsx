@@ -7,9 +7,10 @@ import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import { AssignedProgramExercisePage } from './AssignedProgramExercisePage'
 import type { AssignedProgramDetail, AssignedProgramExercise } from './types'
 
-// One exercise of a program, and its prescription (step 3b-1b). The
-// per-field editors are the template page's (tested with a mock `save` in
-// src/programs/Editable*Field.test); here, what the PROGRAM's page adds:
+// One exercise of a program: its description (step D-3) and its
+// prescription (step 3b-1b). The per-field editors are the library's and the
+// template's (tested with a mock `save` in src/exercises/EditableExercise*
+// and src/programs/Editable*Field.test); here, what the PROGRAM's page adds:
 // the request each save becomes (literal bodies), the answer written where
 // the page reads it, the program's own copy of the description, a closed
 // program, removed exercises, and a safe way back.
@@ -119,6 +120,8 @@ function renderAt(path: string) {
 }
 
 const PAGE = '/practitioner/programs/assigned/12/exercises/101'
+const NOTE =
+  "This description is this program's own copy: changing it doesn't change the exercise in the library or in other programs. Sessions already done keep the description they were given."
 const patches = () => requests.filter(([method]) => method === 'PATCH')
 
 describe('AssignedProgramExercisePage — reading', () => {
@@ -134,9 +137,12 @@ describe('AssignedProgramExercisePage — reading', () => {
   it("shows the program's own copy of the exercise and its prescription", async () => {
     renderAt(PAGE)
 
-    expect(await screen.findByRole('heading', { name: 'Knee Rehab — Pat' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Knee Rehab — Pat' }),
+    ).toBeInTheDocument()
     expect(screen.getByText('- Edit Exercise -')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Glute Bridge' })).toBeInTheDocument()
+    // The exercise is a section of the program's page: an h2 under its h1.
+    expect(screen.getByRole('heading', { level: 2, name: 'Glute Bridge' })).toBeInTheDocument()
     expect(screen.getByText('glutes')).toBeInTheDocument()
     expect(screen.getByText('hamstrings')).toBeInTheDocument()
     expect(screen.getByText('None')).toBeInTheDocument() // no equipment
@@ -145,7 +151,9 @@ describe('AssignedProgramExercisePage — reading', () => {
     expect(screen.getByText('10')).toBeInTheDocument()
     expect(screen.getByText('20 kg')).toBeInTheDocument()
     expect(screen.getByText('Keep the pelvis level.')).toBeInTheDocument()
-    // What a change does to sessions already done (3b-0's copies).
+    // Whose description this is, and what a change does to sessions already
+    // done (D-2's copies, 3b-0's).
+    expect(screen.getByText(NOTE)).toBeInTheDocument()
     expect(
       screen.getByText(
         'Changes apply to the next sessions. Sessions already done keep the prescription they were given.',
@@ -163,6 +171,7 @@ describe('AssignedProgramExercisePage — reading', () => {
 
     expect(await screen.findByText('- View Exercise -')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Edit / })).not.toBeInTheDocument()
+    expect(screen.queryByText(NOTE)).not.toBeInTheDocument()
     expect(screen.getByText('This program is closed: its exercises can no longer change.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Back' })).toBeInTheDocument()
   })
@@ -292,5 +301,88 @@ describe('AssignedProgramExercisePage — changing the prescription', () => {
       await screen.findByText('This program is completed: it can no longer change'),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Save Sets' })).toBeInTheDocument()
+  })
+})
+
+// Step D-3: the program's own COPY of the description, edited for this
+// patient — the same fields as the library's page, given this page's `save`.
+describe('AssignedProgramExercisePage — changing the description', () => {
+  it("renames this program's copy, and shows the name the server answered", async () => {
+    const user = renderAt(PAGE)
+    await user.click(await screen.findByRole('button', { name: 'Edit exercise name' }))
+    await user.clear(screen.getByLabelText('Exercise name'))
+    await user.type(screen.getByLabelText('Exercise name'), 'Single-leg Glute Bridge')
+    await user.click(screen.getByRole('button', { name: 'Save name' }))
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Single-leg Glute Bridge' }),
+    ).toBeInTheDocument()
+    expect(patches()).toStrictEqual([
+      ['PATCH', '/assigned-programs/12/exercises/101', '{"name":"Single-leg Glute Bridge"}'],
+    ])
+  })
+
+  // "None" is [] — the backend refuses null for these lists since D-1.
+  it('empties an optional list with []', async () => {
+    const user = renderAt(PAGE)
+    await user.click(await screen.findByRole('button', { name: 'Edit Secondary Muscles' }))
+    await user.click(screen.getByRole('button', { name: 'Delete Secondary Muscles 1' }))
+    await user.click(screen.getByRole('button', { name: 'Save Secondary Muscles' }))
+
+    // Equipment was already empty: two "None" now.
+    await waitFor(() => expect(screen.getAllByText('None')).toHaveLength(2))
+    expect(patches()).toStrictEqual([
+      ['PATCH', '/assigned-programs/12/exercises/101', '{"secondaryMuscles":[]}'],
+    ])
+  })
+
+  it('refuses emptying a required list, and sends nothing', async () => {
+    const user = renderAt(PAGE)
+    await user.click(await screen.findByRole('button', { name: 'Edit Primary Muscles' }))
+    await user.click(screen.getByRole('button', { name: 'Delete Primary Muscles 1' }))
+    await user.click(screen.getByRole('button', { name: 'Save Primary Muscles' }))
+
+    expect(
+      await screen.findByText('At least one primary muscle is required'),
+    ).toBeInTheDocument()
+    expect(patches()).toStrictEqual([])
+  })
+
+  // A copied library exercise may have long steps (up to 744 characters in
+  // the imported library): the shared rules allow 1,000.
+  it('rewrites a step as a numbered list item, trimmed, up to 1,000 characters', async () => {
+    const user = renderAt(PAGE)
+    await user.click(await screen.findByRole('button', { name: 'Edit Instructions' }))
+    const step = screen.getByLabelText('Instructions 2')
+    await user.clear(step)
+    await user.click(step)
+    await user.paste(` ${'a'.repeat(1001)} `)
+    await user.click(screen.getByRole('button', { name: 'Save Instructions' }))
+    expect(await screen.findByText('Must be 1000 characters or fewer')).toBeInTheDocument()
+    expect(patches()).toStrictEqual([])
+
+    await user.clear(step)
+    await user.click(step)
+    await user.paste(' Lift your hips, then hold for 2 seconds ')
+    await user.click(screen.getByRole('button', { name: 'Save Instructions' }))
+
+    expect(await screen.findByText('Lift your hips, then hold for 2 seconds')).toBeInTheDocument()
+    expect(patches()).toStrictEqual([
+      [
+        'PATCH',
+        '/assigned-programs/12/exercises/101',
+        '{"instructions":["Lie on your back","Lift your hips, then hold for 2 seconds"]}',
+      ],
+    ])
+  })
+
+  it("shows the backend's refusal under the field, which stays open", async () => {
+    patchAnswer = () => apiError(400, "A primary muscle can't be blank")
+    const user = renderAt(PAGE)
+    await user.click(await screen.findByRole('button', { name: 'Edit Primary Muscles' }))
+    await user.click(screen.getByRole('button', { name: 'Save Primary Muscles' }))
+
+    expect(await screen.findByText("A primary muscle can't be blank")).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save Primary Muscles' })).toBeInTheDocument()
   })
 })

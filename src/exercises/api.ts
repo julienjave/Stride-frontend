@@ -1,6 +1,7 @@
 import { apiRequest } from '@/api/client'
 import type { ExerciseDetail, ExercisesPage } from './types'
 import type { CreateExerciseFormValues } from './schemas'
+import type { ExerciseDescriptionChanges } from './descriptionRules'
 
 // --- QUERY KEYS --------------------------------------------------------
 
@@ -127,18 +128,11 @@ export function removeExerciseImage(id: number, objectKey: string) {
   })
 }
 
-// Partial<...> rather than a named type, since every field is
-// independently optional here in exactly the same way UpdateExerciseDto
-// is on the backend (PartialType(CreateExerciseDto)) — each
-// EditableExercise*Field instance patches ONLY the one field it owns,
-// never the whole exercise at once.
-export interface UpdateExercisePayload {
-  name?: string
-  primaryMuscles?: string[]
-  secondaryMuscles?: string[]
-  equipment?: string[]
-  instructions?: string[]
-}
+// Every field independently optional — each EditableExercise*Field patches
+// ONLY the one field it owns, never the whole exercise at once. The same
+// shape a program's copy of an exercise accepts, so it's defined once, with
+// the description's rules (descriptionRules.ts).
+export type UpdateExercisePayload = ExerciseDescriptionChanges
 
 export function updateExercise(id: number, payload: UpdateExercisePayload) {
   return apiRequest<ExerciseDetail>(`/exercises/${id}`, {
