@@ -5,8 +5,9 @@ import {
   endOfLocalDay,
   filterCandidates,
   isOnlyActiveMember,
+  programRowSummary,
   sortCareTeam,
-  sortProgramsForPatientPage,
+  splitProgramsForPatientPage,
 } from './patientPageRules'
 import type { CareTeamEntry } from './types'
 
@@ -14,6 +15,7 @@ function program(
   id: number,
   status: AssignedProgram['status'],
   startDate: string,
+  endDate: string | null = null,
 ): AssignedProgram {
   return {
     id,
@@ -23,7 +25,7 @@ function program(
     basedOnProgramId: null,
     title: `Program ${id}`,
     startDate,
-    endDate: null,
+    endDate,
     status,
     isArchived: false,
     allowSwaps: true,
@@ -50,22 +52,101 @@ function entry(
   }
 }
 
-describe('sortProgramsForPatientPage', () => {
-  it('puts current work first: active, then finished — newest first within each', () => {
-    const sorted = sortProgramsForPatientPage([
-      program(1, 'completed', '2026-01-01'),
+describe('splitProgramsForPatientPage', () => {
+  const ids = (programs: AssignedProgram[]) => programs.map((p) => p.id)
+
+  it('keeps active programs current and puts completed AND cancelled ones in the past', () => {
+    const { current, past } = splitProgramsForPatientPage([
+      program(1, 'completed', '2026-01-01', '2026-02-01'),
       program(2, 'active', '2026-03-01'),
-      program(3, 'cancelled', '2026-05-01'),
-      program(5, 'active', '2026-06-01'),
-      program(6, 'completed', '2026-04-01'),
+      program(3, 'cancelled', '2026-05-01', '2026-05-20'),
     ])
-    expect(sorted.map((p) => p.id)).toEqual([5, 2, 6, 1, 3])
+    expect(ids(current)).toEqual([2])
+    expect(ids(past).sort()).toEqual([1, 3])
   })
 
-  it('returns a new array', () => {
-    const programs = [program(1, 'completed', '2026-01-01'), program(2, 'active', '2026-01-01')]
-    expect(sortProgramsForPatientPage(programs)).not.toBe(programs)
-    expect(programs.map((p) => p.id)).toEqual([1, 2])
+  it('keeps an ACTIVE program current even after its end date — nobody has closed it yet', () => {
+    // Ended in 2026 — long before any test runs: the split ignores dates.
+    const { current, past } = splitProgramsForPatientPage([
+      program(1, 'active', '2026-01-01', '2026-01-31'),
+    ])
+    expect(ids(current)).toEqual([1])
+    expect(past).toEqual([])
+  })
+
+  it('orders current programs by start, the most recent first', () => {
+    const { current } = splitProgramsForPatientPage([
+      program(1, 'active', '2026-03-01'),
+      program(2, 'active', '2026-06-01'),
+      program(3, 'active', '2026-04-01'),
+    ])
+    expect(ids(current)).toEqual([2, 3, 1])
+  })
+
+  it('orders past programs by END, the most recent first — completed and cancelled mixed', () => {
+    // Start order and end order DISAGREE here: 1 started last but ended
+    // first; sorting the past by start would give 1, 3, 2.
+    const { past } = splitProgramsForPatientPage([
+      program(1, 'completed', '2026-06-01', '2026-06-10'),
+      program(2, 'cancelled', '2026-02-01', '2026-09-01'),
+      program(3, 'completed', '2026-03-01', '2026-08-01'),
+    ])
+    expect(ids(past)).toEqual([2, 3, 1])
+  })
+
+  it('breaks a tie on the end date with the start, the most recent first', () => {
+    const { past } = splitProgramsForPatientPage([
+      program(1, 'completed', '2026-01-01', '2026-05-01'),
+      program(2, 'cancelled', '2026-04-01', '2026-05-01'),
+    ])
+    expect(ids(past)).toEqual([2, 1])
+  })
+
+  it('puts a past program without an end date last instead of crashing', () => {
+    const { past } = splitProgramsForPatientPage([
+      program(1, 'cancelled', '2026-09-01', null),
+      program(2, 'completed', '2026-01-01', '2026-02-01'),
+    ])
+    expect(ids(past)).toEqual([2, 1])
+  })
+
+  it('leaves the input alone', () => {
+    const programs = [
+      program(1, 'active', '2026-01-01'),
+      program(2, 'active', '2026-02-01'),
+    ]
+    splitProgramsForPatientPage(programs)
+    expect(ids(programs)).toEqual([1, 2])
+  })
+})
+
+describe('programRowSummary', () => {
+  // The locale pinned, so the expected strings can be written out in full.
+  const summary = (p: AssignedProgram) => programRowSummary(p, 'en-US')
+
+  it('gives a current program its span, then its status', () => {
+    expect(summary(program(1, 'active', '2026-09-01', '2026-12-01'))).toBe(
+      'September 1, 2026 – December 1, 2026 · Active',
+    )
+  })
+
+  it('says when an open-ended program started', () => {
+    expect(summary(program(1, 'active', '2026-09-01'))).toBe('Started September 1, 2026 · Active')
+  })
+
+  it('leads a past program with how it ended, then when it ended and started', () => {
+    expect(summary(program(1, 'cancelled', '2026-09-12', '2026-10-03'))).toBe(
+      'Cancelled · ended October 3, 2026 · ran from September 12, 2026',
+    )
+    expect(summary(program(2, 'completed', '2026-01-05', '2026-03-29'))).toBe(
+      'Completed · ended March 29, 2026 · ran from January 5, 2026',
+    )
+  })
+
+  it('never says "ended null" for a past program without an end date', () => {
+    expect(summary(program(1, 'cancelled', '2026-09-12'))).toBe(
+      'Cancelled · started September 12, 2026',
+    )
   })
 })
 

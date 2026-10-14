@@ -87,6 +87,7 @@ function link(
 // What each endpoint answers; tests change them before rendering.
 let patientResponse: { status: number; body: object }
 let programs: object[]
+let josPrograms: object[]
 let currentTeam: CareTeamEntry[]
 let fullTeam: CareTeamEntry[]
 let endResponse: { status: number; body: object }
@@ -99,6 +100,7 @@ beforeEach(() => {
   fetchMock.mockReset()
   patientResponse = { status: 200, body: pat }
   programs = []
+  josPrograms = []
   currentTeam = [link(ME)]
   fullTeam = currentTeam
   endResponse = { status: 201, body: link(ME, { isActive: false }) }
@@ -113,7 +115,7 @@ beforeEach(() => {
     if (url.includes('/assigned-programs?patientId=6')) return json(200, programs)
     if (url.match(/\/users\/6$/)) return json(patientResponse.status, patientResponse.body)
     if (url.match(/\/users\/7$/)) return json(200, { ...pat, id: 7, firstName: 'Jo', lastName: 'Novak' })
-    if (url.includes('/assigned-programs?patientId=7')) return json(200, [])
+    if (url.includes('/assigned-programs?patientId=7')) return json(200, josPrograms)
     if (url.match(/\/users$/)) return json(200, [])
     throw new Error(`Unexpected fetch to ${url}`)
   })
@@ -226,7 +228,7 @@ describe('PatientPage — the patient', () => {
 })
 
 describe('PatientPage — programs', () => {
-  it("lists every program, mine marked Yours, a colleague's with who assigned it", async () => {
+  it("lists the current programs, mine marked Yours, a colleague's with who assigned it", async () => {
     programs = [
       program(10, 'Shoulder — Sam', SAM),
       program(11, 'Knee Rehab — Pat', ME),
@@ -244,28 +246,125 @@ describe('PatientPage — programs', () => {
     expect(within(sams).getByText(`Started ${formatCalendarDate('2026-09-01')} · Active`)).toBeInTheDocument()
   })
 
-  it('puts active programs first and shows a finished one with its dates and status', async () => {
+  it('lists current programs, the most recently started first', async () => {
     programs = [
-      program(10, 'Old program', ME, { status: 'completed', startDate: '2026-01-01', endDate: '2026-03-01' }),
-      program(11, 'Current program', ME),
+      program(10, 'Older', ME, { startDate: '2026-08-01' }),
+      program(11, 'Newer', ME, { startDate: '2026-09-15', endDate: '2026-12-15' }),
     ]
     renderPatientPage()
-    await screen.findByText('Current program')
+    await screen.findByText('Newer')
 
     // Each row is ONE link to its program's page — so the links, in
     // order, say both where each row leads and the order of the rows.
-    const rows = within(section('Programs')).getAllByRole('listitem')
+    const rows = within(screen.getByRole('list', { name: 'Current programs' })).getAllByRole('listitem')
     expect(rows.map((row) => within(row).getByRole('link').getAttribute('href'))).toEqual([
       '/practitioner/programs/assigned/11',
       '/practitioner/programs/assigned/10',
     ])
-    expect(rows[0]).toHaveTextContent('Current program')
-    expect(rows[1]).toHaveTextContent('Old program')
+    expect(screen.queryByText('No current program.')).not.toBeInTheDocument()
     expect(
-      screen.getByText(
-        `${formatCalendarDate('2026-01-01')} – ${formatCalendarDate('2026-03-01')} · Completed`,
+      within(rows[0]).getByText(
+        `${formatCalendarDate('2026-09-15')} – ${formatCalendarDate('2026-12-15')} · Active`,
       ),
     ).toBeInTheDocument()
+  })
+
+  it('hides past programs behind a checkbox that counts them, then shows them most recently ended first', async () => {
+    programs = [
+      program(10, 'Current program', ME),
+      program(11, 'Completed long ago', ME, {
+        status: 'completed',
+        startDate: '2026-01-05',
+        endDate: '2026-03-29',
+      }),
+      program(12, 'Cancelled lately', SAM, {
+        status: 'cancelled',
+        startDate: '2026-06-01',
+        endDate: '2026-08-14',
+      }),
+    ]
+    const user = userEvent.setup()
+    renderPatientPage()
+    await screen.findByText('Current program')
+
+    // Hidden by default: neither the past rows nor their list.
+    expect(screen.queryByText('Completed long ago')).not.toBeInTheDocument()
+    expect(screen.queryByText('Cancelled lately')).not.toBeInTheDocument()
+    expect(screen.queryByRole('list', { name: 'Past programs' })).not.toBeInTheDocument()
+    const toggle = within(section('Programs')).getByRole('checkbox', { name: 'Show 2 past programs' })
+    expect(toggle).not.toBeChecked()
+
+    await user.click(toggle)
+
+    const past = within(screen.getByRole('list', { name: 'Past programs' })).getAllByRole('listitem')
+    expect(past.map((row) => within(row).getByRole('link').getAttribute('href'))).toEqual([
+      '/practitioner/programs/assigned/12',
+      '/practitioner/programs/assigned/11',
+    ])
+    // How it ended first, then when; a colleague's still says who assigned it.
+    expect(
+      within(past[0]).getByText(
+        `Cancelled · ended ${formatCalendarDate('2026-08-14')} · ran from ${formatCalendarDate('2026-06-01')}`,
+      ),
+    ).toBeInTheDocument()
+    expect(within(past[0]).getByText('Assigned by Sam Okafor')).toBeInTheDocument()
+    expect(within(past[1]).getByText('Yours')).toBeInTheDocument()
+    // The current list is unchanged: past rows never join it.
+    expect(
+      within(screen.getByRole('list', { name: 'Current programs' })).getAllByRole('listitem'),
+    ).toHaveLength(1)
+
+    await user.click(toggle)
+    expect(screen.queryByRole('list', { name: 'Past programs' })).not.toBeInTheDocument()
+  })
+
+  it('says "1 past program" in the singular', async () => {
+    programs = [
+      program(10, 'Current program', ME),
+      program(11, 'Done', ME, { status: 'completed', endDate: '2026-10-01' }),
+    ]
+    renderPatientPage()
+    await screen.findByText('Current program')
+    expect(
+      within(section('Programs')).getByRole('checkbox', { name: 'Show 1 past program' }),
+    ).toBeInTheDocument()
+  })
+
+  it('shows no checkbox when no program is past', async () => {
+    programs = [program(10, 'Current program', ME)]
+    renderPatientPage()
+    await screen.findByText('Current program')
+    expect(within(section('Programs')).queryByRole('checkbox')).not.toBeInTheDocument()
+  })
+
+  it('says "No current program" — not "none assigned" — when every program is past', async () => {
+    programs = [program(11, 'Done', ME, { status: 'completed', endDate: '2026-10-01' })]
+    renderPatientPage()
+
+    expect(await screen.findByText('No current program.')).toBeInTheDocument()
+    expect(screen.queryByText('No programs assigned yet.')).not.toBeInTheDocument()
+    expect(screen.queryByRole('list', { name: 'Current programs' })).not.toBeInTheDocument()
+    expect(
+      within(section('Programs')).getByRole('checkbox', { name: 'Show 1 past program' }),
+    ).toBeInTheDocument()
+  })
+
+  it("starts with past programs hidden on the next patient's page", async () => {
+    const done = { status: 'completed', endDate: '2026-10-01' }
+    programs = [program(11, 'Pat’s old program', ME, done)]
+    josPrograms = [program(21, 'Jo’s old program', ME, { ...done, patientId: 7 })]
+    const user = userEvent.setup()
+    renderPatientPage()
+    await user.click(await screen.findByRole('checkbox', { name: 'Show 1 past program' }))
+    expect(screen.getByText('Pat’s old program')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('link', { name: 'test: patient 7' }))
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Jo Novak' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('checkbox', { name: 'Show 1 past program' }),
+    ).not.toBeChecked()
+    expect(screen.queryByText('Jo’s old program')).not.toBeInTheDocument()
   })
 
   it('offers "Assign a program", opening the form with this patient chosen', async () => {
@@ -278,6 +377,8 @@ describe('PatientPage — programs', () => {
   it('asks for THIS patient’s programs, and says when there are none', async () => {
     renderPatientPage()
     expect(await screen.findByText('No programs assigned yet.')).toBeInTheDocument()
+    // Only the one sentence: "No current program" is for when past ones exist.
+    expect(screen.queryByText('No current program.')).not.toBeInTheDocument()
     expect(calls((url) => url.includes('/assigned-programs'))).toHaveLength(1)
     expect(urlOf(calls((url) => url.includes('/assigned-programs'))[0][0])).toMatch(
       /\/assigned-programs\?patientId=6$/,
