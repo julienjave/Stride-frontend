@@ -306,7 +306,18 @@ export interface CloseResult {
   program: AssignedProgramDetail | null
 }
 
-// PATCH /assigned-programs/:id — the fields the program page changes.
+// PATCH /assigned-programs/:id — the fields the program page changes. A
+// PATCH changes only what it sends: an absent key keeps the stored value.
+//   - title: never blank (the backend refuses it — 400);
+//   - startDate: only while the program hasn't started (the backend moves
+//     the schedule with it);
+//   - endDate: `null` = no end date any more (open-ended) — a real value,
+//     unlike an absent key, which is why the type says `| null` here and
+//     nowhere else (title, startDate and allowSwaps can't be null: 400);
+//   - allowSwaps: "Let the patient rearrange the week".
 export interface UpdateAssignedProgramInput {
+  title?: string
+  startDate?: string
+  endDate?: string | null
   allowSwaps?: boolean
 }

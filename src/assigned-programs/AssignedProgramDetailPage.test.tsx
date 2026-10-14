@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router'
@@ -162,7 +162,9 @@ function listRow(program: AssignedProgramDetail, assigner = ME) {
 
 // What each GET answers — tests replace entries for their case.
 let programs: Record<number, () => Response>
-let summaries: Record<number, () => Response>
+// (A summary may be a promise: one a test settles itself, to see what waits
+// for it.)
+let summaries: Record<number, () => Response | Promise<Response>>
 let patientList: () => Response
 // GET …/closing (what closing WOULD do), and the writes: POST …/cancel or
 // …/complete, PATCH the program. Each test can replace them.
@@ -1047,5 +1049,69 @@ describe('AssignedProgramDetailPage — letting the patient rearrange the week',
     renderPage()
     await screen.findByRole('heading', { level: 1, name: 'Knee Rehab — Pat' })
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+  })
+})
+
+// Step 3b-2: the title and dates, edited in a "Details" section on an open
+// program (the section's own behaviour: ProgramDetailsSection.test.tsx).
+describe('AssignedProgramDetailPage — details (title and dates)', () => {
+  it('offers the title and dates to edit on an open program — the start read-only once started', async () => {
+    renderPage()
+    const details = await screen.findByRole('region', { name: 'Details' })
+    expect(within(details).getByRole('button', { name: 'Edit Title' })).toBeInTheDocument()
+    expect(within(details).getByRole('button', { name: 'Edit End date' })).toBeInTheDocument()
+    // Started on 2 June; today is the 12th.
+    expect(within(details).queryByRole('button', { name: 'Edit Start date' })).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['completed', { status: 'completed', endDate: '2031-06-11' }],
+    ['cancelled', { status: 'cancelled', endDate: '2031-06-11' }],
+    ['deleted', { isArchived: true }],
+  ])('has no Details on a %s program', async (_state, fields) => {
+    programs[12] = () => json({ ...PROGRAM, ...fields })
+    renderPage()
+    await screen.findByRole('heading', { level: 1, name: 'Knee Rehab — Pat' })
+    expect(screen.queryByRole('region', { name: 'Details' })).not.toBeInTheDocument()
+  })
+
+  // A new end date changes what the summary judges: the page asks for it
+  // again, and the field says "Saving…" until the new answer is here — it
+  // then closes on a page that is already right.
+  it('refetches the progress after a date change, and saves until it has', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    const details = await screen.findByRole('region', { name: 'Details' })
+    await screen.findByText(/^Up next/)
+    const summaryRequests = () => requested((url) => /\/assigned-programs\/12\/summary/.test(url)).length
+    expect(summaryRequests()).toBe(1)
+
+    let settle: (response: Response) => void = () => {}
+    summaries[12] = () => new Promise<Response>((resolve) => (settle = resolve))
+    await user.click(within(details).getByRole('button', { name: 'Edit End date' }))
+    fireEvent.change(within(details).getByLabelText('End date'), { target: { value: '2031-07-27' } })
+    await user.click(within(details).getByRole('button', { name: 'Save' }))
+
+    await vi.waitFor(() => expect(summaryRequests()).toBe(2))
+    expect(within(details).getByRole('button', { name: 'Saving…' })).toBeDisabled()
+    expect(bodiesSent('PATCH', (url) => url.endsWith('/assigned-programs/12'))).toStrictEqual([
+      '{"endDate":"2031-07-27"}',
+    ])
+
+    settle(json(SUMMARY))
+    expect(await within(details).findByRole('button', { name: 'Edit End date' })).toBeInTheDocument()
+    expect(within(details).getByText(formatCalendarDate('2031-07-27'))).toBeInTheDocument()
+  })
+
+  // A title changes nothing the summary judges: no second request.
+  it('does not refetch the progress after a rename', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    const details = await screen.findByRole('region', { name: 'Details' })
+    await screen.findByText(/^Up next/)
+    await user.click(within(details).getByRole('button', { name: 'Edit Title' }))
+    await user.type(within(details).getByLabelText('Title'), ' (left){Enter}')
+    expect(await screen.findByRole('heading', { level: 1, name: 'Knee Rehab — Pat (left)' })).toBeInTheDocument()
+    expect(requested((url) => /\/assigned-programs\/12\/summary/.test(url))).toHaveLength(1)
   })
 })

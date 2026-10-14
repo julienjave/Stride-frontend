@@ -19,6 +19,17 @@ export const MAX_DURATION_WEEKS = 104
 // shortcut that fills the end date with whole program weeks), or a date.
 export type EndMode = 'none' | 'weeks' | 'date'
 
+// A program's title: trim() first, so "   " counts as empty; 200 = the
+// backend's limit (program-title.decorator.ts, which refuses a blank title
+// too since step 3b-2). Shared by the assign form and the program page's
+// rename (ProgramDetailsSection), so "a valid title" means one thing.
+export const PROGRAM_TITLE_MAX_LENGTH = 200
+export const programTitleSchema = z
+  .string()
+  .trim()
+  .min(1, 'Give the program a title')
+  .max(PROGRAM_TITLE_MAX_LENGTH, `The title can be at most ${PROGRAM_TITLE_MAX_LENGTH} characters`)
+
 const scheduleDraftSchema = z.object({
   type: z.enum(['weekdays', 'times_per_week']),
   days: z.array(z.object({ weekday: z.number(), workout: z.number().nullable() })),
@@ -39,12 +50,7 @@ export const assignFormSchema = z
     // (superRefine below).
     templateId: z.string(),
     basedOnProgramId: z.string(),
-    // trim() first, so "   " counts as empty; 200 = the backend's limit.
-    title: z
-      .string()
-      .trim()
-      .min(1, 'Give the program a title')
-      .max(200, 'The title can be at most 200 characters'),
+    title: programTitleSchema,
     startDate: z.string().refine(isCalendarDate, 'Choose a start date'),
     endMode: z.enum(['none', 'weeks', 'date']),
     // Kept as the input's text: an <input type="number"> still gives a

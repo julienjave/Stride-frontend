@@ -29,6 +29,26 @@ interface EditableFieldProps {
   // When set, the field is shown but can't be edited: no Edit button, and
   // this short explanation instead (e.g. why the license number is locked).
   readOnlyNote?: string
+  // The input's `min` / `max` (dates, as 'YYYY-MM-DD'). They only GUIDE the
+  // browser's picker — days outside are greyed out —, they don't validate:
+  // the form is `noValidate`, so the schema stays the one rule that decides
+  // (a typed date can still be outside, and gets the schema's message).
+  min?: string
+  max?: string
+  // What saving THIS draft would do, said before saving (e.g. "Planned
+  // changes after that day will never apply") — or null when there's
+  // nothing to say. Called with the draft as typed, on every change, while
+  // editing; shown under the input in a polite live region, so a screen
+  // reader hears the consequence as the value changes.
+  describeDraft?: (draft: string) => ReactNode
+  // A button beside Save that saves "no value" (null) at once — for a
+  // field where emptying the input isn't an obvious gesture (a date input
+  // has no visible "empty" state in every browser). Shown only while a
+  // value is stored. Its text says what it means ("Remove end date").
+  clearLabel?: string
+  // What the view shows when no value is stored. "Not set" by default; a
+  // field where "none" is a meaning of its own says it ("No end date").
+  emptyText?: string
 }
 
 // The "view → Edit → Save / Cancel" row used on every per-field edit page.
@@ -43,6 +63,11 @@ export function EditableField({
   inputType = 'text',
   formatValue,
   readOnlyNote,
+  min,
+  max,
+  describeDraft,
+  clearLabel,
+  emptyText,
 }: EditableFieldProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -51,6 +76,7 @@ export function EditableField({
   // renders. The <label htmlFor> ↔ <input id> pair needs one, and a
   // hard-coded id would collide as soon as two fields share a page.
   const inputId = useId()
+  const draftNoteId = useId()
 
   // One mutation per field instance: each field has its own pending and
   // error state, so saving the phone number never disables the bio.
@@ -60,8 +86,14 @@ export function EditableField({
   // if the component that called mutate() has unmounted before the
   // request finishes — the exact trap behind the role-switcher bug. The
   // options version always runs.
+  //
+  // `(value) => save(value)`, not `save` itself: TanStack Query calls a
+  // mutationFn with a SECOND argument (its own context object), and passing
+  // `save` directly handed that object to every caller's function too —
+  // found in step 3b-2, when a test checked the exact arguments. The
+  // contract is "save this value", nothing more.
   const mutation = useMutation({
-    mutationFn: save,
+    mutationFn: (value: string | null) => save(value),
     onSuccess: () => setIsEditing(false),
   })
 
@@ -118,7 +150,13 @@ export function EditableField({
 
   if (readOnlyNote) {
     return (
-      <ReadOnlyField label={label} value={value} formatValue={formatValue} note={readOnlyNote} />
+      <ReadOnlyField
+        label={label}
+        value={value}
+        formatValue={formatValue}
+        note={readOnlyNote}
+        emptyText={emptyText}
+      />
     )
   }
 
@@ -128,6 +166,7 @@ export function EditableField({
         label={label}
         value={value}
         formatValue={formatValue}
+        emptyText={emptyText}
         action={
           // Every row has an "Edit" button, so each needs its own name
           // ("Edit Phone", "Edit Bio") for screen readers and for tests —
@@ -153,6 +192,10 @@ export function EditableField({
         : 'Something went wrong'
       : null)
 
+  // Computed from the draft on every render while editing — typing or
+  // picking a day re-renders, so the sentence follows the value.
+  const draftNote = describeDraft ? describeDraft(draft) : null
+
   const sharedInputProps = {
     id: inputId,
     autoFocus: true,
@@ -163,6 +206,9 @@ export function EditableField({
     },
     onKeyDown: handleKeyDown,
     'aria-invalid': !!errorMessage,
+    // The consequence note describes the input (only when the field has
+    // one): a screen reader reads it with the field when it gets focus.
+    'aria-describedby': describeDraft ? draftNoteId : undefined,
     disabled: mutation.isPending,
   }
 
@@ -174,10 +220,19 @@ export function EditableField({
       {inputType === 'textarea' ? (
         <Textarea {...sharedInputProps} rows={4} />
       ) : (
-        <Input {...sharedInputProps} type={inputType} />
+        <Input {...sharedInputProps} type={inputType} min={min} max={max} />
       )}
       {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
-      <div className="flex gap-2">
+      {/* Always in the page while editing (when the field has a note), even
+          empty: a live region that changes its text is announced reliably;
+          one that appears already filled often isn't (the editor's notice,
+          3a-w). */}
+      {describeDraft && (
+        <div id={draftNoteId} aria-live="polite">
+          {draftNote}
+        </div>
+      )}
+      <div className="flex flex-wrap gap-2">
         <Button type="submit" size="sm" disabled={mutation.isPending}>
           {mutation.isPending ? 'Saving…' : 'Save'}
         </Button>
@@ -190,6 +245,19 @@ export function EditableField({
         >
           Cancel
         </Button>
+        {/* Saves null directly: "no value" needs no checking. The schema
+            isn't asked — it judges what was TYPED, and nothing was. */}
+        {clearLabel && value !== null && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => mutation.mutate(null)}
+            disabled={mutation.isPending}
+          >
+            {clearLabel}
+          </Button>
+        )}
       </div>
     </form>
   )
@@ -201,13 +269,23 @@ interface ReadOnlyFieldProps {
   formatValue?: (value: string) => string
   // Why it can't be edited — shown under the value.
   note?: string
+  // What to show when there's no value ("Not set" by default).
+  emptyText?: string
 }
 
 // A field that is shown but never editable here (e.g. email, whose change
 // is its own future flow). Same look as EditableField's view, minus the
 // Edit button, so read-only and editable rows line up on one page.
-export function ReadOnlyField({ label, value, formatValue, note }: ReadOnlyFieldProps) {
-  return <FieldRow label={label} value={value} formatValue={formatValue} note={note} />
+export function ReadOnlyField({ label, value, formatValue, note, emptyText }: ReadOnlyFieldProps) {
+  return (
+    <FieldRow
+      label={label}
+      value={value}
+      formatValue={formatValue}
+      note={note}
+      emptyText={emptyText}
+    />
+  )
 }
 
 interface FieldRowProps extends ReadOnlyFieldProps {
@@ -216,7 +294,7 @@ interface FieldRowProps extends ReadOnlyFieldProps {
 }
 
 // The one "label above value" row shared by both components above.
-function FieldRow({ label, value, formatValue, note, action }: FieldRowProps) {
+function FieldRow({ label, value, formatValue, note, action, emptyText }: FieldRowProps) {
   return (
     <div className="flex items-start justify-between gap-4 py-3">
       <div className="min-w-0">
@@ -228,7 +306,7 @@ function FieldRow({ label, value, formatValue, note, action }: FieldRowProps) {
             {formatValue ? formatValue(value) : value}
           </p>
         ) : (
-          <p className="text-muted-foreground italic">Not set</p>
+          <p className="text-muted-foreground italic">{emptyText ?? 'Not set'}</p>
         )}
         {note && <p className="mt-1 text-xs text-muted-foreground">{note}</p>}
       </div>

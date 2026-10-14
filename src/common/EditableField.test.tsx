@@ -167,3 +167,86 @@ describe('ReadOnlyField', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 })
+
+// The four optional props added for the program's dates (step 3b-2). Each
+// is generic — nothing in them knows about programs.
+describe('EditableField — what a field can add', () => {
+  it('shows its own words for "no value", in the view and read-only', () => {
+    renderField({ label: 'End date', value: null, emptyText: 'No end date' })
+    expect(screen.getByText('No end date')).toBeInTheDocument()
+    expect(screen.queryByText('Not set')).not.toBeInTheDocument()
+  })
+
+  it('passes min and max to the input, to guide the date picker', async () => {
+    renderField({
+      label: 'End date',
+      value: '2031-06-30',
+      inputType: 'date',
+      min: '2031-06-12',
+      max: '2031-12-31',
+    })
+    await openEditor('End date')
+    const input = screen.getByLabelText('End date')
+    expect(input).toHaveAttribute('type', 'date')
+    expect(input).toHaveAttribute('min', '2031-06-12')
+    expect(input).toHaveAttribute('max', '2031-12-31')
+  })
+
+  // The note follows the DRAFT (not the stored value), and describes the
+  // input — a screen reader reads it with the field.
+  it('says what saving the draft would do, as it changes', async () => {
+    renderField({
+      describeDraft: (draft) => (draft.startsWith('555') ? null : `Saving makes it ${draft}`),
+    })
+    await openEditor()
+    const input = screen.getByLabelText('Phone')
+    // Nothing to say for the stored value — but the region is THERE, empty
+    // (a region that appears already filled is often not announced), and
+    // it's the one the input points at.
+    expect(input).toHaveAccessibleDescription('')
+    const region = document.getElementById(input.getAttribute('aria-describedby') ?? '')
+    expect(region).toHaveAttribute('aria-live', 'polite')
+    expect(region).toBeEmptyDOMElement()
+    await userEvent.clear(input)
+    await userEvent.type(input, '42')
+    expect(input).toHaveAccessibleDescription('Saving makes it 42')
+    expect(region).toHaveTextContent('Saving makes it 42')
+  })
+
+  it('has no description without describeDraft', async () => {
+    renderField()
+    await openEditor()
+    expect(screen.getByLabelText('Phone')).not.toHaveAttribute('aria-describedby')
+  })
+
+  it('saves "no value" with the clear button, without asking the schema', async () => {
+    // A schema that refuses '' — the button saves null all the same: it
+    // judges what was typed, and nothing was.
+    const { save } = renderField({
+      label: 'End date',
+      value: '2031-06-30',
+      schema: requiredSchema,
+      clearLabel: 'Remove end date',
+    })
+    await openEditor('End date')
+    await userEvent.click(screen.getByRole('button', { name: 'Remove end date' }))
+    expect(save).toHaveBeenCalledTimes(1)
+    expect(save).toHaveBeenCalledWith(null)
+    expect(await screen.findByRole('button', { name: 'Edit End date' })).toBeInTheDocument()
+  })
+
+  it('offers the clear button only while a value is stored', async () => {
+    renderField({ label: 'End date', value: null, clearLabel: 'Remove end date' })
+    await openEditor('End date')
+    expect(screen.queryByRole('button', { name: 'Remove end date' })).not.toBeInTheDocument()
+  })
+})
+
+describe('ReadOnlyField — no value', () => {
+  it('shows "Not set", or its own words', () => {
+    const { rerender } = render(<ReadOnlyField label="End date" value={null} />)
+    expect(screen.getByText('Not set')).toBeInTheDocument()
+    rerender(<ReadOnlyField label="End date" value={null} emptyText="No end date" />)
+    expect(screen.getByText('No end date')).toBeInTheDocument()
+  })
+})

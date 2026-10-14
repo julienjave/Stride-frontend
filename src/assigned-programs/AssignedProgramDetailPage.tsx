@@ -6,6 +6,7 @@ import { localDateString } from '@/common/calendarDate'
 import { useUser } from '@/users/useUser'
 import { ProgramExercisesSection } from './ProgramExercisesSection'
 import { ProgramActions } from './ProgramActions'
+import { ProgramDetailsSection } from './ProgramDetailsSection'
 import { ProgramHeader } from './ProgramHeader'
 import { ProgramScheduleProgress } from './ProgramScheduleProgress'
 import { isProgramOpen } from './permissions'
@@ -16,7 +17,8 @@ import { usePatientAssignedPrograms } from './usePatientAssignedPrograms'
 
 // The program page (/practitioner/programs/assigned/:id) — step 3a-2,
 // built 2026-10-12/13 (decisions §5). Top to bottom: who and what (header,
-// with Complete / Cancel, or "Assign again" once closed), the schedule and
+// with Complete / Cancel, or "Assign again" once closed), the title and
+// dates to edit on an open program (Details — step 3b-2), the schedule and
 // how it has gone (Schedule & progress — with Change schedule / Pause /
 // Resume and the "rearrange the week" switch), and the exercises —
 // tailored on an open program (step 3b-1), read-only on a closed one.
@@ -102,6 +104,9 @@ function ProgramView({ programId }: { programId: number }) {
         myId={currentUser.id}
       />
       {isOpen && <ProgramActions programId={program.id} today={today} />}
+      {/* Only an open program's title and dates can change; the header
+          already shows a closed one's. */}
+      {isOpen && <ProgramDetailsSection program={program} today={today} names={names} />}
       <ProgramScheduleProgress
         program={program}
         today={today}
