@@ -46,6 +46,7 @@ function exercise(id: number, fields: Partial<AssignedProgramExercise> = {}): As
     notes: 'Keep the pelvis level.',
     retiredAt: null,
     retiredBy: null,
+    images: [],
     ...fields,
   }
 }
@@ -174,6 +175,62 @@ describe('AssignedProgramExercisePage — reading', () => {
     expect(screen.queryByText(NOTE)).not.toBeInTheDocument()
     expect(screen.getByText('This program is closed: its exercises can no longer change.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Back' })).toBeInTheDocument()
+  })
+
+  // The photos are the LIBRARY exercise's, read live (decided 2026-10-14) —
+  // the page shows the ones the program's answer carries, and says where
+  // they come from, open or closed.
+  describe('photos', () => {
+    const PHOTO_NOTE =
+      "Photos come from the exercise in the library, so a change there shows here too. They aren't part of this program's copy."
+    const withPhotos = (change: Partial<AssignedProgramDetail> = {}) => () =>
+      json({
+        ...PROGRAM,
+        ...change,
+        exercises: [
+          {
+            ...BRIDGE,
+            images: [
+              { url: 'https://storage.example/bridge-1.jpg' },
+              { url: 'https://storage.example/bridge-2.jpg' },
+            ],
+          },
+        ],
+      })
+
+    it("shows the library's photos, the first one first, and says where they come from", async () => {
+      program = withPhotos()
+      renderAt(PAGE)
+
+      expect(await screen.findByRole('heading', { level: 3, name: 'Photos' })).toBeInTheDocument()
+      // The alt names the program's copy of the exercise (its name here).
+      expect(screen.getByAltText('Glute Bridge photo 1')).toHaveAttribute(
+        'src',
+        'https://storage.example/bridge-1.jpg',
+      )
+      expect(screen.getByText('1 / 2')).toBeInTheDocument()
+      expect(screen.getByText(PHOTO_NOTE)).toBeInTheDocument()
+    })
+
+    it('says the library has none, when it has none', async () => {
+      renderAt(PAGE)
+
+      expect(
+        await screen.findByText('This exercise has no photos in the library.'),
+      ).toBeInTheDocument()
+      expect(screen.queryByText('No photos yet.')).not.toBeInTheDocument()
+      expect(screen.getByText(PHOTO_NOTE)).toBeInTheDocument()
+    })
+
+    // Not the program's to freeze: a closed program shows them the same.
+    it('shows them on a closed program too', async () => {
+      program = withPhotos({ status: 'cancelled' })
+      renderAt(PAGE)
+
+      expect(await screen.findByText('- View Exercise -')).toBeInTheDocument()
+      expect(screen.getByAltText('Glute Bridge photo 1')).toBeInTheDocument()
+      expect(screen.getByText(PHOTO_NOTE)).toBeInTheDocument()
+    })
   })
 
   // Removed exercises are part of the record, never edited (decided

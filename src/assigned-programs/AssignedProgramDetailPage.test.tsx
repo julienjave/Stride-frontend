@@ -85,6 +85,7 @@ function exercise(id: number, workoutId: number, name: string, fields: object = 
     notes: null,
     retiredAt: null,
     retiredBy: null,
+    images: [],
     ...fields,
   }
 }

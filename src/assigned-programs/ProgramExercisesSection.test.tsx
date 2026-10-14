@@ -57,6 +57,7 @@ function exercise(
     notes: null,
     retiredAt: null,
     retiredBy: null,
+    images: [],
     ...fields,
   }
 }

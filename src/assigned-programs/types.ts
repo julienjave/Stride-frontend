@@ -80,8 +80,7 @@ export interface AssignedProgramExercise {
   // patient already following this program keeps seeing exactly what
   // was there when it was assigned. See
   // AssignedProgramsService.fetchExerciseSnapshots (backend) for where
-  // this gets populated. Deliberately NOT extended to photos yet — see
-  // deferred-improvements.md.
+  // this gets populated. NOT photos — see `images` below.
   name: string
   primaryMuscles: string[]
   secondaryMuscles: string[]
@@ -106,6 +105,12 @@ export interface AssignedProgramExercise {
   // it (a user id).
   retiredAt: string | null
   retiredBy: number | null
+  // The LIBRARY exercise's photos, read live — not a copy (decided
+  // 2026-10-14): the text above is the clinical record; photos illustrate it,
+  // and a better photo uploaded once in the library reaches every program.
+  // A signed URL each (valid ~15 minutes), in the library's order (the first
+  // is the cover); no object key — a program's screens only display them.
+  images: { url: string }[]
 }
 
 // GET /assigned-programs/:id, and the answer to every write on a program.

@@ -9,6 +9,7 @@ import { localPath } from '@/exercises/pickerReturnHref'
 import { EditableNumberField } from '@/programs/EditableNumberField'
 import { EditableWeightField } from '@/programs/EditableWeightField'
 import { EditableNotesField } from '@/programs/EditableNotesField'
+import { ExercisePhotoCarousel } from '@/programs/ExercisePhotoCarousel'
 import {
   assignedProgramQueryKey,
   updateProgramExercise,
@@ -30,8 +31,9 @@ import type { AssignedProgramExercise } from './types'
 //     program's copy, made when it was assigned — not the library's
 //     current version, which a template shows (read-only there). Here it is
 //     EDITABLE, for this patient only (step D-3), with the library page's
-//     own fields given this page's `save`. (Photos aren't copied yet, so
-//     there are none here — deferred-improvements.md.)
+//     own fields given this page's `save`. The PHOTOS are not part of the
+//     copy: they're the library exercise's, read live (decided 2026-10-14 —
+//     illustrations, improved once for every program), and the page says so.
 //   - each session keeps a copy of what it was given — the prescription
 //     (3b-0) and the description (D-2) — so a change applies to NEW
 //     sessions only; the page says so.
@@ -137,6 +139,8 @@ function ProgramExerciseView({
         save={save}
         canEdit={canEdit}
       />
+
+      <ProgramExercisePhotos exercise={exercise} />
 
       <div className="space-y-2">
         <div className="divide-y divide-border rounded-lg border px-4">
@@ -244,5 +248,30 @@ function ProgramExerciseDescription({
         </p>
       )}
     </div>
+  )
+}
+
+// The exercise's photos — the LIBRARY's, read live (2026-10-14), unlike the
+// description above, which is this program's own copy. So the page says where
+// they come from: the practitioner can't change them here, and a change in
+// the library shows here (and in every program using the exercise). Shown
+// the same on an open or a closed program — they aren't the program's to
+// freeze. Photos chosen per program: the roadmap's "Program-specific photos".
+function ProgramExercisePhotos({ exercise }: { exercise: AssignedProgramExercise }) {
+  return (
+    <section aria-labelledby="program-exercise-photos" className="space-y-2">
+      <h3 id="program-exercise-photos" className="text-sm font-medium">
+        Photos
+      </h3>
+      <ExercisePhotoCarousel
+        images={exercise.images}
+        exerciseName={exercise.name}
+        emptyText="This exercise has no photos in the library."
+      />
+      <p className="text-xs text-muted-foreground">
+        Photos come from the exercise in the library, so a change there shows here
+        too. They aren't part of this program's copy.
+      </p>
+    </section>
   )
 }
