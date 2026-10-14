@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { isCalendarDate } from '@/common/calendarDate'
+import { TITLE_MAX_LENGTH } from '@/common/titleLimit'
 import { workoutLetter } from '@/common/workoutLabel'
 import { endDateForWeeks } from './programDates'
 import { resolveDays, resolveRotation, type ScheduleDraft } from './scheduleDraft'
@@ -19,16 +20,16 @@ export const MAX_DURATION_WEEKS = 104
 // shortcut that fills the end date with whole program weeks), or a date.
 export type EndMode = 'none' | 'weeks' | 'date'
 
-// A program's title: trim() first, so "   " counts as empty; 200 = the
-// backend's limit (program-title.decorator.ts, which refuses a blank title
-// too since step 3b-2). Shared by the assign form and the program page's
+// A program's title: trim() first, so "   " counts as empty; the limit is
+// the backend's (common/validators/title.ts, which refuses a blank title
+// too since step 3b-2) — one number for templates and programs
+// (common/titleLimit.ts). Shared by the assign form and the program page's
 // rename (ProgramDetailsSection), so "a valid title" means one thing.
-export const PROGRAM_TITLE_MAX_LENGTH = 200
 export const programTitleSchema = z
   .string()
   .trim()
   .min(1, 'Give the program a title')
-  .max(PROGRAM_TITLE_MAX_LENGTH, `The title can be at most ${PROGRAM_TITLE_MAX_LENGTH} characters`)
+  .max(TITLE_MAX_LENGTH, `The title can be at most ${TITLE_MAX_LENGTH} characters`)
 
 const scheduleDraftSchema = z.object({
   type: z.enum(['weekdays', 'times_per_week']),

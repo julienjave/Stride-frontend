@@ -65,17 +65,23 @@ describe('EditableAddress — editing', () => {
     await userEvent.type(screen.getByLabelText('Apartment, suite, etc. (optional)'), 'Apt 3')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-    expect(save).toHaveBeenCalledTimes(1)
-    // toEqual on the WHOLE object: all six keys must be present, so the
-    // address is replaced as one unit.
-    expect(save.mock.calls[0][0]).toEqual({
-      addressLine1: '2 Oak Ave',
-      addressLine2: 'Apt 3',
-      addressCity: 'Springfield',
-      addressState: 'Illinois',
-      addressPostalCode: '62704',
-      addressCountry: 'US',
-    })
+    // Every call, with EVERY argument (toStrictEqual on mock.calls): one
+    // call, given only the address — not TanStack Query's context object,
+    // which a mutationFn receives as a second argument. And the WHOLE
+    // object: all six keys must be present, so the address is replaced as
+    // one unit.
+    expect(save.mock.calls).toStrictEqual([
+      [
+        {
+          addressLine1: '2 Oak Ave',
+          addressLine2: 'Apt 3',
+          addressCity: 'Springfield',
+          addressState: 'Illinois',
+          addressPostalCode: '62704',
+          addressCountry: 'US',
+        },
+      ],
+    ])
   })
 
   it('sends null (not "") for an optional part that was emptied', async () => {

@@ -1,12 +1,13 @@
 import { z } from 'zod'
+import { TITLE_MAX_LENGTH } from '@/common/titleLimit'
 
-// Mirrors the backend's TEMPLATE_TITLE_MAX_LENGTH and the description's
-// @MaxLength(2000) in CreateTemplateDto. Named and exported (rather than
-// typed as literals below) because the inline title/description editors
-// on TemplateDetailPage enforce the SAME limits outside of this Zod
-// schema — one constant each means the creation form and the editors
-// can never quietly disagree.
-export const TEMPLATE_TITLE_MAX_LENGTH = 200
+// Mirrors the description's @MaxLength(TEMPLATE_DESCRIPTION_MAX_LENGTH) in
+// CreateTemplateDto (the title's limit is shared with programs — see
+// common/titleLimit.ts). Named and exported (rather than typed as literals
+// below) because the inline title/description editors on
+// TemplateDetailPage enforce the SAME limits outside of this Zod schema —
+// one constant each means the creation form and the editors can never
+// quietly disagree.
 export const TEMPLATE_DESCRIPTION_MAX_LENGTH = 2000
 
 // Mirrors CreateTemplateDto exactly (programs/dto/create-template.dto.ts)
@@ -14,13 +15,18 @@ export const TEMPLATE_DESCRIPTION_MAX_LENGTH = 2000
 // backend is the actual authority on what's valid, this just gives
 // immediate inline feedback for the same rules.
 export const createTemplateSchema = z.object({
+  // trim() FIRST: it's a transform, so "   " becomes "" before min(1) looks
+  // at it (without it, three spaces were "a title" here and stored as one —
+  // since 2026-10-14 the backend refuses them, so the form must too, or the
+  // practitioner meets the server's 400 instead of the field's message).
+  // zodResolver hands onSubmit the PARSED values, so the trimmed title is
+  // also what's sent — the same as the template page's inline rename, which
+  // trims before sending.
   title: z
     .string()
+    .trim()
     .min(1, 'Title is required')
-    .max(
-      TEMPLATE_TITLE_MAX_LENGTH,
-      `Title must be ${TEMPLATE_TITLE_MAX_LENGTH} characters or fewer`,
-    ),
+    .max(TITLE_MAX_LENGTH, `Title must be ${TITLE_MAX_LENGTH} characters or fewer`),
   description: z
     .string()
     .max(

@@ -110,7 +110,16 @@ function AddressEditor({ label, address, canRemove, save, onDone }: AddressEdito
   // ONE mutation for both actions (Save and Remove): they send the same
   // kind of request, only the body differs, and they share one
   // pending/error state — while one is in flight, both buttons are off.
-  const mutation = useMutation({ mutationFn: save, onSuccess: onDone })
+  //
+  // `(address) => save(address)`, not `save` itself: TanStack Query calls a
+  // mutationFn with a SECOND argument (its own context object), and passing
+  // `save` directly handed that object to the caller's function too — the
+  // trap EditableField's comment describes. The contract is "save this
+  // address", nothing more.
+  const mutation = useMutation({
+    mutationFn: (address: AddressPatch) => save(address),
+    onSuccess: onDone,
+  })
 
   const errorMessage = mutation.isError
     ? mutation.error instanceof ApiError

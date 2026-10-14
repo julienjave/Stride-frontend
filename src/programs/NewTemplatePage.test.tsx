@@ -47,6 +47,33 @@ describe('NewTemplatePage', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  // A title of spaces alone is no title: the field says so, as for an
+  // empty one, and nothing is sent (the backend refuses it too, since
+  // 2026-10-14 — the form answers first, next to the field).
+  it('treats a title of spaces as empty, and never calls the API', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.type(screen.getByLabelText('Title'), '   ')
+    await user.click(screen.getByRole('button', { name: 'Create Template' }))
+
+    expect(await screen.findByText('Title is required')).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  // The schema's trim() is a transform: what's SENT is the trimmed title.
+  // The body is asserted as a literal string, so a stray space (or key)
+  // fails.
+  it('sends the title trimmed', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ id: 1, title: 'Shoulder Rehab' }, 201))
+    const user = userEvent.setup()
+    renderPage()
+    await user.type(screen.getByLabelText('Title'), '  Shoulder Rehab  ')
+    await user.click(screen.getByRole('button', { name: 'Create Template' }))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    expect(fetchMock.mock.calls[0][1]?.body).toBe('{"title":"Shoulder Rehab"}')
+  })
+
   it('submits with only the title filled in, omitting description entirely rather than sending an empty string', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ id: 1, title: 'Shoulder Rehab' }, 201))
     const user = userEvent.setup()

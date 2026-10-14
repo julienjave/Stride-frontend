@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { ApiError } from '@/api/client'
 import { updateTemplate, programQueryKey } from './api'
 import { upsertInProgramsList } from './programsListCache'
-import { TEMPLATE_TITLE_MAX_LENGTH } from './schemas'
+import { TITLE_MAX_LENGTH } from '@/common/titleLimit'
 
 interface EditableTemplateTitleProps {
   templateId: number
@@ -80,9 +80,9 @@ export function EditableTemplateTitle({
       setValidationError('Title is required')
       return
     }
-    if (trimmed.length > TEMPLATE_TITLE_MAX_LENGTH) {
+    if (trimmed.length > TITLE_MAX_LENGTH) {
       setValidationError(
-        `Title must be ${TEMPLATE_TITLE_MAX_LENGTH} characters or fewer`,
+        `Title must be ${TITLE_MAX_LENGTH} characters or fewer`,
       )
       return
     }

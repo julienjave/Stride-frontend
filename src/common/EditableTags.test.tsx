@@ -102,8 +102,11 @@ describe('EditableTags — editing', () => {
     await openEditor()
     await userEvent.type(screen.getByLabelText('Specialties'), 'Sports{Enter}Neuro')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-    expect(save).toHaveBeenCalledTimes(1)
-    expect(save.mock.calls[0][0]).toEqual(['Ortho', 'Sports', 'Neuro'])
+    // Every call, with EVERY argument: exactly one call, given exactly the
+    // list. TanStack Query hands a mutationFn a second argument (its
+    // context); `save` must not receive it (toStrictEqual on mock.calls
+    // fails on an extra argument, which [0][0] would never see).
+    expect(save.mock.calls).toStrictEqual([[['Ortho', 'Sports', 'Neuro']]])
   })
 
   it('saves an emptied list as [] — "no specialties" is a real value', async () => {

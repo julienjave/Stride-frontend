@@ -41,9 +41,13 @@ export function EditableTags({
   const [error, setError] = useState<string | null>(null)
   const inputId = useId()
 
-  // See EditableField for why onSuccess lives in the options.
+  // See EditableField for why onSuccess lives in the options — and for
+  // why `(next) => save(next)`, not `save` itself: TanStack Query calls a
+  // mutationFn with a SECOND argument (its own context object), and
+  // passing `save` directly handed that object to the caller's function
+  // too. The contract is "save these values", nothing more.
   const mutation = useMutation({
-    mutationFn: save,
+    mutationFn: (next: string[]) => save(next),
     onSuccess: () => setIsEditing(false),
   })
 
