@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   applyExerciseOrder,
   applyWorkoutOrder,
+  focusAfterRemoval,
   groupExercisesByWorkout,
   isWorkoutRemovable,
   nextExercisePosition,
@@ -121,5 +122,53 @@ describe('normalizeWorkoutName', () => {
     ['   ', null],
   ])('%j → %j', (typed, sent) => {
     expect(normalizeWorkoutName(typed)).toBe(sent)
+  })
+})
+
+describe('focusAfterRemoval', () => {
+  // Workout A (57): positions 0, 2, 5 — gaps on purpose, and STORED out of
+  // position order (ids 1, 3, 2), so neither "the next id" nor "the next in
+  // the list" gives the right answer. Workout B (58): one exercise, which
+  // must never be chosen for A.
+  const before = [ex(1, 57, 0), ex(3, 57, 5), ex(2, 57, 2), ex(9, 58, 1)]
+  const without = (id: number) => before.filter((exercise) => exercise.id !== id)
+
+  it('chooses the next exercise of the same workout, by position', () => {
+    expect(focusAfterRemoval(before, without(1), 1)).toEqual({
+      removedId: 1,
+      kind: 'remove',
+      exerciseRowId: 2,
+    })
+  })
+
+  it('chooses the previous one when the last was removed', () => {
+    expect(focusAfterRemoval(before, without(3), 3)).toEqual({
+      removedId: 3,
+      kind: 'remove',
+      exerciseRowId: 2,
+    })
+  })
+
+  it("chooses the workout's Add card when it is now empty", () => {
+    expect(focusAfterRemoval(before, without(9), 9)).toEqual({
+      removedId: 9,
+      kind: 'add',
+      workoutId: 58,
+    })
+  })
+
+  // Read from the server's ANSWER: an exercise the answer no longer has
+  // (removed meanwhile by someone else) is never chosen.
+  it('chooses only among the exercises the answer still has', () => {
+    const answered = without(1).filter((exercise) => exercise.id !== 2)
+    expect(focusAfterRemoval(before, answered, 1)).toEqual({
+      removedId: 1,
+      kind: 'remove',
+      exerciseRowId: 3,
+    })
+  })
+
+  it("chooses nothing when the removed exercise wasn't in the resource", () => {
+    expect(focusAfterRemoval(before, before, 42)).toBeNull()
   })
 })

@@ -333,6 +333,13 @@ describe('TemplateDetailPage — as the owner', () => {
       expect(screen.queryByText('Squat')).not.toBeInTheDocument(),
     )
     expect(screen.getByText('Lunge')).toBeInTheDocument()
+    // The removed card took the focused button with it: focus goes to the
+    // next exercise's Remove instead of falling to the page.
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Remove Lunge from template' }),
+      ).toHaveFocus(),
+    )
   })
 
   // While one removal is on its way, only THAT card's Remove is disabled —

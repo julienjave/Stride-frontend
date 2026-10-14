@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, type ReactNode } from 'react'
 import {
   DndContext,
   PointerSensor,
@@ -89,9 +89,38 @@ export function WorkoutListEditor<W extends WorkoutLike, E extends ExerciseLike>
   const { groups, editing, deleteHint } = props
   const isSeveral = groups.length > 1
   const atLimit = groups.length >= MAX_WORKOUTS
+  const container = useRef<HTMLDivElement>(null)
+
+  // Focus after a removal (focusAfterRemoval): the target was chosen from
+  // the server's answer, but the screen may not show that answer yet —
+  // TanStack Query tells components about the new data AFTER the mutation's
+  // onSuccess, so for a render or two the OLD list is still there (the
+  // schedule editor met the same timing, 3a-2). With it, the removed card's
+  // open dialog and its focus trap, which would pull focus straight back
+  // (a program's Remove asks in a dialog). So focus moves only once the
+  // REMOVED card has left the screen, and the target element exists — then
+  // focusMoved() says so, so it happens once. Runs after every render where
+  // the target or the list changed. The Remove buttons carry
+  // `data-remove-exercise` (each card sets it); the Add card is found inside
+  // the wrapper this list puts around it.
+  const { focusTarget, focusMoved } = editing
+  useEffect(() => {
+    if (!focusTarget) return
+    const root = container.current
+    if (!root || root.querySelector(`[data-remove-exercise="${focusTarget.removedId}"]`)) return
+    const selector =
+      focusTarget.kind === 'remove'
+        ? `[data-remove-exercise="${focusTarget.exerciseRowId}"]`
+        : `[data-add-exercise-workout="${focusTarget.workoutId}"] a`
+    const element = root.querySelector<HTMLElement>(selector)
+    if (element) {
+      element.focus()
+      focusMoved()
+    }
+  }, [focusTarget, focusMoved, groups])
 
   return (
-    <div className="space-y-4">
+    <div ref={container} className="space-y-4">
       {editing.problem && (
         <p role="alert" className="text-sm text-destructive">
           {editing.problem}
@@ -269,7 +298,12 @@ function WorkoutExercises<W extends WorkoutLike, E extends ExerciseLike>({
     if (order) editing.reorderExercises.mutate({ workoutId, order })
   }
 
-  const addCard = renderAddCard(group, isSeveral)
+  // Wrapped, and marked with its workout, so focus can be put on it after
+  // the workout's last exercise is removed (the card itself only knows its
+  // workout when there are several).
+  const addCard = (
+    <div data-add-exercise-workout={workoutId}>{renderAddCard(group, isSeveral)}</div>
+  )
 
   // Empty: the Add card alone, FIRST — nothing to sort, no DndContext.
   if (group.exercises.length === 0) return addCard

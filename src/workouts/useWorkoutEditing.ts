@@ -4,7 +4,9 @@ import { ApiError } from '@/api/client'
 import {
   applyExerciseOrder,
   applyWorkoutOrder,
+  focusAfterRemoval,
   type ExerciseLike,
+  type FocusAfterRemoval,
   type WorkoutLike,
 } from './workoutGroups'
 
@@ -107,6 +109,9 @@ export function useWorkoutEditing<
   const queryClient = useQueryClient()
   const [problem, setProblem] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  // Where focus should go after a removal (focusAfterRemoval), until the
+  // list has moved it there (WorkoutListEditor calls focusMoved()).
+  const [focusTarget, setFocusTarget] = useState<FocusAfterRemoval | null>(null)
 
   function write(updated: R) {
     queryClient.setQueryData(queryKey, updated)
@@ -186,6 +191,12 @@ export function useWorkoutEditing<
     mutationFn: (removal: RemoveRequest) => routes.removeExercise(removal.exerciseRowId),
     onMutate: startAction,
     onSuccess: (updated, removal) => {
+      // Read BEFORE writing the answer: the removed exercise's workout and
+      // position are only in the resource as it was.
+      const before = queryClient.getQueryData<R>(queryKey)
+      setFocusTarget(
+        before ? focusAfterRemoval(before.exercises, updated.exercises, removal.exerciseRowId) : null,
+      )
       write(updated)
       setNotice(options.removedNotice?.(updated, removal) ?? null)
     },
@@ -252,6 +263,8 @@ export function useWorkoutEditing<
     isBusy,
     problem,
     notice,
+    focusTarget,
+    focusMoved: () => setFocusTarget(null),
     noun: options.noun,
   }
 }
@@ -279,5 +292,9 @@ export interface WorkoutEditing<E> {
   isBusy: boolean
   problem: string | null
   notice: string | null
+  // After a removal: what should receive focus, until focusMoved() says it
+  // did (see focusAfterRemoval in workoutGroups.ts).
+  focusTarget: FocusAfterRemoval | null
+  focusMoved: () => void
   noun: string
 }

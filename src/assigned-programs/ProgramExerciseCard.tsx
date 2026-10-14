@@ -170,6 +170,14 @@ function RemoveExerciseButton({
 
   // Closing the dialog (Keep it, Escape, outside click) clears the old
   // error, so it never reopens showing a previous attempt's failure.
+  //
+  // Focus: closed by hand, Radix gives it back to this Remove button. After
+  // a SUCCESSFUL removal the card — dialog included — leaves the page, and
+  // the list puts focus on the next exercise once it has (focusAfterRemoval
+  // — WorkoutListEditor). Radix still tries to restore focus then, but to
+  // this button, now detached from the page, which a browser can't focus:
+  // nothing to prevent. (A ref telling the dialog not to restore was
+  // written first; the mutation run showed it changed nothing — removed.)
   function changeOpen(open: boolean) {
     setIsOpen(open)
     if (!open) remove.reset()
@@ -189,6 +197,9 @@ function RemoveExerciseButton({
           }
           disabled={disabled}
           className="h-7 w-7"
+          // Found by the list to put focus here after a neighbour is removed
+          // (focusAfterRemoval — WorkoutListEditor).
+          data-remove-exercise={exercise.id}
         >
           <Trash2 className="h-3.5 w-3.5" />
         </Button>

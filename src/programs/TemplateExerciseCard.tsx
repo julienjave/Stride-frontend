@@ -142,6 +142,9 @@ export function TemplateExerciseCard({
           disabled={deleting}
           onClick={onDelete}
           className="h-7 w-7"
+          // Found by the list to put focus here after a neighbour is removed
+          // (focusAfterRemoval — WorkoutListEditor).
+          data-remove-exercise={item.id}
         >
           <Trash2 className="h-3.5 w-3.5" />
         </Button>

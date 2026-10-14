@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { ReactNode } from 'react'
-import { act, render, renderHook, screen, within } from '@testing-library/react'
+import { act, render, renderHook, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
@@ -322,6 +322,112 @@ describe('ProgramExercisesSection — removing an exercise', () => {
     expect(await screen.findByText('Removed Glute Bridge from the program.')).toBeInTheDocument()
     expect(screen.queryByText('Glute Bridge')).not.toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    // Focus doesn't fall to the page: it goes to the NEXT exercise of the
+    // workout (focusAfterRemoval) — once that button is on screen.
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Remove Clamshell from workout B · Strength' })).toHaveFocus(),
+    )
+  })
+
+  it("puts focus on the previous exercise after removing a workout's last one", async () => {
+    answer = (method, path) =>
+      method === 'GET' && path.endsWith('/removal')
+        ? json({ outcome: 'deleted', sessionCount: 0 })
+        : json({ ...PROGRAM, exercises: [HEEL, BRIDGE] })
+    const { user } = renderSection()
+    await user.click(screen.getByRole('button', { name: 'Remove Clamshell from workout B · Strength' }))
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByText(/will be deleted/)
+    await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Remove Glute Bridge from workout B · Strength' })).toHaveFocus(),
+    )
+  })
+
+  it("puts focus on the workout's Add card when its only exercise is removed", async () => {
+    answer = (method, path) =>
+      method === 'GET' && path.endsWith('/removal')
+        ? json({ outcome: 'deleted', sessionCount: 0 })
+        : json({ ...PROGRAM, exercises: [BRIDGE, CLAM] })
+    const { user } = renderSection()
+    await user.click(screen.getByRole('button', { name: 'Remove Heel Slides from workout A · Mobility' }))
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByText(/will be deleted/)
+    await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: 'Add New Exercise to workout A · Mobility' })).toHaveFocus(),
+    )
+  })
+
+  // Focus is moved ONCE. After it has moved, the list re-rendering — a
+  // refetch bringing a changed program — must not pull it back.
+  it('moves focus once, not again on a later update of the list', async () => {
+    answer = (method, path) =>
+      method === 'GET' && path.endsWith('/removal')
+        ? json({ outcome: 'deleted', sessionCount: 0 })
+        : json({ ...PROGRAM, exercises: [HEEL, CLAM] })
+    const { user, queryClient } = renderSection()
+    await user.click(screen.getByRole('button', { name: 'Remove Glute Bridge from workout B · Strength' }))
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByText(/will be deleted/)
+    await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
+    const clamshell = screen.getByRole('button', { name: 'Remove Clamshell from workout B · Strength' })
+    await waitFor(() => expect(clamshell).toHaveFocus())
+
+    // The practitioner moves on; then the program changes on the server.
+    const heel = screen.getByRole('button', { name: 'Remove Heel Slides from workout A · Mobility' })
+    heel.focus()
+    // TanStack Query tells components about new data on a timer, not in the
+    // same tick: wait for the list to have really re-rendered (Clamshell's
+    // card shows 4 sets) before checking where focus is.
+    act(() => {
+      queryClient.setQueryData(assignedProgramQueryKey(12), {
+        ...PROGRAM,
+        exercises: [HEEL, { ...CLAM, sets: 4 }],
+      })
+    })
+    expect(await screen.findByText(/^4 sets/)).toBeInTheDocument()
+    expect(heel).toHaveFocus()
+  })
+
+  // Closing the dialog by hand gives focus back to the Remove button that
+  // opened it — Radix's own behaviour, kept: only a SUCCESSFUL removal hands
+  // focus to the list. Here after a failed attempt, the case the click's
+  // memory (the card's `removing` ref) must not survive.
+  it('gives focus back to Remove when the dialog is closed after a failure', async () => {
+    answer = (method, path) =>
+      method === 'GET' && path.endsWith('/removal')
+        ? json({ outcome: 'deleted', sessionCount: 0 })
+        : json({ statusCode: 409, message: ['This program is closed, so it can no longer change'] }, 409)
+    const { user } = renderSection()
+    const trigger = screen.getByRole('button', { name: 'Remove Glute Bridge from workout B · Strength' })
+    await user.click(trigger)
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByText(/will be deleted/)
+    await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
+    expect(await within(dialog).findByRole('alert')).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Keep it' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await waitFor(() => expect(trigger).toHaveFocus())
+  })
+
+  // A failed removal leaves the card, its dialog and the focus where they are.
+  it('moves no focus when the removal fails', async () => {
+    answer = (method, path) =>
+      method === 'GET' && path.endsWith('/removal')
+        ? json({ outcome: 'deleted', sessionCount: 0 })
+        : json({ statusCode: 409, message: ['This program is closed, so it can no longer change'] }, 409)
+    const { user } = renderSection()
+    await user.click(screen.getByRole('button', { name: 'Remove Glute Bridge from workout B · Strength' }))
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByText(/will be deleted/)
+    await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
+
+    expect(await within(dialog).findByRole('alert')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove Clamshell from workout B · Strength', hidden: true })).not.toHaveFocus()
   })
 
   it('says it will be KEPT for its sessions, and then shows it among the removed', async () => {

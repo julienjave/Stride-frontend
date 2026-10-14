@@ -150,3 +150,41 @@ export function normalizeWorkoutName(name: string): string | null {
   const trimmed = name.trim()
   return trimmed === '' ? null : trimmed
 }
+
+// Where keyboard focus goes after an exercise is removed. Removing takes the
+// exercise's card off the page — and with it the button (or the dialog
+// inside it) that had focus — so the browser drops focus to the page itself,
+// and a keyboard or screen-reader user starts again from the top. Instead,
+// focus goes to something that still exists, chosen from the resource AS
+// ANSWERED by the server:
+//   1. the NEXT exercise of the same workout (by position) — its Remove
+//      button, so tidying a workout can go on; Remove only opens a
+//      confirmation (programs) or acts on the card it names;
+//   2. otherwise the PREVIOUS one (the removed exercise was the last);
+//   3. otherwise the workout's "Add New Exercise" card (it's now empty).
+// `before` is the resource as it was (the removed exercise's workout and
+// position are read from it); `after`, as the server answered. null when
+// the removed exercise isn't in `before` (nothing to anchor on).
+// `removedId` travels with the target: the list moves focus only once that
+// exercise's card has left the screen (WorkoutListEditor says why).
+export type FocusAfterRemoval = { removedId: number } & (
+  | { kind: 'remove'; exerciseRowId: number }
+  | { kind: 'add'; workoutId: number }
+)
+
+export function focusAfterRemoval<E extends ExerciseLike>(
+  before: E[],
+  after: E[],
+  removedId: number,
+): FocusAfterRemoval | null {
+  const removed = before.find((exercise) => exercise.id === removedId)
+  if (!removed) return null
+  const left = after
+    .filter((exercise) => exercise.workoutId === removed.workoutId && exercise.id !== removedId)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+  const next = left.find((exercise) => exercise.sortOrder > removed.sortOrder)
+  if (next) return { removedId, kind: 'remove', exerciseRowId: next.id }
+  const previous = left.at(-1)
+  if (previous) return { removedId, kind: 'remove', exerciseRowId: previous.id }
+  return { removedId, kind: 'add', workoutId: removed.workoutId }
+}
