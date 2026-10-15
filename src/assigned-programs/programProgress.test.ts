@@ -47,6 +47,7 @@ function summary(fields: Partial<ScheduleSummary>): ScheduleSummary {
     otherAttempts: [],
     pauses: [],
     nextWorkout: null,
+    openSession: null,
     ...fields,
   }
 }
@@ -74,8 +75,8 @@ describe('groupProgressByWeek', () => {
     timesPerWeek: 3,
     target: 2,
     workouts: [
-      { workoutId: 57, sessionId: 31 },
-      { workoutId: 58, sessionId: null },
+      { workoutId: 57, sessionId: 31, date: '2031-06-09' },
+      { workoutId: 58, sessionId: null, date: null },
     ],
     done: 1,
     state: 'missed',

@@ -41,8 +41,14 @@ export function assignedProgramQueryKey(id: number) {
 // already answered with (useAddScheduleVersion). And `today` is part of the
 // key: the same program judged on another day is another answer, so a page
 // left open past midnight asks again instead of showing yesterday's.
-export function assignedProgramSummaryQueryKey(id: number, today: string) {
-  return [...assignedProgramQueryKey(id), 'summary', today] as const
+//
+// `through` (the patient home, which reads two weeks ahead) is part of the
+// key when given: it changes how far the answer reaches. Still under the
+// same 'summary' prefix, so every invalidation of a program's summary
+// reaches it too.
+export function assignedProgramSummaryQueryKey(id: number, today: string, through?: string) {
+  const key = [...assignedProgramQueryKey(id), 'summary', today] as const
+  return through === undefined ? key : ([...key, through] as const)
 }
 
 // No client-side ownership filtering needed here, unlike programs'
@@ -113,8 +119,12 @@ export function addScheduleVersion(id: number, input: ScheduleVersionInput) {
 // viewer's device knows its time zone, so it says which day it is (the
 // backend refuses a date that can't be today anywhere). Same access as the
 // program itself.
-export function fetchAssignedProgramSummary(id: number, today: string) {
-  return apiRequest<ScheduleSummary>(`/assigned-programs/${id}/summary?today=${today}`)
+//
+// `through` (optional): cover at least up to that day — an open-ended
+// program's summary otherwise stops at the end of the current program week.
+export function fetchAssignedProgramSummary(id: number, today: string, through?: string) {
+  const extra = through === undefined ? '' : `&through=${through}`
+  return apiRequest<ScheduleSummary>(`/assigned-programs/${id}/summary?today=${today}${extra}`)
 }
 
 // The library's "Assign → Assigned Program": ONE request. No position is

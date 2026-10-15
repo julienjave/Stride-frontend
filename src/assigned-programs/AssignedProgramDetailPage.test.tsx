@@ -164,12 +164,13 @@ const SUMMARY: ScheduleSummary = {
   otherAttempts: [],
   pauses: [],
   nextWorkout: { workoutId: 58, forDay: '2031-06-11', programWeek: null },
+  openSession: null,
 }
 
 // The patient's programs (GET /assigned-programs?patientId=6): this one,
 // with its assigner.
 function listRow(program: AssignedProgramDetail, assigner = ME) {
-  const { workouts: _w, exercises: _e, ...row } = program
+  const { exercises: _e, ...row } = program
   return { ...row, assigner: { id: assigner.id, firstName: assigner.firstName, lastName: assigner.lastName } }
 }
 

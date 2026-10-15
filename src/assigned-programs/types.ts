@@ -65,6 +65,9 @@ export interface AssignedProgram {
 // deleted), but a screen must never crash on a missing name.
 export interface AssignedProgramListItem extends AssignedProgram {
   assigner: { id: number; firstName: string; lastName: string } | null
+  // In order (A first) — added for the patient home (Phase 4), which names a
+  // day's workout ("B · Strength") from the list alone.
+  workouts: ProgramWorkout[]
 }
 
 export interface AssignedProgramExercise {
@@ -221,8 +224,10 @@ export interface CountedWeek {
   timesPerWeek: number
   target: number
   // The rotation positions this stretch needs, in order, and the session
-  // that did each (null = not yet).
-  workouts: { workoutId: number; sessionId: number | null }[]
+  // that did each with its day (both null = not yet). The day tells "done
+  // TODAY" (the patient home: a second session that day would count for
+  // nothing).
+  workouts: { workoutId: number; sessionId: number | null; date: string | null }[]
   done: number
   state: WeekState
   sessionIds: number[]
@@ -283,6 +288,16 @@ export interface ScheduleSummary {
   // MISSED day), or the next workout a week still needs (programWeek).
   // null when nothing is left, or while paused.
   nextWorkout: { workoutId: number; forDay: string | null; programWeek: number | null } | null
+  // The program's session IN PROGRESS, or null (Phase 4). Never counted
+  // above — it isn't finished. Its day may be an earlier one: a session left
+  // open, which the next start closes.
+  openSession: OpenSession | null
+}
+
+export interface OpenSession {
+  sessionId: number
+  localDate: string
+  workoutId: number
 }
 
 // --- CREATING ONE (POST /assigned-programs) -----------------------------------

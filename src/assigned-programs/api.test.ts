@@ -48,6 +48,26 @@ describe('assignedProgramSummaryQueryKey', () => {
     )
   })
 
+  // The patient home asks for MORE days (`through`): another answer, so
+  // another entry — sharing one with the program page's would hand that
+  // page two weeks of extra days. Still under the same 'summary' prefix,
+  // so a schedule change (which invalidates ['assigned-programs', id,
+  // 'summary']) refreshes the home's entry too.
+  it('is distinct with a `through`, and still under the summary prefix', () => {
+    expect(assignedProgramSummaryQueryKey(12, '2031-06-05', '2031-06-18')).not.toEqual(
+      assignedProgramSummaryQueryKey(12, '2031-06-05'),
+    )
+    const queryClient = new QueryClient()
+    queryClient.setQueryData(assignedProgramSummaryQueryKey(12, '2031-06-05', '2031-06-18'), {})
+
+    void queryClient.invalidateQueries({ queryKey: [...assignedProgramQueryKey(12), 'summary'] })
+
+    expect(
+      queryClient.getQueryState(assignedProgramSummaryQueryKey(12, '2031-06-05', '2031-06-18'))
+        ?.isInvalidated,
+    ).toBe(true)
+  })
+
   it("is NOT under the programs list's key: refreshing every list leaves it alone", () => {
     const queryClient = new QueryClient()
     queryClient.setQueryData(assignedProgramSummaryQueryKey(12, '2031-06-05'), {})

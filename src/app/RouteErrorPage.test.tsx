@@ -37,9 +37,17 @@ describe('RouteErrorPage', () => {
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Reload the page' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Go to the home page' })).toHaveAttribute('href', '/')
-    // The failure itself reaches the console (React Router logs too: find ours).
-    expect(logged).toHaveBeenCalledWith(
-      expect.objectContaining({ message: 'Failed to fetch dynamically imported module' }),
+    // The failure itself reaches the console (React Router logs too: find
+    // ours). WAITED for, like the heading: the page logs from a useEffect,
+    // which React runs AFTER the render that shows the heading has been
+    // committed — so the heading can be on screen a moment before the log
+    // is written. Checked at once, the assertion lost that race now and
+    // then on a busy machine (found in a full parallel run: reproduced 2
+    // times in 12 under load; 0 in 12 with the wait).
+    await vi.waitFor(() =>
+      expect(logged).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'Failed to fetch dynamically imported module' }),
+      ),
     )
   })
 
