@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
+  END_REASON_TEXT,
+  attemptText,
   dayDetail,
   stretchNote,
   totalsText,
@@ -23,6 +25,7 @@ function day(fields: Partial<ScheduledDay>): ScheduledDay {
     madeUpBy: null,
     doneEarlyBy: null,
     swappedBy: null,
+    attempts: [],
     ...fields,
   }
 }
@@ -60,14 +63,70 @@ describe('dayDetail', () => {
   })
 })
 
+describe('attemptText', () => {
+  it("words a skip with the patient's reason", () => {
+    expect(attemptText({ status: 'skipped', endReason: 'illness' })).toBe('Skipped (illness)')
+    expect(attemptText({ status: 'skipped', endReason: 'no_time' })).toBe('Skipped (no time)')
+  })
+
+  it('says the patient STOPPED a session they ended themselves', () => {
+    expect(attemptText({ status: 'incomplete', endReason: 'pain' })).toBe('Stopped (pain)')
+    expect(attemptText({ status: 'incomplete', endReason: 'illness' })).toBe('Stopped (illness)')
+    expect(attemptText({ status: 'incomplete', endReason: 'no_time' })).toBe('Stopped (no time)')
+    expect(attemptText({ status: 'incomplete', endReason: 'other' })).toBe(
+      'Stopped (another reason)',
+    )
+  })
+
+  it("says NOT FINISHED for a session the app closed — nobody pressed Stop", () => {
+    expect(attemptText({ status: 'incomplete', endReason: 'not_finished_in_time' })).toBe(
+      'Not finished (left open until a later session started)',
+    )
+    expect(attemptText({ status: 'incomplete', endReason: 'program_closed' })).toBe(
+      'Not finished (the program was closed)',
+    )
+  })
+
+  it('has a wording for every reason', () => {
+    // Written out (not read from the Record's keys), so a reason dropped
+    // from the Record fails here as well as in the compiler.
+    expect(END_REASON_TEXT).toStrictEqual({
+      pain: 'pain',
+      illness: 'illness',
+      no_time: 'no time',
+      other: 'another reason',
+      not_finished_in_time: 'left open until a later session started',
+      program_closed: 'the program was closed',
+    })
+  })
+})
+
 describe('totalsText', () => {
-  const totals = { expected: 12, done: 3, madeUp: 1, doneEarly: 1, swapped: 1, missed: 1, extra: 2 }
+  const totals = {
+    expected: 12,
+    done: 3,
+    madeUp: 1,
+    doneEarly: 1,
+    swapped: 1,
+    missed: 1,
+    extra: 2,
+    skipped: 1,
+    incomplete: 2,
+  }
+  const none = { skipped: 0, incomplete: 0 }
 
   it('counts every fulfilled session — done, made up, done early, swapped — of the total', () => {
     expect(totalsText(totals)).toStrictEqual({
       headline: '6 of 12 sessions done',
-      parts: '1 made up · 1 done early · 1 swapped · 1 missed · 2 extra',
+      parts: '1 made up · 1 done early · 1 swapped · 1 missed · 1 skipped · 2 not finished · 2 extra',
     })
+  })
+
+  it("doesn't count skipped or unfinished sessions as done", () => {
+    // Only the four fulfilled kinds make the headline: 3 + 1 + 1 + 1.
+    expect(totalsText({ ...totals, skipped: 5, incomplete: 5 }).headline).toBe(
+      '6 of 12 sessions done',
+    )
   })
 
   it('has no "of" for an open-ended program', () => {
@@ -76,15 +135,17 @@ describe('totalsText', () => {
 
   it('says "session" for one', () => {
     expect(
-      totalsText({ expected: null, done: 1, madeUp: 0, doneEarly: 0, swapped: 0, missed: 0, extra: 0 }),
+      totalsText({ expected: null, done: 1, madeUp: 0, doneEarly: 0, swapped: 0, missed: 0, extra: 0, ...none }),
     ).toStrictEqual({ headline: '1 session done', parts: null })
-    expect(totalsText({ expected: 1, done: 0, madeUp: 0, doneEarly: 0, swapped: 0, missed: 0, extra: 0 }).headline).toBe(
+    expect(totalsText({ expected: 1, done: 0, madeUp: 0, doneEarly: 0, swapped: 0, missed: 0, extra: 0, ...none }).headline).toBe(
       '0 of 1 session done',
     )
   })
 
   it('lists only what is not zero', () => {
-    expect(totalsText({ ...totals, madeUp: 0, extra: 0 }).parts).toBe('1 done early · 1 swapped · 1 missed')
+    expect(totalsText({ ...totals, madeUp: 0, extra: 0, ...none }).parts).toBe(
+      '1 done early · 1 swapped · 1 missed',
+    )
   })
 })
 

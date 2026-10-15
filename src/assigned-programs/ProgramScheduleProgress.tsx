@@ -13,6 +13,7 @@ import {
   DAY_STATE_BADGE,
   EXTRA_REASON_TEXT,
   WEEK_STATE_BADGE,
+  attemptText,
   dayDetail,
   stretchNote,
   totalsText,
@@ -20,7 +21,13 @@ import {
   weekResult,
   weekTitle,
 } from './progressText'
-import type { AssignedProgramDetail, CountedWeek, ExtraSession, ScheduleSummary } from './types'
+import type {
+  AssignedProgramDetail,
+  CountedWeek,
+  DatedAttempt,
+  ExtraSession,
+  ScheduleSummary,
+} from './types'
 
 interface ProgramScheduleProgressProps {
   program: AssignedProgramDetail
@@ -288,7 +295,7 @@ function Weeks({
   today: string
   names: WorkoutNames
 }) {
-  const { weeks, outside } = groupProgressByWeek(summary, startDate)
+  const { weeks, outside, outsideAttempts } = groupProgressByWeek(summary, startDate)
   const arranged = arrangeWeeks(weeks, today)
   if (!arranged) return null
 
@@ -314,10 +321,11 @@ function Weeks({
           ))}
         </div>
       )}
-      {outside.length > 0 && (
+      {(outside.length > 0 || outsideAttempts.length > 0) && (
         <div className="space-y-1 text-sm">
           <h3 className="font-semibold">Sessions outside the program's dates</h3>
           <ExtraList extras={outside} />
+          <AttemptList attempts={outsideAttempts} />
         </div>
       )}
     </div>
@@ -383,6 +391,15 @@ function WeekDetails({
                       {names.several && ` · ${names.labelOf(day.workoutId)}`}
                     </p>
                     {detail && <p className="text-xs text-muted-foreground">{detail}</p>}
+                    {/* The day's skipped / unfinished sessions, oldest first:
+                        "Missed" + "Skipped (illness)" says both what counted
+                        and what the patient told us. The session's id is its
+                        key — two attempts on one day are two sessions. */}
+                    {day.attempts.map((attempt) => (
+                      <p key={attempt.sessionId} className="text-xs text-muted-foreground">
+                        {attemptText(attempt)}
+                      </p>
+                    ))}
                   </div>
                   <StateBadge {...DAY_STATE_BADGE[day.state]} />
                 </li>
@@ -399,6 +416,15 @@ function WeekDetails({
           <div className="space-y-1">
             <p className="font-medium">Extra sessions</p>
             <ExtraList extras={week.extras} />
+          </div>
+        )}
+
+        {/* On a free day or during a pause — a day the lists above don't
+            show, so the attempt gets its date. */}
+        {week.attempts.length > 0 && (
+          <div className="space-y-1">
+            <p className="font-medium">Sessions not completed</p>
+            <AttemptList attempts={week.attempts} />
           </div>
         )}
       </div>
@@ -436,13 +462,39 @@ function WeeklyCount({
             </li>
           ))}
         </ul>
+        {/* A weekly count has no days of its own, so its attempts carry
+            their date: "Tue 10 Jun — Stopped (pain)". */}
+        <AttemptList attempts={stretch.attempts} className="text-xs text-muted-foreground" />
       </div>
       <StateBadge {...WEEK_STATE_BADGE[stretch.state]} />
     </div>
   )
 }
 
+// Dated attempts, one per line — nothing at all when there are none (no
+// empty <ul> for a screen reader to announce as "list, 0 items").
+function AttemptList({
+  attempts,
+  className = 'space-y-1',
+}: {
+  attempts: readonly DatedAttempt[]
+  className?: string
+}) {
+  if (attempts.length === 0) return null
+  return (
+    <ul className={className}>
+      {attempts.map((attempt) => (
+        <li key={attempt.sessionId}>
+          {formatShortDate(attempt.date)} — {attemptText(attempt)}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 function ExtraList({ extras }: { extras: readonly ExtraSession[] }) {
+  // Outside the program's dates there may be attempts and no extra session.
+  if (extras.length === 0) return null
   return (
     <ul className="space-y-1">
       {extras.map((extra) => (

@@ -175,6 +175,37 @@ export interface ScheduledDay {
   // The session done on the OTHER scheduled day of the swap, and that day
   // (state swapped).
   swappedBy: { sessionId: number; date: string } | null
+  // The sessions skipped or stopped ON that day, oldest first (Phase 4 step
+  // 1b). Labels only — they never change the day's state: a skipped day is
+  // still 'missed' (or 'made_up', or 'due').
+  attempts: SessionAttempt[]
+}
+
+// Why a session ended without being completed (the backend's
+// session_end_reason enum). The first four are the PATIENT's, chosen when
+// they skip or stop; the last two are the APP's, never sent by a client:
+// another session was started on a later day while this one was still open
+// (not_finished_in_time), or the practitioner closed the program
+// (program_closed).
+export type SessionEndReason =
+  | 'pain'
+  | 'illness'
+  | 'no_time'
+  | 'other'
+  | 'not_finished_in_time'
+  | 'program_closed'
+
+// A session that ended without counting: skipped (never started) or
+// incomplete (started, then stopped or closed). On a scheduled day its date
+// is the day's; elsewhere it carries its own (DatedAttempt).
+export interface SessionAttempt {
+  sessionId: number
+  status: 'skipped' | 'incomplete'
+  endReason: SessionEndReason
+}
+
+export interface DatedAttempt extends SessionAttempt {
+  date: string
 }
 
 export type WeekState = 'met' | 'missed' | 'in_progress' | 'upcoming'
@@ -195,6 +226,8 @@ export interface CountedWeek {
   done: number
   state: WeekState
   sessionIds: number[]
+  // The sessions skipped or stopped within the stretch, oldest first.
+  attempts: DatedAttempt[]
 }
 
 // Why a completed session didn't count for anything — see the backend's
@@ -231,10 +264,19 @@ export interface ScheduleSummary {
     swapped: number
     missed: number
     extra: number
+    // Sessions skipped / not finished, wherever they fall. NOT part of
+    // `missed`: a skipped day is ALSO counted missed (or made up) — these say
+    // how many times the patient said "not today" or didn't finish.
+    skipped: number
+    incomplete: number
   }
   days: ScheduledDay[]
   weeks: CountedWeek[]
   extraSessions: ExtraSession[]
+  // Attempts on no scheduled day and in no weekly stretch: a free day of a
+  // specific-days schedule (a catch-up stopped, say), a pause, or outside
+  // the program's dates. Oldest first.
+  otherAttempts: DatedAttempt[]
   // `to` null = nothing ends the pause.
   pauses: { from: string; to: string | null }[]
   // What to do next: a specific day's workout (forDay; a make-up names the
@@ -302,6 +344,9 @@ export interface ClosingPlan {
 export interface ClosingPreview {
   cancel: ClosingPlan
   complete: ClosingPlan
+  // How many sessions are in progress right now: closing (either way) stops
+  // them — status incomplete, reason program_closed (Phase 4 step 1b).
+  openSessions: number
 }
 
 // The answer of POST …/cancel and …/complete: the program as it now is —

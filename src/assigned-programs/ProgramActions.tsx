@@ -50,8 +50,11 @@ function CloseProgramButton({
   const preview = useClosingPreview(programId, today, { enabled: isOpen })
   const closeMutation = useCloseAssignedProgram(programId)
 
-  const plan = preview.data?.[action]
-  const text = plan ? closingText(action, plan, today) : null
+  // The backend's whole answer: the plan for THIS action, and how many
+  // sessions in progress closing would stop (the same for both actions).
+  const text = preview.data
+    ? closingText(action, preview.data[action], preview.data.openSessions, today)
+    : null
 
   // Closing the dialog (Keep it, Escape, outside click) clears an old error,
   // so it never reopens showing the previous attempt's failure.

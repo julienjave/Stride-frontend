@@ -5,7 +5,7 @@ import {
   programWeekOf,
   type ProgressWeek,
 } from './programProgress'
-import type { CountedWeek, ScheduleSummary, ScheduledDay } from './types'
+import type { CountedWeek, DatedAttempt, ScheduleSummary, ScheduledDay } from './types'
 
 // The program starts on a THURSDAY (29 May 2031), so program weeks run
 // Thursday → Wednesday: a rule that cut by calendar week (Monday) would put
@@ -21,6 +21,7 @@ function day(date: string, state: ScheduledDay['state']): ScheduledDay {
     madeUpBy: null,
     doneEarlyBy: null,
     swappedBy: null,
+    attempts: [],
   }
 }
 
@@ -29,10 +30,21 @@ function summary(fields: Partial<ScheduleSummary>): ScheduleSummary {
     firstDay: START,
     lastDay: '2031-06-15',
     today: '2031-06-12',
-    totals: { expected: null, done: 0, madeUp: 0, doneEarly: 0, swapped: 0, missed: 0, extra: 0 },
+    totals: {
+      expected: null,
+      done: 0,
+      madeUp: 0,
+      doneEarly: 0,
+      swapped: 0,
+      missed: 0,
+      extra: 0,
+      skipped: 0,
+      incomplete: 0,
+    },
     days: [],
     weeks: [],
     extraSessions: [],
+    otherAttempts: [],
     pauses: [],
     nextWorkout: null,
     ...fields,
@@ -68,9 +80,21 @@ describe('groupProgressByWeek', () => {
     done: 1,
     state: 'missed',
     sessionIds: [31],
+    attempts: [],
   }
 
-  const { weeks, outside } = groupProgressByWeek(
+  // Attempts on no scheduled day (the summary's otherAttempts): two inside
+  // the program — on week 1's FIRST day and week 2's LAST day, the edges a
+  // "> start" or "< end" would drop — and two outside it, before the start
+  // and after the last covered day.
+  const otherAttempts: DatedAttempt[] = [
+    { sessionId: 52, date: '2031-05-27', status: 'incomplete', endReason: 'pain' },
+    { sessionId: 50, date: '2031-05-29', status: 'incomplete', endReason: 'no_time' },
+    { sessionId: 51, date: '2031-06-11', status: 'incomplete', endReason: 'other' },
+    { sessionId: 53, date: '2031-06-16', status: 'incomplete', endReason: 'illness' },
+  ]
+
+  const { weeks, outside, outsideAttempts } = groupProgressByWeek(
     summary({
       days: [
         day('2031-05-29', 'done'),
@@ -88,6 +112,7 @@ describe('groupProgressByWeek', () => {
         { sessionId: 41, date: '2031-05-27', reason: 'outside_program' },
         { sessionId: 42, date: '2031-06-20', reason: 'outside_program' },
       ],
+      otherAttempts,
       pauses: [{ from: '2031-06-13', to: null }],
     }),
     START,
@@ -164,6 +189,18 @@ describe('groupProgressByWeek', () => {
     ])
   })
 
+  it('puts each attempt on no scheduled day in its program week, edges included', () => {
+    expect(weeks.map((week) => week.attempts.map((a) => a.sessionId))).toStrictEqual([
+      [50],
+      [51],
+      [],
+    ])
+  })
+
+  it('keeps attempts outside every week apart, in their order', () => {
+    expect(outsideAttempts.map((a) => a.sessionId)).toStrictEqual([52, 53])
+  })
+
   it('keeps extra sessions outside every week apart, in their order', () => {
     expect(outside.map((e) => e.sessionId)).toStrictEqual([41, 42])
     expect(weeks.flatMap((week) => week.extras).map((e) => e.sessionId)).toStrictEqual([40, 43])
@@ -181,6 +218,7 @@ describe('arrangeWeeks', () => {
       days: [],
       counted: [],
       extras: [],
+      attempts: [],
       pauses: [],
       expected: 0,
       fulfilled: 0,

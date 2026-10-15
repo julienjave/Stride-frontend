@@ -1,5 +1,13 @@
 import { daysBetween, formatShortDate } from '@/common/calendarDate'
-import type { DayState, ExtraReason, ScheduleSummary, ScheduledDay, WeekState } from './types'
+import type {
+  DayState,
+  ExtraReason,
+  ScheduleSummary,
+  ScheduledDay,
+  SessionAttempt,
+  SessionEndReason,
+  WeekState,
+} from './types'
 
 // The words of the program page's progress, in one place: each state and
 // each reason has exactly one wording, so a day can't be "Missed" in one
@@ -76,6 +84,47 @@ export const EXTRA_REASON_TEXT: Record<ExtraReason, string> = {
   already_done: 'That day was already done, ahead of time or by a swap',
 }
 
+// --- SESSIONS THAT DIDN'T COUNT: SKIPPED OR NOT FINISHED -----------------------------
+
+// Why a session ended without being completed, in a few words. A Record over
+// the backend's enum, like the badges: a new reason without a wording is a
+// compile error.
+export const END_REASON_TEXT: Record<SessionEndReason, string> = {
+  pain: 'pain',
+  illness: 'illness',
+  no_time: 'no time',
+  other: 'another reason',
+  not_finished_in_time: 'left open until a later session started',
+  program_closed: 'the program was closed',
+}
+
+// One attempt as a label under its day (or in its week): "Skipped
+// (illness)", "Stopped (pain)", "Not finished (the program was closed)".
+//   - skipped: the patient said "not today" before starting — always one of
+//     THEIR reasons (the database refuses the app's two on a skip);
+//   - incomplete, with a patient's reason: they pressed Stop → "Stopped";
+//   - incomplete, with the app's reason: nobody stopped it — it was still
+//     open when the app closed it → "Not finished". "Stopped" would say the
+//     patient did something they didn't.
+// The patient's note is not in the summary (it's in the session itself):
+// the label stays short.
+export function attemptText(attempt: Pick<SessionAttempt, 'status' | 'endReason'>): string {
+  const reason = END_REASON_TEXT[attempt.endReason]
+  if (attempt.status === 'skipped') return `Skipped (${reason})`
+  return isPatientReason(attempt.endReason) ? `Stopped (${reason})` : `Not finished (${reason})`
+}
+
+// The two reasons only the app writes. A Set rather than a comparison
+// with each: one place lists them.
+const APP_REASONS: ReadonlySet<SessionEndReason> = new Set([
+  'not_finished_in_time',
+  'program_closed',
+])
+
+function isPatientReason(reason: SessionEndReason): boolean {
+  return !APP_REASONS.has(reason)
+}
+
 // --- TOTALS ---------------------------------------------------------------------------
 
 // The totals in two lines:
@@ -83,7 +132,13 @@ export const EXTRA_REASON_TEXT: Record<ExtraReason, string> = {
 //     when there's an end date), "4 sessions done" when open-ended — an
 //     open-ended program has no total, so no "of" (decisions §5);
 //   - parts: what's behind it, only the non-zero ones ("1 made up · 1
-//     swapped · 1 missed · 2 extra"), or null when there's nothing to add.
+//     swapped · 1 missed · 1 skipped · 1 not finished · 2 extra"), or null
+//     when there's nothing to add.
+// "Skipped" and "not finished" count SESSIONS (attempts), not days: a
+// skipped day is in "missed" too (or "made up", if a make-up followed) —
+// the attempt says how it went, never instead of what counted. "Not
+// finished" covers every incomplete session, stopped by the patient or
+// closed by the app (attemptText tells them apart, day by day).
 // "Done" in the headline counts every FULFILLED session — done on the day,
 // made up, done early or swapped: each one did what the schedule asked.
 export function totalsText(totals: ScheduleSummary['totals']): {
@@ -102,6 +157,8 @@ export function totalsText(totals: ScheduleSummary['totals']): {
     totals.doneEarly > 0 ? `${totals.doneEarly} done early` : null,
     totals.swapped > 0 ? `${totals.swapped} swapped` : null,
     totals.missed > 0 ? `${totals.missed} missed` : null,
+    totals.skipped > 0 ? `${totals.skipped} skipped` : null,
+    totals.incomplete > 0 ? `${totals.incomplete} not finished` : null,
     totals.extra > 0 ? `${totals.extra} extra` : null,
   ].filter((part) => part !== null)
 

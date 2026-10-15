@@ -1,5 +1,5 @@
 import { addDays, daysBetween } from '@/common/calendarDate'
-import type { CountedWeek, ExtraSession, ScheduleSummary, ScheduledDay } from './types'
+import type { CountedWeek, DatedAttempt, ExtraSession, ScheduleSummary, ScheduledDay } from './types'
 
 // The program page's progress list (decided 2026-10-12): the backend's
 // summary — scheduled days, weekly counts, extra sessions, pauses — cut into
@@ -27,6 +27,11 @@ export interface ProgressWeek {
   days: ScheduledDay[]
   counted: CountedWeek[]
   extras: ExtraSession[]
+  // Sessions skipped or not finished on a day that is neither a scheduled
+  // day nor part of a weekly count (the summary's otherAttempts): a free
+  // day, or a pause. Those ON a scheduled day stay on that day
+  // (day.attempts), those in a weekly count stay in it (stretch.attempts).
+  attempts: DatedAttempt[]
   // The pauses that touch this week, each cut to the week's own dates.
   pauses: { from: string; to: string }[]
   // How much the week asked for (scheduled days + weekly targets), how much
@@ -60,11 +65,12 @@ const FULFILLED: ReadonlySet<ScheduledDay['state']> = new Set([
 //
 // Extra sessions dated outside every week (before the start, or after the
 // last covered day — the backend's 'outside_program') are returned apart:
-// they belong to no week, but a practitioner should still see them.
+// they belong to no week, but a practitioner should still see them. The
+// same for attempts (`outsideAttempts`).
 export function groupProgressByWeek(
   summary: ScheduleSummary,
   startDate: string,
-): { weeks: ProgressWeek[]; outside: ExtraSession[] } {
+): { weeks: ProgressWeek[]; outside: ExtraSession[]; outsideAttempts: DatedAttempt[] } {
   const weekCount = programWeekOf(summary.lastDay, startDate)
 
   const weeks: ProgressWeek[] = []
@@ -80,6 +86,9 @@ export function groupProgressByWeek(
     const counted = summary.weeks.filter((week) => week.programWeek === programWeek)
     const extras = summary.extraSessions.filter(
       (extra) => extra.date >= start && extra.date <= end,
+    )
+    const attempts = summary.otherAttempts.filter(
+      (attempt) => attempt.date >= start && attempt.date <= end,
     )
     // A pause touches the week when it starts before the week ends AND ends
     // after the week starts (or never ends) — the classic test for two
@@ -99,6 +108,7 @@ export function groupProgressByWeek(
       days,
       counted,
       extras,
+      attempts,
       pauses,
       expected: days.length + counted.reduce((sum, week) => sum + week.target, 0),
       fulfilled:
@@ -114,10 +124,10 @@ export function groupProgressByWeek(
     })
   }
 
-  const outside = summary.extraSessions.filter(
-    (extra) => extra.date < startDate || extra.date > summary.lastDay,
-  )
-  return { weeks, outside }
+  const isOutside = (date: string) => date < startDate || date > summary.lastDay
+  const outside = summary.extraSessions.filter((extra) => isOutside(extra.date))
+  const outsideAttempts = summary.otherAttempts.filter((attempt) => isOutside(attempt.date))
+  return { weeks, outside, outsideAttempts }
 }
 
 // --- WHICH WEEK IS OPEN ------------------------------------------------------------

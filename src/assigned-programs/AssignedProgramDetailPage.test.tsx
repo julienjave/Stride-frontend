@@ -128,6 +128,7 @@ function day(date: string, workoutId: number, state: string, fields: object = {}
     madeUpBy: null,
     doneEarlyBy: null,
     swappedBy: null,
+    attempts: [],
     ...fields,
   }
 }
@@ -139,7 +140,17 @@ const SUMMARY: ScheduleSummary = {
   firstDay: '2031-06-02',
   lastDay: '2031-06-15',
   today: TODAY,
-  totals: { expected: null, done: 2, madeUp: 1, doneEarly: 0, swapped: 0, missed: 1, extra: 1 },
+  totals: {
+    expected: null,
+    done: 2,
+    madeUp: 1,
+    doneEarly: 0,
+    swapped: 0,
+    missed: 1,
+    extra: 1,
+    skipped: 0,
+    incomplete: 0,
+  },
   days: [
     day('2031-06-02', 57, 'done', { sessionId: 1 }),
     day('2031-06-04', 58, 'made_up', { madeUpBy: { sessionId: 2, date: '2031-06-05' } }),
@@ -150,6 +161,7 @@ const SUMMARY: ScheduleSummary = {
   ] as ScheduleSummary['days'],
   weeks: [],
   extraSessions: [{ sessionId: 4, date: '2031-06-02', reason: 'same_day' }],
+  otherAttempts: [],
   pauses: [],
   nextWorkout: { workoutId: 58, forDay: '2031-06-11', programWeek: null },
 }
@@ -183,6 +195,7 @@ beforeEach(() => {
     json({
       cancel: { outcome: 'cancelled', endDate: '2031-06-11' },
       complete: { outcome: 'completed', endDate: '2031-06-11' },
+      openSessions: 0,
     })
   // Closing works like the server: the program's later GETs answer it
   // closed (the page refetches after closing).
@@ -588,6 +601,7 @@ describe('AssignedProgramDetailPage — progress', () => {
       done: 1,
       state: 'met',
       sessionIds: [7],
+      attempts: [],
     }
     summaries[12] = () =>
       json({
@@ -673,6 +687,7 @@ describe('AssignedProgramDetailPage — progress', () => {
             done: 1,
             state: 'in_progress',
             sessionIds: [9],
+            attempts: [],
           },
         ],
       })
@@ -681,6 +696,152 @@ describe('AssignedProgramDetailPage — progress', () => {
     expect(screen.getByText('B · Strength: not yet')).toBeInTheDocument()
     // A full week: no "these N days" line.
     expect(screen.queryByText(/target 2 for these/)).not.toBeInTheDocument()
+  })
+
+  it("labels a day's skipped and unfinished sessions under its state, oldest first", async () => {
+    // This week's Wednesday, still to do: the patient started it twice and
+    // stopped twice. The badge stays "To do" — attempts never change a state.
+    summaries[12] = () =>
+      json({
+        ...SUMMARY,
+        days: SUMMARY.days.map((d) =>
+          d.date === '2031-06-11'
+            ? {
+                ...d,
+                attempts: [
+                  { sessionId: 20, status: 'incomplete', endReason: 'pain' },
+                  { sessionId: 21, status: 'incomplete', endReason: 'no_time' },
+                ],
+              }
+            : d,
+        ),
+      })
+    renderPage()
+    await screen.findByRole('heading', { level: 3, name: 'This week' })
+    const rows = within(weekDetails(2)).getAllByRole('listitem')
+    expect(rows.map((row) => row.textContent)).toStrictEqual([
+      `${formatShortDate('2031-06-09')} · A · MobilityDone`,
+      `${formatShortDate('2031-06-11')} · B · StrengthNot done yet — can still be made up before the next sessionStopped (pain)Stopped (no time)To do`,
+      `${formatShortDate('2031-06-13')} · A · MobilityUpcoming`,
+    ])
+  })
+
+  it('labels a skipped day that stays missed', async () => {
+    const user = userEvent.setup()
+    summaries[12] = () =>
+      json({
+        ...SUMMARY,
+        days: SUMMARY.days.map((d) =>
+          d.date === '2031-06-06'
+            ? { ...d, attempts: [{ sessionId: 22, status: 'skipped', endReason: 'illness' }] }
+            : d,
+        ),
+      })
+    renderPage()
+    await screen.findByRole('heading', { level: 3, name: 'Earlier weeks' })
+    const week = weekDetails(1)
+    await user.click(within(week).getByText(/^Week 1/))
+    const friday = within(week)
+      .getAllByRole('listitem')
+      .find((row) => row.textContent?.startsWith(formatShortDate('2031-06-06')))
+    expect(friday?.textContent).toBe(`${formatShortDate('2031-06-06')} · A · MobilitySkipped (illness)Missed`)
+  })
+
+  it('counts skipped and unfinished sessions in the totals, apart from what was done', async () => {
+    summaries[12] = () =>
+      json({ ...SUMMARY, totals: { ...SUMMARY.totals, skipped: 1, incomplete: 2 } })
+    renderPage()
+    expect(await screen.findByText('3 sessions done')).toBeInTheDocument()
+    expect(
+      screen.getByText('1 made up · 1 missed · 1 skipped · 2 not finished · 1 extra'),
+    ).toBeInTheDocument()
+  })
+
+  it('lists, dated, a session not completed on a free day of its week — in that week only', async () => {
+    summaries[12] = () =>
+      json({
+        ...SUMMARY,
+        otherAttempts: [
+          {
+            sessionId: 23,
+            date: '2031-06-10',
+            status: 'incomplete',
+            endReason: 'not_finished_in_time',
+          },
+        ],
+      })
+    renderPage()
+    await screen.findByRole('heading', { level: 3, name: 'This week' })
+    const thisWeek = weekDetails(2)
+    expect(within(thisWeek).getByText('Sessions not completed')).toBeInTheDocument()
+    expect(
+      within(thisWeek).getByText(
+        `${formatShortDate('2031-06-10')} — Not finished (left open until a later session started)`,
+      ),
+    ).toBeInTheDocument()
+    expect(within(weekDetails(1)).queryByText('Sessions not completed')).not.toBeInTheDocument()
+  })
+
+  it("lists a weekly count's sessions not completed, dated, under the count", async () => {
+    programs[12] = () =>
+      json({
+        ...PROGRAM,
+        schedules: [
+          version(1, '2031-06-02', { type: 'times_per_week', timesPerWeek: 2, days: [], rotation: [57, 58] }),
+        ],
+      })
+    summaries[12] = () =>
+      json({
+        ...SUMMARY,
+        days: [],
+        extraSessions: [],
+        weeks: [
+          {
+            programWeek: 2,
+            timesPerWeek: 2,
+            start: '2031-06-09',
+            end: '2031-06-15',
+            target: 2,
+            workouts: [
+              { workoutId: 57, sessionId: null },
+              { workoutId: 58, sessionId: null },
+            ],
+            done: 0,
+            state: 'in_progress',
+            sessionIds: [],
+            attempts: [
+              { sessionId: 24, date: '2031-06-10', status: 'incomplete', endReason: 'illness' },
+            ],
+          },
+        ],
+      })
+    renderPage()
+    expect(
+      await screen.findByText(`${formatShortDate('2031-06-10')} — Stopped (illness)`),
+    ).toBeInTheDocument()
+    // Under the count, not repeated as a week-level list.
+    expect(screen.queryByText('Sessions not completed')).not.toBeInTheDocument()
+  })
+
+  it("lists a session not completed outside the program's dates apart, even with no extra session", async () => {
+    summaries[12] = () =>
+      json({
+        ...SUMMARY,
+        extraSessions: [],
+        otherAttempts: [
+          { sessionId: 25, date: '2031-06-01', status: 'incomplete', endReason: 'other' },
+        ],
+      })
+    renderPage()
+    const outside = (
+      await screen.findByRole('heading', { level: 3, name: "Sessions outside the program's dates" })
+    ).parentElement as HTMLElement
+    expect(within(outside).getAllByRole('listitem').map((item) => item.textContent)).toStrictEqual([
+      `${formatShortDate('2031-06-01')} — Stopped (another reason)`,
+    ])
+    // One list: no empty one for the (absent) extra sessions.
+    expect(within(outside).getAllByRole('list')).toHaveLength(1)
+    expect(within(weekDetails(1)).queryByText('Sessions not completed')).not.toBeInTheDocument()
   })
 
   it("lists sessions outside the program's dates apart", async () => {
@@ -696,6 +857,9 @@ describe('AssignedProgramDetailPage — progress', () => {
     expect(within(outside).getByRole('listitem')).toHaveTextContent(
       `${formatShortDate('2031-06-01')} — Outside the program's dates`,
     )
+    // One list: no empty one for the attempts (a screen reader would say
+    // "list, 0 items").
+    expect(within(outside).getAllByRole('list')).toHaveLength(1)
   })
 
   it("says so when the progress can't be loaded, and still shows the rest", async () => {
@@ -845,6 +1009,24 @@ describe('AssignedProgramDetailPage — closing the program', () => {
     ])
   })
 
+  it('says a session in progress will be stopped', async () => {
+    const user = userEvent.setup()
+    closingPreview = () =>
+      json({
+        cancel: { outcome: 'cancelled', endDate: '2031-06-11' },
+        complete: { outcome: 'completed', endDate: '2031-06-11' },
+        openSessions: 1,
+      })
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Cancel program' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Cancel this program?' })
+    expect(
+      await within(dialog).findByText(
+        `It will end on ${formatShortDate('2031-06-11')}, and become read-only. The patient's session in progress will be stopped, and kept as not finished. Its sessions and progress stay on the patient's record; to go on with it later, assign it again.`,
+      ),
+    ).toBeInTheDocument()
+  })
+
   it('completes it with today, then shows it closed', async () => {
     const user = userEvent.setup()
     renderPage()
@@ -875,6 +1057,7 @@ describe('AssignedProgramDetailPage — closing the program', () => {
       json({
         cancel: { outcome: 'archived', endDate: null },
         complete: { outcome: 'completed', endDate: '2031-06-11' },
+        openSessions: 0,
       })
     closeAnswer = () => {
       programs[12] = () => json({ ...PROGRAM, isArchived: true })
