@@ -6,6 +6,7 @@ import { Logo } from './layout/Logo'
 import { SectionNav } from './layout/SectionNav'
 import { SettingsMenu } from './layout/SettingsMenu'
 import { UserMenu } from './layout/UserMenu'
+import { NavigationProgress } from './layout/NavigationProgress'
 
 // A LAYOUT route (element with no path, see routes.tsx) wrapping every
 // authenticated page: whichever page matched renders where <Outlet /> is,
@@ -65,6 +66,9 @@ export function AuthenticatedLayout() {
             <UserMenu />
           </div>
         </div>
+        {/* Positioned against the header (sticky counts as positioned),
+            so its bar sits on the header's bottom edge. */}
+        <NavigationProgress />
       </header>
 
       {/* Bottom padding on phones only, equal to the tab bar's height, so

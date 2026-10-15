@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { EditableAddress } from './EditableAddress'
 import type { Address } from './types'
 
-// country-state-city is a two-country fixture in tests (see
+// The address data is a two-country fixture in tests (see
 // src/test-setup.ts): United States (with states) and Aland Islands.
 const fullAddress: Address = {
   addressLine1: '1 Main St',

@@ -7,7 +7,7 @@ import {
   type Path,
   type UseFormRegister,
 } from 'react-hook-form'
-import { Country, State } from 'country-state-city'
+import { ALL_COUNTRIES, statesOfCountry } from './addressData'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -19,11 +19,6 @@ import {
 } from '@/components/ui/select'
 import type { AddressFormValues } from './schemas'
 import { ignoreEmptySelection } from '@/common/ignoreEmptySelection'
-
-// Loaded once at module scope, not per-render — Country.getAllCountries()
-// parses a real (if small) embedded dataset every time it's called, and
-// the list itself never changes during the app's lifetime.
-const ALL_COUNTRIES = Country.getAllCountries()
 
 // TTransformedValues: what the form's submit handler receives AFTER its
 // schema ran. For most forms it's the same type as the form's values (the
@@ -57,7 +52,7 @@ export function AddressFields<
   // Recomputed only when the selected country actually changes, not on
   // every keystroke elsewhere in the form.
   const statesForCountry = useMemo(
-    () => (watchedCountry ? State.getStatesOfCountry(watchedCountry) : []),
+    () => (watchedCountry ? statesOfCountry(watchedCountry) : []),
     [watchedCountry],
   )
 

@@ -12,21 +12,25 @@ import '@testing-library/jest-dom/vitest'
 // exactly the "Found multiple elements with role button" failure above).
 // afterEach here runs automatically, for every test in every file, without
 // each test file needing to remember to do it individually.
-// The real country-state-city package ships ~250 countries — rendering
-// that many real <SelectItem> options in jsdom is genuinely slow (one
-// affected test measured at ~4.5s, right at the edge of Vitest's default
-// 5s test timeout, and enough to time out outright on a slower machine).
-// No test here is ABOUT the real dataset (that it has all 250 countries,
-// or their exact real state lists) — every test just needs "pick a
+// The real address data (src/common/address/addressData.ts, generated from
+// the country-state-city library) has ~250 countries — rendering that many
+// real <SelectItem> options in jsdom is genuinely slow (one affected test
+// measured at ~4.5s, right at the edge of Vitest's default 5s test
+// timeout, and enough to time out outright on a slower machine). No test
+// here is ABOUT the real dataset — every form test just needs "pick a
 // country with states, pick one without," so a small, fixed fixture is
-// both faster and more deterministic than depending on a third-party
-// package's exact, changeable data. Covers every real country name used
-// across the address-bearing forms' test files (United States, with
-// states including Illinois/California; Aland Islands, with none).
+// both faster and more deterministic. Covers every country name used
+// across the address-bearing forms' test files (United States, with states
+// including Illinois/California; Aland Islands, with none). The real data
+// has its own test, addressData.test.ts, which reads the real module with
+// vi.importActual.
 //
-// getCountryByCode (added with the profile page's address display, which
-// shows a stored 'US' as "United States") looks up the SAME fixture list,
-// so the two functions can never disagree about which countries exist.
+// findCountry (the address display shows a stored 'US' as "United States")
+// looks up the SAME fixture list, so the two can never disagree about which
+// countries exist.
+//
+// Until 2026-10-15 this mocked the library itself; the app now reads the
+// generated data through addressData.ts, so that's the module replaced.
 //
 // vi.hoisted(): Vitest moves every vi.mock() call to the very top of the
 // file, above ordinary `const` declarations. A plain const used inside the
@@ -38,21 +42,17 @@ const MOCK_COUNTRIES = vi.hoisted(() => [
   { isoCode: 'AX', name: 'Aland Islands' },
 ])
 
-vi.mock('country-state-city', () => ({
-  Country: {
-    getAllCountries: () => MOCK_COUNTRIES,
-    getCountryByCode: (isoCode: string) =>
-      MOCK_COUNTRIES.find((country) => country.isoCode === isoCode),
-  },
-  State: {
-    getStatesOfCountry: (countryCode: string) =>
-      countryCode === 'US'
-        ? [
-            { isoCode: 'CA', name: 'California', countryCode: 'US' },
-            { isoCode: 'IL', name: 'Illinois', countryCode: 'US' },
-          ]
-        : [],
-  },
+vi.mock('@/common/address/addressData', () => ({
+  ALL_COUNTRIES: MOCK_COUNTRIES,
+  findCountry: (isoCode: string) =>
+    MOCK_COUNTRIES.find((country) => country.isoCode === isoCode),
+  statesOfCountry: (isoCode: string) =>
+    isoCode === 'US'
+      ? [
+          { isoCode: 'CA', name: 'California' },
+          { isoCode: 'IL', name: 'Illinois' },
+        ]
+      : [],
 }))
 
 afterEach(() => {

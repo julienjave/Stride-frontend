@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { formatAddressLines } from './format'
 import type { Address } from './types'
 
-// country-state-city is replaced by a two-country fixture in
+// the address data is replaced by a two-country fixture in
 // src/test-setup.ts (United States, Aland Islands) — hence the choice of
 // countries below.
 

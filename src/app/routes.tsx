@@ -1,45 +1,52 @@
+import type { ComponentType } from 'react'
 import { createBrowserRouter } from 'react-router'
 import { LoginPage } from '@/auth/LoginPage'
-import { RegisterClinicPage } from '@/auth/RegisterClinicPage'
-import { AcceptInvitationPage } from '@/invitations/AcceptInvitationPage'
 import { DashboardRedirect } from '@/app/DashboardRedirect'
-import { ClinicsListPage } from '@/clinics/ClinicsListPage'
-import { CreateClinicPage } from '@/clinics/CreateClinicPage'
-import { ClinicEditPage } from '@/clinics/ClinicEditPage'
-import { CreateUserPage } from '@/users/CreateUserPage'
-import { UsersListPage } from '@/users/UsersListPage'
-import { UserEditPage } from '@/users/UserEditPage'
 import { RequireAuth } from './RequireAuth'
 import { RequireGuest } from './RequireGuest'
 import { RequireRole } from './RequireRole'
 import { AuthenticatedLayout } from './AuthenticatedLayout'
-import { AdminHomePage } from './AdminHomePage'
-import { PractitionerHomePage } from './PractitionerHomePage'
-import { PatientHomePage } from './PatientHomePage'
 import { ComingSoonPage } from './ComingSoonPage'
-import { ProfilePage } from '@/users/ProfilePage'
-import { AddPatientPage } from '@/patients/AddPatientPage'
-import { InvitePatientPage } from '@/patients/InvitePatientPage'
-import { PatientPage } from '@/patients/PatientPage'
-import { PatientsListPage } from '@/patients/PatientsListPage'
-import { ExerciseLibraryPage } from '@/exercises/ExerciseLibraryPage'
-import { ExercisePickerPage } from '@/exercises/ExercisePickerPage'
-import { ExerciseDetailPage } from '@/exercises/ExerciseDetailPage'
-import { NewExercisePage } from '@/exercises/NewExercisePage'
-import { ExercisePhotosPage } from '@/exercises/ExercisePhotosPage'
-import { ExerciseAssignPage } from '@/exercises/ExerciseAssignPage'
-import { ProgramsPage } from '@/programs/ProgramsPage'
-import { NewTemplatePage } from '@/programs/NewTemplatePage'
-import { NewProgramExercisePage } from '@/programs/NewProgramExercisePage'
-import { ProgramExercisePage } from '@/programs/ProgramExercisePage'
-import { TemplateDetailPage } from '@/programs/TemplateDetailPage'
-import { NewAssignedProgramPage } from '@/assigned-programs/NewAssignedProgramPage'
-import { AssignedProgramDetailPage } from '@/assigned-programs/AssignedProgramDetailPage'
-import { NewAssignedProgramExercisePage } from '@/assigned-programs/NewAssignedProgramExercisePage'
-import { AssignedProgramExercisePage } from '@/assigned-programs/AssignedProgramExercisePage'
 import { setUnauthorizedHandler } from '@/api/client'
 import { queryClient } from '@/api/queryClient'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
+import { RouteErrorPage } from './RouteErrorPage'
+
+// CODE SPLITTING (2026-10-15). Every PAGE is loaded on demand: its route
+// says `lazy: page(() => import('…'), (module) => module.SomePage)`
+// instead of `element: <SomePage />`.
+//
+// Why: a static `import` puts a module in the ONE file the browser
+// downloads before showing anything. With every page imported here, a
+// patient opening the app downloaded every admin and practitioner screen
+// (and the drag-and-drop and photo-crop libraries only those screens use)
+// — 1.6 MB. A dynamic `import()` is a split point: Vite builds that module,
+// and everything only it needs, into a separate file, fetched the first
+// time the route is visited and cached by the browser afterwards. Code
+// several pages share goes into shared files automatically.
+//
+// What stays static — the SHELL every visit needs at once: the guards, the
+// layout with the navigation, the redirect from `/`, the login page (the
+// first screen of a signed-out visitor: waiting for another file there
+// would only slow it down), and the tiny "Coming soon" placeholder.
+//
+// How React Router uses `lazy`: on a navigation to a route whose module
+// isn't loaded yet, the router calls this function, waits for it, and only
+// then renders the route — the current page stays on screen meanwhile (the
+// layout shows a thin loading bar: NavigationProgress). The function
+// returns the route's missing properties; `Component` (a component, not an
+// element) is the lazy form of `element`.
+//
+// `page` exists so each route stays one line and TYPED: `pick` must return
+// a component, so a misspelt export name is a compile error, not a blank
+// page at runtime. Every route here must name a page by a string literal in
+// `import()`: Vite can only split what it can read at build time.
+function page<Module>(
+  load: () => Promise<Module>,
+  pick: (module: Module) => ComponentType,
+) {
+  return async () => ({ Component: pick(await load()) })
+}
 
 // createBrowserRouter takes a plain array describing every route as data
 // (path + which component renders there), rather than the older pattern of
@@ -54,170 +61,319 @@ import { currentUserQueryKey } from '@/auth/useCurrentUser'
 // IS the layout element for a group of routes, deciding whether the
 // matched child ever gets to render at all.
 export const router = createBrowserRouter([
-  // Under NO guard. Not RequireGuest: a signed-in visitor (a shared
-  // computer, or a practitioner testing their patient's link) would be
-  // bounced to their own home without a word about the invitation — the
-  // page instead tells them to log out first. Not RequireAuth: the person
-  // accepting has no password yet, so no session.
-  { path: '/accept-invitation', element: <AcceptInvitationPage /> },
   {
-    // Routes only a logged-OUT visitor should reach.
-    element: <RequireGuest />,
+    // A ROOT route with no path: it matches every URL and renders its
+    // children (no element = an <Outlet /> by default). It exists for two
+    // things that must cover EVERY page:
+    //   - hydrateFallbackElement: shown on the very first load while the
+    //     first page's file is fetched (there's no previous page to keep
+    //     on screen yet);
+    //   - errorElement: shown when a route fails — above all a page file
+    //     that can't be downloaded (offline, or a deploy replaced it: see
+    //     staleChunkReload.ts) — instead of React Router's developer page.
+    hydrateFallbackElement: (
+      <p className="p-4 text-sm text-muted-foreground">Loading…</p>
+    ),
+    errorElement: <RouteErrorPage />,
     children: [
-      { path: '/login', element: <LoginPage /> },
-      { path: '/register-clinic', element: <RegisterClinicPage /> },
-    ],
-  },
-  {
-    // Everything else requires a real session.
-    element: <RequireAuth />,
-    children: [
+      // Under NO guard. Not RequireGuest: a signed-in visitor (a shared
+      // computer, or a practitioner testing their patient's link) would be
+      // bounced to their own home without a word about the invitation — the
+      // page instead tells them to log out first. Not RequireAuth: the person
+      // accepting has no password yet, so no session.
       {
-        // AuthenticatedLayout sits BETWEEN RequireAuth and every actual
-        // page route — it renders the persistent navigation (top bar,
-        // phone tab bar, Settings and account menus), so it's visible no
-        // matter which page below it actually matched.
-        element: <AuthenticatedLayout />,
+        path: '/accept-invitation',
+        lazy: page(
+          () => import('@/invitations/AcceptInvitationPage'),
+          (module) => module.AcceptInvitationPage,
+        ),
+      },
+      {
+        // Routes only a logged-OUT visitor should reach.
+        element: <RequireGuest />,
         children: [
-          // `/` no longer renders content of its own — DashboardRedirect
-          // immediately sends the user on to whichever of the three role
-          // homes below actually matches their activeRole.
-          { path: '/', element: <DashboardRedirect /> },
-          // Shared by EVERY role (design decisions §4), so it sits beside
-          // the RequireRole groups rather than inside one: any logged-in
-          // user may open their own profile, whatever their active role.
-          // Reached from the account menu.
-          { path: '/profile', element: <ProfilePage /> },
+          { path: '/login', element: <LoginPage /> },
           {
-            // Nested one level further: authenticated AND the right role.
-            // This is the pattern every future role-scoped section (admin
-            // panel, practitioner core loop, etc.) will follow — a
-            // RequireRole layer nested inside the RequireAuth one.
-            element: <RequireRole allowedRoles={['admin']} />,
-            children: [
-              { path: '/admin', element: <AdminHomePage /> },
-              { path: '/admin/clinics', element: <ClinicsListPage /> },
-              { path: '/admin/clinics/new', element: <CreateClinicPage /> },
-              { path: '/admin/clinics/:id', element: <ClinicEditPage /> },
-              { path: '/admin/users', element: <UsersListPage /> },
-              { path: '/admin/users/new', element: <CreateUserPage /> },
-              { path: '/admin/users/:id', element: <UserEditPage /> },
-            ],
+            path: '/register-clinic',
+            lazy: page(
+              () => import('@/auth/RegisterClinicPage'),
+              (module) => module.RegisterClinicPage,
+            ),
           },
+        ],
+      },
+      {
+        // Everything else requires a real session.
+        element: <RequireAuth />,
+        children: [
           {
-            // Same shape as the admin block above, just for a role with
-            // exactly one route so far. Phase 3's roster/exercise-library/
-            // template routes will land here as siblings of /practitioner.
-            element: <RequireRole allowedRoles={['practitioner']} />,
+            // AuthenticatedLayout sits BETWEEN RequireAuth and every actual
+            // page route — it renders the persistent navigation (top bar,
+            // phone tab bar, Settings and account menus), so it's visible no
+            // matter which page below it actually matched.
+            element: <AuthenticatedLayout />,
             children: [
-              { path: '/practitioner', element: <PractitionerHomePage /> },
+              // `/` no longer renders content of its own — DashboardRedirect
+              // immediately sends the user on to whichever of the three role
+              // homes below actually matches their activeRole.
+              { path: '/', element: <DashboardRedirect /> },
+              // Shared by EVERY role (design decisions §4), so it sits beside
+              // the RequireRole groups rather than inside one: any logged-in
+              // user may open their own profile, whatever their active role.
+              // Reached from the account menu.
               {
-                path: '/practitioner/patients',
-                element: <PatientsListPage />,
-              },
-              // "Add patient": search the clinic directory first, then
-              // invite if they're not there (decisions §3, roster design).
-              // Static segments ('add', 'invite') always win over the
-              // ':id' pattern below, whatever the order they're listed in
-              // — React Router ranks routes by how specific they are.
-              {
-                path: '/practitioner/patients/add',
-                element: <AddPatientPage />,
-              },
-              {
-                path: '/practitioner/patients/invite',
-                element: <InvitePatientPage />,
-              },
-              // The patient page (care team only — see PatientPage).
-              {
-                path: '/practitioner/patients/:id',
-                element: <PatientPage />,
+                path: '/profile',
+                lazy: page(
+                  () => import('@/users/ProfilePage'),
+                  (module) => module.ProfilePage,
+                ),
               },
               {
-                path: '/practitioner/library',
-                element: <ExerciseLibraryPage />,
+                // Nested one level further: authenticated AND the right role.
+                // This is the pattern every future role-scoped section (admin
+                // panel, practitioner core loop, etc.) will follow — a
+                // RequireRole layer nested inside the RequireAuth one.
+                element: <RequireRole allowedRoles={['admin']} />,
+                children: [
+                  {
+                    path: '/admin',
+                    lazy: page(
+                      () => import('@/app/AdminHomePage'),
+                      (module) => module.AdminHomePage,
+                    ),
+                  },
+                  {
+                    path: '/admin/clinics',
+                    lazy: page(
+                      () => import('@/clinics/ClinicsListPage'),
+                      (module) => module.ClinicsListPage,
+                    ),
+                  },
+                  {
+                    path: '/admin/clinics/new',
+                    lazy: page(
+                      () => import('@/clinics/CreateClinicPage'),
+                      (module) => module.CreateClinicPage,
+                    ),
+                  },
+                  {
+                    path: '/admin/clinics/:id',
+                    lazy: page(
+                      () => import('@/clinics/ClinicEditPage'),
+                      (module) => module.ClinicEditPage,
+                    ),
+                  },
+                  {
+                    path: '/admin/users',
+                    lazy: page(
+                      () => import('@/users/UsersListPage'),
+                      (module) => module.UsersListPage,
+                    ),
+                  },
+                  {
+                    path: '/admin/users/new',
+                    lazy: page(
+                      () => import('@/users/CreateUserPage'),
+                      (module) => module.CreateUserPage,
+                    ),
+                  },
+                  {
+                    path: '/admin/users/:id',
+                    lazy: page(
+                      () => import('@/users/UserEditPage'),
+                      (module) => module.UserEditPage,
+                    ),
+                  },
+                ],
               },
               {
-                path: '/practitioner/library/pick',
-                element: <ExercisePickerPage />,
+                // Same shape as the admin block above, just for a role with
+                // exactly one route so far. Phase 3's roster/exercise-library/
+                // template routes will land here as siblings of /practitioner.
+                element: <RequireRole allowedRoles={['practitioner']} />,
+                children: [
+                  {
+                    path: '/practitioner',
+                    lazy: page(
+                      () => import('@/app/PractitionerHomePage'),
+                      (module) => module.PractitionerHomePage,
+                    ),
+                  },
+                  {
+                    path: '/practitioner/patients',
+                    lazy: page(
+                      () => import('@/patients/PatientsListPage'),
+                      (module) => module.PatientsListPage,
+                    ),
+                  },
+                  // "Add patient": search the clinic directory first, then
+                  // invite if they're not there (decisions §3, roster design).
+                  // Static segments ('add', 'invite') always win over the
+                  // ':id' pattern below, whatever the order they're listed in
+                  // — React Router ranks routes by how specific they are.
+                  {
+                    path: '/practitioner/patients/add',
+                    lazy: page(
+                      () => import('@/patients/AddPatientPage'),
+                      (module) => module.AddPatientPage,
+                    ),
+                  },
+                  {
+                    path: '/practitioner/patients/invite',
+                    lazy: page(
+                      () => import('@/patients/InvitePatientPage'),
+                      (module) => module.InvitePatientPage,
+                    ),
+                  },
+                  // The patient page (care team only — see PatientPage).
+                  {
+                    path: '/practitioner/patients/:id',
+                    lazy: page(
+                      () => import('@/patients/PatientPage'),
+                      (module) => module.PatientPage,
+                    ),
+                  },
+                  {
+                    path: '/practitioner/library',
+                    lazy: page(
+                      () => import('@/exercises/ExerciseLibraryPage'),
+                      (module) => module.ExerciseLibraryPage,
+                    ),
+                  },
+                  {
+                    path: '/practitioner/library/pick',
+                    lazy: page(
+                      () => import('@/exercises/ExercisePickerPage'),
+                      (module) => module.ExercisePickerPage,
+                    ),
+                  },
+                  {
+                    path: '/practitioner/library/new',
+                    lazy: page(
+                      () => import('@/exercises/NewExercisePage'),
+                      (module) => module.NewExercisePage,
+                    ),
+                  },
+                  {
+                    path: '/practitioner/library/:id',
+                    lazy: page(
+                      () => import('@/exercises/ExerciseDetailPage'),
+                      (module) => module.ExerciseDetailPage,
+                    ),
+                  },
+                  {
+                    path: '/practitioner/library/:id/photos',
+                    lazy: page(
+                      () => import('@/exercises/ExercisePhotosPage'),
+                      (module) => module.ExercisePhotosPage,
+                    ),
+                  },
+                  {
+                    path: '/practitioner/library/:id/assign',
+                    lazy: page(
+                      () => import('@/exercises/ExerciseAssignPage'),
+                      (module) => module.ExerciseAssignPage,
+                    ),
+                  },
+                  {
+                    path: '/practitioner/programs',
+                    lazy: page(
+                      () => import('@/programs/ProgramsPage'),
+                      (module) => module.ProgramsPage,
+                    ),
+                  },
+                  {
+                    path: '/practitioner/programs/templates/new',
+                    lazy: page(
+                      () => import('@/programs/NewTemplatePage'),
+                      (module) => module.NewTemplatePage,
+                    ),
+                  },
+                  {
+                    path: '/practitioner/programs/templates/:id/exercises/new',
+                    lazy: page(
+                      () => import('@/programs/NewProgramExercisePage'),
+                      (module) => module.NewProgramExercisePage,
+                    ),
+                  },
+                  {
+                    path: '/practitioner/programs/templates/:id/exercises/:templateExerciseId',
+                    lazy: page(
+                      () => import('@/programs/ProgramExercisePage'),
+                      (module) => module.ProgramExercisePage,
+                    ),
+                  },
+                  {
+                    path: '/practitioner/programs/templates/:id',
+                    lazy: page(
+                      () => import('@/programs/TemplateDetailPage'),
+                      (module) => module.TemplateDetailPage,
+                    ),
+                  },
+                  {
+                    path: '/practitioner/programs/assigned/new',
+                    lazy: page(
+                      () => import('@/assigned-programs/NewAssignedProgramPage'),
+                      (module) => module.NewAssignedProgramPage,
+                    ),
+                  },
+                  {
+                    path: '/practitioner/programs/assigned/:id',
+                    lazy: page(
+                      () => import('@/assigned-programs/AssignedProgramDetailPage'),
+                      (module) => module.AssignedProgramDetailPage,
+                    ),
+                  },
+                  // A program's exercises (step 3b-1b): adding one (through the
+                  // library picker), and one exercise's prescription.
+                  {
+                    path: '/practitioner/programs/assigned/:id/exercises/new',
+                    lazy: page(
+                      () => import('@/assigned-programs/NewAssignedProgramExercisePage'),
+                      (module) => module.NewAssignedProgramExercisePage,
+                    ),
+                  },
+                  {
+                    path: '/practitioner/programs/assigned/:id/exercises/:rowId',
+                    lazy: page(
+                      () => import('@/assigned-programs/AssignedProgramExercisePage'),
+                      (module) => module.AssignedProgramExercisePage,
+                    ),
+                  },
+                  // Listed in the navigation (sections.ts) before the feature
+                  // exists — see ComingSoonPage for why.
+                  {
+                    path: '/practitioner/messages',
+                    element: <ComingSoonPage title="Messages" />,
+                  },
+                ],
               },
               {
-                path: '/practitioner/library/new',
-                element: <NewExercisePage />,
-              },
-              {
-                path: '/practitioner/library/:id',
-                element: <ExerciseDetailPage />,
-              },
-              {
-                path: '/practitioner/library/:id/photos',
-                element: <ExercisePhotosPage />,
-              },
-              {
-                path: '/practitioner/library/:id/assign',
-                element: <ExerciseAssignPage />,
-              },
-              { path: '/practitioner/programs', element: <ProgramsPage /> },
-              {
-                path: '/practitioner/programs/templates/new',
-                element: <NewTemplatePage />,
-              },
-              {
-                path: '/practitioner/programs/templates/:id/exercises/new',
-                element: <NewProgramExercisePage />,
-              },
-              {
-                path: '/practitioner/programs/templates/:id/exercises/:templateExerciseId',
-                element: <ProgramExercisePage />,
-              },
-              {
-                path: '/practitioner/programs/templates/:id',
-                element: <TemplateDetailPage />,
-              },
-              {
-                path: '/practitioner/programs/assigned/new',
-                element: <NewAssignedProgramPage />,
-              },
-              {
-                path: '/practitioner/programs/assigned/:id',
-                element: <AssignedProgramDetailPage />,
-              },
-              // A program's exercises (step 3b-1b): adding one (through the
-              // library picker), and one exercise's prescription.
-              {
-                path: '/practitioner/programs/assigned/:id/exercises/new',
-                element: <NewAssignedProgramExercisePage />,
-              },
-              {
-                path: '/practitioner/programs/assigned/:id/exercises/:rowId',
-                element: <AssignedProgramExercisePage />,
-              },
-              // Listed in the navigation (sections.ts) before the feature
-              // exists — see ComingSoonPage for why.
-              {
-                path: '/practitioner/messages',
-                element: <ComingSoonPage title="Messages" />,
-              },
-            ],
-          },
-          {
-            // Same shape again, for Phase 4's patient-facing routes.
-            element: <RequireRole allowedRoles={['patient']} />,
-            children: [
-              { path: '/patient', element: <PatientHomePage /> },
-              // All three are navigation sections (design decisions §2)
-              // whose features don't exist yet — see ComingSoonPage.
-              {
-                path: '/patient/sessions',
-                element: <ComingSoonPage title="Sessions" />,
-              },
-              {
-                path: '/patient/team',
-                element: <ComingSoonPage title="Team" />,
-              },
-              {
-                path: '/patient/messages',
-                element: <ComingSoonPage title="Messages" />,
+                // Same shape again, for Phase 4's patient-facing routes.
+                element: <RequireRole allowedRoles={['patient']} />,
+                children: [
+                  {
+                    path: '/patient',
+                    lazy: page(
+                      () => import('@/app/PatientHomePage'),
+                      (module) => module.PatientHomePage,
+                    ),
+                  },
+                  // All three are navigation sections (design decisions §2)
+                  // whose features don't exist yet — see ComingSoonPage.
+                  {
+                    path: '/patient/sessions',
+                    element: <ComingSoonPage title="Sessions" />,
+                  },
+                  {
+                    path: '/patient/team',
+                    element: <ComingSoonPage title="Team" />,
+                  },
+                  {
+                    path: '/patient/messages',
+                    element: <ComingSoonPage title="Messages" />,
+                  },
+                ],
               },
             ],
           },

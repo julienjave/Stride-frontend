@@ -5,6 +5,11 @@ import { queryClient } from './api/queryClient'
 import { ThemeProvider } from './theme/ThemeProvider'
 import './index.css'
 import App from './App.tsx'
+import { installStaleChunkReload } from './app/staleChunkReload'
+
+// Before anything renders: a page file missing after a new deploy reloads
+// the app onto the new version (see staleChunkReload.ts).
+installStaleChunkReload()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

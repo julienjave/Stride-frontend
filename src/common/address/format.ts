@@ -1,4 +1,4 @@
-import { Country } from 'country-state-city'
+import { findCountry } from './addressData'
 import type { Address } from './types'
 
 // Turns a stored address into the lines a person expects to read, in a
@@ -36,5 +36,5 @@ export function formatAddressLines(address: Address): string[] {
 // code itself rather than hiding it.
 function countryName(code: string | null): string | null {
   if (!code) return null
-  return Country.getCountryByCode(code)?.name ?? code
+  return findCountry(code)?.name ?? code
 }

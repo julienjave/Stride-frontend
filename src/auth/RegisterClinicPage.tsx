@@ -3,7 +3,7 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, Link } from 'react-router'
-import { Country, State } from 'country-state-city'
+import { ALL_COUNTRIES, statesOfCountry } from '@/common/address/addressData'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,10 +20,6 @@ import { setupStatusQueryKey, useSetupStatus } from './useSetupStatus'
 import type { SetupStatus } from './types'
 import { registerClinicSchema, type RegisterClinicFormValues } from './schemas'
 import { ApiError } from '@/api/client'
-
-// Loaded once at module scope — same reasoning as AddressFields.tsx's
-// identical constant: the underlying dataset never changes at runtime.
-const ALL_COUNTRIES = Country.getAllCountries()
 
 export function RegisterClinicPage() {
   const queryClient = useQueryClient()
@@ -75,7 +71,7 @@ export function RegisterClinicPage() {
   // caller, which isn't worth the complexity it'd add for every OTHER
   // consumer of AddressFields.
   const statesForClinicCountry = useMemo(
-    () => (watchedClinicCountry ? State.getStatesOfCountry(watchedClinicCountry) : []),
+    () => (watchedClinicCountry ? statesOfCountry(watchedClinicCountry) : []),
     [watchedClinicCountry],
   )
 
