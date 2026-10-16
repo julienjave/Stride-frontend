@@ -46,9 +46,11 @@ export function TodayAndUpcomingCard({ entries, today }: { entries: HomeEntry[];
 
 // A Today row's button — the session flow's way in (Phase 4, 2026-10-16):
 // "Start" leads to the start page (which asks the pain question and only
-// then writes anything); "Resume" back into today's open session.
+// then writes anything); "Resume" back into today's open session; "Skip
+// today" (pass (c)) to the skip page — on a DUE row only, the one case the
+// backend accepts (a scheduled day of a specific-days schedule).
 interface TodayAction {
-  verb: 'Start' | 'Resume'
+  verb: 'Start' | 'Resume' | 'Skip today'
   to: string
 }
 
@@ -61,6 +63,8 @@ interface TodayRow {
   // found in the live check).
   note: string | null
   action: TodayAction | null
+  // Beside the main action, quieter: "Skip today" on a due row.
+  secondary: TodayAction | null
 }
 
 // What a loaded program's row says and offers — or null: no row.
@@ -74,7 +78,7 @@ function todayRow(program: AssignedProgramListItem, summary: ScheduleSummary, to
   if (status === null) {
     // Nothing asked today: a row only to say the leftover.
     return leftOpenLine
-      ? { program, text: { line: leftOpenLine, detail: null }, note: null, action: null }
+      ? { program, text: { line: leftOpenLine, detail: null }, note: null, action: null, secondary: null }
       : null
   }
 
@@ -87,7 +91,9 @@ function todayRow(program: AssignedProgramListItem, summary: ScheduleSummary, to
       : choice.kind === 'resume'
         ? { verb: 'Resume', to: `/patient/sessions/${choice.sessionId}` }
         : null
-  return { program, text, note: leftOpenLine, action }
+  const secondary: TodayAction | null =
+    status.kind === 'due' ? { verb: 'Skip today', to: `/patient/sessions/skip/${program.id}` } : null
+  return { program, text, note: leftOpenLine, action, secondary }
 }
 
 function TodaySection({ entries, today }: { entries: HomeEntry[]; today: string }) {
@@ -96,7 +102,7 @@ function TodaySection({ entries, today }: { entries: HomeEntry[]; today: string 
   // each saying "Nothing today" would bury the one that has something.
   const rows: TodayRow[] = entries.flatMap(({ program, summary }) => {
     if (summary.isPending) {
-      return [{ program, text: { line: 'Loading…', detail: null }, note: null, action: null }]
+      return [{ program, text: { line: 'Loading…', detail: null }, note: null, action: null, secondary: null }]
     }
     if (summary.isError) {
       return [
@@ -105,6 +111,7 @@ function TodaySection({ entries, today }: { entries: HomeEntry[]; today: string 
           text: { line: "Couldn't load today's plan. Try refreshing.", detail: null },
           note: null,
           action: null,
+          secondary: null,
         },
       ]
     }
@@ -128,7 +135,7 @@ function TodaySection({ entries, today }: { entries: HomeEntry[]; today: string 
         // them on a phone (a narrow column of text beside a button reads
         // badly at 375 px).
         <ul className="space-y-4">
-          {rows.map(({ program, text, note, action }) => (
+          {rows.map(({ program, text, note, action, secondary }) => (
             <li
               key={program.id}
               className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"
@@ -140,14 +147,23 @@ function TodaySection({ entries, today }: { entries: HomeEntry[]; today: string 
                 {note && <p className="text-sm text-muted-foreground">{note}</p>}
               </div>
               {action && (
-                <Button asChild className="self-start">
-                  {/* Named with the program: with several programs, a list
-                      of plain "Start" links can't be told apart. The
-                      visible word starts the name (voice control). */}
-                  <Link to={action.to} aria-label={`${action.verb} ${program.title}`}>
-                    {action.verb}
-                  </Link>
-                </Button>
+                <div className="flex shrink-0 flex-wrap gap-2 self-start">
+                  <Button asChild>
+                    {/* Named with the program: with several programs, a list
+                        of plain "Start" links can't be told apart. The
+                        visible word starts the name (voice control). */}
+                    <Link to={action.to} aria-label={`${action.verb} ${program.title}`}>
+                      {action.verb}
+                    </Link>
+                  </Button>
+                  {secondary && (
+                    <Button asChild variant="outline">
+                      <Link to={secondary.to} aria-label={`${secondary.verb}: ${program.title}`}>
+                        {secondary.verb}
+                      </Link>
+                    </Button>
+                  )}
+                </div>
               )}
             </li>
           ))}

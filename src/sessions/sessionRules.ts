@@ -75,3 +75,9 @@ export function noteToSend(draft: string): string | null {
   const trimmed = draft.trim()
   return trimmed === '' ? null : trimmed
 }
+
+// The backend's limits for the patient's words (IsFeedback, IsEndNote):
+// an exercise's or a session's feedback, and the note on a stop or a skip.
+// The text fields cap their input at these (`maxLength`).
+export const FEEDBACK_MAX_LENGTH = 2000
+export const END_NOTE_MAX_LENGTH = 500

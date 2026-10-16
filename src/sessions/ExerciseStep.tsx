@@ -6,11 +6,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { PrescriptionSummary } from '@/common/PrescriptionSummary'
 import { ExercisePhotoCarousel } from '@/programs/ExercisePhotoCarousel'
 import { ScoreScale } from './ScoreScale'
-import { noteToSend } from './sessionRules'
+import { FEEDBACK_MAX_LENGTH, noteToSend } from './sessionRules'
 import type { SessionExercise, SessionExerciseChanges } from './types'
-
-// The backend's limit for a note (IsFeedback — 2,000 characters).
-export const NOTE_MAX_LENGTH = 2000
 
 // ONE exercise of a running session (pass (b), decided 2026-10-16: one at a
 // time on a phone). Everything shown is the SESSION's copy — what this
@@ -153,7 +150,7 @@ function NoteField({
       <Textarea
         id="exercise-note"
         value={draft}
-        maxLength={NOTE_MAX_LENGTH}
+        maxLength={FEEDBACK_MAX_LENGTH}
         onChange={(event) => setDraft(event.target.value)}
         rows={3}
       />

@@ -378,6 +378,31 @@ export const router = createBrowserRouter([
                       (module) => module.SessionPage,
                     ),
                   },
+                  // Its endings (pass (c)) — ROUTES, not dialogs: a phone's
+                  // Back button leaves them like any page, a reload keeps
+                  // them. "Skip today" names a program (no session exists
+                  // yet), like the start page.
+                  {
+                    path: '/patient/sessions/:sessionId/finish',
+                    lazy: page(
+                      () => import('@/sessions/FinishSessionPage'),
+                      (module) => module.FinishSessionPage,
+                    ),
+                  },
+                  {
+                    path: '/patient/sessions/:sessionId/stop',
+                    lazy: page(
+                      () => import('@/sessions/StopSessionPage'),
+                      (module) => module.StopSessionPage,
+                    ),
+                  },
+                  {
+                    path: '/patient/sessions/skip/:programId',
+                    lazy: page(
+                      () => import('@/sessions/SkipSessionPage'),
+                      (module) => module.SkipSessionPage,
+                    ),
+                  },
                   // All three are navigation sections (design decisions §2)
                   // whose features don't exist yet — see ComingSoonPage. (The
                   // Sessions hub comes after the session flow.)

@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react'
-import { Link, Navigate, useNavigate, useParams } from 'react-router'
+import { useState } from 'react'
+import { Navigate, useNavigate, useParams } from 'react-router'
 import { ApiError } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { localDateString } from '@/common/calendarDate'
@@ -10,6 +10,7 @@ import { useAssignedProgramSummary } from '@/assigned-programs/useAssignedProgra
 import type { AssignedProgramDetail } from '@/assigned-programs/types'
 import { describeFailure } from '@/workouts/useWorkoutEditing'
 import { ScoreScale } from './ScoreScale'
+import { HomeLink, Loading, NotAvailable, Page } from './SessionPageParts'
 import { nothingToStartText, startContextText } from './sessionText'
 import { startChoice, workoutExercises, type StartableStatus } from './startRules'
 import { useStartSession } from './useStartSession'
@@ -33,7 +34,7 @@ export function StartSessionPage() {
   if (!Number.isInteger(programId) || programId < 1) {
     return (
       <Page>
-        <NotAvailable />
+        <NotAvailable what="program" />
       </Page>
     )
   }
@@ -47,7 +48,10 @@ function StartSessionView({ programId }: { programId: number }) {
   const program = useAssignedProgram(programId)
   // The summary waits for the program: no second request for a program
   // that answered 404.
-  const summary = useAssignedProgramSummary(programId, today, { enabled: program.isSuccess })
+  const summary = useAssignedProgramSummary(programId, today, {
+    enabled: program.isSuccess,
+    fresh: true,
+  })
 
   // Errors first (either request), then "still loading" until BOTH have
   // answered — checked as `isSuccess` on each, which is also what lets
@@ -58,7 +62,7 @@ function StartSessionView({ programId }: { programId: number }) {
     return (
       <Page>
         {error instanceof ApiError && error.statusCode === 404 ? (
-          <NotAvailable />
+          <NotAvailable what="program" />
         ) : (
           <>
             <p role="alert" className="text-sm text-destructive">
@@ -70,10 +74,16 @@ function StartSessionView({ programId }: { programId: number }) {
       </Page>
     )
   }
-  if (!program.isSuccess || !summary.isSuccess) {
+  // The DECISION waits for this visit's own answer (`isFetchedAfterMount`),
+  // never a cached one — found in the live check: a summary cached while a
+  // session was open sent the patient back to that session after it was
+  // stopped. Only the FIRST answer is waited for: a later background refetch
+  // (the window regaining focus) updates the page in place, rather than
+  // unmounting the form and losing what the patient chose.
+  if (!program.isSuccess || !summary.isSuccess || !summary.isFetchedAfterMount) {
     return (
       <Page>
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <Loading />
       </Page>
     )
   }
@@ -198,31 +208,5 @@ function StartForm({
       )}
       {exercises.length === 0 && <HomeLink />}
     </Page>
-  )
-}
-
-function Page({ children }: { children: ReactNode }) {
-  return <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4 pb-8">{children}</div>
-}
-
-function HomeLink() {
-  return (
-    <Link to="/patient" className="text-sm underline underline-offset-4">
-      Back to home
-    </Link>
-  )
-}
-
-// A 404 says both things it can mean, without telling them apart (row
-// security makes another patient's program invisible — the program page's
-// reasoning).
-function NotAvailable() {
-  return (
-    <>
-      <p role="alert" className="text-sm">
-        This program doesn't exist, or isn't yours.
-      </p>
-      <HomeLink />
-    </>
   )
 }

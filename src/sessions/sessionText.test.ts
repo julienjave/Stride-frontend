@@ -1,11 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import {
+  REASON_CHOICES,
   checklistProgressText,
   leftOpenText,
   nothingToStartText,
   sessionStatusText,
   startContextText,
   startedText,
+  untickedText,
 } from './sessionText'
 
 // Pinned locale (and time zone, for the one moment): the wordings are
@@ -114,5 +116,32 @@ describe('checklistProgressText', () => {
 
   it('says "exercise" for one', () => {
     expect(checklistProgressText([{ completed: false }])).toBe('0 of 1 exercise done')
+  })
+})
+
+describe('REASON_CHOICES', () => {
+  // The patient's four, never the app's two (the backend refuses them).
+  it('offers the patient’s four reasons, in order', () => {
+    expect(REASON_CHOICES.map((choice) => `${choice.value}:${choice.label}`)).toStrictEqual([
+      'pain:Pain',
+      'illness:Feeling unwell',
+      'no_time:No time',
+      'other:Another reason',
+    ])
+  })
+})
+
+describe('untickedText', () => {
+  it('says nothing when every exercise is ticked', () => {
+    expect(untickedText([{ completed: true }, { completed: true }])).toBeNull()
+  })
+
+  it('counts what is left, one or several', () => {
+    expect(untickedText([{ completed: true }, { completed: false }])).toBe(
+      "1 exercise isn't ticked. If you didn't do it, you can stop the session instead: it will be kept as not finished.",
+    )
+    expect(untickedText([{ completed: false }, { completed: false }, { completed: true }])).toBe(
+      "2 exercises aren't ticked. If you didn't do them, you can stop the session instead: it will be kept as not finished.",
+    )
   })
 })

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { ApiError } from '@/api/client'
 import { localDateString } from '@/common/calendarDate'
@@ -6,6 +6,7 @@ import { PrescriptionSummary } from '@/common/PrescriptionSummary'
 import { workoutNames } from '@/assigned-programs/programSchedule'
 import { useAssignedProgram } from '@/assigned-programs/useAssignedProgram'
 import { cn } from '@/lib/utils'
+import { HomeLink, Loading, NotAvailable, Page } from './SessionPageParts'
 import { SessionPlayer } from './SessionPlayer'
 import { isRunnable } from './sessionRules'
 import {
@@ -36,7 +37,7 @@ export function SessionPage() {
   if (!Number.isInteger(sessionId) || sessionId < 1) {
     return (
       <Page>
-        <NotAvailable />
+        <NotAvailable what="session" />
       </Page>
     )
   }
@@ -54,7 +55,7 @@ function SessionView({ sessionId }: { sessionId: number }) {
   if (session.isPending) {
     return (
       <Page>
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <Loading />
       </Page>
     )
   }
@@ -62,7 +63,7 @@ function SessionView({ sessionId }: { sessionId: number }) {
     return (
       <Page>
         {session.error instanceof ApiError && session.error.statusCode === 404 ? (
-          <NotAvailable />
+          <NotAvailable what="session" />
         ) : (
           <>
             <p role="alert" className="text-sm text-destructive">
@@ -126,7 +127,10 @@ function SessionHeader({
       {leftOpen && (
         <p className="text-sm">
           This session was left open. It can no longer be finished, and will be kept as not
-          finished.
+          finished.{' '}
+          <Link to={`/patient/sessions/${session.id}/stop`} className="underline underline-offset-4">
+            Stop it now
+          </Link>
         </p>
       )}
     </div>
@@ -165,28 +169,5 @@ function Checklist({ session }: { session: Session }) {
         ))}
       </ol>
     </section>
-  )
-}
-
-function Page({ children }: { children: ReactNode }) {
-  return <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4 pb-8">{children}</div>
-}
-
-function HomeLink() {
-  return (
-    <Link to="/patient" className="text-sm underline underline-offset-4">
-      Back to home
-    </Link>
-  )
-}
-
-function NotAvailable() {
-  return (
-    <>
-      <p role="alert" className="text-sm">
-        This session doesn't exist, or isn't yours.
-      </p>
-      <HomeLink />
-    </>
   )
 }

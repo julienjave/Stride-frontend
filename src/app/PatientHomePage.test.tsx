@@ -175,7 +175,7 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-function renderPage() {
+function renderPage(state: unknown = null) {
   // staleTime as in the app (deep-dive §8).
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
@@ -183,7 +183,7 @@ function renderPage() {
   queryClient.setQueryData(currentUserQueryKey, PAT)
   render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[{ pathname: '/patient', state }]}>
         <PatientHomePage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -288,12 +288,24 @@ describe('PatientHomePage — Start and Resume', () => {
     expect(fetchMock.mock.calls.every(([, init]) => (init?.method ?? 'GET') === 'GET')).toBe(true)
   })
 
-  it("offers Start on today's scheduled day", async () => {
+  it("offers Start — and Skip today — on today's scheduled day", async () => {
     summaries[12] = () =>
       json({ ...KNEE_SUMMARY, days: [day(TODAY, 57, 'due')], nextWorkout: null })
     renderPage()
     await loaded()
     expect(within(todayRows()[0]).getByRole('link', { name: 'Start Knee Rehab' })).toBeInTheDocument()
+    expect(within(todayRows()[0]).getByRole('link', { name: 'Skip today: Knee Rehab' })).toHaveAttribute(
+      'href',
+      '/patient/sessions/skip/12',
+    )
+  })
+
+  // Only a DUE scheduled day can be skipped (the backend's rule).
+  it('offers Skip today on no other row (a catch-up, a weekly count, a session open)', async () => {
+    renderPage()
+    await loaded()
+    // Knee: a catch-up; Lower Back: a weekly count.
+    expect(within(section('Today')).queryByRole('link', { name: /^Skip today/ })).not.toBeInTheDocument()
   })
 
   it("offers Resume — not Start — for today's open session, to that session", async () => {
@@ -362,6 +374,23 @@ describe('PatientHomePage — Start and Resume', () => {
     expect(knee.textContent).toBe(
       `Knee RehabYour session of ${formatShortDate('2031-06-09')} was left open. It can no longer be finished, and will be kept as not finished.`,
     )
+  })
+})
+
+// After an ending (pass (c)): the confirmation handed over in navigation
+// state, read defensively.
+describe('PatientHomePage — the confirmation after an ending', () => {
+  it('shows the notice it was handed', async () => {
+    renderPage({ notice: 'Session finished. Well done!' })
+    await loaded()
+    expect(screen.getByRole('status')).toHaveTextContent('Session finished. Well done!')
+  })
+
+  it('shows none without one', async () => {
+    renderPage({ from: '/elsewhere' })
+    await loaded()
+    expect(screen.queryByText(/Well done/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 })
 

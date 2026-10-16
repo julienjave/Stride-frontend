@@ -1,0 +1,181 @@
+import { useRef, useState } from 'react'
+import { useNavigate, useParams } from 'react-router'
+import { ApiError } from '@/api/client'
+import { Button } from '@/components/ui/button'
+import { localDateString } from '@/common/calendarDate'
+import { workoutNames } from '@/assigned-programs/programSchedule'
+import { useAssignedProgram } from '@/assigned-programs/useAssignedProgram'
+import { useAssignedProgramSummary } from '@/assigned-programs/useAssignedProgramSummary'
+import type { AssignedProgramDetail } from '@/assigned-programs/types'
+import { describeFailure } from '@/workouts/useWorkoutEditing'
+import { skipSession } from './api'
+import { skipBody } from './endingRules'
+import { ReasonPicker } from './ReasonPicker'
+import { ScoreScale } from './ScoreScale'
+import { EndNoteField, HomeLink, Loading, NotAvailable, Page } from './SessionPageParts'
+import { ENDING_NOTICE } from './sessionText'
+import { skippableWorkout } from './startRules'
+import type { PatientEndReason } from './types'
+import { useSessionWrite } from './useSessionWrite'
+
+// "Skip today" — `/patient/sessions/skip/:programId` (pass (c), decided
+// 2026-10-16), from the home's DUE rows. Like the start page, the address
+// names only the program, and whether today can be skipped is worked out
+// again here by the home's own rule (skippableWorkout → todayStatus), so a
+// stale link can't skip the wrong day.
+//
+// A skip is recorded, with the patient's reason (required) and an optional
+// note; a pain level only when pain is the reason (the backend refuses it
+// otherwise — "skipped, no time — 7/10" would be a number nobody asked
+// for). The day is still MISSED for the schedule; the skip is its label.
+export function SkipSessionPage() {
+  const { programId: param } = useParams<{ programId: string }>()
+  const programId = Number(param)
+  if (!Number.isInteger(programId) || programId < 1) {
+    return (
+      <Page>
+        <NotAvailable what="program" />
+      </Page>
+    )
+  }
+  return <SkipView programId={programId} />
+}
+
+function SkipView({ programId }: { programId: number }) {
+  const [today] = useState(() => localDateString())
+  const program = useAssignedProgram(programId)
+  const summary = useAssignedProgramSummary(programId, today, {
+    enabled: program.isSuccess,
+    fresh: true,
+  })
+
+  if (program.isError || summary.isError) {
+    const error = program.error ?? summary.error
+    return (
+      <Page>
+        {error instanceof ApiError && error.statusCode === 404 ? (
+          <NotAvailable what="program" />
+        ) : (
+          <>
+            <p role="alert" className="text-sm text-destructive">
+              Couldn't load this program. Try refreshing the page.
+            </p>
+            <HomeLink />
+          </>
+        )}
+      </Page>
+    )
+  }
+  // The DECISION waits for this visit's own answer (`isFetchedAfterMount`),
+  // never a cached one — found in the live check: a summary cached while a
+  // session was open sent the patient back to that session after it was
+  // stopped. Only the FIRST answer is waited for: a later background refetch
+  // (the window regaining focus) updates the page in place, rather than
+  // unmounting the form and losing what the patient chose.
+  if (!program.isSuccess || !summary.isSuccess || !summary.isFetchedAfterMount) {
+    return (
+      <Page>
+        <Loading />
+      </Page>
+    )
+  }
+
+  const workoutId = skippableWorkout(summary.data, today)
+  if (workoutId === null) {
+    return (
+      <Page>
+        <h1 className="text-xl font-semibold">{program.data.title}</h1>
+        <p>There is no scheduled session to skip today.</p>
+        <HomeLink />
+      </Page>
+    )
+  }
+  return <SkipForm program={program.data} workoutId={workoutId} today={today} />
+}
+
+function SkipForm({
+  program,
+  workoutId,
+  today,
+}: {
+  program: AssignedProgramDetail
+  workoutId: number
+  today: string
+}) {
+  const navigate = useNavigate()
+  const [reason, setReason] = useState<PatientEndReason | null>(null)
+  const [note, setNote] = useState('')
+  const [painBefore, setPainBefore] = useState<number | null>(null)
+  const [missingReason, setMissingReason] = useState(false)
+  const reasonRef = useRef<HTMLDivElement>(null)
+  const skip = useSessionWrite(skipSession, () =>
+    void navigate('/patient', { replace: true, state: { notice: ENDING_NOTICE.skipped } }),
+  )
+  const names = workoutNames(program.workouts)
+
+  function onSkip() {
+    if (reason === null) {
+      setMissingReason(true)
+      reasonRef.current?.querySelector('input')?.focus()
+      return
+    }
+    skip.mutate(skipBody(program.id, today, reason, note, painBefore))
+  }
+
+  return (
+    <Page>
+      <div className="space-y-1">
+        <h1 className="text-xl font-semibold">Skip today's session</h1>
+        <p className="font-medium">
+          {program.title}
+          {names.several && `: ${names.labelOf(workoutId)}`}
+        </p>
+        <p className="text-sm">
+          Your practitioner will see that you skipped it, and why.
+        </p>
+      </div>
+
+      <div ref={reasonRef}>
+        <ReasonPicker
+          legend="Why are you skipping today?"
+          value={reason}
+          onChange={(next) => {
+            setReason(next)
+            setMissingReason(false)
+          }}
+          error={missingReason ? 'Choose a reason first.' : null}
+          disabled={skip.isPending}
+        />
+      </div>
+
+      {/* Only for pain: the level that made the patient skip. (Chosen, then
+          another reason picked: the question goes away, and the level isn't
+          sent — skipBody.) */}
+      {reason === 'pain' && (
+        <ScoreScale
+          legend="How much pain do you have right now?"
+          lowLabel="no pain"
+          highLabel="worst pain imaginable"
+          value={painBefore}
+          onChange={setPainBefore}
+          disabled={skip.isPending}
+        />
+      )}
+
+      <EndNoteField value={note} onChange={setNote} disabled={skip.isPending} />
+
+      {skip.isError && (
+        <p role="alert" className="text-sm text-destructive">
+          {describeFailure("Couldn't skip today's session", skip.error)}
+        </p>
+      )}
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Button size="lg" disabled={skip.isPending} onClick={onSkip}>
+          {skip.isPending ? 'Skipping…' : 'Skip today'}
+        </Button>
+        <HomeLink />
+      </div>
+    </Page>
+  )
+}

@@ -1,5 +1,12 @@
 import { apiRequest } from '@/api/client'
-import type { Session, SessionExerciseChanges, StartSessionInput } from './types'
+import type {
+  CompleteSessionInput,
+  Session,
+  SessionExerciseChanges,
+  SkipSessionInput,
+  StartSessionInput,
+  StopSessionInput,
+} from './types'
 
 // The session routes (backend src/sessions/, Phase 4 step 1). Every write
 // answers the WHOLE session, checklist included — so the screen writes the
@@ -39,4 +46,21 @@ export function updateSessionExercise(
     method: 'PATCH',
     body: changes,
   })
+}
+// The three endings (pass (c)). Each answers the session as it now is.
+// POST /sessions/:id/complete — only on the session's own day (409 "…stop it
+// instead" otherwise); final.
+export function completeSession(sessionId: number, input: CompleteSessionInput) {
+  return apiRequest<Session>(`/sessions/${sessionId}/complete`, { method: 'POST', body: input })
+}
+
+// POST /sessions/:id/stop — any open session, any day; it becomes
+// `incomplete` with the patient's reason; final.
+export function stopSession(sessionId: number, input: StopSessionInput) {
+  return apiRequest<Session>(`/sessions/${sessionId}/stop`, { method: 'POST', body: input })
+}
+
+// POST /sessions/skip — a NEW row, `skipped`, no checklist (201).
+export function skipSession(input: SkipSessionInput) {
+  return apiRequest<Session>('/sessions/skip', { method: 'POST', body: input })
 }

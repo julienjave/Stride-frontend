@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes, useNavigate, useParams } from 'react-router'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
-import { assignedProgramSummaryQueryKey } from '@/assigned-programs/api'
+import { assignedProgramQueryKey, assignedProgramSummaryQueryKey } from '@/assigned-programs/api'
 import type { AssignedProgramDetail, ScheduleSummary } from '@/assigned-programs/types'
 import { sessionQueryKey } from './api'
 import { StartSessionPage } from './StartSessionPage'
@@ -65,11 +65,15 @@ function SessionStandIn() {
   )
 }
 
-function renderPage(path = '/patient/sessions/start/12') {
+function renderPage(path = '/patient/sessions/start/12', cachedSummary?: ScheduleSummary) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
   })
   queryClient.setQueryData(currentUserQueryKey, PAT)
+  if (cachedSummary) {
+    queryClient.setQueryData(assignedProgramQueryKey(12), KNEE)
+    queryClient.setQueryData(assignedProgramSummaryQueryKey(12, TODAY), cachedSummary)
+  }
   render(
     <QueryClientProvider client={queryClient}>
       {/* The home first, then this page — as when Start was tapped. */}
@@ -302,6 +306,61 @@ describe('StartSessionPage — starting', () => {
     await startForm()
     await user.click(screen.getByRole('button', { name: 'Start session' }))
     expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't start the session. Try again.")
+  })
+})
+
+// Found in the live check (2026-10-16): the page DECIDES from the summary —
+// start, resume, or nothing — so it must decide from a fresh answer, never
+// from the cache. Here the cache still holds a summary from earlier (a
+// session open — since stopped), fresh by the cache's own clock; the server
+// now says the day is due again.
+describe('StartSessionPage — decides from a fresh answer', () => {
+  it("asks again on every visit, and doesn't act on an outdated cached answer", async () => {
+    const outdated = { ...DUE, openSession: { sessionId: 73, localDate: TODAY, workoutId: A } }
+    renderPage('/patient/sessions/start/12', outdated)
+    expect(await startForm()).toBeInTheDocument()
+    expect(screen.queryByText('Session page 73')).not.toBeInTheDocument()
+    expect(requests().map((request) => request.path)).toStrictEqual([
+      `/assigned-programs/12/summary?today=${TODAY}`,
+    ])
+  })
+
+  // Only the FIRST answer of a visit is waited for: a later refetch (the
+  // window regaining focus, say) keeps the form — and the patient's answer.
+  it("keeps the form and the patient's answer through a later refetch", async () => {
+    const user = userEvent.setup()
+    const queryClient = renderPage()
+    await startForm()
+    await user.click(screen.getByRole('radio', { name: '4' }))
+    // The refetch is HELD: the form must stay while it's on its way.
+    let answer!: (response: Response) => void
+    fetchMock.mockImplementation(() => new Promise((resolve) => (answer = resolve)))
+    const before = requests().length
+    void queryClient.invalidateQueries({ queryKey: assignedProgramSummaryQueryKey(12, TODAY) })
+    await vi.waitFor(() => expect(requests().length).toBe(before + 1))
+    // Give the page time to render the fetch (TanStack Query tells
+    // components a moment AFTER the request leaves) — a page that hid the
+    // form while fetching would have done so by now.
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(screen.getByRole('heading', { name: 'Start your session' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: '4' })).toBeChecked()
+    answer(json(DUE))
+    await vi.waitFor(() => expect(screen.getByRole('radio', { name: '4' })).toBeChecked())
+  })
+
+  it('shows Loading, not the outdated answer, while it asks', async () => {
+    let answer!: (response: Response) => void
+    fetchMock.mockImplementation((input) => {
+      const url = urlOf(input)
+      if (/\/summary\?today=/.test(url)) return new Promise((resolve) => (answer = resolve))
+      return Promise.reject(new Error(`unexpected request: ${url}`))
+    })
+    const outdated = { ...DUE, openSession: { sessionId: 73, localDate: TODAY, workoutId: A } }
+    renderPage('/patient/sessions/start/12', outdated)
+    expect(await screen.findByText('Loading…')).toBeInTheDocument()
+    expect(screen.queryByText('Session page 73')).not.toBeInTheDocument()
+    answer(json(DUE))
+    expect(await startForm()).toBeInTheDocument()
   })
 })
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { AssignedProgramDetail } from '@/assigned-programs/types'
@@ -96,6 +97,17 @@ export function SessionPlayer({
           <p className="text-sm text-muted-foreground">That's the last exercise.</p>
         )}
       </nav>
+
+      {/* The endings (pass (c)): Finish reviews before anything is final;
+          Stop asks why. Both pages — a phone's Back returns here. */}
+      <div className="flex flex-wrap items-center gap-3 border-t pt-6">
+        <Button asChild size="lg">
+          <Link to={`/patient/sessions/${session.id}/finish`}>Finish session</Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link to={`/patient/sessions/${session.id}/stop`}>Stop session</Link>
+        </Button>
+      </div>
 
       <section aria-labelledby="all-exercises" className="space-y-2">
         <h2 id="all-exercises" className="text-sm font-semibold uppercase text-muted-foreground">

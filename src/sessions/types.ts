@@ -88,3 +88,34 @@ export interface SessionExerciseChanges {
   difficultyRating?: number | null
   feedback?: string | null
 }
+// The reasons a PATIENT may give for stopping or skipping (the backend's
+// PATIENT_END_REASONS) — a subset of SessionEndReason, which also holds the
+// app's own two.
+export type PatientEndReason = Extract<SessionEndReason, 'pain' | 'illness' | 'no_time' | 'other'>
+
+// POST /sessions/:id/complete — Finish, with the optional check-out. Only
+// what was answered is sent (no duration: decided 2026-10-16).
+export interface CompleteSessionInput {
+  painAfter?: number
+  mobilityAfter?: number
+  sessionFeedback?: string
+}
+
+// POST /sessions/:id/stop — a reason (required), the rest optional.
+export interface StopSessionInput {
+  reason: PatientEndReason
+  note?: string
+  painAfter?: number
+  mobilityAfter?: number
+}
+
+// POST /sessions/skip — today's scheduled session, not done, with a reason;
+// a pain level only when pain is the reason (the backend refuses it
+// otherwise).
+export interface SkipSessionInput {
+  assignedProgramId: number
+  localDate: string
+  reason: PatientEndReason
+  note?: string
+  painBefore?: number
+}

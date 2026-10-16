@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useCurrentUser } from '@/auth/useCurrentUser'
+import { readNotice } from '@/common/readNotice'
 import { useUsers } from '@/users/useUsers'
 import { PatientIdentity } from './PatientIdentity'
 import { ALL_CLINICS, filterByClinic, sortByName } from './roster'
@@ -158,14 +159,4 @@ export function PatientsListPage() {
       )}
     </div>
   )
-}
-
-// `{ notice: string }` from navigation state, or null for anything else.
-function readNotice(state: unknown): string | null {
-  // Each check narrows the type for the next: after `'notice' in state`,
-  // TypeScript knows `state.notice` exists (as `unknown`) — no cast needed.
-  if (typeof state === 'object' && state !== null && 'notice' in state) {
-    return typeof state.notice === 'string' ? state.notice : null
-  }
-  return null
 }

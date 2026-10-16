@@ -64,3 +64,13 @@ export function workoutExercises(
     .filter((exercise) => exercise.workoutId === workoutId)
     .sort((a, b) => a.sortOrder - b.sortOrder)
 }
+// Can today's session of this program be SKIPPED (pass (c))? Only when today
+// is a scheduled day still due — the backend's own rule: a skip exists only
+// on a scheduled day of a specific-days schedule (nothing is "due" on a
+// given day of an "N a week" program, a catch-up day, or a pause), and never
+// once the day has a session. The same rule as the home's due rows, so the
+// home's "Skip today" and this page agree. The workout is the day's.
+export function skippableWorkout(summary: ScheduleSummary, today: string): number | null {
+  const status = todayStatus(summary, today)
+  return status?.kind === 'due' ? status.workoutId : null
+}

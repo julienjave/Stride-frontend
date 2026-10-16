@@ -173,6 +173,8 @@ describe('SessionPlayer — one exercise at a time', () => {
     expect(await opened()).toHaveTextContent('Exercise 2 of 3')
     expect(exerciseHeading()).toHaveTextContent('Squat')
     expect(screen.getByText('1 of 3 exercises done')).toBeInTheDocument()
+    // Today's open session is simply in progress — not "left open".
+    expect(screen.queryByText(/was left open/)).not.toBeInTheDocument()
   })
 
   it("shows the session's copy: prescription (in the patient's unit), steps in order, what it works", async () => {
@@ -252,6 +254,21 @@ describe('SessionPlayer — one exercise at a time', () => {
     expect(exerciseHeading()).toHaveTextContent('Bridge')
     expect(allExercises()[2]).toHaveAttribute('aria-current', 'step')
     expect(exerciseHeading()).toHaveFocus()
+  })
+})
+
+describe('SessionPlayer — the endings', () => {
+  it('leads to Finish and to Stop, from any exercise', async () => {
+    renderPage()
+    await opened()
+    expect(screen.getByRole('link', { name: 'Finish session' })).toHaveAttribute(
+      'href',
+      '/patient/sessions/31/finish',
+    )
+    expect(screen.getByRole('link', { name: 'Stop session' })).toHaveAttribute(
+      'href',
+      '/patient/sessions/31/stop',
+    )
   })
 })
 

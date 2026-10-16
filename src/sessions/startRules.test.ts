@@ -4,7 +4,7 @@ import type {
   ScheduleSummary,
   ScheduledDay,
 } from '@/assigned-programs/types'
-import { sessionLeftOpen, startChoice, workoutExercises } from './startRules'
+import { sessionLeftOpen, skippableWorkout, startChoice, workoutExercises } from './startRules'
 
 // "Today" is Thursday 12 June 2031 — far from the real today, so no rule
 // can pass by reading the clock instead of its argument.
@@ -156,5 +156,23 @@ describe('workoutExercises', () => {
     const exercises = [exercise(1, A, 1), exercise(3, A, 0)]
     workoutExercises(exercises, A)
     expect(exercises.map((row) => row.id)).toStrictEqual([1, 3])
+  })
+})
+
+describe('skippableWorkout', () => {
+  it("gives a due scheduled day's workout", () => {
+    expect(skippableWorkout(summary({ days: [day(TODAY, 'due', B)] }), TODAY)).toBe(B)
+  })
+
+  // Every other "today": a catch-up day, a weekly program, a session open
+  // or done, a pause — nothing the backend would let the patient skip.
+  it.each<[string, Partial<ScheduleSummary>]>([
+    ['a catch-up day', { days: [day('2031-06-11', 'due', B)], nextWorkout: { workoutId: B, forDay: '2031-06-11', programWeek: null } }],
+    ['done', { days: [day(TODAY, 'done')] }],
+    ['open', { days: [day(TODAY, 'due')], openSession: { sessionId: 31, localDate: TODAY, workoutId: A } }],
+    ['paused', { days: [day(TODAY, 'due')], pauses: [{ from: '2031-06-01', to: null }] }],
+    ['a day with nothing', {}],
+  ])('gives nothing on %s', (_label, fields) => {
+    expect(skippableWorkout(summary(fields), TODAY)).toBeNull()
   })
 })

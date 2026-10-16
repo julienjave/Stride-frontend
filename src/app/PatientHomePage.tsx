@@ -1,4 +1,6 @@
 import { useState, type ReactNode } from 'react'
+import { useLocation } from 'react-router'
+import { readNotice } from '@/common/readNotice'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { localDateString } from '@/common/calendarDate'
 import { Card, CardContent } from '@/components/ui/card'
@@ -21,6 +23,9 @@ export function PatientHomePage() {
   // state (a function), so the date isn't recomputed on every render.
   const [today] = useState(() => localDateString())
   const { list, programs, summaries } = usePatientHome(today)
+  // The confirmation an ending hands over ("Session finished. Well done!"),
+  // through navigation state — read defensively (readNotice).
+  const notice = readNotice(useLocation().state)
 
   // Unreachable in practice — RequireAuth renders pages only with a user —
   // but a crash-proof guard costs nothing (the other homes' reasoning).
@@ -37,6 +42,15 @@ export function PatientHomePage() {
         lastName={user.lastName}
         avatarUrl={user.avatarUrl}
       />
+
+      {notice && (
+        <p
+          role="status"
+          className="rounded-lg border border-green-600/30 bg-green-600/10 p-3 text-sm"
+        >
+          {notice}
+        </p>
+      )}
 
       {list.isPending ? (
         <Notice>Loading your programs…</Notice>

@@ -170,6 +170,8 @@ describe('SessionPage', () => {
       ),
     ).toBeInTheDocument()
     expect(screen.getByText(`In progress · Started on ${formatShortDate('2031-06-09')}`)).toBeInTheDocument()
+    // Finish can't reach it; Stop can.
+    expect(screen.getByRole('link', { name: 'Stop it now' })).toHaveAttribute('href', '/patient/sessions/31/stop')
   })
 
   it("doesn't say it of a finished session from an earlier day", async () => {

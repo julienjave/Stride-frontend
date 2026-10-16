@@ -1,7 +1,7 @@
 import { formatShortDate } from '@/common/calendarDate'
 import { attemptText, END_REASON_TEXT } from '@/assigned-programs/progressText'
 import type { StartChoice, StartableStatus } from './startRules'
-import type { Session } from './types'
+import type { PatientEndReason, Session } from './types'
 
 // The session flow's words, for the PATIENT. Pure, so every wording is a
 // plain test (sessionText.test.ts). `locale` only for tests (the app passes
@@ -102,3 +102,31 @@ function weekdayName(date: string, locale?: string): string {
     new Date(`${date}T00:00:00Z`),
   )
 }
+// --- ENDING: FINISH, STOP, SKIP (pass (c)) --------------------------------------------
+
+// The patient's four reasons, in the order offered, with the words they
+// read. (The app's own two — not_finished_in_time, program_closed — are
+// never offered: the backend refuses them from a client.)
+export const REASON_CHOICES: readonly { value: PatientEndReason; label: string }[] = [
+  { value: 'pain', label: 'Pain' },
+  { value: 'illness', label: 'Feeling unwell' },
+  { value: 'no_time', label: 'No time' },
+  { value: 'other', label: 'Another reason' },
+]
+
+// On the Finish page, when some exercises aren't ticked — a suggestion,
+// never a block (decisions §6): a session finished with exercises left
+// counts as DONE for the schedule; one stopped is kept as not finished.
+export function untickedText(exercises: readonly { completed: boolean }[]): string | null {
+  const left = exercises.filter((exercise) => !exercise.completed).length
+  if (left === 0) return null
+  const which = left === 1 ? "1 exercise isn't ticked" : `${left} exercises aren't ticked`
+  return `${which}. If you didn't do ${left === 1 ? 'it' : 'them'}, you can stop the session instead: it will be kept as not finished.`
+}
+
+// The confirmation the home shows after each ending (navigation state).
+export const ENDING_NOTICE = {
+  completed: 'Session finished. Well done!',
+  stopped: 'Session stopped. It is kept as not finished.',
+  skipped: "Today's session is skipped.",
+} as const
