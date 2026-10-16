@@ -129,4 +129,24 @@ describe('ScoreScale', () => {
     for (const radio of screen.getAllByRole('radio')) expect(radio).toBeDisabled()
     expect(screen.getByRole('button', { name: /Clear answer/ })).toBeDisabled()
   })
+
+  // An exercise's difficulty starts at 1 (the column's CHECK is 1–10).
+  it('can start at 1: ten choices, the hint saying so', () => {
+    render(
+      <ScoreScale
+        legend="How hard was it?"
+        lowLabel="very easy"
+        highLabel="very hard"
+        value={null}
+        onChange={() => {}}
+        min={1}
+      />,
+    )
+    expect(screen.getAllByRole('radio').map((radio) => radio.getAttribute('value'))).toStrictEqual([
+      '1', '2', '3', '4', '5', '6', '7', '8', '9', '10',
+    ])
+    expect(screen.getByRole('group', { name: 'How hard was it?' })).toHaveAccessibleDescription(
+      'Optional. 1 = very easy, 10 = very hard.',
+    )
+  })
 })

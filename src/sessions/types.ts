@@ -79,3 +79,12 @@ export interface StartSessionInput {
   workoutId: number
   painBefore?: number
 }
+// PATCH /sessions/:id/exercises/:rowId — what the patient changes on one
+// checklist row while the session is open (pass (b)). Only the fields being
+// changed; `null` clears a rating or a note (`completed` is never null —
+// the backend refuses it).
+export interface SessionExerciseChanges {
+  completed?: boolean
+  difficultyRating?: number | null
+  feedback?: string | null
+}

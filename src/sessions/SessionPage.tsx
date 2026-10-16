@@ -6,6 +6,8 @@ import { PrescriptionSummary } from '@/common/PrescriptionSummary'
 import { workoutNames } from '@/assigned-programs/programSchedule'
 import { useAssignedProgram } from '@/assigned-programs/useAssignedProgram'
 import { cn } from '@/lib/utils'
+import { SessionPlayer } from './SessionPlayer'
+import { isRunnable } from './sessionRules'
 import {
   checklistProgressText,
   sessionStatusText,
@@ -18,10 +20,11 @@ import { useSession } from './useSession'
 // 2026-10-16). Reached from the start page (right after starting) and from
 // the home's Resume.
 //
-// Built in passes: this first one (a) shows the session — its program and
-// workout, its state, the check-in, and its checklist with what is done.
-// Doing the exercises one at a time (ticks, difficulty, notes, photos)
-// arrives with pass (b); Finish, Stop and Skip with pass (c).
+// Built in passes: (a) the session — its program and workout, its state,
+// the check-in, its checklist; (b) doing it: while the session can still be
+// done (open, of today — isRunnable), the checklist becomes the PLAYER, one
+// exercise at a time (SessionPlayer); otherwise the read-only list stays.
+// Finish, Stop and Skip arrive with pass (c).
 //
 // The checklist is the SESSION's copy (names, prescriptions — taken when it
 // started, steps 3b-0 / D-2), not the program's current one: this page
@@ -81,7 +84,11 @@ function SessionView({ sessionId }: { sessionId: number }) {
   return (
     <Page>
       <SessionHeader session={session.data} title={title} workoutLabel={workoutLabel} today={today} />
-      <Checklist session={session.data} />
+      {isRunnable(session.data, today) && session.data.exercises.length > 0 ? (
+        <SessionPlayer session={session.data} program={program.data} />
+      ) : (
+        <Checklist session={session.data} />
+      )}
       <HomeLink />
     </Page>
   )

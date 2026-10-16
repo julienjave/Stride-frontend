@@ -1,5 +1,5 @@
 import { apiRequest } from '@/api/client'
-import type { Session, StartSessionInput } from './types'
+import type { Session, SessionExerciseChanges, StartSessionInput } from './types'
 
 // The session routes (backend src/sessions/, Phase 4 step 1). Every write
 // answers the WHOLE session, checklist included — so the screen writes the
@@ -25,4 +25,18 @@ export function fetchSession(id: number) {
 // program. 201 with the session.
 export function startSession(input: StartSessionInput) {
   return apiRequest<Session>('/sessions', { method: 'POST', body: input })
+}
+// PATCH /sessions/:id/exercises/:rowId — a tick, a rating, a note; only
+// while the session is open (else 409 "This session is finished…"). Answers
+// the whole session, like every session write. Audited by the backend, one
+// entry per real change (SESSION_EXERCISE_UPDATED).
+export function updateSessionExercise(
+  sessionId: number,
+  rowId: number,
+  changes: SessionExerciseChanges,
+) {
+  return apiRequest<Session>(`/sessions/${sessionId}/exercises/${rowId}`, {
+    method: 'PATCH',
+    body: changes,
+  })
 }

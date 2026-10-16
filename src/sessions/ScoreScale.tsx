@@ -1,8 +1,9 @@
 import { useId } from 'react'
 import { Button } from '@/components/ui/button'
 
-// A 0–10 score the patient may give or leave out (decisions §6: pain before
-// and after, mobility after — all optional, never blocking).
+// A score up to 10 the patient may give or leave out — from 0 (decisions
+// §6: pain before and after, mobility after) or from 1 (an exercise's
+// difficulty: the column's CHECK is 1–10). All optional, never blocking.
 //
 // Eleven native radio buttons rather than a slider (decided 2026-10-16): a
 // slider always HAS a value — its thumb sits somewhere — so it can't say
@@ -21,6 +22,15 @@ import { Button } from '@/components/ui/button'
 // reader hears them too.
 const SCORES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const
 
+// The grid for each range, as WHOLE class names: Tailwind keeps only the
+// classes it finds written out in the source, so `grid-cols-${n}` built at
+// run time would have no CSS. Eleven → two rows of 6 + 5 on a phone; ten →
+// 5 + 5.
+const GRID: Record<0 | 1, string> = {
+  0: 'grid-cols-6 sm:grid-cols-11',
+  1: 'grid-cols-5 sm:grid-cols-10',
+}
+
 interface ScoreScaleProps {
   // The question (the fieldset's legend).
   legend: string
@@ -30,6 +40,8 @@ interface ScoreScaleProps {
   value: number | null
   onChange: (value: number | null) => void
   disabled?: boolean
+  // The lowest score: 0 (the default) or 1.
+  min?: 0 | 1
 }
 
 export function ScoreScale({
@@ -39,6 +51,7 @@ export function ScoreScale({
   value,
   onChange,
   disabled = false,
+  min = 0,
 }: ScoreScaleProps) {
   // One name per scale: several on one page (pain after, mobility after)
   // must be separate radio groups.
@@ -49,10 +62,10 @@ export function ScoreScale({
     <fieldset className="space-y-2" aria-describedby={hintId} disabled={disabled}>
       <legend className="font-medium">{legend}</legend>
       <p id={hintId} className="text-sm text-muted-foreground">
-        Optional. 0 = {lowLabel}, 10 = {highLabel}.
+        Optional. {min} = {lowLabel}, 10 = {highLabel}.
       </p>
-      <div className="grid grid-cols-6 gap-2 sm:grid-cols-11">
-        {SCORES.map((score) => (
+      <div className={`grid gap-2 ${GRID[min]}`}>
+        {SCORES.filter((score) => score >= min).map((score) => (
           <label
             key={score}
             className="relative flex h-11 cursor-pointer items-center justify-center rounded-md border text-base font-medium transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-primary-foreground has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-2 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"

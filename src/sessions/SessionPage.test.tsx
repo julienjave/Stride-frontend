@@ -23,6 +23,12 @@ vi.stubGlobal('fetch', fetchMock)
 let sessionAnswer: () => Response
 let programAnswer: () => Response
 
+// A FINISHED session: the page shows its checklist read-only (an open
+// session of today gets the player instead — SessionPlayer.test.tsx).
+function finished(fields: Parameters<typeof session>[0] = {}) {
+  return session({ status: 'completed', completedAt: '2031-06-12T12:40:00.000Z', ...fields })
+}
+
 beforeEach(() => {
   fetchMock.mockReset()
   sessionAnswer = () => json(session())
@@ -64,10 +70,11 @@ function requested() {
 
 describe('SessionPage', () => {
   it('shows the session: its program and workout, its state, and its checklist', async () => {
+    sessionAnswer = () => json(finished())
     renderPage()
     expect(await screen.findByRole('heading', { level: 1, name: 'Knee Rehab' })).toBeInTheDocument()
     expect(screen.getByText('A · Mobility')).toBeInTheDocument()
-    expect(screen.getByText(/^In progress · Started at /)).toBeInTheDocument()
+    expect(screen.getByText(/^Completed · Started at /)).toBeInTheDocument()
 
     const list = screen.getByRole('list')
     expect(within(list).getAllByRole('listitem').map((item) => item.textContent)).toStrictEqual([
@@ -85,7 +92,7 @@ describe('SessionPage', () => {
   // started — not the program's current exercises (step 3b-0 / D-2).
   it("lists the session's own copy, not the program's current exercises", async () => {
     sessionAnswer = () =>
-      json(session({ exercises: [sessionExercise(1, 0, { name: 'Heel Slides (as given then)' })] }))
+      json(finished({ exercises: [sessionExercise(1, 0, { name: 'Heel Slides (as given then)' })] }))
     renderPage()
     const list = await screen.findByRole('list')
     expect(within(list).getAllByRole('listitem').map((item) => item.textContent)).toStrictEqual([
@@ -96,7 +103,7 @@ describe('SessionPage', () => {
   it('says which exercises are done, in words', async () => {
     sessionAnswer = () =>
       json(
-        session({
+        finished({
           exercises: [
             sessionExercise(1, 0, { name: 'Heel Slides', completed: true }),
             sessionExercise(2, 1, { name: 'Squat' }),
@@ -118,7 +125,7 @@ describe('SessionPage', () => {
 
   it('says nothing of a check-in not given', async () => {
     renderPage()
-    await screen.findByRole('list')
+    await screen.findByRole('heading', { level: 1, name: 'Knee Rehab' })
     expect(screen.queryByText(/Pain when you started/)).not.toBeInTheDocument()
   })
 
@@ -138,7 +145,7 @@ describe('SessionPage', () => {
   // Opened right after starting: the answer is already cached — the page
   // shows it with no request for the session (only the program's title).
   it('opens at once from the cache, asking only for the program', async () => {
-    renderPage('/patient/sessions/31', session())
+    renderPage('/patient/sessions/31', finished())
     expect(screen.getByRole('list')).toBeInTheDocument()
     await screen.findByRole('heading', { level: 1, name: 'Knee Rehab' })
     expect(requested()).toStrictEqual([expect.stringMatching(/\/assigned-programs\/12$/)])
@@ -146,6 +153,7 @@ describe('SessionPage', () => {
 
   it("still shows the session when the program can't be read", async () => {
     programAnswer = () => apiError(500, 'Internal server error')
+    sessionAnswer = () => json(finished())
     renderPage()
     expect(await screen.findByRole('heading', { level: 1, name: 'Your session' })).toBeInTheDocument()
     expect(screen.getByRole('list')).toBeInTheDocument()
