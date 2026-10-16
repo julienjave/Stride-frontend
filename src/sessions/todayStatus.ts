@@ -49,9 +49,16 @@ export type TodayStatus =
   | { kind: 'paused' }
 
 // A scheduled day's states that mean "what the day asked is done". Made up
-// can't be TODAY's state (a day is made up on a LATER day), but listing it
-// keeps the set the same as the practitioner page's FULFILLED.
-const FULFILLED: ReadonlySet<string> = new Set(['done', 'made_up', 'done_early', 'swapped'])
+// (on time or late) can't be TODAY's state (a day is made up on a LATER
+// day), but listing them keeps the set the same as the practitioner page's
+// FULFILLED.
+const FULFILLED: ReadonlySet<string> = new Set([
+  'done',
+  'made_up',
+  'made_up_late',
+  'done_early',
+  'swapped',
+])
 
 // In this order — the first that applies wins:
 //   1. a session open TODAY (one left open on an earlier day doesn't count:

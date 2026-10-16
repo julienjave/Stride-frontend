@@ -49,6 +49,7 @@ function program(id: number, fields: Partial<AssignedProgramListItem> = {}): Ass
     status: 'active',
     isArchived: false,
     allowSwaps: true,
+    lateMakeUpDays: null,
     schedules: [],
     assigner: { id: 3, firstName: 'Alex', lastName: 'Chen' },
     workouts: [{ id: 57, assignedProgramId: id, name: null, sortOrder: 0 }],
@@ -81,6 +82,7 @@ function day(date: string, workoutId: number, state: ScheduledDay['state']): Sch
     state,
     sessionId: null,
     madeUpBy: null,
+    madeUpLateBy: null,
     doneEarlyBy: null,
     swappedBy: null,
     attempts: [],
@@ -91,6 +93,7 @@ const TOTALS = {
   expected: null,
   done: 0,
   madeUp: 0,
+  madeUpLate: 0,
   doneEarly: 0,
   swapped: 0,
   missed: 0,
@@ -112,6 +115,7 @@ function summary(fields: Partial<ScheduleSummary>): ScheduleSummary {
     pauses: [],
     nextWorkout: null,
     openSession: null,
+    lateMakeUps: { days: [], blockedToday: null },
     ...fields,
   }
 }

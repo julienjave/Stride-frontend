@@ -19,6 +19,7 @@ function day(date: string, state: ScheduledDay['state'], workoutId = A): Schedul
     state,
     sessionId: null,
     madeUpBy: null,
+    madeUpLateBy: null,
     doneEarlyBy: null,
     swappedBy: null,
     attempts: [],
@@ -34,6 +35,7 @@ function summary(fields: Partial<ScheduleSummary> = {}): ScheduleSummary {
       expected: null,
       done: 0,
       madeUp: 0,
+      madeUpLate: 0,
       doneEarly: 0,
       swapped: 0,
       missed: 0,
@@ -48,6 +50,7 @@ function summary(fields: Partial<ScheduleSummary> = {}): ScheduleSummary {
     pauses: [],
     nextWorkout: null,
     openSession: null,
+    lateMakeUps: { days: [], blockedToday: null },
     ...fields,
   }
 }

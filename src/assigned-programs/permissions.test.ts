@@ -15,6 +15,7 @@ function makeProgram(overrides: Partial<AssignedProgram> = {}): AssignedProgram 
     status: 'active',
     isArchived: false,
     allowSwaps: true,
+    lateMakeUpDays: null,
     schedules: [],
     ...overrides,
   }

@@ -102,6 +102,7 @@ const PROGRAM: AssignedProgramDetail = {
   status: 'active',
   isArchived: false,
   allowSwaps: true,
+  lateMakeUpDays: null,
   schedules: [version(1, '2031-06-02')],
   workouts: [
     { id: 57, assignedProgramId: 12, name: 'Mobility', sortOrder: 0 },
@@ -126,6 +127,7 @@ function day(date: string, workoutId: number, state: string, fields: object = {}
     state,
     sessionId: null,
     madeUpBy: null,
+    madeUpLateBy: null,
     doneEarlyBy: null,
     swappedBy: null,
     attempts: [],
@@ -144,6 +146,7 @@ const SUMMARY: ScheduleSummary = {
     expected: null,
     done: 2,
     madeUp: 1,
+    madeUpLate: 0,
     doneEarly: 0,
     swapped: 0,
     missed: 1,
@@ -165,6 +168,7 @@ const SUMMARY: ScheduleSummary = {
   pauses: [],
   nextWorkout: { workoutId: 58, forDay: '2031-06-11', programWeek: null },
   openSession: null,
+  lateMakeUps: { days: [], blockedToday: null },
 }
 
 // The patient's programs (GET /assigned-programs?patientId=6): this one,
@@ -185,7 +189,7 @@ let patientList: () => Response
 // (A promise that never settles stands for an answer still on its way.)
 let closingPreview: () => Response | Promise<Response>
 let closeAnswer: (action: string) => Response
-let patchAnswer: (body: { allowSwaps?: boolean }) => Response
+let patchAnswer: (body: { allowSwaps?: boolean; lateMakeUpDays?: number | null }) => Response
 
 beforeEach(() => {
   fetchMock.mockReset()
@@ -212,7 +216,11 @@ beforeEach(() => {
     const close = /\/assigned-programs\/12\/(cancel|complete)$/.exec(url)
     if (init?.method === 'POST' && close) return Promise.resolve(closeAnswer(close[1]))
     if (init?.method === 'PATCH' && url.endsWith('/assigned-programs/12')) {
-      return Promise.resolve(patchAnswer(JSON.parse(init.body as string) as { allowSwaps?: boolean }))
+      return Promise.resolve(
+        patchAnswer(
+          JSON.parse(init.body as string) as { allowSwaps?: boolean; lateMakeUpDays?: number | null },
+        ),
+      )
     }
     if (/\/assigned-programs\/12\/closing\?today=/.test(url)) return Promise.resolve(closingPreview())
     const summary = /\/assigned-programs\/(\d+)\/summary\?today=/.exec(url)
@@ -1234,6 +1242,167 @@ describe('AssignedProgramDetailPage — letting the patient rearrange the week',
     renderPage()
     await screen.findByRole('heading', { level: 1, name: 'Knee Rehab — Pat' })
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+  })
+})
+
+// Late make-ups (2026-10-16): what the page shows of them, and the setting.
+describe('AssignedProgramDetailPage — late make-ups', () => {
+  const CHECKBOX = 'Let the patient make up missed sessions late'
+  const DAYS = 'Up to how many days after the missed day'
+  const patches = () => bodiesSent('PATCH', (url) => url.endsWith('/assigned-programs/12'))
+
+  // Week 1's Friday, missed, then made up late on Tuesday 10 (a free day).
+  it('shows a day made up late — the badge, the day it was done, and the totals apart', async () => {
+    const user = userEvent.setup()
+    summaries[12] = () =>
+      json({
+        ...SUMMARY,
+        totals: { ...SUMMARY.totals, missed: 0, madeUpLate: 1 },
+        days: SUMMARY.days.map((d) =>
+          d.date === '2031-06-06'
+            ? { ...d, state: 'made_up_late', madeUpLateBy: { sessionId: 9, date: '2031-06-10' } }
+            : d,
+        ),
+      })
+    renderPage()
+    // Counted apart from "made up", never folded into it.
+    expect(await screen.findByText('1 made up · 1 made up late · 1 extra')).toBeInTheDocument()
+    expect(screen.getByText('4 sessions done')).toBeInTheDocument()
+
+    const week = weekDetails(1)
+    expect(within(week).getByText('3 of 3 done')).toBeVisible()
+    await user.click(within(week).getByText(/^Week 1/))
+    expect(within(week).getByText('Made up late')).toBeVisible()
+    expect(
+      within(week).getByText(`Made up late on ${formatShortDate('2031-06-10')}`),
+    ).toBeVisible()
+  })
+
+  it('is off on a program that never allowed them; turning it on saves a week', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    const box = await screen.findByRole('checkbox', { name: CHECKBOX })
+    expect(box).not.toBeChecked()
+    // Off: no number to choose.
+    expect(screen.queryByRole('combobox', { name: DAYS })).not.toBeInTheDocument()
+
+    await user.click(box)
+    await vi.waitFor(() => expect(box).toBeChecked())
+    expect(patches()).toStrictEqual(['{"lateMakeUpDays":7}'])
+    expect(screen.getByRole('combobox', { name: DAYS })).toHaveValue('7')
+  })
+
+  it("shows the program's number of days, and saves another", async () => {
+    const user = userEvent.setup()
+    programs[12] = () => json({ ...PROGRAM, lateMakeUpDays: 5 })
+    renderPage()
+    const days = await screen.findByRole('combobox', { name: DAYS })
+    expect(days).toHaveValue('5')
+    expect(screen.getByRole('checkbox', { name: CHECKBOX })).toBeChecked()
+
+    await user.selectOptions(days, '14')
+    await vi.waitFor(() => expect(days).toHaveValue('14'))
+    expect(patches()).toStrictEqual(['{"lateMakeUpDays":14}'])
+  })
+
+  // The number shows what the SERVER holds too: while the change is saving,
+  // the select keeps the stored value and can't be changed again.
+  it('keeps the stored number, disabled, while a new one is saving', async () => {
+    const user = userEvent.setup()
+    let answer: (response: Response) => void = () => {}
+    programs[12] = () => json({ ...PROGRAM, lateMakeUpDays: 5 })
+    renderPage()
+    const days = await screen.findByRole('combobox', { name: DAYS })
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
+    await user.selectOptions(days, '14')
+    await vi.waitFor(() => expect(days).toBeDisabled())
+    expect(days).toHaveValue('5')
+
+    answer(json({ ...PROGRAM, lateMakeUpDays: 14 }))
+    await vi.waitFor(() => expect(days).toBeEnabled())
+    expect(days).toHaveValue('14')
+  })
+
+  it('offers 1 to 28 days', async () => {
+    programs[12] = () => json({ ...PROGRAM, lateMakeUpDays: 7 })
+    renderPage()
+    const days = await screen.findByRole('combobox', { name: DAYS })
+    const options = within(days).getAllByRole('option')
+    expect(options.map((option) => (option as HTMLOptionElement).value)).toStrictEqual(
+      Array.from({ length: 28 }, (_, i) => String(i + 1)),
+    )
+    expect(options[0]).toHaveTextContent(/^1 day$/)
+    expect(options[27]).toHaveTextContent(/^28 days$/)
+  })
+
+  it('turns them off with null', async () => {
+    const user = userEvent.setup()
+    programs[12] = () => json({ ...PROGRAM, lateMakeUpDays: 5 })
+    renderPage()
+    const box = await screen.findByRole('checkbox', { name: CHECKBOX })
+    await user.click(box)
+    await vi.waitFor(() => expect(box).not.toBeChecked())
+    expect(patches()).toStrictEqual(['{"lateMakeUpDays":null}'])
+    expect(screen.queryByRole('combobox', { name: DAYS })).not.toBeInTheDocument()
+  })
+
+  // Not optimistic: disabled while the request runs; then the progress is
+  // asked again — the summary's lateMakeUps depends on the setting.
+  it('is disabled while saving, and refreshes the progress after', async () => {
+    const user = userEvent.setup()
+    let answer: (response: Response) => void = () => {}
+    renderPage()
+    const box = await screen.findByRole('checkbox', { name: CHECKBOX })
+    await screen.findByText('1 made up · 1 missed · 1 extra')
+    const summaryRequests = () => requested((url) => /\/assigned-programs\/12\/summary\?/.test(url)).length
+    const before = summaryRequests()
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
+    await user.click(box)
+    await vi.waitFor(() => expect(box).toBeDisabled())
+    expect(box).not.toBeChecked()
+
+    answer(json({ ...PROGRAM, lateMakeUpDays: 7 }))
+    await vi.waitFor(() => expect(box).toBeEnabled())
+    expect(box).toBeChecked()
+    await vi.waitFor(() => expect(summaryRequests()).toBeGreaterThan(before))
+  })
+
+  // "Rearrange the week" changes nothing the summary judges: no new request.
+  it("doesn't ask for the progress again after the rearrange switch", async () => {
+    const user = userEvent.setup()
+    renderPage()
+    const box = await screen.findByRole('checkbox', { name: 'Let the patient rearrange the week' })
+    await screen.findByText('1 made up · 1 missed · 1 extra')
+    const summaryRequests = () => requested((url) => /\/assigned-programs\/12\/summary\?/.test(url)).length
+    const before = summaryRequests()
+    await user.click(box)
+    await vi.waitFor(() => expect(box).not.toBeChecked())
+    // The PATCH's answer and the lists' refetch have happened; give a render.
+    await vi.waitFor(() =>
+      expect(requested((url) => url.endsWith('/assigned-programs?patientId=6')).length).toBeGreaterThan(1),
+    )
+    expect(summaryRequests()).toBe(before)
+  })
+
+  it('stays as it was, with the reason, when the change is refused', async () => {
+    const user = userEvent.setup()
+    patchAnswer = () => apiError(409, 'This program is completed, so it can no longer change')
+    renderPage()
+    const box = await screen.findByRole('checkbox', { name: CHECKBOX })
+    await user.click(box)
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'This program is completed, so it can no longer change',
+    )
+    expect(box).not.toBeChecked()
+  })
+
+  it('is not offered on a closed program', async () => {
+    programs[12] = () =>
+      json({ ...PROGRAM, status: 'completed', endDate: '2031-06-11', lateMakeUpDays: 7 })
+    renderPage()
+    await screen.findByRole('heading', { level: 1, name: 'Knee Rehab — Pat' })
+    expect(screen.queryByRole('checkbox', { name: CHECKBOX })).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: DAYS })).not.toBeInTheDocument()
   })
 })
 

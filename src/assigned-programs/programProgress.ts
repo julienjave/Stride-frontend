@@ -50,10 +50,12 @@ export function programWeekOf(date: string, startDate: string): number {
 
 // The fulfilled states of a scheduled day: the patient did what the day
 // asked, one way or another. Kept apart in the totals (the backend counts
-// made-up, done-early and swapped days apart), but each one fulfils its day.
+// made-up, made-up-late, done-early and swapped days apart), but each one
+// fulfils its day.
 const FULFILLED: ReadonlySet<ScheduledDay['state']> = new Set([
   'done',
   'made_up',
+  'made_up_late',
   'done_early',
   'swapped',
 ])

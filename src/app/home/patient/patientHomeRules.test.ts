@@ -29,6 +29,7 @@ function day(
     state,
     sessionId: null,
     madeUpBy: null,
+    madeUpLateBy: null,
     doneEarlyBy: null,
     swappedBy: null,
     attempts: [],
@@ -67,6 +68,7 @@ function summary(fields: Partial<ScheduleSummary> = {}): ScheduleSummary {
       expected: null,
       done: 0,
       madeUp: 0,
+      madeUpLate: 0,
       doneEarly: 0,
       swapped: 0,
       missed: 0,
@@ -81,6 +83,7 @@ function summary(fields: Partial<ScheduleSummary> = {}): ScheduleSummary {
     pauses: [],
     nextWorkout: null,
     openSession: null,
+    lateMakeUps: { days: [], blockedToday: null },
     ...fields,
   }
 }
@@ -101,6 +104,7 @@ function program(id: number, fields: Partial<AssignedProgramListItem> = {}): Ass
     status: 'active',
     isArchived: false,
     allowSwaps: true,
+    lateMakeUpDays: null,
     schedules: [],
     assigner: { id: 3, firstName: 'Alex', lastName: 'Chen' },
     workouts: [],
@@ -272,8 +276,18 @@ describe('progressFraction', () => {
 
   it('counts every fulfilled kind out of the whole target', () => {
     expect(
-      progressFraction({ ...totals, expected: 12, done: 3, madeUp: 1, doneEarly: 1, swapped: 2, missed: 4, extra: 5 }),
-    ).toStrictEqual({ fulfilled: 7, expected: 12 })
+      progressFraction({
+        ...totals,
+        expected: 12,
+        done: 3,
+        madeUp: 1,
+        madeUpLate: 2,
+        doneEarly: 1,
+        swapped: 2,
+        missed: 4,
+        extra: 5,
+      }),
+    ).toStrictEqual({ fulfilled: 9, expected: 12 })
   })
 
   it('has no bar for an open-ended program, or a target of zero', () => {

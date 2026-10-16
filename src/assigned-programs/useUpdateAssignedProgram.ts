@@ -6,8 +6,8 @@ import {
 } from './api'
 import type { AssignedProgramDetail, UpdateAssignedProgramInput } from './types'
 
-// PATCH /assigned-programs/:id — the title, the dates and "rearrange the
-// week" (allowSwaps). The cache work after it:
+// PATCH /assigned-programs/:id — the title, the dates, "rearrange the week"
+// (allowSwaps) and late make-ups (lateMakeUpDays). The cache work after it:
 //   - the answer IS the full program (a start move's new schedule versions
 //     included), so it replaces the cached one directly (setQueryData) — no
 //     refetch of the program;
@@ -24,6 +24,13 @@ import type { AssignedProgramDetail, UpdateAssignedProgramInput } from './types'
 //     so "Saving…" lasts until the progress below matches the new dates —
 //     the field then closes on a page that is already right (the schedule
 //     editor's rule, useAddScheduleVersion).
+//   - late make-ups: the summary's `lateMakeUps` (which missed days may
+//     still be made up late) is computed from the setting, so it's marked
+//     stale the same way. (The closing preview doesn't depend on the
+//     setting, but one rule for both is simpler, and costs nothing: the
+//     preview is only asked for while its dialog is open — marking it stale
+//     sends no request.) Nothing already recorded changes: the setting
+//     governs new sessions.
 //   - a title or allowSwaps alone changes nothing the summary judges (swaps
 //     already recorded keep counting — swap-rules.ts): no refetch for them.
 //
@@ -36,7 +43,11 @@ export function useUpdateAssignedProgram(id: number) {
     onSuccess: async (program: AssignedProgramDetail, input: UpdateAssignedProgramInput) => {
       queryClient.setQueryData(assignedProgramQueryKey(id), program)
       void queryClient.invalidateQueries({ queryKey: assignedProgramsListQueryKey })
-      if (input.startDate !== undefined || input.endDate !== undefined) {
+      if (
+        input.startDate !== undefined ||
+        input.endDate !== undefined ||
+        input.lateMakeUpDays !== undefined
+      ) {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: [...assignedProgramQueryKey(id), 'summary'] }),
           queryClient.invalidateQueries({ queryKey: [...assignedProgramQueryKey(id), 'closing'] }),

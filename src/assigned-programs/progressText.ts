@@ -25,6 +25,9 @@ export type Tone = 'good' | 'bad' | 'pending' | 'neutral'
 export const DAY_STATE_BADGE: Record<DayState, { label: string; tone: Tone }> = {
   done: { label: 'Done', tone: 'good' },
   made_up: { label: 'Made up', tone: 'good' },
+  // Fulfilled, so 'good' like the others — the WORD says "late", and the
+  // sentence says when (dayDetail); the totals count it apart.
+  made_up_late: { label: 'Made up late', tone: 'good' },
   done_early: { label: 'Done early', tone: 'good' },
   swapped: { label: 'Swapped', tone: 'good' },
   missed: { label: 'Missed', tone: 'bad' },
@@ -49,6 +52,10 @@ export function dayDetail(day: ScheduledDay, today: string, locale?: string): st
   switch (day.state) {
     case 'made_up':
       return day.madeUpBy ? `Made up on ${formatShortDate(day.madeUpBy.date, locale)}` : null
+    case 'made_up_late':
+      return day.madeUpLateBy
+        ? `Made up late on ${formatShortDate(day.madeUpLateBy.date, locale)}`
+        : null
     case 'done_early':
       return day.doneEarlyBy
         ? `Done early on ${formatShortDate(day.doneEarlyBy.date, locale)}`
@@ -140,12 +147,15 @@ function isPatientReason(reason: SessionEndReason): boolean {
 // finished" covers every incomplete session, stopped by the patient or
 // closed by the app (attemptText tells them apart, day by day).
 // "Done" in the headline counts every FULFILLED session — done on the day,
-// made up, done early or swapped: each one did what the schedule asked.
+// made up (on time or late), done early or swapped: each one did what the
+// schedule asked. "Made up late" is its own part, never folded into "made
+// up": the practitioner sees how much was caught up late (2026-10-16).
 export function totalsText(totals: ScheduleSummary['totals']): {
   headline: string
   parts: string | null
 } {
-  const fulfilled = totals.done + totals.madeUp + totals.doneEarly + totals.swapped
+  const fulfilled =
+    totals.done + totals.madeUp + totals.madeUpLate + totals.doneEarly + totals.swapped
   const sessions = (count: number) => (count === 1 ? 'session' : 'sessions')
   const headline =
     totals.expected === null
@@ -154,6 +164,7 @@ export function totalsText(totals: ScheduleSummary['totals']): {
 
   const parts = [
     totals.madeUp > 0 ? `${totals.madeUp} made up` : null,
+    totals.madeUpLate > 0 ? `${totals.madeUpLate} made up late` : null,
     totals.doneEarly > 0 ? `${totals.doneEarly} done early` : null,
     totals.swapped > 0 ? `${totals.swapped} swapped` : null,
     totals.missed > 0 ? `${totals.missed} missed` : null,

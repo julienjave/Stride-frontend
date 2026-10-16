@@ -54,6 +54,11 @@ export interface AssignedProgram {
   isArchived: boolean
   // Whether the patient may do another day's workout in its place (a swap).
   allowSwaps: boolean
+  // Late make-ups (decided 2026-10-16): up to how many days after a missed
+  // day the patient may still make it up — 1 to 28 — or null: not allowed
+  // (the default). One value for both questions, so "off, but 7 days" can't
+  // exist.
+  lateMakeUpDays: number | null
   schedules: ScheduleVersion[]
 }
 
@@ -150,6 +155,9 @@ export interface RemovalPreview {
 // A scheduled day of a specific-days schedule:
 //   done       — a session of that day's workout, on that day;
 //   made_up    — done later, on an unscheduled day before the next scheduled one;
+//   made_up_late — done even later, explicitly, on a free day AFTER its
+//                make-up window had closed (late make-ups, opt-in per
+//                program — 2026-10-16); counted apart, never as made_up;
 //   done_early — done AHEAD, on a free day before it in the same week;
 //   swapped    — exchanged with another scheduled day of the same week (each
 //                did the other's workout);
@@ -159,6 +167,7 @@ export interface RemovalPreview {
 export type DayState =
   | 'done'
   | 'made_up'
+  | 'made_up_late'
   | 'done_early'
   | 'swapped'
   | 'missed'
@@ -173,6 +182,8 @@ export interface ScheduledDay {
   sessionId: number | null
   // The session that made it up and the day it was done (state made_up).
   madeUpBy: { sessionId: number; date: string } | null
+  // The session that made it up LATE, and its (free) day (state made_up_late).
+  madeUpLateBy: { sessionId: number; date: string } | null
   // The session done ahead of time and its (free) day (state done_early).
   doneEarlyBy: { sessionId: number; date: string } | null
   // The session done on the OTHER scheduled day of the swap, and that day
@@ -265,6 +276,8 @@ export interface ScheduleSummary {
     expected: number | null
     done: number
     madeUp: number
+    // Made up after the window — always apart from madeUp.
+    madeUpLate: number
     doneEarly: number
     swapped: number
     missed: number
@@ -292,7 +305,25 @@ export interface ScheduleSummary {
   // above — it isn't finished. Its day may be an earlier one: a session left
   // open, which the next start closes.
   openSession: OpenSession | null
+  // Late make-ups (2026-10-16): the missed days that may still be made up
+  // late, oldest first, each with the LAST free day it can be done on; and
+  // why none can be started TODAY (null = one can). `days` is empty when the
+  // program doesn't allow them. The patient's screens offer what this says;
+  // POST /sessions refuses what it doesn't.
+  lateMakeUps: { days: LateMakeUp[]; blockedToday: LateMakeUpBlock | null }
 }
+
+export interface LateMakeUp {
+  forDay: string
+  workoutId: number
+  until: string
+}
+
+// not_a_free_day — today is scheduled, paused, a weekly count or outside the
+// program (a late make-up is done on a free day of specific days);
+// session_done_today — a session of the program was completed today (one a
+// day); catch_up_first — a missed day can still be made up on time.
+export type LateMakeUpBlock = 'not_a_free_day' | 'session_done_today' | 'catch_up_first'
 
 export interface OpenSession {
   sessionId: number
@@ -379,10 +410,13 @@ export interface CloseResult {
 //   - endDate: `null` = no end date any more (open-ended) — a real value,
 //     unlike an absent key, which is why the type says `| null` here and
 //     nowhere else (title, startDate and allowSwaps can't be null: 400);
-//   - allowSwaps: "Let the patient rearrange the week".
+//   - allowSwaps: "Let the patient rearrange the week";
+//   - lateMakeUpDays: 1–28, or `null` = late make-ups off — like endDate, a
+//     real value, hence `| null`.
 export interface UpdateAssignedProgramInput {
   title?: string
   startDate?: string
   endDate?: string | null
   allowSwaps?: boolean
+  lateMakeUpDays?: number | null
 }

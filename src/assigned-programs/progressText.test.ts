@@ -23,6 +23,7 @@ function day(fields: Partial<ScheduledDay>): ScheduledDay {
     state: 'done',
     sessionId: null,
     madeUpBy: null,
+    madeUpLateBy: null,
     doneEarlyBy: null,
     swappedBy: null,
     attempts: [],
@@ -35,6 +36,13 @@ describe('dayDetail', () => {
     expect(
       dayDetail(day({ state: 'made_up', madeUpBy: { sessionId: 4, date: '2031-06-10' } }), TODAY, L),
     ).toBe('Made up on Tue 10 Jun')
+  })
+
+  // Late make-ups (2026-10-16): the day it was caught up, from madeUpLateBy.
+  it('says when a missed day was made up late', () => {
+    expect(
+      dayDetail(day({ state: 'made_up_late', madeUpLateBy: { sessionId: 7, date: '2031-06-12' } }), TODAY, L),
+    ).toBe('Made up late on Thu 12 Jun')
   })
 
   it('says when a day was done early', () => {
@@ -106,6 +114,8 @@ describe('totalsText', () => {
     expected: 12,
     done: 3,
     madeUp: 1,
+    // 2, not 1 like madeUp: a total that swapped the two can't pass.
+    madeUpLate: 2,
     doneEarly: 1,
     swapped: 1,
     missed: 1,
@@ -113,24 +123,27 @@ describe('totalsText', () => {
     skipped: 1,
     incomplete: 2,
   }
-  const none = { skipped: 0, incomplete: 0 }
+  const none = { skipped: 0, incomplete: 0, madeUpLate: 0 }
 
-  it('counts every fulfilled session — done, made up, done early, swapped — of the total', () => {
+  // Made up late counts as done in the headline, and stays its own part —
+  // never folded into "made up" (2026-10-16).
+  it('counts every fulfilled session — done, made up, made up late, done early, swapped — of the total', () => {
     expect(totalsText(totals)).toStrictEqual({
-      headline: '6 of 12 sessions done',
-      parts: '1 made up · 1 done early · 1 swapped · 1 missed · 1 skipped · 2 not finished · 2 extra',
+      headline: '8 of 12 sessions done',
+      parts:
+        '1 made up · 2 made up late · 1 done early · 1 swapped · 1 missed · 1 skipped · 2 not finished · 2 extra',
     })
   })
 
   it("doesn't count skipped or unfinished sessions as done", () => {
-    // Only the four fulfilled kinds make the headline: 3 + 1 + 1 + 1.
+    // Only the five fulfilled kinds make the headline: 3 + 1 + 2 + 1 + 1.
     expect(totalsText({ ...totals, skipped: 5, incomplete: 5 }).headline).toBe(
-      '6 of 12 sessions done',
+      '8 of 12 sessions done',
     )
   })
 
   it('has no "of" for an open-ended program', () => {
-    expect(totalsText({ ...totals, expected: null }).headline).toBe('6 sessions done')
+    expect(totalsText({ ...totals, expected: null }).headline).toBe('8 sessions done')
   })
 
   it('says "session" for one', () => {

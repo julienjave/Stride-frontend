@@ -61,6 +61,7 @@ const RUNNING: AssignedProgramDetail = {
   status: 'active',
   isArchived: false,
   allowSwaps: true,
+  lateMakeUpDays: null,
   schedules: [
     version(1, '2031-06-03'),
     version(2, '2031-06-27', { type: 'paused', timesPerWeek: null, rotation: [] }),

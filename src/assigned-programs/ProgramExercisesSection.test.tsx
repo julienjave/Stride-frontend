@@ -100,6 +100,7 @@ const PROGRAM: AssignedProgramDetail = {
   status: 'active',
   isArchived: false,
   allowSwaps: true,
+  lateMakeUpDays: null,
   schedules: [
     version({
       days: [

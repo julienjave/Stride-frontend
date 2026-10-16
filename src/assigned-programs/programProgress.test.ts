@@ -19,6 +19,7 @@ function day(date: string, state: ScheduledDay['state']): ScheduledDay {
     state,
     sessionId: null,
     madeUpBy: null,
+    madeUpLateBy: null,
     doneEarlyBy: null,
     swappedBy: null,
     attempts: [],
@@ -34,6 +35,7 @@ function summary(fields: Partial<ScheduleSummary>): ScheduleSummary {
       expected: null,
       done: 0,
       madeUp: 0,
+      madeUpLate: 0,
       doneEarly: 0,
       swapped: 0,
       missed: 0,
@@ -48,6 +50,7 @@ function summary(fields: Partial<ScheduleSummary>): ScheduleSummary {
     pauses: [],
     nextWorkout: null,
     openSession: null,
+    lateMakeUps: { days: [], blockedToday: null },
     ...fields,
   }
 }
@@ -150,6 +153,16 @@ describe('groupProgressByWeek', () => {
     expect([weeks[1].expected, weeks[1].fulfilled, weeks[1].missed]).toStrictEqual([4, 3, 1])
     // Week 3: today's day, not done yet — nothing missed.
     expect([weeks[2].expected, weeks[2].fulfilled, weeks[2].missed]).toStrictEqual([1, 0, 0])
+  })
+
+  // A day made up LATE fulfils it, like the other four (2026-10-16): it
+  // counts in the week's result, and isn't missed.
+  it('counts a day made up late as fulfilled', () => {
+    const { weeks: late } = groupProgressByWeek(
+      summary({ days: [day('2031-05-29', 'made_up_late'), day('2031-06-02', 'missed')] }),
+      START,
+    )
+    expect([late[0].expected, late[0].fulfilled, late[0].missed]).toStrictEqual([2, 1, 1])
   })
 
   it("doesn't count a weekly count still in progress as missed", () => {

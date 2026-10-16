@@ -74,6 +74,7 @@ export const KNEE: AssignedProgramDetail = {
   status: 'active',
   isArchived: false,
   allowSwaps: true,
+  lateMakeUpDays: null,
   schedules: [],
   workouts: [
     { id: A, assignedProgramId: 12, name: 'Mobility', sortOrder: 0 },
@@ -98,6 +99,7 @@ export function scheduledDay(
     state,
     sessionId: null,
     madeUpBy: null,
+    madeUpLateBy: null,
     doneEarlyBy: null,
     swappedBy: null,
     attempts: [],
@@ -113,6 +115,7 @@ export function summary(fields: Partial<ScheduleSummary> = {}): ScheduleSummary 
       expected: null,
       done: 0,
       madeUp: 0,
+      madeUpLate: 0,
       doneEarly: 0,
       swapped: 0,
       missed: 0,
@@ -127,6 +130,7 @@ export function summary(fields: Partial<ScheduleSummary> = {}): ScheduleSummary 
     pauses: [],
     nextWorkout: null,
     openSession: null,
+    lateMakeUps: { days: [], blockedToday: null },
     ...fields,
   }
 }

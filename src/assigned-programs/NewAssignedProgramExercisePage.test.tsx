@@ -38,6 +38,7 @@ const PROGRAM: AssignedProgramDetail = {
   status: 'active',
   isArchived: false,
   allowSwaps: true,
+  lateMakeUpDays: null,
   schedules: [],
   workouts: [
     { id: 57, assignedProgramId: 12, name: 'Mobility', sortOrder: 0 },

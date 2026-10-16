@@ -70,6 +70,7 @@ const PROGRAM: AssignedProgramDetail = {
   status: 'active',
   isArchived: false,
   allowSwaps: true,
+  lateMakeUpDays: null,
   schedules: [],
   workouts: [{ id: 57, assignedProgramId: 12, name: null, sortOrder: 0 }],
   exercises: [BRIDGE],

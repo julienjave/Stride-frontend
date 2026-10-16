@@ -29,6 +29,7 @@ function program(
     status,
     isArchived: false,
     allowSwaps: true,
+    lateMakeUpDays: null,
     schedules: [],
   }
 }

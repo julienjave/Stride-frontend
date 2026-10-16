@@ -3,6 +3,7 @@ import { ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatShortDate } from '@/common/calendarDate'
 import { ProgramPageSection } from './ProgramPageSection'
+import { LateMakeUpsSetting } from './LateMakeUpsSetting'
 import { RearrangeWeekSwitch } from './RearrangeWeekSwitch'
 import { changeWindow, type ChangeWindow, type ScheduleChangeKind } from './scheduleChange'
 import { ScheduleChangeForm } from './ScheduleChangeForm'
@@ -90,6 +91,12 @@ export function ProgramScheduleProgress({
       {isOpen && <ScheduleControls program={program} today={today} names={names} />}
 
       {isOpen && <RearrangeWeekSwitch programId={program.id} allowSwaps={program.allowSwaps} />}
+      {/* The patient's other freedom with the schedule, beside the first
+          (2026-10-16). Open programs only, like the switch: a closed one
+          takes no new sessions. */}
+      {isOpen && (
+        <LateMakeUpsSetting programId={program.id} lateMakeUpDays={program.lateMakeUpDays} />
+      )}
 
       {program.isArchived && (
         <p className="text-sm text-muted-foreground">

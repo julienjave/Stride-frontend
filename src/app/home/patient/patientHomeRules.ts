@@ -111,8 +111,8 @@ export function upcomingItems(
 // --- A PROGRAM'S PROGRESS -------------------------------------------------------
 
 // The fraction a progress bar shows: sessions fulfilled (done on the day,
-// made up, done early, swapped — the same four totalsText counts as done)
-// out of the program's whole target. null for an open-ended program, which
+// made up — on time or late —, done early, swapped: the same five totalsText
+// counts as done) out of the program's whole target. null for an open-ended program, which
 // has no total (decisions §5: a count, not a bar) — and for a target of 0,
 // where a bar would divide by zero.
 export function progressFraction(
@@ -120,7 +120,8 @@ export function progressFraction(
 ): { fulfilled: number; expected: number } | null {
   if (totals.expected === null || totals.expected === 0) return null
   return {
-    fulfilled: totals.done + totals.madeUp + totals.doneEarly + totals.swapped,
+    fulfilled:
+      totals.done + totals.madeUp + totals.madeUpLate + totals.doneEarly + totals.swapped,
     expected: totals.expected,
   }
 }
