@@ -7,11 +7,11 @@ const L = 'en-GB'
 
 describe('todayText', () => {
   it('names the workout in progress, or "today\'s session" with one workout', () => {
-    expect(todayText({ kind: 'in_progress', workoutId: 57 }, 'A · Mobility', L)).toStrictEqual({
+    expect(todayText({ kind: 'in_progress', workoutId: 57, sessionId: 5 }, 'A · Mobility', L)).toStrictEqual({
       line: 'In progress: A · Mobility',
       detail: null,
     })
-    expect(todayText({ kind: 'in_progress', workoutId: 57 }, null, L).line).toBe(
+    expect(todayText({ kind: 'in_progress', workoutId: 57, sessionId: 5 }, null, L).line).toBe(
       "In progress: today's session",
     )
   })

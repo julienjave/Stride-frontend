@@ -359,8 +359,28 @@ export const router = createBrowserRouter([
                       (module) => module.PatientHomePage,
                     ),
                   },
+                  // The session flow (Phase 4, decided 2026-10-16): "before
+                  // you start" for one program — nothing is written until
+                  // Start — then the running session. React Router ranks a
+                  // static segment above a dynamic one, so `start/…` is
+                  // never read as a session id.
+                  {
+                    path: '/patient/sessions/start/:programId',
+                    lazy: page(
+                      () => import('@/sessions/StartSessionPage'),
+                      (module) => module.StartSessionPage,
+                    ),
+                  },
+                  {
+                    path: '/patient/sessions/:sessionId',
+                    lazy: page(
+                      () => import('@/sessions/SessionPage'),
+                      (module) => module.SessionPage,
+                    ),
+                  },
                   // All three are navigation sections (design decisions §2)
-                  // whose features don't exist yet — see ComingSoonPage.
+                  // whose features don't exist yet — see ComingSoonPage. (The
+                  // Sessions hub comes after the session flow.)
                   {
                     path: '/patient/sessions',
                     element: <ComingSoonPage title="Sessions" />,

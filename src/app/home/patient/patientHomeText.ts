@@ -1,7 +1,8 @@
 import { formatShortDate } from '@/common/calendarDate'
 import { END_REASON_TEXT } from '@/assigned-programs/progressText'
 import type { SessionEndReason } from '@/assigned-programs/types'
-import type { TodayStatus, UpcomingItem } from './patientHomeRules'
+import type { TodayStatus } from '@/sessions/todayStatus'
+import type { UpcomingItem } from './patientHomeRules'
 
 // The patient home's words — written for the PATIENT (the practitioner
 // page's progressText words the same facts for a practitioner). Pure, so

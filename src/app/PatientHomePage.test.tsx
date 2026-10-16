@@ -233,8 +233,8 @@ describe('PatientHomePage — Today', () => {
     expect(within(today).getByText('Thursday, June 12')).toBeInTheDocument()
     const rows = within(today).getAllByRole('listitem')
     expect(rows.map((row) => row.textContent)).toStrictEqual([
-      "Knee RehabCatch up: Wednesday's B · StrengthNot done yet — you can still make it up today.",
-      `Lower Back1 of 3 done this weekThis week runs ${formatShortDate('2031-06-09')} – ${formatShortDate('2031-06-15')}.`,
+      "Knee RehabCatch up: Wednesday's B · StrengthNot done yet — you can still make it up today.Start",
+      `Lower Back1 of 3 done this weekThis week runs ${formatShortDate('2031-06-09')} – ${formatShortDate('2031-06-15')}.Start`,
     ])
   })
 
@@ -261,6 +261,107 @@ describe('PatientHomePage — Today', () => {
     const rows = within(section('Today')).getAllByRole('listitem')
     expect(rows[0]).toHaveTextContent("Knee RehabCouldn't load today's plan. Try refreshing.")
     expect(rows[1]).toHaveTextContent('Lower Back1 of 3 done this week')
+  })
+})
+
+// The session flow's way in (2026-10-16): a button on each row that can
+// act, leading to the start page — never a write from the home itself.
+describe('PatientHomePage — Start and Resume', () => {
+  function todayRows() {
+    return within(section('Today')).getAllByRole('listitem')
+  }
+
+  it("offers Start on a row that asks for a session — to that program's start page, named with it", async () => {
+    renderPage()
+    await loaded()
+    // Knee Rehab: a catch-up; Lower Back: a weekly count.
+    const [knee, back] = todayRows()
+    expect(within(knee).getByRole('link', { name: 'Start Knee Rehab' })).toHaveAttribute(
+      'href',
+      '/patient/sessions/start/12',
+    )
+    expect(within(back).getByRole('link', { name: 'Start Lower Back' })).toHaveAttribute(
+      'href',
+      '/patient/sessions/start/14',
+    )
+    // Nothing was written: the home only reads.
+    expect(fetchMock.mock.calls.every(([, init]) => (init?.method ?? 'GET') === 'GET')).toBe(true)
+  })
+
+  it("offers Start on today's scheduled day", async () => {
+    summaries[12] = () =>
+      json({ ...KNEE_SUMMARY, days: [day(TODAY, 57, 'due')], nextWorkout: null })
+    renderPage()
+    await loaded()
+    expect(within(todayRows()[0]).getByRole('link', { name: 'Start Knee Rehab' })).toBeInTheDocument()
+  })
+
+  it("offers Resume — not Start — for today's open session, to that session", async () => {
+    summaries[12] = () =>
+      json({ ...KNEE_SUMMARY, openSession: { sessionId: 31, localDate: TODAY, workoutId: 58 } })
+    renderPage()
+    await loaded()
+    const knee = todayRows()[0]
+    expect(knee).toHaveTextContent('In progress: B · Strength')
+    expect(within(knee).getByRole('link', { name: 'Resume Knee Rehab' })).toHaveAttribute(
+      'href',
+      '/patient/sessions/31',
+    )
+    expect(within(knee).queryByRole('link', { name: /^Start/ })).not.toBeInTheDocument()
+  })
+
+  it('offers nothing on a row with nothing to start (done today)', async () => {
+    summaries[12] = () =>
+      json({ ...KNEE_SUMMARY, days: [day(TODAY, 57, 'done')], nextWorkout: null })
+    renderPage()
+    await loaded()
+    const knee = todayRows()[0]
+    expect(knee).toHaveTextContent('Done for today')
+    expect(within(knee).queryByRole('link')).not.toBeInTheDocument()
+  })
+
+  it('offers nothing on a row whose summary failed', async () => {
+    summaries[12] = () => json({ statusCode: 500, message: ['boom'] }, 500)
+    renderPage()
+    await loaded()
+    expect(within(todayRows()[0]).queryByRole('link')).not.toBeInTheDocument()
+  })
+
+  // A session left open on an EARLIER day: no Resume (it can't be finished
+  // any more), one sentence — under today's own row when there is one…
+  it("says a session was left open on an earlier day — beside today's Start, with no Resume", async () => {
+    summaries[12] = () =>
+      json({ ...KNEE_SUMMARY, openSession: { sessionId: 29, localDate: '2031-06-09', workoutId: 57 } })
+    renderPage()
+    await loaded()
+    const knee = todayRows()[0]
+    // A line of its own, after the row's own detail — never instead of it.
+    const lines = within(knee).getAllByRole('paragraph').map((line) => line.textContent)
+    expect(lines).toStrictEqual([
+      'Knee Rehab',
+      "Catch up: Wednesday's B · Strength",
+      'Not done yet — you can still make it up today.',
+      `Your session of ${formatShortDate('2031-06-09')} was left open. It can no longer be finished, and will be kept as not finished.`,
+    ])
+    expect(within(knee).getAllByRole('link').map((link) => link.getAttribute('href'))).toStrictEqual([
+      '/patient/sessions/start/12',
+    ])
+  })
+
+  // … or as a row of its own when today asks nothing of that program.
+  it('says it in a row of its own when nothing is asked today', async () => {
+    summaries[12] = () =>
+      json({
+        ...KNEE_SUMMARY,
+        nextWorkout: null,
+        openSession: { sessionId: 29, localDate: '2031-06-09', workoutId: 57 },
+      })
+    renderPage()
+    await loaded()
+    const knee = todayRows()[0]
+    expect(knee.textContent).toBe(
+      `Knee RehabYour session of ${formatShortDate('2031-06-09')} was left open. It can no longer be finished, and will be kept as not finished.`,
+    )
   })
 })
 

@@ -1,0 +1,211 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, within } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter, Route, Routes } from 'react-router'
+import { currentUserQueryKey } from '@/auth/useCurrentUser'
+import { formatShortDate } from '@/common/calendarDate'
+import { sessionQueryKey } from './api'
+import { SessionPage } from './SessionPage'
+import {
+  B,
+  KNEE,
+  PAT,
+  apiError,
+  json,
+  session,
+  sessionExercise,
+  urlOf,
+} from './testData'
+
+const fetchMock = vi.fn<typeof fetch>()
+vi.stubGlobal('fetch', fetchMock)
+
+let sessionAnswer: () => Response
+let programAnswer: () => Response
+
+beforeEach(() => {
+  fetchMock.mockReset()
+  sessionAnswer = () => json(session())
+  programAnswer = () => json(KNEE)
+  fetchMock.mockImplementation((input) => {
+    const url = urlOf(input)
+    if (/\/sessions\/31$/.test(url)) return Promise.resolve(sessionAnswer())
+    if (/\/assigned-programs\/12$/.test(url)) return Promise.resolve(programAnswer())
+    return Promise.reject(new Error(`unexpected request: ${url}`))
+  })
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date(2031, 5, 12, 15, 0))
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+})
+
+function renderPage(path = '/patient/sessions/31', cached?: ReturnType<typeof session>) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+  })
+  queryClient.setQueryData(currentUserQueryKey, PAT)
+  if (cached) queryClient.setQueryData(sessionQueryKey(cached.id), cached)
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/patient/sessions/:sessionId" element={<SessionPage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
+
+function requested() {
+  return fetchMock.mock.calls.map(([input]) => urlOf(input))
+}
+
+describe('SessionPage', () => {
+  it('shows the session: its program and workout, its state, and its checklist', async () => {
+    renderPage()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Knee Rehab' })).toBeInTheDocument()
+    expect(screen.getByText('A · Mobility')).toBeInTheDocument()
+    expect(screen.getByText(/^In progress · Started at /)).toBeInTheDocument()
+
+    const list = screen.getByRole('list')
+    expect(within(list).getAllByRole('listitem').map((item) => item.textContent)).toStrictEqual([
+      'Heel Slides3 sets · 10 repsTo do',
+      // Pat prefers pounds: WeightValue converts, the prescription alongside.
+      'Squat3 sets · 8 reps · 44.1 lbs (20 kg)To do',
+    ])
+    expect(screen.getByText('0 of 2 exercises done')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to home' })).toHaveAttribute('href', '/patient')
+    // Today's open session is simply in progress — not "left open".
+    expect(screen.queryByText(/was left open/)).not.toBeInTheDocument()
+  })
+
+  // The checklist is the SESSION's copy — what it was given when it
+  // started — not the program's current exercises (step 3b-0 / D-2).
+  it("lists the session's own copy, not the program's current exercises", async () => {
+    sessionAnswer = () =>
+      json(session({ exercises: [sessionExercise(1, 0, { name: 'Heel Slides (as given then)' })] }))
+    renderPage()
+    const list = await screen.findByRole('list')
+    expect(within(list).getAllByRole('listitem').map((item) => item.textContent)).toStrictEqual([
+      'Heel Slides (as given then)To do',
+    ])
+  })
+
+  it('says which exercises are done, in words', async () => {
+    sessionAnswer = () =>
+      json(
+        session({
+          exercises: [
+            sessionExercise(1, 0, { name: 'Heel Slides', completed: true }),
+            sessionExercise(2, 1, { name: 'Squat' }),
+          ],
+        }),
+      )
+    renderPage()
+    const items = within(await screen.findByRole('list')).getAllByRole('listitem')
+    expect(items[0]).toHaveTextContent(/Done$/)
+    expect(items[1]).toHaveTextContent(/To do$/)
+    expect(screen.getByText('1 of 2 exercises done')).toBeInTheDocument()
+  })
+
+  it('shows the pain check-in when one was given — 0 included', async () => {
+    sessionAnswer = () => json(session({ painBefore: 0 }))
+    renderPage()
+    expect(await screen.findByText('Pain when you started: 0 out of 10')).toBeInTheDocument()
+  })
+
+  it('says nothing of a check-in not given', async () => {
+    renderPage()
+    await screen.findByRole('list')
+    expect(screen.queryByText(/Pain when you started/)).not.toBeInTheDocument()
+  })
+
+  it("names no workout for a program with only one", async () => {
+    programAnswer = () => json({ ...KNEE, workouts: [KNEE.workouts[0]] })
+    renderPage()
+    await screen.findByRole('heading', { level: 1, name: 'Knee Rehab' })
+    expect(screen.queryByText('A · Mobility')).not.toBeInTheDocument()
+  })
+
+  it("names the session's own workout", async () => {
+    sessionAnswer = () => json(session({ workoutId: B }))
+    renderPage()
+    expect(await screen.findByText('B · Strength')).toBeInTheDocument()
+  })
+
+  // Opened right after starting: the answer is already cached — the page
+  // shows it with no request for the session (only the program's title).
+  it('opens at once from the cache, asking only for the program', async () => {
+    renderPage('/patient/sessions/31', session())
+    expect(screen.getByRole('list')).toBeInTheDocument()
+    await screen.findByRole('heading', { level: 1, name: 'Knee Rehab' })
+    expect(requested()).toStrictEqual([expect.stringMatching(/\/assigned-programs\/12$/)])
+  })
+
+  it("still shows the session when the program can't be read", async () => {
+    programAnswer = () => apiError(500, 'Internal server error')
+    renderPage()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Your session' })).toBeInTheDocument()
+    expect(screen.getByRole('list')).toBeInTheDocument()
+  })
+
+  // Open, but from an earlier day: it can't be finished any more.
+  it('says a session from an earlier day was left open', async () => {
+    sessionAnswer = () =>
+      json(session({ localDate: '2031-06-09', startedAt: '2031-06-09T16:00:00.000Z' }))
+    renderPage()
+    expect(
+      await screen.findByText(
+        'This session was left open. It can no longer be finished, and will be kept as not finished.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByText(`In progress · Started on ${formatShortDate('2031-06-09')}`)).toBeInTheDocument()
+  })
+
+  it("doesn't say it of a finished session from an earlier day", async () => {
+    sessionAnswer = () =>
+      json(
+        session({
+          localDate: '2031-06-09',
+          startedAt: '2031-06-09T16:00:00.000Z',
+          status: 'incomplete',
+          endReason: 'pain',
+          endedAt: '2031-06-09T16:20:00.000Z',
+        }),
+      )
+    renderPage()
+    expect(await screen.findByText(`Stopped (pain) · Started on ${formatShortDate('2031-06-09')}`)).toBeInTheDocument()
+    expect(screen.queryByText(/was left open/)).not.toBeInTheDocument()
+  })
+
+  it('names a finished session by how it ended', async () => {
+    sessionAnswer = () =>
+      json(session({ status: 'completed', completedAt: '2031-06-12T12:40:00.000Z' }))
+    renderPage()
+    expect(await screen.findByText(/^Completed · Started at /)).toBeInTheDocument()
+  })
+
+  it("says a session it can't see isn't available", async () => {
+    sessionAnswer = () => apiError(404, 'Session not found')
+    renderPage()
+    expect(await screen.findByRole('alert')).toHaveTextContent("This session doesn't exist, or isn't yours.")
+    // No program asked for: the session never said which.
+    expect(requested()).toStrictEqual([expect.stringMatching(/\/sessions\/31$/)])
+  })
+
+  it('says so when loading fails for another reason', async () => {
+    sessionAnswer = () => apiError(500, 'Internal server error')
+    renderPage()
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Couldn't load this session. Try refreshing the page.",
+    )
+  })
+
+  it('refuses an address that names no session, asking nothing', async () => {
+    renderPage('/patient/sessions/0')
+    expect(await screen.findByRole('alert')).toHaveTextContent("This session doesn't exist, or isn't yours.")
+    expect(requested()).toStrictEqual([])
+  })
+})
