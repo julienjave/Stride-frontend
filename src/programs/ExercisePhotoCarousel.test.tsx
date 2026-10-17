@@ -9,6 +9,30 @@ describe('ExercisePhotoCarousel', () => {
     expect(screen.getByText('No photos yet.')).toBeInTheDocument()
   })
 
+  // The arrows must not be positioned with a `translate`: the shared Button
+  // writes its own while pressed (`active:translate-y-px`), which would
+  // REPLACE the centring one and move the button out from under the pointer
+  // — the press on the arrow, the release on the photo, no click. jsdom
+  // computes no layout and runs no `:active`, so this checks the cause (the
+  // classes) rather than the movement; the movement was checked in Chromium.
+  it('positions its arrows without a transform the press effect would replace', () => {
+    render(
+      <ExercisePhotoCarousel
+        images={[{ url: 'https://example.com/a.jpg' }, { url: 'https://example.com/b.jpg' }]}
+        exerciseName="Squat"
+      />,
+    )
+    for (const name of ['Previous photo', 'Next photo']) {
+      const arrow = screen.getByRole('button', { name })
+      // The press effect really is there (else this test proves nothing)…
+      expect(arrow.className).toContain('active:not-aria-[haspopup]:translate-y-px')
+      // …and nothing ELSE of the arrow's own uses translate.
+      const ownClasses = arrow.className.split(/\s+/).filter((c) => !c.startsWith('active:'))
+      expect(ownClasses.filter((c) => c.includes('translate'))).toEqual([])
+      expect(arrow).toHaveClass('inset-y-0', 'my-auto', 'h-7')
+    }
+  })
+
   it('shows the single image with no prev/next controls when there is only one', () => {
     render(
       <ExercisePhotoCarousel

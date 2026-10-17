@@ -1,3 +1,5 @@
+import type { ExerciseImage } from '@/exercises/types'
+
 // Hand-written to match the backend's responses (checked against a live
 // GET /assigned-programs and GET /assigned-programs/:id, 2026-10-12).
 
@@ -113,12 +115,21 @@ export interface AssignedProgramExercise {
   // it (a user id).
   retiredAt: string | null
   retiredBy: number | null
-  // The LIBRARY exercise's photos, read live — not a copy (decided
-  // 2026-10-14): the text above is the clinical record; photos illustrate it,
-  // and a better photo uploaded once in the library reaches every program.
-  // A signed URL each (valid ~15 minutes), in the library's order (the first
-  // is the cover); no object key — a program's screens only display them.
+  // The photos the PATIENT sees — a signed URL each (valid ~15 minutes), the
+  // first is the cover. Which ones, the backend decides from
+  // `useLibraryImages` (program-specific photos, 2026-10-17): the LIBRARY
+  // exercise's, read live (the default — decided 2026-10-14: the text above
+  // is the clinical record, photos illustrate it), or this exercise's OWN
+  // photos. Every screen that shows photos reads this field and never needs
+  // to know where they come from.
   images: { url: string }[]
+  // true = the library's photos; false = the own photos below (possibly
+  // none — how "no photos" is chosen). Switching keeps the own photos.
+  useLibraryImages: boolean
+  // This exercise's own photos, whichever is chosen — uploaded for this
+  // patient or copied from the library. WITH their storage keys: the photo
+  // page reorders and removes them by key, as the library's page does.
+  ownImages: ExerciseImage[]
 }
 
 // GET /assigned-programs/:id, and the answer to every write on a program.

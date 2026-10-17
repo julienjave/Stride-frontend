@@ -58,6 +58,8 @@ function exercise(
     retiredAt: null,
     retiredBy: null,
     images: [],
+    useLibraryImages: true,
+    ownImages: [],
     ...fields,
   }
 }

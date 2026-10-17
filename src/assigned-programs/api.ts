@@ -274,7 +274,12 @@ export function addProgramExercise(
 // 3b-1b — null = cleared) and, since step D-3, the program's own copy of its
 // description (never null — "none" is [] for the two optional lists; the
 // backend refuses null since D-1).
-export type ProgramExerciseChanges = PrescriptionChanges & ExerciseDescriptionChanges
+//
+// And which photos the patient sees (program-specific photos, 2026-10-17):
+// `useLibraryImages` — true = the library's, false = this exercise's own.
+// Never null (the backend refuses it): a choice between two values.
+export type ProgramExerciseChanges = PrescriptionChanges &
+  ExerciseDescriptionChanges & { useLibraryImages?: boolean }
 
 // EDIT: change one exercise of the program — only the fields given (the
 // per-field editors send one field, or the weight's pair). The backend
@@ -311,4 +316,60 @@ export function fetchRemovalPreview(id: number, exerciseRowId: number) {
   return apiRequest<RemovalPreview>(
     `/assigned-programs/${id}/exercises/${exerciseRowId}/removal`,
   )
+}
+
+// --- An exercise's OWN photos (program-specific photos, 2026-10-17) ---------
+//
+// Four routes under the program exercise, the same shapes as the library's
+// photo routes (src/exercises/api.ts) on purpose — the backend even reuses the
+// library's two DTOs. Each answers with the FULL program, which the photo page
+// writes into the program's cache entry, like every write on a program.
+// Adding photos never switches what the patient sees: that is
+// `useLibraryImages`, on updateProgramExercise.
+
+function ownPhotosPath(id: number, exerciseRowId: number) {
+  return `/assigned-programs/${id}/exercises/${exerciseRowId}/images`
+}
+
+// UPLOAD: up to 5 files a request, 10 own photos in all (the backend says how
+// many more fit when there's no room). Multipart: the field "files", once per
+// file — the backend's FilesInterceptor('files', …).
+export function uploadProgramExerciseImages(id: number, exerciseRowId: number, files: File[]) {
+  const formData = new FormData()
+  for (const file of files) {
+    formData.append('files', file)
+  }
+  return apiRequest<AssignedProgramDetail>(ownPhotosPath(id, exerciseRowId), {
+    method: 'POST',
+    body: formData,
+  })
+}
+
+// COPY the library exercise's current photos into the own ones (after them, in
+// the library's order). Copies, not references: a later change in the library
+// can't reach them. Asked twice, it copies twice (decided: a duplicate is
+// removed like any photo). No body.
+export function copyLibraryImagesToProgramExercise(id: number, exerciseRowId: number) {
+  return apiRequest<AssignedProgramDetail>(`${ownPhotosPath(id, exerciseRowId)}/from-library`, {
+    method: 'POST',
+  })
+}
+
+// REORDER: the full list of the own photos' keys, in the new order (the first
+// is the cover). The backend refuses anything but the same photos.
+export function reorderProgramExerciseImages(id: number, exerciseRowId: number, order: string[]) {
+  return apiRequest<AssignedProgramDetail>(ownPhotosPath(id, exerciseRowId), {
+    method: 'PATCH',
+    body: { order },
+  })
+}
+
+// REMOVE one own photo — its file is deleted for good (decided: a photo of a
+// patient's home shouldn't outlive its use). A body on a DELETE, like the
+// library's: a key holds slashes.
+export function removeProgramExerciseImage(id: number, exerciseRowId: number, objectKey: string) {
+  return apiRequest<AssignedProgramDetail>(ownPhotosPath(id, exerciseRowId), {
+    method: 'DELETE',
+    body: { objectKey },
+  })
 }

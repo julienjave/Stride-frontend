@@ -47,6 +47,8 @@ function exercise(id: number, fields: Partial<AssignedProgramExercise> = {}): As
     retiredAt: null,
     retiredBy: null,
     images: [],
+    useLibraryImages: true,
+    ownImages: [],
     ...fields,
   }
 }
@@ -178,59 +180,192 @@ describe('AssignedProgramExercisePage — reading', () => {
     expect(screen.getByRole('link', { name: 'Back' })).toBeInTheDocument()
   })
 
-  // The photos are the LIBRARY exercise's, read live (decided 2026-10-14) —
-  // the page shows the ones the program's answer carries, and says where
-  // they come from, open or closed.
+  // The photos the patient sees, and — while the program is open — which ones
+  // (program-specific photos, 2026-10-17): the library's (live) or this
+  // patient's own. The choice is saved at once and NOT optimistically: the
+  // checked radio is always what the server holds.
   describe('photos', () => {
-    const PHOTO_NOTE =
-      "Photos come from the exercise in the library, so a change there shows here too. They aren't part of this program's copy."
-    const withPhotos = (change: Partial<AssignedProgramDetail> = {}) => () =>
+    const LIBRARY_NOTE =
+      'These photos come from the exercise in the library, so a change there shows here too.'
+    const OWN_NOTE =
+      "These are this patient's own photos: a change in the library doesn't reach them."
+    const NONE_NOTE =
+      "The patient sees no photos: this patient's own photos are chosen, and there are none yet."
+    const OWN = [
+      { objectKey: 'patients/6/exercise-photos/a.png', url: 'https://storage.example/own-a.png' },
+      { objectKey: 'patients/6/exercise-photos/b.png', url: 'https://storage.example/own-b.png' },
+    ]
+    const LIBRARY = [
+      { url: 'https://storage.example/bridge-1.jpg' },
+      { url: 'https://storage.example/bridge-2.jpg' },
+    ]
+    // The exercise as the backend answers it: `images` = what the patient
+    // sees, chosen by `useLibraryImages`; `ownImages` either way.
+    const answer = (useLibraryImages: boolean, ownImages = OWN, change: Partial<AssignedProgramDetail> = {}) =>
       json({
         ...PROGRAM,
         ...change,
         exercises: [
           {
             ...BRIDGE,
-            images: [
-              { url: 'https://storage.example/bridge-1.jpg' },
-              { url: 'https://storage.example/bridge-2.jpg' },
-            ],
+            useLibraryImages,
+            ownImages,
+            images: useLibraryImages ? LIBRARY : ownImages.map(({ url }) => ({ url })),
           },
         ],
       })
+    const libraryRadio = () => screen.getByRole('radio', { name: 'Photos from the library' })
+    const ownRadio = () => screen.getByRole('radio', { name: "This patient's own photos" })
 
-    it("shows the library's photos, the first one first, and says where they come from", async () => {
-      program = withPhotos()
+    it("shows the library's photos, the choice, and where they come from", async () => {
+      program = () => answer(true)
       renderAt(PAGE)
 
       expect(await screen.findByRole('heading', { level: 3, name: 'Photos' })).toBeInTheDocument()
-      // The alt names the program's copy of the exercise (its name here).
+      expect(screen.getByRole('group', { name: 'Which photos does the patient see?' })).toBeInTheDocument()
+      expect(libraryRadio()).toBeChecked()
+      expect(ownRadio()).not.toBeChecked()
       expect(screen.getByAltText('Glute Bridge photo 1')).toHaveAttribute(
         'src',
         'https://storage.example/bridge-1.jpg',
       )
       expect(screen.getByText('1 / 2')).toBeInTheDocument()
-      expect(screen.getByText(PHOTO_NOTE)).toBeInTheDocument()
+      expect(screen.getByText(LIBRARY_NOTE)).toBeInTheDocument()
+      expect(screen.queryByText(OWN_NOTE)).not.toBeInTheDocument()
+      expect(screen.queryByText(NONE_NOTE)).not.toBeInTheDocument()
+    })
+
+    it("shows this patient's own photos when they are chosen", async () => {
+      program = () => answer(false)
+      renderAt(PAGE)
+
+      expect(await screen.findByText(OWN_NOTE)).toBeInTheDocument()
+      expect(ownRadio()).toBeChecked()
+      expect(libraryRadio()).not.toBeChecked()
+      expect(screen.getByAltText('Glute Bridge photo 1')).toHaveAttribute(
+        'src',
+        'https://storage.example/own-a.png',
+      )
+      expect(screen.queryByText(LIBRARY_NOTE)).not.toBeInTheDocument()
+    })
+
+    // Chosen, none yet: the patient sees nothing — said as a consequence of
+    // the choice, never as "the library has none".
+    it("says the patient sees none when their own photos are chosen and there are none", async () => {
+      program = () => answer(false, [])
+      renderAt(PAGE)
+
+      expect(await screen.findByText(NONE_NOTE)).toBeInTheDocument()
+      expect(screen.getByText('No photos for this patient yet.')).toBeInTheDocument()
+      expect(screen.queryByText('This exercise has no photos in the library.')).not.toBeInTheDocument()
+      expect(screen.queryByText(OWN_NOTE)).not.toBeInTheDocument()
     })
 
     it('says the library has none, when it has none', async () => {
+      // No own photos, and none in the library either.
+      program = () =>
+        json({ ...PROGRAM, exercises: [{ ...BRIDGE, useLibraryImages: true, ownImages: [], images: [] }] })
       renderAt(PAGE)
 
-      expect(
-        await screen.findByText('This exercise has no photos in the library.'),
-      ).toBeInTheDocument()
-      expect(screen.queryByText('No photos yet.')).not.toBeInTheDocument()
-      expect(screen.getByText(PHOTO_NOTE)).toBeInTheDocument()
+      expect(await screen.findByText('This exercise has no photos in the library.')).toBeInTheDocument()
+      expect(screen.queryByText('No photos for this patient yet.')).not.toBeInTheDocument()
+      expect(screen.getByText(LIBRARY_NOTE)).toBeInTheDocument()
     })
 
-    // Not the program's to freeze: a closed program shows them the same.
-    it('shows them on a closed program too', async () => {
-      program = withPhotos({ status: 'cancelled' })
+    // Saved at once; the radios show the SERVER's choice — while the answer
+    // is held, the old one is still checked and both are disabled.
+    it('saves the choice at once, showing the new one only once the server holds it', async () => {
+      program = () => answer(true)
+      let release!: () => void
+      patchAnswer = () => answer(false)
+      const held = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      fetchMock.mockImplementation((input, init) => {
+        const path = new URL(input as string, 'http://x').pathname
+        const method = init?.method ?? 'GET'
+        requests.push([method, path, init?.body as string | undefined])
+        if (method === 'GET') return Promise.resolve(program())
+        return held.then(() => patchAnswer({}))
+      })
+      const user = renderAt(PAGE)
+
+      await user.click(await screen.findByRole('radio', { name: "This patient's own photos" }))
+
+      expect(patches()).toEqual([
+        ['PATCH', '/assigned-programs/12/exercises/101', '{"useLibraryImages":false}'],
+      ])
+      expect(screen.getByRole('status')).toHaveTextContent('Saving…')
+      expect(libraryRadio()).toBeChecked()
+      expect(ownRadio()).not.toBeChecked()
+      expect(libraryRadio()).toBeDisabled()
+      expect(ownRadio()).toBeDisabled()
+
+      release()
+      await waitFor(() => expect(ownRadio()).toBeChecked())
+      expect(libraryRadio()).not.toBeChecked()
+      expect(ownRadio()).toBeEnabled()
+      expect(screen.getByText(OWN_NOTE)).toBeInTheDocument()
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    })
+
+    it('says why a choice was refused, keeping the old one', async () => {
+      program = () => answer(false)
+      patchAnswer = () => apiError(409, 'This program is closed, so it can no longer change')
+      const user = renderAt(PAGE)
+
+      await user.click(await screen.findByRole('radio', { name: 'Photos from the library' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        "Couldn't change the photos. This program is closed, so it can no longer change",
+      )
+      expect(ownRadio()).toBeChecked()
+      expect(patches()).toEqual([
+        ['PATCH', '/assigned-programs/12/exercises/101', '{"useLibraryImages":true}'],
+      ])
+    })
+
+    it("hides a server failure's details", async () => {
+      program = () => answer(true)
+      patchAnswer = () => apiError(500, 'Internal server error')
+      const user = renderAt(PAGE)
+
+      await user.click(await screen.findByRole('radio', { name: "This patient's own photos" }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't change the photos. Try again.")
+    })
+
+    // Always offered while open (adding never switches the choice), with how
+    // many OWN photos there are — 3 here, while the library shows 2: the
+    // count must not be the number of photos on screen — and a way back here.
+    it("links to this patient's photos, with how many there are", async () => {
+      program = () =>
+        answer(true, [
+          ...OWN,
+          { objectKey: 'patients/6/exercise-photos/c.png', url: 'https://storage.example/own-c.png' },
+        ])
+      renderAt(`${PAGE}?returnTo=%2Fpractitioner%2Fprograms%2Fassigned%2F12`)
+
+      const link = await screen.findByRole('link', { name: "Manage this patient's photos (3)" })
+      expect(link).toHaveAttribute(
+        'href',
+        `/practitioner/programs/assigned/12/exercises/101/photos?returnTo=${encodeURIComponent(
+          `/practitioner/programs/assigned/12/exercises/101?returnTo=${encodeURIComponent('/practitioner/programs/assigned/12')}`,
+        )}`,
+      )
+    })
+
+    // Not the program's to change once closed: the photos and where they
+    // come from, no choice, no link.
+    it('shows them read-only on a closed program', async () => {
+      program = () => answer(false, OWN, { status: 'cancelled' })
       renderAt(PAGE)
 
       expect(await screen.findByText('- View Exercise -')).toBeInTheDocument()
       expect(screen.getByAltText('Glute Bridge photo 1')).toBeInTheDocument()
-      expect(screen.getByText(PHOTO_NOTE)).toBeInTheDocument()
+      expect(screen.getByText(OWN_NOTE)).toBeInTheDocument()
+      expect(screen.queryByRole('radio')).not.toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: /Manage this patient's photos/ })).not.toBeInTheDocument()
     })
   })
 

@@ -1,5 +1,5 @@
 import { Link, useParams, useSearchParams } from 'react-router'
-import { useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { ApiError } from '@/api/client'
 import { EditableExerciseListField } from '@/exercises/EditableExerciseListField'
@@ -16,6 +16,7 @@ import {
   type ProgramExerciseChanges,
 } from './api'
 import { isProgramOpen } from './permissions'
+import { noPhotosText, photoSourceText } from './programPhotos'
 import { useAssignedProgram } from './useAssignedProgram'
 import type { AssignedProgramExercise } from './types'
 
@@ -32,8 +33,10 @@ import type { AssignedProgramExercise } from './types'
 //     current version, which a template shows (read-only there). Here it is
 //     EDITABLE, for this patient only (step D-3), with the library page's
 //     own fields given this page's `save`. The PHOTOS are not part of the
-//     copy: they're the library exercise's, read live (decided 2026-10-14 —
-//     illustrations, improved once for every program), and the page says so.
+//     copy: by default they're the library exercise's, read live (decided
+//     2026-10-14 — illustrations, improved once for every program); since
+//     2026-10-17 the practitioner may choose this patient's OWN photos
+//     instead, managed on their own page (ProgramExercisePhotosPage).
 //   - each session keeps a copy of what it was given — the prescription
 //     (3b-0) and the description (D-2) — so a change applies to NEW
 //     sessions only; the page says so.
@@ -140,7 +143,14 @@ function ProgramExerciseView({
         canEdit={canEdit}
       />
 
-      <ProgramExercisePhotos exercise={exercise} />
+      <ProgramExercisePhotos
+        exercise={exercise}
+        canEdit={canEdit}
+        save={save}
+        managePath={`/practitioner/programs/assigned/${programId}/exercises/${exerciseRowId}/photos?returnTo=${encodeURIComponent(
+          `/practitioner/programs/assigned/${programId}/exercises/${exerciseRowId}?returnTo=${encodeURIComponent(returnTo)}`,
+        )}`}
+      />
 
       <div className="space-y-2">
         <div className="divide-y divide-border rounded-lg border px-4">
@@ -251,27 +261,98 @@ function ProgramExerciseDescription({
   )
 }
 
-// The exercise's photos — the LIBRARY's, read live (2026-10-14), unlike the
-// description above, which is this program's own copy. So the page says where
-// they come from: the practitioner can't change them here, and a change in
-// the library shows here (and in every program using the exercise). Shown
-// the same on an open or a closed program — they aren't the program's to
-// freeze. Photos chosen per program: the roadmap's "Program-specific photos".
-function ProgramExercisePhotos({ exercise }: { exercise: AssignedProgramExercise }) {
+// The exercise's photos — the ones the PATIENT sees (`images`), and, while
+// the program is open, which ones they are (program-specific photos,
+// 2026-10-17):
+//   - two radio buttons: the library's photos (read live — the default) or
+//     this patient's own. Saved the moment one is chosen (one PATCH, one audit
+//     entry) — and NOT optimistic, like the program's other settings: the
+//     checked radio is always what the server holds, both are disabled while
+//     saving, and a refusal is shown with the old choice still checked.
+//     Native radios in a fieldset: the browser gives one choice, arrow keys,
+//     and the group's question read with each option.
+//   - a link to the photo page, ALWAYS offered while open (decided
+//     2026-10-17): adding photos never switches the choice, so a practitioner
+//     can prepare the photos first and switch when they're ready.
+//   - a sentence saying where the photos come from — three cases, because
+//     "own photos chosen, none yet" (the patient sees none, on purpose or
+//     not) must not read like "the library has none" (photoSourceText).
+// On a closed program: the photos and the sentence, nothing to change (the
+// backend refuses any change anyway — 409).
+function ProgramExercisePhotos({
+  exercise,
+  canEdit,
+  save,
+  managePath,
+}: {
+  exercise: AssignedProgramExercise
+  canEdit: boolean
+  save: (changes: ProgramExerciseChanges) => Promise<unknown>
+  managePath: string
+}) {
+  // `(value) => save(…)`, never `mutationFn: save`: TanStack Query passes its
+  // own context as a second argument (the 3b-2 lesson).
+  const choose = useMutation({
+    mutationFn: (useLibraryImages: boolean) => save({ useLibraryImages }),
+  })
+  const ownCount = exercise.ownImages.length
+
   return (
-    <section aria-labelledby="program-exercise-photos" className="space-y-2">
+    <section aria-labelledby="program-exercise-photos" className="space-y-3">
       <h3 id="program-exercise-photos" className="text-sm font-medium">
         Photos
       </h3>
+      {canEdit && (
+        <fieldset className="space-y-1" disabled={choose.isPending}>
+          <legend className="text-sm text-muted-foreground">
+            Which photos does the patient see?
+          </legend>
+          {(
+            [
+              [true, 'Photos from the library'],
+              [false, "This patient's own photos"],
+            ] as const
+          ).map(([value, label]) => (
+            <label key={label} className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name={`photo-source-${exercise.id}`}
+                checked={exercise.useLibraryImages === value}
+                onChange={() => choose.mutate(value)}
+              />
+              {label}
+            </label>
+          ))}
+        </fieldset>
+      )}
+      {choose.isPending && (
+        <p role="status" className="text-xs text-muted-foreground">
+          Saving…
+        </p>
+      )}
+      {choose.isError && (
+        <p role="alert" className="text-sm text-destructive">
+          {"Couldn't change the photos. "}
+          {choose.error instanceof ApiError && choose.error.statusCode < 500
+            ? choose.error.messages.join(' ')
+            : 'Try again.'}
+        </p>
+      )}
       <ExercisePhotoCarousel
         images={exercise.images}
         exerciseName={exercise.name}
-        emptyText="This exercise has no photos in the library."
+        emptyText={noPhotosText(exercise.useLibraryImages)}
       />
       <p className="text-xs text-muted-foreground">
-        Photos come from the exercise in the library, so a change there shows here
-        too. They aren't part of this program's copy.
+        {photoSourceText(exercise.useLibraryImages, ownCount)}
       </p>
+      {canEdit && (
+        <Button asChild variant="outline" size="sm">
+          <Link to={managePath}>
+            {`Manage this patient's photos (${ownCount})`}
+          </Link>
+        </Button>
+      )}
     </section>
   )
 }

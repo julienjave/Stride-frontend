@@ -56,6 +56,8 @@ export function programExercise(
     retiredAt: null,
     retiredBy: null,
     images: [],
+    useLibraryImages: true,
+    ownImages: [],
     ...fields,
   }
 }

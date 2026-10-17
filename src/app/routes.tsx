@@ -340,6 +340,16 @@ export const router = createBrowserRouter([
                       (module) => module.AssignedProgramExercisePage,
                     ),
                   },
+                  // A program exercise's own photos (program-specific photos,
+                  // 2026-10-17) — from the exercise page's "Manage this
+                  // patient's photos".
+                  {
+                    path: '/practitioner/programs/assigned/:id/exercises/:rowId/photos',
+                    lazy: page(
+                      () => import('@/assigned-programs/ProgramExercisePhotosPage'),
+                      (module) => module.ProgramExercisePhotosPage,
+                    ),
+                  },
                   // Listed in the navigation (sections.ts) before the feature
                   // exists — see ComingSoonPage for why.
                   {

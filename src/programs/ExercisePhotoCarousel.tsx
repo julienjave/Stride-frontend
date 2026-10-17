@@ -116,6 +116,19 @@ export function ExercisePhotoCarousel({
               : 'Loading photo…'}
           </p>
         )}
+        {/* The arrows are centred vertically WITHOUT a transform: `inset-y-0`
+            (top: 0 and bottom: 0) with `my-auto` and a fixed height puts a
+            28 px button in the middle of the frame. The usual
+            `top-1/2 -translate-y-1/2` can't be used here: the shared Button
+            nudges itself 1 px down while pressed (`active:translate-y-px`),
+            and in Tailwind both write the SAME `translate` — so while the
+            mouse was held down, the press REPLACED the -50% and the button
+            jumped 15 px down, out from under the pointer. The release then
+            landed on the photo, and the browser fires a click only when the
+            press and the release are on the same element: pressed in the
+            button's upper half, the click was lost (found by the person:
+            "the arrow sometimes does nothing"; a console log showed the press
+            on "Next photo", the release on the IMG). */}
         {images.length > 1 && (
           <>
             <Button
@@ -124,7 +137,7 @@ export function ExercisePhotoCarousel({
               size="icon"
               aria-label="Previous photo"
               onClick={goToPrevious}
-              className="absolute left-1 top-1/2 h-7 w-7 -translate-y-1/2"
+              className="absolute inset-y-0 left-1 my-auto h-7 w-7"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -134,7 +147,7 @@ export function ExercisePhotoCarousel({
               size="icon"
               aria-label="Next photo"
               onClick={goToNext}
-              className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+              className="absolute inset-y-0 right-1 my-auto h-7 w-7"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
