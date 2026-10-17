@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
@@ -188,6 +188,21 @@ describe('SessionPage', () => {
     renderPage()
     expect(await screen.findByText(`Stopped (pain) · Started on ${formatShortDate('2031-06-09')}`)).toBeInTheDocument()
     expect(screen.queryByText(/was left open/)).not.toBeInTheDocument()
+  })
+
+  // A late make-up: done today (Thursday 12), counting for Monday 2.
+  it('says which day a session counts for, and nothing for an ordinary one', async () => {
+    sessionAnswer = () => json(session({ countsFor: '2031-06-02' }))
+    renderPage()
+    expect(
+      await screen.findByText(`Counts for the session of ${formatShortDate('2031-06-02')}`),
+    ).toBeInTheDocument()
+
+    cleanup()
+    sessionAnswer = () => json(session())
+    renderPage()
+    await screen.findByText(/^In progress · Started at /)
+    expect(screen.queryByText(/^Counts for/)).not.toBeInTheDocument()
   })
 
   it('names a finished session by how it ended', async () => {

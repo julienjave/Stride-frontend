@@ -322,8 +322,10 @@ export interface LateMakeUp {
 // not_a_free_day — today is scheduled, paused, a weekly count or outside the
 // program (a late make-up is done on a free day of specific days);
 // session_done_today — a session of the program was completed today (one a
-// day); catch_up_first — a missed day can still be made up on time.
-export type LateMakeUpBlock = 'not_a_free_day' | 'session_done_today' | 'catch_up_first'
+// day). Only rules block: an on-time catch-up still open doesn't (changed
+// 2026-10-17 — which to do first is the patient's choice; the home suggests
+// the on-time one).
+export type LateMakeUpBlock = 'not_a_free_day' | 'session_done_today'
 
 export interface OpenSession {
   sessionId: number

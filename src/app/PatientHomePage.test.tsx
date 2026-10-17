@@ -510,3 +510,82 @@ describe('PatientHomePage — no program', () => {
     expect(screen.getByText('Loading your programs…')).toBeInTheDocument()
   })
 })
+
+describe('PatientHomePage — late make-ups', () => {
+  // Knee Rehab, Thursday 12: Monday 2's A and Wednesday 4's B were missed
+  // and their windows have closed; late make-ups are allowed.
+  const LATE_DAYS = [
+    { forDay: '2031-06-02', workoutId: 57, until: '2031-06-14' },
+    { forDay: '2031-06-04', workoutId: 58, until: '2031-06-16' },
+  ]
+  const FREE_DAY = summary({
+    days: [day('2031-06-02', 57, 'missed'), day('2031-06-04', 58, 'missed'), day('2031-06-13', 57, 'upcoming')],
+    nextWorkout: { workoutId: 57, forDay: '2031-06-13', programWeek: null },
+    lateMakeUps: { days: LATE_DAYS, blockedToday: null },
+  })
+
+  function kneeRow() {
+    return within(section('Today')).getAllByRole('listitem')[0]
+  }
+
+  it('offers the oldest with "Make it up", to the start page', async () => {
+    summaries[12] = () => json(FREE_DAY)
+    renderPage()
+    await loaded()
+    expect(kneeRow().textContent).toBe(
+      `Knee RehabMake up: A · Mobility from ${formatShortDate('2031-06-02')}` +
+        `Missed — you can still make it up today, or on another free day until ${formatShortDate('2031-06-14')}.` +
+        'Make it up',
+    )
+    expect(within(kneeRow()).getByRole('link', { name: 'Make it up Knee Rehab' })).toHaveAttribute(
+      'href',
+      '/patient/sessions/start/12',
+    )
+  })
+
+  // The late ones are allowed today too (2026-10-17): the home suggests the
+  // on-time catch-up with its button, and says the others are there.
+  it('suggests the on-time catch-up, and says late ones are possible too', async () => {
+    summaries[12] = () =>
+      json({ ...KNEE_SUMMARY, lateMakeUps: { days: LATE_DAYS, blockedToday: null } })
+    renderPage()
+    await loaded()
+    const row = kneeRow()
+    expect(row).toHaveTextContent("Catch up: Wednesday's B · Strength")
+    expect(
+      within(row).getByText(
+        `You can also make up A · Mobility from ${formatShortDate('2031-06-02')} late, until ${formatShortDate('2031-06-14')}. 1 other missed session can be made up too.`,
+      ),
+    ).toBeInTheDocument()
+    // The catch-up's own Start — the only button.
+    expect(within(row).getAllByRole('link').map((link) => link.textContent)).toStrictEqual(['Start'])
+  })
+
+  // Nothing asked today, two things to say: the first becomes the row's
+  // line, the second stays under it.
+  it('keeps both notes on a row with nothing asked today (a session left open, one waiting)', async () => {
+    summaries[12] = () =>
+      json({
+        ...FREE_DAY,
+        openSession: { sessionId: 40, localDate: '2031-06-11', workoutId: 58 },
+        lateMakeUps: { days: [LATE_DAYS[0]], blockedToday: 'session_done_today' },
+      })
+    renderPage()
+    await loaded()
+    expect(kneeRow().textContent).toBe(
+      `Knee RehabYour session of ${formatShortDate('2031-06-11')} was left open. It can no longer be finished, and will be kept as not finished.` +
+        `You can still make up A · Mobility from ${formatShortDate('2031-06-02')} on another free day, until ${formatShortDate('2031-06-14')}.`,
+    )
+  })
+
+  it('says one waits on a day with nothing else to say (a session already done today)', async () => {
+    summaries[12] = () =>
+      json({ ...FREE_DAY, lateMakeUps: { days: [LATE_DAYS[0]], blockedToday: 'session_done_today' } })
+    renderPage()
+    await loaded()
+    expect(kneeRow().textContent).toBe(
+      `Knee RehabYou can still make up A · Mobility from ${formatShortDate('2031-06-02')} on another free day, until ${formatShortDate('2031-06-14')}.`,
+    )
+    expect(within(kneeRow()).queryByRole('link')).not.toBeInTheDocument()
+  })
+})

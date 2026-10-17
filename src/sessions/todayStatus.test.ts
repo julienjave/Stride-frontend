@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import type { CountedWeek, DatedAttempt, ScheduleSummary, ScheduledDay } from '@/assigned-programs/types'
-import { todayStatus } from './todayStatus'
+import type {
+  CountedWeek,
+  DatedAttempt,
+  LateMakeUp,
+  LateMakeUpBlock,
+  ScheduleSummary,
+  ScheduledDay,
+} from '@/assigned-programs/types'
+import { lateMakeUpWaiting, todayStatus } from './todayStatus'
 
 // "Today" is Thursday 12 June 2031 — far from the real today, so no rule
 // can pass by reading the clock instead of its argument.
@@ -262,6 +269,22 @@ describe('todayStatus — catching up on a free day', () => {
     ).toStrictEqual({ kind: 'catch_up', workoutId: B, forDay: '2031-06-11', stopped: [] })
   })
 
+  // One session a day: a session completed today (here a late make-up,
+  // or any extra) uses the day up — the catch-up waits for another free
+  // day of its window, rather than a Start the backend refuses.
+  it('says done, not catch up, when a session was already completed today', () => {
+    expect(
+      todayStatus(
+        summary({
+          days: [day('2031-06-11', 'due', { workoutId: B })],
+          nextWorkout: { workoutId: B, forDay: '2031-06-11', programWeek: null },
+          lateMakeUps: { days: [], blockedToday: 'session_done_today' },
+        }),
+        TODAY,
+      ),
+    ).toStrictEqual({ kind: 'done' })
+  })
+
   it('remembers a catch-up stopped today (filed apart: a free day)', () => {
     const status = todayStatus(
       summary({
@@ -279,5 +302,104 @@ describe('todayStatus — catching up on a free day', () => {
     ['nothing is next', null],
   ])('says nothing on a free day when %s', (_label, nextWorkout) => {
     expect(todayStatus(summary({ nextWorkout }), TODAY)).toBeNull()
+  })
+})
+
+// --- LATE MAKE-UPS (2026-10-16) ------------------------------------------------------
+
+// Two missed days whose windows have closed, oldest first (the backend's
+// order): Monday 2 June (A) until Saturday 14, Wednesday 4 (B) until Mon 16.
+const LATE: LateMakeUp[] = [
+  { forDay: '2031-06-02', workoutId: A, until: '2031-06-14' },
+  { forDay: '2031-06-04', workoutId: B, until: '2031-06-16' },
+]
+
+function late(blockedToday: LateMakeUpBlock | null, days: LateMakeUp[] = LATE) {
+  return { lateMakeUps: { days, blockedToday } }
+}
+
+describe('todayStatus — a late make-up', () => {
+  it('offers the OLDEST day, with its deadline, when nothing blocks it today', () => {
+    expect(todayStatus(summary(late(null)), TODAY)).toStrictEqual({
+      kind: 'late_make_up',
+      workoutId: A,
+      forDay: '2031-06-02',
+      until: '2031-06-14',
+      stopped: [],
+    })
+  })
+
+  it('remembers one stopped today (filed apart: a free day)', () => {
+    const status = todayStatus(summary({ ...late(null), otherAttempts: [stopped(TODAY, 'pain')] }), TODAY)
+    expect(status).toMatchObject({ kind: 'late_make_up', stopped: ['pain'] })
+  })
+
+  it.each<LateMakeUpBlock>(['not_a_free_day', 'session_done_today'])(
+    'offers none when the summary says %s',
+    (blockedToday) => {
+      expect(todayStatus(summary(late(blockedToday)), TODAY)).toBeNull()
+    },
+  )
+
+  it('offers none when there is none, even unblocked', () => {
+    expect(todayStatus(summary(late(null, [])), TODAY)).toBeNull()
+  })
+
+  // Not blocked (2026-10-17: the late one is allowed today too) — the home
+  // still suggests the on-time one, whose window closes first.
+  it('suggests an on-time catch-up first', () => {
+    const status = todayStatus(
+      summary({
+        ...late(null),
+        days: [day('2031-06-11', 'due', { workoutId: B })],
+        nextWorkout: { workoutId: B, forDay: '2031-06-11', programWeek: null },
+      }),
+      TODAY,
+    )
+    expect(status).toMatchObject({ kind: 'catch_up', forDay: '2031-06-11' })
+  })
+
+  it("lets today's own scheduled session come first", () => {
+    const status = todayStatus(summary({ ...late('not_a_free_day'), days: [day(TODAY, 'due')] }), TODAY)
+    expect(status).toMatchObject({ kind: 'due' })
+  })
+})
+
+describe('lateMakeUpWaiting', () => {
+  // The status as the home passes it: todayStatus of the same summary.
+  function waiting(fields: Partial<ScheduleSummary>) {
+    const s = summary(fields)
+    return lateMakeUpWaiting(s, todayStatus(s, TODAY))
+  }
+
+  it.each<LateMakeUpBlock>(['not_a_free_day', 'session_done_today'])(
+    'names the oldest and counts them all, not today, when today is blocked (%s)',
+    (blockedToday) => {
+      expect(waiting(late(blockedToday))).toStrictEqual({ oldest: LATE[0], count: 2, alsoToday: false })
+    },
+  )
+
+  it('names them as possible TODAY too under an on-time catch-up (the patient chooses)', () => {
+    expect(
+      waiting({
+        ...late(null),
+        days: [day('2031-06-11', 'due', { workoutId: B })],
+        nextWorkout: { workoutId: B, forDay: '2031-06-11', programWeek: null },
+      }),
+    ).toStrictEqual({ oldest: LATE[0], count: 2, alsoToday: true })
+  })
+
+  it('says nothing when the row itself offers one (todayStatus late_make_up)', () => {
+    expect(waiting(late(null))).toBeNull()
+  })
+
+  it('says nothing with a session in progress today: it may be the make-up itself', () => {
+    expect(
+      waiting({ ...late(null), openSession: { sessionId: 40, localDate: TODAY, workoutId: A } }),
+    ).toBeNull()
+  })
+
+  it('says nothing when there is none', () => {
+    expect(waiting(late('not_a_free_day', []))).toBeNull()
   })
 })

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   REASON_CHOICES,
   checklistProgressText,
+  countsForText,
   leftOpenText,
   nothingToStartText,
   sessionStatusText,
@@ -23,6 +24,15 @@ describe('startContextText', () => {
     expect(
       startContextText({ kind: 'catch_up', workoutId: 58, forDay: '2031-06-11', stopped: [] }, L),
     ).toBe("Catching up Wednesday's session: it was missed, and you can still make it up today.")
+  })
+
+  it('names the missed day by its DATE for a late make-up', () => {
+    expect(
+      startContextText(
+        { kind: 'late_make_up', workoutId: 57, forDay: '2031-06-02', until: '2031-06-14', stopped: [] },
+        L,
+      ),
+    ).toBe('Making up Mon 2 Jun — late: it was missed, and will count as made up late.')
   })
 
   it('says which session of the week this one will be, with the week’s dates', () => {
@@ -143,5 +153,15 @@ describe('untickedText', () => {
     expect(untickedText([{ completed: false }, { completed: false }, { completed: true }])).toBe(
       "2 exercises aren't ticked. If you didn't do them, you can stop the session instead: it will be kept as not finished.",
     )
+  })
+})
+
+describe('countsForText', () => {
+  it('names the day a session counts for, by its date', () => {
+    expect(countsForText({ countsFor: '2031-06-02' }, L)).toBe('Counts for the session of Mon 2 Jun')
+  })
+
+  it('says nothing for an ordinary session', () => {
+    expect(countsForText({ countsFor: null }, L)).toBeNull()
   })
 })

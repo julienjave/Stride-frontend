@@ -139,6 +139,9 @@ function StartForm({
       assignedProgramId: program.id,
       localDate: today,
       workoutId,
+      // A late make-up names the day it makes up (the backend checks it
+      // against the summary it offered); every other start sends nothing.
+      ...(status.kind === 'late_make_up' ? { countsFor: status.forDay } : {}),
       // Only an answer is sent: left out = not answered (decisions §6).
       ...(painBefore === null ? {} : { painBefore }),
     })

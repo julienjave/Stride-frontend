@@ -11,6 +11,7 @@ import { SessionPlayer } from './SessionPlayer'
 import { isRunnable } from './sessionRules'
 import {
   checklistProgressText,
+  countsForText,
   sessionStatusText,
   startedText,
 } from './sessionText'
@@ -107,6 +108,8 @@ function SessionHeader({
   today: string
 }) {
   const started = startedText(session, today)
+  // A late make-up (or any session counting for another day) says which.
+  const countsFor = countsForText(session)
   // Open, but from an earlier day: it can no longer be finished (a session
   // completes only on its own day — Phase 4 step 1); the program's next
   // Start closes it as "not finished".
@@ -119,6 +122,7 @@ function SessionHeader({
       <p className="text-sm text-muted-foreground">
         {[sessionStatusText(session), started].filter((part) => part !== null).join(' · ')}
       </p>
+      {countsFor && <p className="text-sm text-muted-foreground">{countsFor}</p>}
       {session.painBefore !== null && (
         <p className="text-sm text-muted-foreground">
           Pain when you started: {session.painBefore} out of 10

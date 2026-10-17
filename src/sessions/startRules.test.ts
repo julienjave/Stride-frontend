@@ -77,6 +77,23 @@ describe('startChoice', () => {
     expect(choice).toMatchObject({ kind: 'start', workoutId: B, status: { kind: 'catch_up' } })
   })
 
+  it("starts the oldest late make-up's workout on a free day", () => {
+    const choice = startChoice(
+      summary({
+        lateMakeUps: {
+          days: [{ forDay: '2031-06-02', workoutId: B, until: '2031-06-14' }],
+          blockedToday: null,
+        },
+      }),
+      TODAY,
+    )
+    expect(choice).toMatchObject({
+      kind: 'start',
+      workoutId: B,
+      status: { kind: 'late_make_up', forDay: '2031-06-02' },
+    })
+  })
+
   it("starts an \"N a week\" program's next open slot", () => {
     const choice = startChoice(
       summary({

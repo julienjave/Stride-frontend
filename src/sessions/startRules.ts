@@ -9,13 +9,20 @@ import { todayStatus, type TodayStatus } from './todayStatus'
 // rule the home uses (todayStatus), so the home's button and the start page
 // can never disagree about which workout today asks for. Pure (startRules.test.ts).
 
-// The three kinds of "today" a session can be STARTED for:
+// The four kinds of "today" a session can be STARTED for:
 //   - due      — a scheduled day: its own workout;
 //   - catch_up — a free day inside a missed day's make-up window: the
 //                MISSED day's workout (the backend infers the make-up —
 //                nothing else is sent, decided 2026-10-15);
-//   - weekly   — an "N a week" program: the next open slot's workout.
-export type StartableStatus = Extract<TodayStatus, { kind: 'due' | 'catch_up' | 'weekly' }>
+//   - weekly   — an "N a week" program: the next open slot's workout;
+//   - late_make_up — a free day, making up a missed day LATE (2026-10-16):
+//                the missed day's workout, and the request SAYS which day
+//                it counts for (`countsFor`) — past the window, nothing is
+//                inferred any more.
+export type StartableStatus = Extract<
+  TodayStatus,
+  { kind: 'due' | 'catch_up' | 'weekly' | 'late_make_up' }
+>
 
 export type StartChoice =
   // Start this workout (the status says why it's today's).
@@ -33,6 +40,7 @@ export function startChoice(summary: ScheduleSummary, today: string): StartChoic
     case 'due':
     case 'catch_up':
     case 'weekly':
+    case 'late_make_up':
       return { kind: 'start', workoutId: status.workoutId, status }
     case 'in_progress':
       return { kind: 'resume', sessionId: status.sessionId }

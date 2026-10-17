@@ -17,6 +17,10 @@ export function startContextText(status: StartableStatus, locale?: string): stri
     case 'catch_up':
       // The missed day by its weekday ("Wednesday's"), as the home says it.
       return `Catching up ${weekdayName(status.forDay, locale)}'s session: it was missed, and you can still make it up today.`
+    case 'late_make_up':
+      // A DATE, not a weekday: a late make-up can be weeks after the day
+      // (up to 28), when "Monday's" no longer says which Monday.
+      return `Making up ${formatShortDate(status.forDay, locale)} — late: it was missed, and will count as made up late.`
     case 'weekly':
       // The session this one will be: one more than done so far.
       return `Session ${status.done + 1} of ${status.target} this week (${formatShortDate(status.start, locale)} – ${formatShortDate(status.end, locale)}).`
@@ -86,6 +90,21 @@ export function startedText(
     new Date(session.startedAt),
   )
   return `Started at ${time}`
+}
+
+// The day a session counts for, when it isn't its own (`countsFor` —
+// today a late make-up; a swap or a session done early were recorded by
+// the backend before the app could start them). Said by the DATE alone, in
+// words true of every kind: the session page doesn't load the schedule, so
+// it can't tell which kind a session is — and needn't, the home already
+// said why. Null for an ordinary session.
+export function countsForText(
+  session: Pick<Session, 'countsFor'>,
+  locale?: string,
+): string | null {
+  return session.countsFor === null
+    ? null
+    : `Counts for the session of ${formatShortDate(session.countsFor, locale)}`
 }
 
 // "3 of 5 exercises done" — how far the checklist got.

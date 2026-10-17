@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes, useNavigate, useParams } from 'react-router'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
+import { formatShortDate } from '@/common/calendarDate'
 import { assignedProgramQueryKey, assignedProgramSummaryQueryKey } from '@/assigned-programs/api'
 import type { AssignedProgramDetail, ScheduleSummary } from '@/assigned-programs/types'
 import { sessionQueryKey } from './api'
@@ -412,5 +413,68 @@ describe('StartSessionPage — nothing to start', () => {
     renderPage('/patient/sessions/start/abc')
     expect(await screen.findByRole('alert')).toHaveTextContent("This program doesn't exist, or isn't yours.")
     expect(requests()).toStrictEqual([])
+  })
+})
+
+describe('StartSessionPage — a late make-up', () => {
+  // Thursday 12 is a free day; Monday 2's B was missed and its window has
+  // closed — the program allows late make-ups, until Saturday 14.
+  const LATE = summary({
+    days: [scheduledDay('2031-06-02', B, 'missed')],
+    lateMakeUps: {
+      days: [{ forDay: '2031-06-02', workoutId: B, until: '2031-06-14' }],
+      blockedToday: null,
+    },
+  })
+
+  it("shows the missed day's workout, and says it's a late make-up", async () => {
+    todaySummary = () => json(LATE)
+    renderPage()
+    await startForm()
+    expect(screen.getByText('Knee Rehab: B · Strength')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        `Making up ${formatShortDate('2031-06-02')} — late: it was missed, and will count as made up late.`,
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('sends the day it makes up as countsFor', async () => {
+    todaySummary = () => json(LATE)
+    const user = userEvent.setup()
+    renderPage()
+    await startForm()
+    await user.click(screen.getByRole('button', { name: 'Start session' }))
+    await screen.findByText('Session page 31')
+    expect(posts()[0].body).toBe(
+      '{"assignedProgramId":12,"localDate":"2031-06-12","workoutId":58,"countsFor":"2031-06-02"}',
+    )
+  })
+
+  it('offers nothing when the summary says today is blocked', async () => {
+    todaySummary = () => json({ ...LATE, lateMakeUps: { ...LATE.lateMakeUps, blockedToday: 'session_done_today' } })
+    renderPage()
+    expect(await screen.findByText('There is no session to do today for this program.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Start session' })).not.toBeInTheDocument()
+  })
+
+  // Another tab finished a session in between: the backend's one-a-day
+  // refusal, shown as it is.
+  it("shows the one-session-a-day refusal as the backend words it", async () => {
+    todaySummary = () => json(LATE)
+    startAnswer = () =>
+      Promise.resolve(
+        apiError(
+          409,
+          "You've already completed a session of this program today. Only one session a day counts, because sessions too close together can be too much for your body: do the next one on another day",
+        ),
+      )
+    const user = userEvent.setup()
+    renderPage()
+    await startForm()
+    await user.click(screen.getByRole('button', { name: 'Start session' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Couldn't start the session. You've already completed a session of this program today.",
+    )
   })
 })

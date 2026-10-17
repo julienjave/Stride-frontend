@@ -1,4 +1,4 @@
-import type { ScheduleSummary, SessionEndReason } from '@/assigned-programs/types'
+import type { LateMakeUp, ScheduleSummary, SessionEndReason } from '@/assigned-programs/types'
 
 // What one program asks of the patient TODAY — read from the backend's
 // summary, never worked out from the schedule: the summary has already
@@ -21,6 +21,11 @@ import type { ScheduleSummary, SessionEndReason } from '@/assigned-programs/type
 //   - catch_up   — a FREE day inside the make-up window of a missed day
 //                  (decided 2026-10-15: make-ups are inferred, so the home
 //                  only has to say it — "Catch up: Monday's A · Mobility");
+//   - late_make_up — a FREE day on which a missed day whose window has
+//                  CLOSED can still be made up late (decided 2026-10-16,
+//                  opt-in per program): the OLDEST such day — the one most
+//                  at risk of running out — with the last day it can be
+//                  done on (`until`);
 //   - weekly     — an "N a week" program whose current week still needs some;
 //   - done       — today's session is done (on the day, ahead of time, or by
 //                  a swap; or a weekly slot filled today);
@@ -34,6 +39,13 @@ export type TodayStatus =
   | { kind: 'in_progress'; workoutId: number; sessionId: number }
   | { kind: 'due'; workoutId: number; stopped: SessionEndReason[] }
   | { kind: 'catch_up'; workoutId: number; forDay: string; stopped: SessionEndReason[] }
+  | {
+      kind: 'late_make_up'
+      workoutId: number
+      forDay: string
+      until: string
+      stopped: SessionEndReason[]
+    }
   | {
       kind: 'weekly'
       workoutId: number
@@ -69,7 +81,17 @@ const FULFILLED: ReadonlySet<string> = new Set([
 //      open slot;
 //   5. a missed day still in its make-up window (the summary's nextWorkout
 //      names a day BEFORE today — it can only do that while the window is
-//      open, and only on a free day: a scheduled day closes the window).
+//      open, and only on a free day: a scheduled day closes the window) —
+//      'done' instead when a session was already completed today;
+//   6. a missed day that can still be made up LATE — only when the summary
+//      says nothing blocks it today (`blockedToday` null): the backend
+//      already checked a free day and no session completed today. Never
+//      worked out here — POST /sessions refuses what the summary doesn't
+//      offer, so the button can only offer what the backend accepts.
+//      AFTER 5: with an on-time catch-up open too, the home suggests that
+//      one (it's the one whose window closes first) — a suggestion only:
+//      the late one is still allowed today (changed 2026-10-17), and the
+//      Sessions hub will offer both. lateMakeUpWaiting says it's there.
 export function todayStatus(summary: ScheduleSummary, today: string): TodayStatus | null {
   const open = summary.openSession
   if (open && open.localDate === today) {
@@ -125,8 +147,47 @@ export function todayStatus(summary: ScheduleSummary, today: string): TodayStatu
   // check confirmed it). `<` says what is meant: an EARLIER day.
   const next = summary.nextWorkout
   if (next && next.forDay !== null && next.forDay < today) {
+    // A session already COMPLETED today (on this free day) used the day up:
+    // one session a day, so the catch-up waits for another free day of its
+    // window — offering Start would only meet the backend's 409. Found in
+    // the live check (2026-10-17): a late make-up done today, with an
+    // on-time catch-up still open, left "you can still make it up today".
+    // (Not new — an extra session on a free day did the same.) The summary
+    // says it in `lateMakeUps.blockedToday`, computed for every program,
+    // with late make-ups allowed or not.
+    if (summary.lateMakeUps.blockedToday === 'session_done_today') return { kind: 'done' }
     return { kind: 'catch_up', workoutId: next.workoutId, forDay: next.forDay, stopped }
   }
+
+  const { days: lateDays, blockedToday } = summary.lateMakeUps
+  // `days` is oldest first (the backend's order): [0] is the oldest.
+  const oldest = lateDays[0]
+  if (oldest && blockedToday === null) {
+    return { kind: 'late_make_up', ...oldest, stopped }
+  }
+  return null
+}
+
+// Late make-ups the home MENTIONS without a button (decided 2026-10-16:
+// the patient should know they're there, and that they won't wait
+// forever): the oldest, how many in all, and whether one could be done
+// today too (`alsoToday`). Two cases:
+//   - today is blocked (`blockedToday`: a scheduled day, a session already
+//     done today) — alsoToday false: "on another free day";
+//   - today's row is an on-time catch-up — alsoToday true: the late ones
+//     are allowed today as well, the home just suggests the catch-up
+//     first (changed 2026-10-17: a suggestion, not a rule).
+// Null when there's none, or when the row itself offers one (todayStatus's
+// late_make_up), or with a session in progress (it may BE the make-up).
+export function lateMakeUpWaiting(
+  summary: ScheduleSummary,
+  status: TodayStatus | null,
+): { oldest: LateMakeUp; count: number; alsoToday: boolean } | null {
+  const { days, blockedToday } = summary.lateMakeUps
+  const oldest = days[0]
+  if (!oldest) return null
+  if (blockedToday !== null) return { oldest, count: days.length, alsoToday: false }
+  if (status?.kind === 'catch_up') return { oldest, count: days.length, alsoToday: true }
   return null
 }
 

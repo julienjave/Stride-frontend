@@ -70,13 +70,16 @@ export interface Session {
 // POST /sessions — what starting sends. `workoutId` is always sent by this
 // app (the start page knows which workout today asks for — a catch-up is
 // the MISSED day's workout, which the backend can't guess); `painBefore`
-// only when the patient answered. `countsFor` is never sent: a catch-up is
-// a make-up the backend infers (decided 2026-10-15), and swaps / late
-// make-ups are other features.
+// only when the patient answered. `countsFor` only for a LATE make-up
+// (2026-10-16): the missed day it makes up. An on-time catch-up never sends
+// it — the backend infers that make-up (decided 2026-10-15) and refuses a
+// `countsFor` for a day still in its window. Swaps and sessions done early
+// aren't started from the app yet.
 export interface StartSessionInput {
   assignedProgramId: number
   localDate: string
   workoutId: number
+  countsFor?: string
   painBefore?: number
 }
 // PATCH /sessions/:id/exercises/:rowId — what the patient changes on one

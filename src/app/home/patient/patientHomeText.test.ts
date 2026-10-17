@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { longDate, todayText, upcomingText } from './patientHomeText'
+import { lateMakeUpWaitingText, longDate, todayText, upcomingText } from './patientHomeText'
 
 // en-GB pinned: dates read "Fri 13 Jun" whatever the test machine's
 // language.
@@ -110,5 +110,51 @@ describe('upcomingText', () => {
 describe('longDate', () => {
   it('writes the day in full, read as a calendar date', () => {
     expect(longDate('2031-06-12', L)).toBe('Thursday 12 June')
+  })
+})
+
+describe('todayText — a late make-up', () => {
+  const status = { kind: 'late_make_up', workoutId: 57, forDay: '2031-06-02', until: '2031-06-14' } as const
+
+  it('names the missed day by its date, and the last day it can be done', () => {
+    expect(todayText({ ...status, stopped: [] }, 'A · Mobility', L)).toStrictEqual({
+      line: 'Make up: A · Mobility from Mon 2 Jun',
+      detail: 'Missed — you can still make it up today, or on another free day until Sat 14 Jun.',
+    })
+  })
+
+  it('says "session" with one workout, and what was stopped earlier', () => {
+    expect(todayText({ ...status, stopped: ['pain'] }, null, L)).toStrictEqual({
+      line: 'Make up: the session of Mon 2 Jun',
+      detail:
+        'Missed — you can still make it up today, or on another free day until Sat 14 Jun. Stopped earlier today (pain)',
+    })
+  })
+})
+
+describe('lateMakeUpWaitingText', () => {
+  const oldest = { forDay: '2031-06-02', workoutId: 57, until: '2031-06-14' }
+
+  it('names the oldest and its deadline', () => {
+    expect(lateMakeUpWaitingText(oldest, 1, false, 'A · Mobility', L)).toBe(
+      'You can still make up A · Mobility from Mon 2 Jun on another free day, until Sat 14 Jun.',
+    )
+  })
+
+  it('counts the others, one or several', () => {
+    expect(lateMakeUpWaitingText(oldest, 2, false, null, L)).toBe(
+      'You can still make up the session of Mon 2 Jun on another free day, until Sat 14 Jun. 1 other missed session can be made up too.',
+    )
+    expect(lateMakeUpWaitingText(oldest, 4, false, null, L)).toMatch(/ 3 other missed sessions can be made up too\.$/)
+  })
+
+  // Under an on-time catch-up: today is allowed too — never "another free day".
+  it('says "also … late" when it could be done today too', () => {
+    expect(lateMakeUpWaitingText(oldest, 1, true, 'A · Mobility', L)).toBe(
+      'You can also make up A · Mobility from Mon 2 Jun late, until Sat 14 Jun.',
+    )
+    expect(lateMakeUpWaitingText(oldest, 2, true, null, L)).toBe(
+      'You can also make up the session of Mon 2 Jun late, until Sat 14 Jun. 1 other missed session can be made up too.',
+    )
   })
 })

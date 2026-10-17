@@ -7,9 +7,15 @@ import { workoutNames } from '@/assigned-programs/programSchedule'
 import type { AssignedProgramListItem, ScheduleSummary } from '@/assigned-programs/types'
 import { leftOpenText } from '@/sessions/sessionText'
 import { sessionLeftOpen, startChoice } from '@/sessions/startRules'
-import { todayStatus } from '@/sessions/todayStatus'
+import { lateMakeUpWaiting, todayStatus } from '@/sessions/todayStatus'
 import { progressFraction, upcomingItems, type ProgramWithSummary } from './patientHomeRules'
-import { longDate, todayText, upcomingText, type TodayText } from './patientHomeText'
+import {
+  lateMakeUpWaitingText,
+  longDate,
+  todayText,
+  upcomingText,
+  type TodayText,
+} from './patientHomeText'
 
 // The patient home's three sections (decisions §2): Today and Upcoming in
 // one card, then "My programs". They only DRAW: what each program asks is
@@ -48,20 +54,24 @@ export function TodayAndUpcomingCard({ entries, today }: { entries: HomeEntry[];
 // "Start" leads to the start page (which asks the pain question and only
 // then writes anything); "Resume" back into today's open session; "Skip
 // today" (pass (c)) to the skip page — on a DUE row only, the one case the
-// backend accepts (a scheduled day of a specific-days schedule).
+// backend accepts (a scheduled day of a specific-days schedule). "Make it
+// up" (2026-10-16) is a Start too — the same start page, which decides it
+// again from a fresh summary — named for what it does: the row is about a
+// missed day, and "Start" under "Make up: Mon 12 Oct's…" read as today's.
 interface TodayAction {
-  verb: 'Start' | 'Resume' | 'Skip today'
+  verb: 'Start' | 'Make it up' | 'Resume' | 'Skip today'
   to: string
 }
 
 interface TodayRow {
   program: AssignedProgramListItem
   text: TodayText
-  // A line of its own under the row's words: a session left open on an
-  // earlier day. Apart from `text.detail` — joined to it, it ran into the
+  // Lines of their own under the row's words, each its own paragraph: a
+  // session left open on an earlier day; a late make-up waiting for another
+  // day. Apart from `text.detail` — joined to it, a note ran into the
   // detail's last words ("Stopped earlier today (pain) Your session of…",
   // found in the live check).
-  note: string | null
+  notes: string[]
   action: TodayAction | null
   // Beside the main action, quieter: "Skip today" on a due row.
   secondary: TodayAction | null
@@ -74,12 +84,25 @@ function todayRow(program: AssignedProgramListItem, summary: ScheduleSummary, to
   // it can't be finished any more, and the next Start closes it — just one
   // sentence, so the patient isn't surprised to see it "not finished".
   const leftOpen = sessionLeftOpen(summary, today)
-  const leftOpenLine = leftOpen ? leftOpenText(leftOpen.localDate) : null
+  const waiting = lateMakeUpWaiting(summary, status)
+  const notes = [
+    leftOpen ? leftOpenText(leftOpen.localDate) : null,
+    waiting
+      ? lateMakeUpWaitingText(
+          waiting.oldest,
+          waiting.count,
+          waiting.alsoToday,
+          labelFor(program, waiting.oldest.workoutId),
+        )
+      : null,
+  ].filter((note) => note !== null)
   if (status === null) {
-    // Nothing asked today: a row only to say the leftover.
-    return leftOpenLine
-      ? { program, text: { line: leftOpenLine, detail: null }, note: null, action: null, secondary: null }
-      : null
+    // Nothing asked today: a row only to say the notes — the first becomes
+    // the row's line (no empty heading line above it), the rest stay notes.
+    const [first, ...rest] = notes
+    return first === undefined
+      ? null
+      : { program, text: { line: first, detail: null }, notes: rest, action: null, secondary: null }
   }
 
   const label = 'workoutId' in status ? labelFor(program, status.workoutId) : null
@@ -87,13 +110,16 @@ function todayRow(program: AssignedProgramListItem, summary: ScheduleSummary, to
   const choice = startChoice(summary, today)
   const action: TodayAction | null =
     choice.kind === 'start'
-      ? { verb: 'Start', to: `/patient/sessions/start/${program.id}` }
+      ? {
+          verb: choice.status.kind === 'late_make_up' ? 'Make it up' : 'Start',
+          to: `/patient/sessions/start/${program.id}`,
+        }
       : choice.kind === 'resume'
         ? { verb: 'Resume', to: `/patient/sessions/${choice.sessionId}` }
         : null
   const secondary: TodayAction | null =
     status.kind === 'due' ? { verb: 'Skip today', to: `/patient/sessions/skip/${program.id}` } : null
-  return { program, text, note: leftOpenLine, action, secondary }
+  return { program, text, notes, action, secondary }
 }
 
 function TodaySection({ entries, today }: { entries: HomeEntry[]; today: string }) {
@@ -102,14 +128,14 @@ function TodaySection({ entries, today }: { entries: HomeEntry[]; today: string 
   // each saying "Nothing today" would bury the one that has something.
   const rows: TodayRow[] = entries.flatMap(({ program, summary }) => {
     if (summary.isPending) {
-      return [{ program, text: { line: 'Loading…', detail: null }, note: null, action: null, secondary: null }]
+      return [{ program, text: { line: 'Loading…', detail: null }, notes: [], action: null, secondary: null }]
     }
     if (summary.isError) {
       return [
         {
           program,
           text: { line: "Couldn't load today's plan. Try refreshing.", detail: null },
-          note: null,
+          notes: [],
           action: null,
           secondary: null,
         },
@@ -135,7 +161,7 @@ function TodaySection({ entries, today }: { entries: HomeEntry[]; today: string 
         // them on a phone (a narrow column of text beside a button reads
         // badly at 375 px).
         <ul className="space-y-4">
-          {rows.map(({ program, text, note, action, secondary }) => (
+          {rows.map(({ program, text, notes, action, secondary }) => (
             <li
               key={program.id}
               className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"
@@ -144,7 +170,12 @@ function TodaySection({ entries, today }: { entries: HomeEntry[]; today: string 
                 <p className="text-sm text-muted-foreground">{program.title}</p>
                 <p className="font-medium">{text.line}</p>
                 {text.detail && <p className="text-sm text-muted-foreground">{text.detail}</p>}
-                {note && <p className="text-sm text-muted-foreground">{note}</p>}
+                {notes.map((note) => (
+                  // A row's notes are different sentences: the text is a key.
+                  <p key={note} className="text-sm text-muted-foreground">
+                    {note}
+                  </p>
+                ))}
               </div>
               {action && (
                 <div className="flex shrink-0 flex-wrap gap-2 self-start">
