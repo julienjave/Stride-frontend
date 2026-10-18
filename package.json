@@ -10,7 +10,8 @@
     "test": "vitest run",
     "preview": "vite preview",
     "generate:api-types": "openapi-typescript http://localhost:3000/api-docs-json -o src/api/types.generated.ts",
-    "generate:address-data": "node scripts/generate-address-data.mjs"
+    "generate:address-data": "node scripts/generate-address-data.mjs",
+    "snapshot:codebase": "node devTools/generate-frontend-codebase-snapshot.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

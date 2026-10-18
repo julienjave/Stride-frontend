@@ -27,3 +27,6 @@ dist-ssr
 extras/
 src/api/types.generated.ts
 frontend-codebase-snapshot.md
+frontend-codebase-snapshot.zip
+devTools/
+
