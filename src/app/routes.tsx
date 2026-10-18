@@ -413,13 +413,19 @@ export const router = createBrowserRouter([
                       (module) => module.SkipSessionPage,
                     ),
                   },
-                  // All three are navigation sections (design decisions §2)
-                  // whose features don't exist yet — see ComingSoonPage. (The
-                  // Sessions hub comes after the session flow.)
+                  // The Sessions hub (2026-10-17): the patient's programs,
+                  // today, and every missed session they can still make up.
+                  // React Router matches a path whole, so this never catches
+                  // the flow's pages above (`/patient/sessions/…`).
                   {
                     path: '/patient/sessions',
-                    element: <ComingSoonPage title="Sessions" />,
+                    lazy: page(
+                      () => import('@/sessions/SessionsHubPage'),
+                      (module) => module.SessionsHubPage,
+                    ),
                   },
+                  // Two navigation sections (design decisions §2) whose
+                  // features don't exist yet — see ComingSoonPage.
                   {
                     path: '/patient/team',
                     element: <ComingSoonPage title="Team" />,

@@ -81,6 +81,7 @@ function renderPage(path = '/patient/sessions/start/12', cachedSummary?: Schedul
       <MemoryRouter initialEntries={['/patient', path]} initialIndex={1}>
         <Routes>
           <Route path="/patient" element={<p>Home page</p>} />
+          <Route path="/patient/sessions" element={<p>Sessions page</p>} />
           <Route path="/patient/sessions/start/:programId" element={<StartSessionPage />} />
           <Route path="/patient/sessions/:sessionId" element={<SessionStandIn />} />
         </Routes>
@@ -146,7 +147,7 @@ describe('StartSessionPage — before starting', () => {
       json(
         summary({
           days: [scheduledDay('2031-06-11', B, 'due')],
-          nextWorkout: { workoutId: B, forDay: '2031-06-11', programWeek: null },
+          nextWorkout: { workoutId: B, forDay: '2031-06-11', programWeek: null, until: '2031-06-12' },
         }),
       )
     renderPage()
@@ -233,7 +234,7 @@ describe('StartSessionPage — starting', () => {
       json(
         summary({
           days: [scheduledDay('2031-06-11', B, 'due')],
-          nextWorkout: { workoutId: B, forDay: '2031-06-11', programWeek: null },
+          nextWorkout: { workoutId: B, forDay: '2031-06-11', programWeek: null, until: '2031-06-12' },
         }),
       )
     const user = userEvent.setup()
@@ -476,5 +477,130 @@ describe('StartSessionPage — a late make-up', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       "Couldn't start the session. You've already completed a session of this program today.",
     )
+  })
+})
+
+// From the Sessions hub's "Make it up" (2026-10-17): `?for=DAY` names the
+// missed day — checked against this visit's summary, never trusted.
+describe('StartSessionPage — a chosen day (?for=)', () => {
+  // Free day today. Wednesday 11's B: on time, until Friday 13. Monday 2's
+  // A and Wednesday 4's B: late. Today's own rule would pick the catch-up;
+  // the oldest late one is Monday 2 — so asking for Wednesday 4 shows
+  // whether the page starts what was ASKED.
+  const CHOICES = summary({
+    days: [
+      scheduledDay('2031-06-02', A, 'missed'),
+      scheduledDay('2031-06-04', B, 'missed'),
+      scheduledDay('2031-06-11', B, 'due'),
+    ],
+    nextWorkout: { workoutId: B, forDay: '2031-06-11', programWeek: null, until: '2031-06-13' },
+    lateMakeUps: {
+      days: [
+        { forDay: '2031-06-02', workoutId: A, until: '2031-06-14' },
+        { forDay: '2031-06-04', workoutId: B, until: '2031-06-15' },
+      ],
+      blockedToday: null,
+    },
+  })
+  const page = (day: string) => `/patient/sessions/start/12?for=${day}`
+
+  it('starts the late make-up asked for, sending ITS day — and leads back to Sessions', async () => {
+    todaySummary = () => json(CHOICES)
+    const user = userEvent.setup()
+    renderPage(page('2031-06-04'))
+    await startForm()
+    expect(screen.getByText('Knee Rehab: B · Strength')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        `Making up ${formatShortDate('2031-06-04')} — late: it was missed, and will count as made up late.`,
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to Sessions' })).toHaveAttribute(
+      'href',
+      '/patient/sessions',
+    )
+    expect(screen.queryByRole('link', { name: 'Back to home' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Start session' }))
+    await screen.findByText('Session page 31')
+    expect(posts()).toStrictEqual([
+      {
+        method: 'POST',
+        path: '/sessions',
+        body: '{"assignedProgramId":12,"localDate":"2031-06-12","workoutId":58,"countsFor":"2031-06-04"}',
+      },
+    ])
+  })
+
+  it('starts the on-time catch-up when it is the day asked for — without a countsFor', async () => {
+    todaySummary = () => json(CHOICES)
+    const user = userEvent.setup()
+    renderPage(page('2031-06-11'))
+    await startForm()
+    expect(
+      screen.getByText("Catching up Wednesday's session: it was missed, and you can still make it up today."),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Start session' }))
+    await screen.findByText('Session page 31')
+    expect(posts()[0].body).toBe('{"assignedProgramId":12,"localDate":"2031-06-12","workoutId":58}')
+  })
+
+  it("says a day that isn't offered can't be made up — and offers no Start", async () => {
+    todaySummary = () => json(CHOICES)
+    renderPage(page('2031-06-03'))
+    expect(
+      await screen.findByText(
+        "This missed session can't be made up any more. Your Sessions page lists the ones that still can.",
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Knee Rehab' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to Sessions' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Start session' })).not.toBeInTheDocument()
+  })
+
+  it('says why when today blocks it', async () => {
+    todaySummary = () =>
+      json({ ...CHOICES, lateMakeUps: { ...CHOICES.lateMakeUps, blockedToday: 'session_done_today' } })
+    renderPage(page('2031-06-04'))
+    expect(
+      await screen.findByText(
+        "You've already done a session of this program today, and it's one session a day. You can make it up on another free day.",
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Start session' })).not.toBeInTheDocument()
+    expect(posts()).toStrictEqual([])
+  })
+
+  it('goes to the session open today instead, as without a day', async () => {
+    todaySummary = () =>
+      json({ ...CHOICES, openSession: { sessionId: 31, localDate: TODAY, workoutId: B } })
+    renderPage(page('2031-06-04'))
+    expect(await screen.findByText('Session page 31')).toBeInTheDocument()
+  })
+
+  // The workout of the day asked for has been emptied since: no Start (the
+  // backend would refuse), and still the way back to where the patient came
+  // from.
+  it('leads back to Sessions when the workout asked for has no exercises', async () => {
+    todaySummary = () => json(CHOICES)
+    program = () => json({ ...KNEE, exercises: KNEE.exercises.filter((exercise) => exercise.workoutId === A) })
+    renderPage(page('2031-06-04'))
+    await startForm()
+    expect(
+      screen.getByText('This workout has no exercises at the moment. Ask your practitioner to check your program.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Start session' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to Sessions' })).toHaveAttribute('href', '/patient/sessions')
+    expect(screen.queryByRole('link', { name: 'Back to home' })).not.toBeInTheDocument()
+  })
+
+  // Without `for`, the page is as before: today's rule (the catch-up) and
+  // the way home.
+  it("keeps today's rule and the way home when no day is asked for", async () => {
+    todaySummary = () => json(CHOICES)
+    renderPage()
+    await startForm()
+    expect(screen.getByText(/^Catching up Wednesday's session/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to home' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Back to Sessions' })).not.toBeInTheDocument()
   })
 })

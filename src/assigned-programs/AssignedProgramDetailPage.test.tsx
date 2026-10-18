@@ -168,7 +168,7 @@ const SUMMARY: ScheduleSummary = {
   extraSessions: [{ sessionId: 4, date: '2031-06-02', reason: 'same_day' }],
   otherAttempts: [],
   pauses: [],
-  nextWorkout: { workoutId: 58, forDay: '2031-06-11', programWeek: null },
+  nextWorkout: { workoutId: 58, forDay: '2031-06-11', programWeek: null, until: '2031-06-12' },
   openSession: null,
   lateMakeUps: { days: [], blockedToday: null },
 }
@@ -469,7 +469,7 @@ describe('AssignedProgramDetailPage — the schedule', () => {
           }),
         ],
       })
-    summaries[12] = () => json({ ...SUMMARY, nextWorkout: { workoutId: 57, forDay: TODAY, programWeek: null } })
+    summaries[12] = () => json({ ...SUMMARY, nextWorkout: { workoutId: 57, forDay: TODAY, programWeek: null, until: '2031-06-12' } })
     renderPage()
     expect((await screen.findByText('Schedule:')).closest('p')).toHaveTextContent('Schedule: Mon · Wed')
     expect((await screen.findByText('Up next:')).closest('p')).toHaveTextContent(
@@ -637,7 +637,7 @@ describe('AssignedProgramDetailPage — progress', () => {
             sessionIds: [],
           },
         ],
-        nextWorkout: { workoutId: 57, forDay: null, programWeek: 1 },
+        nextWorkout: { workoutId: 57, forDay: null, programWeek: 1, until: null },
       })
     renderPage()
 

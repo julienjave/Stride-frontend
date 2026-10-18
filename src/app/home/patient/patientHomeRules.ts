@@ -8,24 +8,6 @@ import type { AssignedProgramListItem, ScheduleSummary } from '@/assigned-progra
 // side. Pure: plain values in, plain values out — every rule is a plain
 // test (patientHomeRules.test.ts).
 
-// --- WHICH PROGRAMS --------------------------------------------------------------
-
-// The programs the home shows: the ACTIVE ones (a completed or cancelled
-// program asks nothing any more; it stays on the record, in the Sessions
-// hub later). Several are listed EQUALLY (decisions §2: no "primary"
-// program), so the order is plain and stable: the one that started first,
-// then by id (two started the same day keep the order they were assigned).
-// `filter` returns a new array, so sorting it never touches the cached list.
-export function activePrograms(
-  programs: readonly AssignedProgramListItem[],
-): AssignedProgramListItem[] {
-  return programs
-    .filter((program) => program.status === 'active')
-    .sort((a, b) =>
-      a.startDate === b.startDate ? a.id - b.id : a.startDate < b.startDate ? -1 : 1,
-    )
-}
-
 // --- UPCOMING --------------------------------------------------------------------
 
 // What comes next, after today (decisions §2: "the next 3–4 sessions,
@@ -106,22 +88,4 @@ export function upcomingItems(
   })
 
   return [...days, ...weekly]
-}
-
-// --- A PROGRAM'S PROGRESS -------------------------------------------------------
-
-// The fraction a progress bar shows: sessions fulfilled (done on the day,
-// made up — on time or late —, done early, swapped: the same five totalsText
-// counts as done) out of the program's whole target. null for an open-ended program, which
-// has no total (decisions §5: a count, not a bar) — and for a target of 0,
-// where a bar would divide by zero.
-export function progressFraction(
-  totals: ScheduleSummary['totals'],
-): { fulfilled: number; expected: number } | null {
-  if (totals.expected === null || totals.expected === 0) return null
-  return {
-    fulfilled:
-      totals.done + totals.madeUp + totals.madeUpLate + totals.doneEarly + totals.swapped,
-    expected: totals.expected,
-  }
 }

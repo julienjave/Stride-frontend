@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate, useNavigate, useParams } from 'react-router'
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
 import { ApiError } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { localDateString } from '@/common/calendarDate'
@@ -11,8 +11,14 @@ import type { AssignedProgramDetail } from '@/assigned-programs/types'
 import { describeFailure } from '@/workouts/useWorkoutEditing'
 import { ScoreScale } from './ScoreScale'
 import { HomeLink, Loading, NotAvailable, Page } from './SessionPageParts'
+import { makeUpBlockText, NOT_OFFERED_TEXT } from './makeUpText'
 import { nothingToStartText, startContextText } from './sessionText'
-import { startChoice, workoutExercises, type StartableStatus } from './startRules'
+import {
+  startChoice,
+  startChoiceFor,
+  workoutExercises,
+  type StartableStatus,
+} from './startRules'
 import { useStartSession } from './useStartSession'
 
 // "Before you start" — `/patient/sessions/start/:programId` (Phase 4,
@@ -28,6 +34,12 @@ import { useStartSession } from './useStartSession'
 //   - resume → a session of today is already open: straight to it
 //              (`replace` — Back then skips this page);
 //   - none   → why there's nothing to start, and the way home.
+//
+// `?for=YYYY-MM-DD` (the Sessions hub's "Make it up", 2026-10-17): a CHOSEN
+// missed day instead of the one today's rule picks — checked the same way,
+// against this visit's fresh summary (startChoiceFor): started when it's
+// still offered, otherwise the page says why (`unavailable`). A malformed
+// value is simply a day that isn't offered.
 export function StartSessionPage() {
   const { programId: param } = useParams<{ programId: string }>()
   const programId = Number(param)
@@ -42,6 +54,8 @@ export function StartSessionPage() {
 }
 
 function StartSessionView({ programId }: { programId: number }) {
+  const [searchParams] = useSearchParams()
+  const forDay = searchParams.get('for')
   // Today read ONCE, when the page opens (the home's rule): the session is
   // filed under this day, the one the page showed.
   const [today] = useState(() => localDateString())
@@ -88,9 +102,23 @@ function StartSessionView({ programId }: { programId: number }) {
     )
   }
 
-  const choice = startChoice(summary.data, today)
+  const choice =
+    forDay === null ? startChoice(summary.data, today) : startChoiceFor(summary.data, today, forDay)
   if (choice.kind === 'resume') {
     return <Navigate to={`/patient/sessions/${choice.sessionId}`} replace />
+  }
+  if (choice.kind === 'unavailable') {
+    return (
+      <Page>
+        <h1 className="text-xl font-semibold">{program.data.title}</h1>
+        <p>
+          {choice.reason === 'not_offered'
+            ? NOT_OFFERED_TEXT
+            : makeUpBlockText(choice.reason, false)}
+        </p>
+        <SessionsLink />
+      </Page>
+    )
   }
   if (choice.kind === 'none') {
     return (
@@ -107,6 +135,7 @@ function StartSessionView({ programId }: { programId: number }) {
       workoutId={choice.workoutId}
       status={choice.status}
       today={today}
+      fromHub={forDay !== null}
     />
   )
 }
@@ -116,11 +145,14 @@ function StartForm({
   workoutId,
   status,
   today,
+  fromHub,
 }: {
   program: AssignedProgramDetail
   workoutId: number
   status: StartableStatus
   today: string
+  // Reached from the Sessions hub (`?for=`): the way back is the hub.
+  fromHub: boolean
 }) {
   const navigate = useNavigate()
   const [painBefore, setPainBefore] = useState<number | null>(null)
@@ -205,11 +237,20 @@ function StartForm({
             <Button size="lg" onClick={onStart} disabled={start.isPending}>
               {start.isPending ? 'Starting…' : 'Start session'}
             </Button>
-            <HomeLink />
+            {fromHub ? <SessionsLink /> : <HomeLink />}
           </div>
         </>
       )}
-      {exercises.length === 0 && <HomeLink />}
+      {exercises.length === 0 && (fromHub ? <SessionsLink /> : <HomeLink />)}
     </Page>
+  )
+}
+
+// Back to the Sessions hub — where a chosen-day start came from.
+function SessionsLink() {
+  return (
+    <Link to="/patient/sessions" className="text-sm underline underline-offset-4">
+      Back to Sessions
+    </Link>
   )
 }

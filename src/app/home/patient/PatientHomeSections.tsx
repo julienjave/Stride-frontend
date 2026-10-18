@@ -1,36 +1,21 @@
 import type { UseQueryResult } from '@tanstack/react-query'
-import { Link } from 'react-router'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { totalsText } from '@/assigned-programs/progressText'
-import { workoutNames } from '@/assigned-programs/programSchedule'
+import { ProgramProgressBar } from '@/assigned-programs/ProgramProgressBar'
 import type { AssignedProgramListItem, ScheduleSummary } from '@/assigned-programs/types'
-import { leftOpenText } from '@/sessions/sessionText'
-import { sessionLeftOpen, startChoice } from '@/sessions/startRules'
-import { lateMakeUpWaiting, todayStatus } from '@/sessions/todayStatus'
-import { progressFraction, upcomingItems, type ProgramWithSummary } from './patientHomeRules'
-import {
-  lateMakeUpWaitingText,
-  longDate,
-  todayText,
-  upcomingText,
-  type TodayText,
-} from './patientHomeText'
+import { todayRow, workoutLabel, type TodayRow } from '@/sessions/todayRow'
+import { TodayRowView } from '@/sessions/TodayRowView'
+import { upcomingItems, type ProgramWithSummary } from './patientHomeRules'
+import { longDate, upcomingText } from './patientHomeText'
 
 // The patient home's three sections (decisions §2): Today and Upcoming in
 // one card, then "My programs". They only DRAW: what each program asks is
 // decided by patientHomeRules, worded by patientHomeText.
 
-// One program and its summary's query, in the same order (usePatientHome).
+// One program and its summary's query, in the same order
+// (useActiveProgramSummaries).
 export interface HomeEntry {
   program: AssignedProgramListItem
   summary: UseQueryResult<ScheduleSummary>
-}
-
-// "B · Strength" when the program has several workouts, null with one.
-function labelFor(program: AssignedProgramListItem, workoutId: number): string | null {
-  const names = workoutNames(program.workouts)
-  return names.several ? names.labelOf(workoutId) : null
 }
 
 // --- TODAY AND UPCOMING ------------------------------------------------------------
@@ -50,99 +35,25 @@ export function TodayAndUpcomingCard({ entries, today }: { entries: HomeEntry[];
   )
 }
 
-// A Today row's button — the session flow's way in (Phase 4, 2026-10-16):
-// "Start" leads to the start page (which asks the pain question and only
-// then writes anything); "Resume" back into today's open session; "Skip
-// today" (pass (c)) to the skip page — on a DUE row only, the one case the
-// backend accepts (a scheduled day of a specific-days schedule). "Make it
-// up" (2026-10-16) is a Start too — the same start page, which decides it
-// again from a fresh summary — named for what it does: the row is about a
-// missed day, and "Start" under "Make up: Mon 12 Oct's…" read as today's.
-interface TodayAction {
-  verb: 'Start' | 'Make it up' | 'Resume' | 'Skip today'
-  to: string
-}
-
-interface TodayRow {
+// The rows' content — what each says and offers — is todayRow's decision
+// (src/sessions/, shared with the Sessions hub since 2026-10-17); this
+// section only lists one per program, with its program's title above it.
+interface HomeTodayRow {
   program: AssignedProgramListItem
-  text: TodayText
-  // Lines of their own under the row's words, each its own paragraph: a
-  // session left open on an earlier day; a late make-up waiting for another
-  // day. Apart from `text.detail` — joined to it, a note ran into the
-  // detail's last words ("Stopped earlier today (pain) Your session of…",
-  // found in the live check).
-  notes: string[]
-  action: TodayAction | null
-  // Beside the main action, quieter: "Skip today" on a due row.
-  secondary: TodayAction | null
-}
-
-// What a loaded program's row says and offers — or null: no row.
-function todayRow(program: AssignedProgramListItem, summary: ScheduleSummary, today: string): TodayRow | null {
-  const status = todayStatus(summary, today)
-  // An open session from an EARLIER day (decided 2026-10-16): no Resume —
-  // it can't be finished any more, and the next Start closes it — just one
-  // sentence, so the patient isn't surprised to see it "not finished".
-  const leftOpen = sessionLeftOpen(summary, today)
-  const waiting = lateMakeUpWaiting(summary, status)
-  const notes = [
-    leftOpen ? leftOpenText(leftOpen.localDate) : null,
-    waiting
-      ? lateMakeUpWaitingText(
-          waiting.oldest,
-          waiting.count,
-          waiting.alsoToday,
-          labelFor(program, waiting.oldest.workoutId),
-        )
-      : null,
-  ].filter((note) => note !== null)
-  if (status === null) {
-    // Nothing asked today: a row only to say the notes — the first becomes
-    // the row's line (no empty heading line above it), the rest stay notes.
-    const [first, ...rest] = notes
-    return first === undefined
-      ? null
-      : { program, text: { line: first, detail: null }, notes: rest, action: null, secondary: null }
-  }
-
-  const label = 'workoutId' in status ? labelFor(program, status.workoutId) : null
-  const text = todayText(status, label)
-  const choice = startChoice(summary, today)
-  const action: TodayAction | null =
-    choice.kind === 'start'
-      ? {
-          verb: choice.status.kind === 'late_make_up' ? 'Make it up' : 'Start',
-          to: `/patient/sessions/start/${program.id}`,
-        }
-      : choice.kind === 'resume'
-        ? { verb: 'Resume', to: `/patient/sessions/${choice.sessionId}` }
-        : null
-  const secondary: TodayAction | null =
-    status.kind === 'due' ? { verb: 'Skip today', to: `/patient/sessions/skip/${program.id}` } : null
-  return { program, text, notes, action, secondary }
+  row: TodayRow
 }
 
 function TodaySection({ entries, today }: { entries: HomeEntry[]; today: string }) {
   // One row per program that has something to say today — loading, failed,
   // or a status. A program with nothing today gets no row: three programs
   // each saying "Nothing today" would bury the one that has something.
-  const rows: TodayRow[] = entries.flatMap(({ program, summary }) => {
-    if (summary.isPending) {
-      return [{ program, text: { line: 'Loading…', detail: null }, notes: [], action: null, secondary: null }]
-    }
+  const rows: HomeTodayRow[] = entries.flatMap(({ program, summary }) => {
+    if (summary.isPending) return [{ program, row: plainRow('Loading…') }]
     if (summary.isError) {
-      return [
-        {
-          program,
-          text: { line: "Couldn't load today's plan. Try refreshing.", detail: null },
-          notes: [],
-          action: null,
-          secondary: null,
-        },
-      ]
+      return [{ program, row: plainRow("Couldn't load today's plan. Try refreshing.") }]
     }
     const row = todayRow(program, summary.data, today)
-    return row ? [row] : []
+    return row ? [{ program, row }] : []
   })
 
   return (
@@ -157,51 +68,22 @@ function TodaySection({ entries, today }: { entries: HomeEntry[]; today: string 
         <p className="text-sm text-muted-foreground">Nothing to do today.</p>
       ) : (
         // A list: a screen reader says how many items, and each program is
-        // one stop. The button sits beside the words from `sm` up, under
-        // them on a phone (a narrow column of text beside a button reads
-        // badly at 375 px).
+        // one stop.
         <ul className="space-y-4">
-          {rows.map(({ program, text, notes, action, secondary }) => (
-            <li
-              key={program.id}
-              className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"
-            >
-              <div className="space-y-0.5">
-                <p className="text-sm text-muted-foreground">{program.title}</p>
-                <p className="font-medium">{text.line}</p>
-                {text.detail && <p className="text-sm text-muted-foreground">{text.detail}</p>}
-                {notes.map((note) => (
-                  // A row's notes are different sentences: the text is a key.
-                  <p key={note} className="text-sm text-muted-foreground">
-                    {note}
-                  </p>
-                ))}
-              </div>
-              {action && (
-                <div className="flex shrink-0 flex-wrap gap-2 self-start">
-                  <Button asChild>
-                    {/* Named with the program: with several programs, a list
-                        of plain "Start" links can't be told apart. The
-                        visible word starts the name (voice control). */}
-                    <Link to={action.to} aria-label={`${action.verb} ${program.title}`}>
-                      {action.verb}
-                    </Link>
-                  </Button>
-                  {secondary && (
-                    <Button asChild variant="outline">
-                      <Link to={secondary.to} aria-label={`${secondary.verb}: ${program.title}`}>
-                        {secondary.verb}
-                      </Link>
-                    </Button>
-                  )}
-                </div>
-              )}
+          {rows.map(({ program, row }) => (
+            <li key={program.id}>
+              <TodayRowView eyebrow={program.title} programTitle={program.title} row={row} />
             </li>
           ))}
         </ul>
       )}
     </section>
   )
+}
+
+// A row with one line and nothing to offer: while loading, or failed.
+function plainRow(line: string): TodayRow {
+  return { text: { line, detail: null }, notes: [], action: null, secondary: null }
 }
 
 function UpcomingSection({ entries, today }: { entries: HomeEntry[]; today: string }) {
@@ -231,7 +113,7 @@ function UpcomingSection({ entries, today }: { entries: HomeEntry[]; today: stri
             // Every item names a program of `entries` (upcomingItems only
             // returns theirs), so the lookup always finds it.
             const program = byId.get(item.programId)!
-            const label = item.kind === 'day' ? labelFor(program, item.workoutId) : null
+            const label = item.kind === 'day' ? workoutLabel(program, item.workoutId) : null
             const { when, what, workout } = upcomingText(item, program.title, label)
             return (
               // A program has at most one line per date, and at most one
@@ -267,8 +149,8 @@ function UpcomingSection({ entries, today }: { entries: HomeEntry[]; today: stri
 // One card per active program, listed equally: its title, who assigned it,
 // and how it's going — "4 of 12 sessions done" with a bar when it has an end
 // date, "5 sessions done" when it's open-ended (no total, so no bar —
-// decisions §5). Not links yet: a patient's program page doesn't exist; the
-// Sessions hub will be where they lead.
+// decisions §5). Not links yet: a patient's program page comes with the
+// Sessions hub's second pass.
 export function MyProgramsSection({ entries }: { entries: HomeEntry[] }) {
   return (
     <section aria-labelledby="home-programs" className="space-y-3">
@@ -290,42 +172,10 @@ export function MyProgramsSection({ entries }: { entries: HomeEntry[] }) {
             {summary.isError && (
               <p className="text-sm text-destructive">Couldn't load the progress. Try refreshing.</p>
             )}
-            {summary.data && <ProgramProgress title={program.title} summary={summary.data} />}
+            {summary.data && <ProgramProgressBar title={program.title} summary={summary.data} />}
           </li>
         ))}
       </ul>
     </section>
-  )
-}
-
-function ProgramProgress({ title, summary }: { title: string; summary: ScheduleSummary }) {
-  const { headline } = totalsText(summary.totals)
-  const fraction = progressFraction(summary.totals)
-  return (
-    <div className="space-y-1">
-      <p className="text-sm">{headline}</p>
-      {fraction && (
-        // role="progressbar" with its values: a screen reader announces
-        // "Knee Rehab progress, 33%" — the bar's look alone says nothing
-        // to it. The headline above says the same in words, so the bar
-        // only repeats it (never colour or length alone).
-        <div
-          role="progressbar"
-          aria-label={`${title} progress`}
-          aria-valuemin={0}
-          aria-valuemax={fraction.expected}
-          aria-valuenow={fraction.fulfilled}
-          className="h-2 overflow-hidden rounded-full bg-muted"
-        >
-          <div
-            className="h-full rounded-full bg-primary"
-            // A width computed from data can't be a Tailwind class (classes
-            // must be written out in full in the source), so it's a style.
-            // Capped at 100%: extra sessions never push the bar past full.
-            style={{ width: `${Math.min(100, (fraction.fulfilled / fraction.expected) * 100)}%` }}
-          />
-        </div>
-      )}
-    </div>
   )
 }

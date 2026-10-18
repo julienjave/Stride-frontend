@@ -247,7 +247,7 @@ describe('SkipSessionPage — nothing to skip', () => {
       'a catch-up day',
       summary({
         days: [scheduledDay('2031-06-11', A, 'due')],
-        nextWorkout: { workoutId: A, forDay: '2031-06-11', programWeek: null },
+        nextWorkout: { workoutId: A, forDay: '2031-06-11', programWeek: null, until: '2031-06-12' },
       }),
     ],
     ['a day already done', summary({ days: [scheduledDay(TODAY, B, 'done')] })],

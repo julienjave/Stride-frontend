@@ -310,8 +310,17 @@ export interface ScheduleSummary {
   pauses: { from: string; to: string | null }[]
   // What to do next: a specific day's workout (forDay; a make-up names the
   // MISSED day), or the next workout a week still needs (programWeek).
-  // null when nothing is left, or while paused.
-  nextWorkout: { workoutId: number; forDay: string | null; programWeek: number | null } | null
+  // null when nothing is left, or while paused. `until` (2026-10-17, the
+  // Sessions hub): for a day still DUE — today's, or a missed day whose
+  // make-up window is open — the last day it can still be done on time
+  // (the day before the next scheduled day, a pause or a change to "N a
+  // week"; never past the end date); null for an upcoming day or a week.
+  nextWorkout: {
+    workoutId: number
+    forDay: string | null
+    programWeek: number | null
+    until: string | null
+  } | null
   // The program's session IN PROGRESS, or null (Phase 4). Never counted
   // above — it isn't finished. Its day may be an earlier one: a session left
   // open, which the next start closes.

@@ -4,7 +4,13 @@ import type {
   ScheduleSummary,
   ScheduledDay,
 } from '@/assigned-programs/types'
-import { sessionLeftOpen, skippableWorkout, startChoice, workoutExercises } from './startRules'
+import {
+  sessionLeftOpen,
+  skippableWorkout,
+  startChoice,
+  startChoiceFor,
+  workoutExercises,
+} from './startRules'
 
 // "Today" is Thursday 12 June 2031 — far from the real today, so no rule
 // can pass by reading the clock instead of its argument.
@@ -70,7 +76,7 @@ describe('startChoice', () => {
     const choice = startChoice(
       summary({
         days: [day('2031-06-11', 'due', B)],
-        nextWorkout: { workoutId: B, forDay: '2031-06-11', programWeek: null },
+        nextWorkout: { workoutId: B, forDay: '2031-06-11', programWeek: null, until: '2031-06-12' },
       }),
       TODAY,
     )
@@ -187,12 +193,97 @@ describe('skippableWorkout', () => {
   // Every other "today": a catch-up day, a weekly program, a session open
   // or done, a pause — nothing the backend would let the patient skip.
   it.each<[string, Partial<ScheduleSummary>]>([
-    ['a catch-up day', { days: [day('2031-06-11', 'due', B)], nextWorkout: { workoutId: B, forDay: '2031-06-11', programWeek: null } }],
+    ['a catch-up day', { days: [day('2031-06-11', 'due', B)], nextWorkout: { workoutId: B, forDay: '2031-06-11', programWeek: null, until: '2031-06-12' } }],
     ['done', { days: [day(TODAY, 'done')] }],
     ['open', { days: [day(TODAY, 'due')], openSession: { sessionId: 31, localDate: TODAY, workoutId: A } }],
     ['paused', { days: [day(TODAY, 'due')], pauses: [{ from: '2031-06-01', to: null }] }],
     ['a day with nothing', {}],
   ])('gives nothing on %s', (_label, fields) => {
     expect(skippableWorkout(summary(fields), TODAY)).toBeNull()
+  })
+})
+
+// A start for a CHOSEN missed day (the Sessions hub's "Make it up", ?for=).
+// The offers themselves are makeUps' (its own tests); these check what the
+// start page makes of a day asked for.
+describe('startChoiceFor', () => {
+  // Free day today. Wednesday 11's B: on time, until Friday 13. Monday 2's
+  // A and Wednesday 4's B: late — two late days, so a rule starting the
+  // OLDEST instead of the one asked for gives a different answer.
+  const MAKE_UPS = summary({
+    days: [day('2031-06-02', 'missed', A), day('2031-06-04', 'missed', B), day('2031-06-11', 'due', B)],
+    nextWorkout: { workoutId: B, forDay: '2031-06-11', programWeek: null, until: '2031-06-13' },
+    lateMakeUps: {
+      days: [
+        { forDay: '2031-06-02', workoutId: A, until: '2031-06-14' },
+        { forDay: '2031-06-04', workoutId: B, until: '2031-06-15' },
+      ],
+      blockedToday: null,
+    },
+  })
+
+  it('starts the late make-up asked for — not the oldest — with its last day', () => {
+    expect(startChoiceFor(MAKE_UPS, TODAY, '2031-06-04')).toStrictEqual({
+      kind: 'start',
+      workoutId: B,
+      status: { kind: 'late_make_up', workoutId: B, forDay: '2031-06-04', until: '2031-06-15', stopped: [] },
+    })
+  })
+
+  // Asked for while an on-time catch-up is open: allowed — the patient's
+  // choice (decided 2026-10-17).
+  it('starts a late one even while an on-time catch-up is open', () => {
+    expect(startChoiceFor(MAKE_UPS, TODAY, '2031-06-02')).toMatchObject({
+      kind: 'start',
+      workoutId: A,
+      status: { kind: 'late_make_up', forDay: '2031-06-02' },
+    })
+  })
+
+  it('starts the on-time catch-up as a catch-up (no countsFor will be sent)', () => {
+    expect(startChoiceFor(MAKE_UPS, TODAY, '2031-06-11')).toStrictEqual({
+      kind: 'start',
+      workoutId: B,
+      status: { kind: 'catch_up', workoutId: B, forDay: '2031-06-11', stopped: [] },
+    })
+  })
+
+  // A session stopped earlier today (on this free day): the start page says
+  // it, as it does for today's own session.
+  it('carries the sessions stopped earlier today', () => {
+    const stopped = summary({
+      ...MAKE_UPS,
+      otherAttempts: [{ sessionId: 40, status: 'incomplete', endReason: 'pain', date: TODAY }],
+    })
+    expect(startChoiceFor(stopped, TODAY, '2031-06-04')).toMatchObject({
+      status: { stopped: ['pain'] },
+    })
+  })
+
+  it.each([
+    ['a day that is not offered', '2031-06-03'],
+    ["a day made up since (no longer in the list)", '2031-06-05'],
+    ['something that is not a date', 'yesterday'],
+  ])('refuses %s', (_label, forDay) => {
+    expect(startChoiceFor(MAKE_UPS, TODAY, forDay)).toStrictEqual({
+      kind: 'unavailable',
+      reason: 'not_offered',
+    })
+  })
+
+  it.each(['not_a_free_day', 'session_done_today'] as const)(
+    'refuses an offered day when today is blocked: %s',
+    (blockedToday) => {
+      const blocked = summary({ ...MAKE_UPS, lateMakeUps: { ...MAKE_UPS.lateMakeUps, blockedToday } })
+      expect(startChoiceFor(blocked, TODAY, '2031-06-04')).toStrictEqual({
+        kind: 'unavailable',
+        reason: blockedToday,
+      })
+    },
+  )
+
+  it('goes back to a session of this program open today, whatever day is asked', () => {
+    const open = summary({ ...MAKE_UPS, openSession: { sessionId: 31, localDate: TODAY, workoutId: B } })
+    expect(startChoiceFor(open, TODAY, '2031-06-04')).toStrictEqual({ kind: 'resume', sessionId: 31 })
   })
 })

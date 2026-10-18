@@ -193,11 +193,12 @@ export function lateMakeUpWaiting(
 
 // The reasons of the sessions STOPPED today, wherever the summary filed
 // them: on today's scheduled day, in today's weekly count, or apart (a free
-// day). Skips are left out — a skip is its own status above. (Today that
+// day). Exported for the start page's chosen-day start (startChoiceFor), so
+// a make-up started from the Sessions hub says it too. Skips are left out — a skip is its own status above. (Today that
 // filter changes nothing — a skip exists only on a scheduled day, answered
 // as 'skipped' before this list is read; a mutation check confirmed it —
 // but it keeps the function meaning what its name says.)
-function stoppedToday(summary: ScheduleSummary, today: string): SessionEndReason[] {
+export function stoppedToday(summary: ScheduleSummary, today: string): SessionEndReason[] {
   const day = summary.days.find((scheduled) => scheduled.date === today)
   const onDay = day ? day.attempts : []
   const dated = [

@@ -5,12 +5,7 @@ import type {
   ScheduleSummary,
   ScheduledDay,
 } from '@/assigned-programs/types'
-import {
-  UPCOMING_DAYS,
-  activePrograms,
-  progressFraction,
-  upcomingItems,
-} from './patientHomeRules'
+import { UPCOMING_DAYS, upcomingItems } from './patientHomeRules'
 
 // "Today" is Thursday 12 June 2031 — far from the real today, so no rule
 // can pass by reading the clock instead of its argument.
@@ -111,22 +106,6 @@ function program(id: number, fields: Partial<AssignedProgramListItem> = {}): Ass
     ...fields,
   }
 }
-
-describe('activePrograms', () => {
-  it('keeps the active programs, the earliest started first, then by id', () => {
-    const list = [
-      program(4, { startDate: '2031-06-05' }),
-      program(3, { status: 'completed' }),
-      program(9, { startDate: '2031-06-01' }),
-      program(2, { status: 'cancelled' }),
-      program(7, { startDate: '2031-06-05' }),
-      program(5, { startDate: '2031-06-05' }),
-    ]
-    expect(activePrograms(list).map((p) => p.id)).toStrictEqual([9, 4, 5, 7])
-    // The cached list is left as it was.
-    expect(list.map((p) => p.id)).toStrictEqual([4, 3, 9, 2, 7, 5])
-  })
-})
 
 // --- UPCOMING ----------------------------------------------------------------------
 
@@ -266,32 +245,5 @@ describe('upcomingItems', () => {
     expect(
       upcomingItems([{ program: program(1), summary: summary({ weeks: [nothingAsked] }) }], TODAY),
     ).toStrictEqual([])
-  })
-})
-
-// --- PROGRESS ------------------------------------------------------------------------
-
-describe('progressFraction', () => {
-  const totals = summary().totals
-
-  it('counts every fulfilled kind out of the whole target', () => {
-    expect(
-      progressFraction({
-        ...totals,
-        expected: 12,
-        done: 3,
-        madeUp: 1,
-        madeUpLate: 2,
-        doneEarly: 1,
-        swapped: 2,
-        missed: 4,
-        extra: 5,
-      }),
-    ).toStrictEqual({ fulfilled: 9, expected: 12 })
-  })
-
-  it('has no bar for an open-ended program, or a target of zero', () => {
-    expect(progressFraction({ ...totals, expected: null, done: 3 })).toBeNull()
-    expect(progressFraction({ ...totals, expected: 0 })).toBeNull()
   })
 })

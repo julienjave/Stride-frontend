@@ -5,7 +5,7 @@ import { useCurrentUser } from '@/auth/useCurrentUser'
 import { localDateString } from '@/common/calendarDate'
 import { Card, CardContent } from '@/components/ui/card'
 import { MyProgramsSection, TodayAndUpcomingCard } from '@/app/home/patient/PatientHomeSections'
-import { usePatientHome } from '@/app/home/patient/usePatientHome'
+import { useActiveProgramSummaries } from '@/assigned-programs/useActiveProgramSummaries'
 import { HomeGreeting } from './home/HomeGreeting'
 
 // The patient's home (Phase 4, decisions §2) — the same structure as the
@@ -22,7 +22,7 @@ export function PatientHomePage() {
   // rather than mixing two days; reopening it asks again. Lazy initial
   // state (a function), so the date isn't recomputed on every render.
   const [today] = useState(() => localDateString())
-  const { list, programs, summaries } = usePatientHome(today)
+  const { list, programs, summaries } = useActiveProgramSummaries(today)
   // The confirmation an ending hands over ("Session finished. Well done!"),
   // through navigation state — read defensively (readNotice).
   const notice = readNotice(useLocation().state)

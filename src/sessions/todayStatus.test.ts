@@ -262,7 +262,7 @@ describe('todayStatus — catching up on a free day', () => {
       todayStatus(
         summary({
           days: [day('2031-06-11', 'due', { workoutId: B }), day('2031-06-13', 'upcoming')],
-          nextWorkout: { workoutId: B, forDay: '2031-06-11', programWeek: null },
+          nextWorkout: { workoutId: B, forDay: '2031-06-11', programWeek: null, until: '2031-06-12' },
         }),
         TODAY,
       ),
@@ -277,7 +277,7 @@ describe('todayStatus — catching up on a free day', () => {
       todayStatus(
         summary({
           days: [day('2031-06-11', 'due', { workoutId: B })],
-          nextWorkout: { workoutId: B, forDay: '2031-06-11', programWeek: null },
+          nextWorkout: { workoutId: B, forDay: '2031-06-11', programWeek: null, until: '2031-06-12' },
           lateMakeUps: { days: [], blockedToday: 'session_done_today' },
         }),
         TODAY,
@@ -288,7 +288,7 @@ describe('todayStatus — catching up on a free day', () => {
   it('remembers a catch-up stopped today (filed apart: a free day)', () => {
     const status = todayStatus(
       summary({
-        nextWorkout: { workoutId: B, forDay: '2031-06-11', programWeek: null },
+        nextWorkout: { workoutId: B, forDay: '2031-06-11', programWeek: null, until: '2031-06-12' },
         otherAttempts: [stopped(TODAY, 'no_time')],
       }),
       TODAY,
@@ -297,8 +297,8 @@ describe('todayStatus — catching up on a free day', () => {
   })
 
   it.each<[string, ScheduleSummary['nextWorkout']]>([
-    ['a later day is next', { workoutId: A, forDay: '2031-06-13', programWeek: null }],
-    ["a week's count is next", { workoutId: A, forDay: null, programWeek: 3 }],
+    ['a later day is next', { workoutId: A, forDay: '2031-06-13', programWeek: null, until: null }],
+    ["a week's count is next", { workoutId: A, forDay: null, programWeek: 3, until: null }],
     ['nothing is next', null],
   ])('says nothing on a free day when %s', (_label, nextWorkout) => {
     expect(todayStatus(summary({ nextWorkout }), TODAY)).toBeNull()
@@ -352,7 +352,7 @@ describe('todayStatus — a late make-up', () => {
       summary({
         ...late(null),
         days: [day('2031-06-11', 'due', { workoutId: B })],
-        nextWorkout: { workoutId: B, forDay: '2031-06-11', programWeek: null },
+        nextWorkout: { workoutId: B, forDay: '2031-06-11', programWeek: null, until: '2031-06-12' },
       }),
       TODAY,
     )
@@ -384,7 +384,7 @@ describe('lateMakeUpWaiting', () => {
       waiting({
         ...late(null),
         days: [day('2031-06-11', 'due', { workoutId: B })],
-        nextWorkout: { workoutId: B, forDay: '2031-06-11', programWeek: null },
+        nextWorkout: { workoutId: B, forDay: '2031-06-11', programWeek: null, until: '2031-06-12' },
       }),
     ).toStrictEqual({ oldest: LATE[0], count: 2, alsoToday: true })
   })

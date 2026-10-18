@@ -3,7 +3,8 @@ import type {
   OpenSession,
   ScheduleSummary,
 } from '@/assigned-programs/types'
-import { todayStatus, type TodayStatus } from './todayStatus'
+import { makeUps, type MakeUpBlock } from './makeUpRules'
+import { stoppedToday, todayStatus, type TodayStatus } from './todayStatus'
 
 // What the session flow can do for one program TODAY — read from the same
 // rule the home uses (todayStatus), so the home's button and the start page
@@ -47,6 +48,49 @@ export function startChoice(summary: ScheduleSummary, today: string): StartChoic
     default:
       return { kind: 'none', status }
   }
+}
+
+// A start for a CHOSEN missed day — the Sessions hub's "Make it up" buttons
+// (2026-10-17), which lead to `/patient/sessions/start/:programId?for=DAY`.
+// The address is only a REQUEST: the day is checked here against a fresh
+// summary's make-ups (makeUps — the very list the hub's buttons came from),
+// so an old link or one typed by hand can never start what the backend
+// wouldn't accept:
+//   - a session of this program open today → resume it, as startChoice does
+//     (a start would be refused: one open at a time);
+//   - the day isn't offered (any more) → 'unavailable', 'not_offered';
+//   - offered, but today blocks every make-up → 'unavailable', with why;
+//   - otherwise → start it: an on-time catch-up (the backend infers the
+//     day), or a late make-up (the start page sends `countsFor`).
+export type ChosenDayChoice =
+  | Extract<StartChoice, { kind: 'start' | 'resume' }>
+  | { kind: 'unavailable'; reason: 'not_offered' | MakeUpBlock }
+
+export function startChoiceFor(
+  summary: ScheduleSummary,
+  today: string,
+  forDay: string,
+): ChosenDayChoice {
+  const open = summary.openSession
+  if (open !== null && open.localDate === today) {
+    return { kind: 'resume', sessionId: open.sessionId }
+  }
+  const { offers, blocked } = makeUps(summary, today)
+  const offer = offers.find((candidate) => candidate.forDay === forDay)
+  if (!offer) return { kind: 'unavailable', reason: 'not_offered' }
+  if (blocked !== null) return { kind: 'unavailable', reason: blocked }
+  const stopped = stoppedToday(summary, today)
+  const status: StartableStatus =
+    offer.kind === 'catch_up'
+      ? { kind: 'catch_up', workoutId: offer.workoutId, forDay: offer.forDay, stopped }
+      : {
+          kind: 'late_make_up',
+          workoutId: offer.workoutId,
+          forDay: offer.forDay,
+          until: offer.until,
+          stopped,
+        }
+  return { kind: 'start', workoutId: offer.workoutId, status }
 }
 
 // A session left OPEN on an earlier day (decided 2026-10-16): it can no

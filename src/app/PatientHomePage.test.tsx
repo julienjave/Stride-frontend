@@ -129,7 +129,7 @@ const KNEE_SUMMARY = summary({
     day('2031-06-16', 57, 'upcoming'),
     day('2031-06-18', 58, 'upcoming'),
   ],
-  nextWorkout: { workoutId: 58, forDay: '2031-06-11', programWeek: null },
+  nextWorkout: { workoutId: 58, forDay: '2031-06-11', programWeek: null, until: '2031-06-12' },
 })
 
 const BACK_SUMMARY = summary({
@@ -152,7 +152,7 @@ const BACK_SUMMARY = summary({
       attempts: [],
     },
   ],
-  nextWorkout: { workoutId: 70, forDay: null, programWeek: 1 },
+  nextWorkout: { workoutId: 70, forDay: null, programWeek: 1, until: null },
 })
 
 // What each GET answers — tests replace entries for their case.
@@ -520,7 +520,7 @@ describe('PatientHomePage — late make-ups', () => {
   ]
   const FREE_DAY = summary({
     days: [day('2031-06-02', 57, 'missed'), day('2031-06-04', 58, 'missed'), day('2031-06-13', 57, 'upcoming')],
-    nextWorkout: { workoutId: 57, forDay: '2031-06-13', programWeek: null },
+    nextWorkout: { workoutId: 57, forDay: '2031-06-13', programWeek: null, until: null },
     lateMakeUps: { days: LATE_DAYS, blockedToday: null },
   })
 

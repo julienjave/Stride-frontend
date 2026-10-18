@@ -194,7 +194,7 @@ describe('weekResult', () => {
 
 describe('upNextText', () => {
   it("names today's, a later day's, and a make-up's workout", () => {
-    const next = { workoutId: 57, programWeek: null }
+    const next = { workoutId: 57, programWeek: null, until: null }
     expect(upNextText({ ...next, forDay: TODAY }, TODAY, 'A · Mobility', L)).toBe(
       'A · Mobility, today',
     )
@@ -208,16 +208,16 @@ describe('upNextText', () => {
 
   it("names the next workout of a week's count", () => {
     expect(
-      upNextText({ workoutId: 57, forDay: null, programWeek: 2 }, TODAY, 'B', L),
+      upNextText({ workoutId: 57, forDay: null, programWeek: 2, until: null }, TODAY, 'B', L),
     ).toBe('B, for week 2')
   })
 
   it('says "A session" when there is no workout to name', () => {
-    expect(upNextText({ workoutId: 57, forDay: TODAY, programWeek: null }, TODAY, null, L)).toBe(
+    expect(upNextText({ workoutId: 57, forDay: TODAY, programWeek: null, until: '2031-06-12' }, TODAY, null, L)).toBe(
       'A session, today',
     )
     expect(
-      upNextText({ workoutId: 57, forDay: null, programWeek: 2 }, TODAY, null, L),
+      upNextText({ workoutId: 57, forDay: null, programWeek: 2, until: null }, TODAY, null, L),
     ).toBe('A session, for week 2')
   })
 
