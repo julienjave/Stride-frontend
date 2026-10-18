@@ -182,6 +182,19 @@ describe('SessionsHubPage — the programs', () => {
       'aria-valuenow',
       '4',
     )
+    expect(knee.getByRole('link', { name: 'View program: Knee Rehab' })).toHaveAttribute(
+      'href',
+      '/patient/sessions/programs/12',
+    )
+  })
+
+  // The way in doesn't wait for the summary: it's the program's page.
+  it('links a card to its program even when its summary failed', async () => {
+    summaries[12] = () => json({ statusCode: 500, message: ['Boom'] }, 500)
+    renderPage()
+    const knee = within(await card('Knee Rehab'))
+    await knee.findByText("Couldn't load this program's sessions. Try refreshing.")
+    expect(knee.getByRole('link', { name: 'View program: Knee Rehab' })).toBeInTheDocument()
   })
 
   it("offers today's own session as the home does: Start and Skip today", async () => {
@@ -362,6 +375,11 @@ describe('SessionsHubPage — past programs', () => {
     expect(past.getAllByRole('listitem').map((row) => row.textContent)).toStrictEqual([
       `ShoulderCompleted · ended ${formatCalendarDate('2031-05-20')} · ran from ${formatCalendarDate('2031-04-01')}`,
     ])
+    // Its title is the way to its page.
+    expect(past.getByRole('link', { name: 'Shoulder' })).toHaveAttribute(
+      'href',
+      '/patient/sessions/programs/9',
+    )
   })
 
   it('offers no toggle when nothing is past', async () => {

@@ -179,3 +179,26 @@ export function arrangeWeeks(weeks: readonly ProgressWeek[], today: string): Arr
     later: weeks.slice(index + 1),
   }
 }
+
+// The session that FULFILLED a scheduled day, whichever way — on the day
+// (`sessionId`), made up (on time or late), done early, or swapped — or
+// null: not fulfilled (missed, due, upcoming). One answer per state, read
+// from the field the summary fills for it, so a screen linking "the
+// session of that day" can't pick the wrong one (the patient's program page
+// — "View session", 2026-10-18).
+export function daySessionId(day: ScheduledDay): number | null {
+  switch (day.state) {
+    case 'done':
+      return day.sessionId
+    case 'made_up':
+      return day.madeUpBy?.sessionId ?? null
+    case 'made_up_late':
+      return day.madeUpLateBy?.sessionId ?? null
+    case 'done_early':
+      return day.doneEarlyBy?.sessionId ?? null
+    case 'swapped':
+      return day.swappedBy?.sessionId ?? null
+    default:
+      return null
+  }
+}

@@ -43,7 +43,18 @@ export function MakeUpList({
 
   return (
     <section aria-labelledby={headingId} className="space-y-2">
-      <Heading id={headingId} className="text-sm font-semibold uppercase text-muted-foreground">
+      {/* Styled by its level too: on a page of its own (h2) it reads as one
+          of the page's sections, like "Progress"; inside a card, as a small
+          label under the card's title (found in the live check: an h2
+          styled as a label looked like a sub-part of the header). */}
+      <Heading
+        id={headingId}
+        className={
+          headingLevel === 2
+            ? 'text-lg font-semibold'
+            : 'text-sm font-semibold uppercase text-muted-foreground'
+        }
+      >
         To make up
       </Heading>
       {blocked && (

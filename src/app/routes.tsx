@@ -424,6 +424,16 @@ export const router = createBrowserRouter([
                       (module) => module.SessionsHubPage,
                     ),
                   },
+                  // One program, active or past (the hub's pass 2,
+                  // 2026-10-18). `programs` is a static segment: React Router
+                  // ranks it above `:sessionId`, so it's never read as one.
+                  {
+                    path: '/patient/sessions/programs/:programId',
+                    lazy: page(
+                      () => import('@/sessions/PatientProgramPage'),
+                      (module) => module.PatientProgramPage,
+                    ),
+                  },
                   // Two navigation sections (design decisions §2) whose
                   // features don't exist yet — see ComingSoonPage.
                   {

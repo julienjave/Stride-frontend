@@ -1,4 +1,5 @@
 import type { UseQueryResult } from '@tanstack/react-query'
+import { ViewProgramLink } from '@/sessions/ViewProgramLink'
 import { Card, CardContent } from '@/components/ui/card'
 import { ProgramProgressBar } from '@/assigned-programs/ProgramProgressBar'
 import type { AssignedProgramListItem, ScheduleSummary } from '@/assigned-programs/types'
@@ -149,8 +150,8 @@ function UpcomingSection({ entries, today }: { entries: HomeEntry[]; today: stri
 // One card per active program, listed equally: its title, who assigned it,
 // and how it's going — "4 of 12 sessions done" with a bar when it has an end
 // date, "5 sessions done" when it's open-ended (no total, so no bar —
-// decisions §5). Not links yet: a patient's program page comes with the
-// Sessions hub's second pass.
+// decisions §5) — and "View program", to the patient's program page (the
+// Sessions hub's pass 2, 2026-10-18).
 export function MyProgramsSection({ entries }: { entries: HomeEntry[] }) {
   return (
     <section aria-labelledby="home-programs" className="space-y-3">
@@ -173,6 +174,7 @@ export function MyProgramsSection({ entries }: { entries: HomeEntry[] }) {
               <p className="text-sm text-destructive">Couldn't load the progress. Try refreshing.</p>
             )}
             {summary.data && <ProgramProgressBar title={program.title} summary={summary.data} />}
+            <ViewProgramLink program={program} />
           </li>
         ))}
       </ul>

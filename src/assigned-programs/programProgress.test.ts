@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   arrangeWeeks,
+  daySessionId,
   groupProgressByWeek,
   programWeekOf,
   type ProgressWeek,
@@ -277,5 +278,42 @@ describe('arrangeWeeks', () => {
 
   it('has nothing to arrange without weeks', () => {
     expect(arrangeWeeks([], '2031-06-14')).toBeNull()
+  })
+})
+
+// The session that fulfilled a day (the patient's "View session",
+// 2026-10-18). Every field holds a DIFFERENT id, so reading the wrong field
+// for a state gives a different answer.
+describe('daySessionId', () => {
+  const ALL = {
+    sessionId: 1,
+    madeUpBy: { sessionId: 2, date: '2031-06-03' },
+    madeUpLateBy: { sessionId: 3, date: '2031-06-04' },
+    doneEarlyBy: { sessionId: 4, date: '2031-06-05' },
+    swappedBy: { sessionId: 5, date: '2031-06-06' },
+  }
+  const day = (state: ScheduledDay['state']): ScheduledDay => ({
+    date: '2031-06-02',
+    workoutId: 57,
+    state,
+    attempts: [],
+    ...ALL,
+  })
+
+  it.each<[ScheduledDay['state'], number | null]>([
+    ['done', 1],
+    ['made_up', 2],
+    ['made_up_late', 3],
+    ['done_early', 4],
+    ['swapped', 5],
+    ['missed', null],
+    ['due', null],
+    ['upcoming', null],
+  ])('%s → %s', (state, expected) => {
+    expect(daySessionId(day(state))).toBe(expected)
+  })
+
+  it('is null when the field its state reads is empty', () => {
+    expect(daySessionId({ ...day('made_up'), madeUpBy: null })).toBeNull()
   })
 })

@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter, Route, Routes } from 'react-router'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import { formatShortDate } from '@/common/calendarDate'
 import { sessionQueryKey } from './api'
@@ -232,5 +233,75 @@ describe('SessionPage', () => {
     renderPage('/patient/sessions/0')
     expect(await screen.findByRole('alert')).toHaveTextContent("This session doesn't exist, or isn't yours.")
     expect(requested()).toStrictEqual([])
+  })
+})
+
+// The way back (2026-10-18): opened from a program page's "View session",
+// the page goes BACK to it; otherwise home.
+describe('SessionPage — the way back', () => {
+  // The history as a program page's "View session" leaves it: the program
+  // page's entry (its own state marks it), then the session's, carrying
+  // `state`.
+  function renderFrom(state: unknown) {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+    })
+    queryClient.setQueryData(currentUserQueryKey, PAT)
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter
+          initialEntries={[
+            { pathname: '/patient/sessions/programs/12', state: { marker: 'the original entry' } },
+            { pathname: '/patient/sessions/31', state },
+          ]}
+          initialIndex={1}
+        >
+          <Routes>
+            <Route path="/patient/sessions/:sessionId" element={<SessionPage />} />
+            <Route path="/patient/sessions/programs/:programId" element={<ProgramStandIn />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+  }
+
+  // Shows which ENTRY it is: the original one keeps its marker; a new copy
+  // pushed by a link would have none.
+  function ProgramStandIn() {
+    const state = useLocation().state as { marker?: string } | null
+    return <p>Program page — {state?.marker ?? 'a new entry'}</p>
+  }
+
+  it('goes back to the program page it came from — the same entry, not a new one', async () => {
+    sessionAnswer = () => json(finished())
+    const user = userEvent.setup()
+    renderFrom({ from: 'program', programId: 12 })
+    const back = await screen.findByRole('link', { name: 'Back to the program' })
+    // A real address: a new tab opens the program page.
+    expect(back).toHaveAttribute('href', '/patient/sessions/programs/12')
+    expect(screen.queryByRole('link', { name: 'Back to home' })).not.toBeInTheDocument()
+    await user.click(back)
+    expect(screen.getByText('Program page — the original entry')).toBeInTheDocument()
+  })
+
+  it('leaves a Ctrl-click to the browser (a new tab), staying here', async () => {
+    sessionAnswer = () => json(finished())
+    renderFrom({ from: 'program', programId: 12 })
+    const back = await screen.findByRole('link', { name: 'Back to the program' })
+    fireEvent.click(back, { ctrlKey: true })
+    expect(await screen.findByRole('heading', { level: 1, name: 'Knee Rehab' })).toBeInTheDocument()
+    expect(screen.queryByText(/^Program page/)).not.toBeInTheDocument()
+  })
+
+  // The state is believed only for this session's own program (12).
+  it.each<[string, unknown]>([
+    ['another program', { from: 'program', programId: 13 }],
+    ['no note', null],
+    ['a note of another shape', { from: 'program', programId: '12' }],
+  ])('goes home when the page was reached with %s', async (_label, state) => {
+    sessionAnswer = () => json(finished())
+    renderFrom(state)
+    expect(await screen.findByRole('link', { name: 'Back to home' })).toHaveAttribute('href', '/patient')
+    expect(screen.queryByRole('link', { name: 'Back to the program' })).not.toBeInTheDocument()
   })
 })

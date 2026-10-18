@@ -458,6 +458,18 @@ describe('PatientHomePage — My programs', () => {
     expect(within(cards[1]).queryByRole('progressbar')).not.toBeInTheDocument()
   })
 
+  // Each card leads to the program's own page (the hub's pass 2), named
+  // with its program.
+  it('links each program to its page', async () => {
+    renderPage()
+    await loaded()
+    const links = within(section('My programs')).getAllByRole('link', { name: /^View program/ })
+    expect(links.map((link) => [link.getAttribute('aria-label'), link.getAttribute('href')])).toStrictEqual([
+      ['View program: Knee Rehab', '/patient/sessions/programs/12'],
+      ['View program: Lower Back', '/patient/sessions/programs/14'],
+    ])
+  })
+
   it('never draws the bar past full', async () => {
     summaries[12] = () =>
       json({ ...KNEE_SUMMARY, totals: { ...TOTALS, expected: 2, done: 3 } })

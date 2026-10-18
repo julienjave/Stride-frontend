@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { ApiError } from '@/api/client'
 import { localDateString } from '@/common/calendarDate'
 import { PrescriptionSummary } from '@/common/PrescriptionSummary'
 import { workoutNames } from '@/assigned-programs/programSchedule'
 import { useAssignedProgram } from '@/assigned-programs/useAssignedProgram'
 import { cn } from '@/lib/utils'
+import { programPagePath } from './programPagePath'
+import { isPlainClick, readFromProgram } from './sessionReturn'
 import { HomeLink, Loading, NotAvailable, Page } from './SessionPageParts'
 import { SessionPlayer } from './SessionPlayer'
 import { isRunnable } from './sessionRules'
@@ -19,8 +21,9 @@ import type { Session } from './types'
 import { useSession } from './useSession'
 
 // One session — `/patient/sessions/:sessionId` (Phase 4, decided
-// 2026-10-16). Reached from the start page (right after starting) and from
-// the home's Resume.
+// 2026-10-16). Reached from the start page (right after starting), the
+// home's Resume, and — since 2026-10-18 — a program page's "View session",
+// which the page's way back follows (BackLink).
 //
 // Built in passes: (a) the session — its program and workout, its state,
 // the check-in, its checklist; (b) doing it: while the session can still be
@@ -91,7 +94,7 @@ function SessionView({ sessionId }: { sessionId: number }) {
       ) : (
         <Checklist session={session.data} />
       )}
-      <HomeLink />
+      <BackLink programId={session.data.assignedProgramId} />
     </Page>
   )
 }
@@ -173,5 +176,41 @@ function Checklist({ session }: { session: Session }) {
         ))}
       </ol>
     </section>
+  )
+}
+
+// The way back (2026-10-18, asked by the person): to the program page when
+// the session was opened from it (navigation state — sessionReturn.ts),
+// home otherwise (Resume, a new tab, a pasted address).
+//
+// Two details:
+//   - the TARGET is the session's own program, never taken from the state:
+//     the state only says "I came from a program page", and is believed
+//     only if it names this session's program;
+//   - a plain click goes BACK in the history (`navigate(-1)`) instead of
+//     forward to a new copy of the program page. Pushing one would leave
+//     program → session → program, and the phone's Back button would then
+//     return to the session — a loop. Back also returns to the program
+//     page's own entry, whose state reopens the week and refocuses the
+//     link. The link keeps its real `href`: a Ctrl / Cmd / middle click
+//     (isPlainClick) is left to the browser — the program page in a new tab.
+//     The state proves the entry before this one is that page: it is set
+//     only by its "View session" link, in this tab (a new tab gets none).
+function BackLink({ programId }: { programId: number }) {
+  const location = useLocation()
+  const navigate = useNavigate()
+  if (readFromProgram(location.state) !== programId) return <HomeLink />
+  return (
+    <Link
+      to={programPagePath(programId)}
+      className="text-sm underline underline-offset-4"
+      onClick={(event) => {
+        if (!isPlainClick(event)) return
+        event.preventDefault()
+        void navigate(-1)
+      }}
+    >
+      Back to the program
+    </Link>
   )
 }

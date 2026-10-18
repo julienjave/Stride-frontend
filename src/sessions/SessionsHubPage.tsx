@@ -8,7 +8,10 @@ import { currentAndPlanned, describeVersion, workoutNames } from '@/assigned-pro
 import type { AssignedProgramListItem, ScheduleSummary } from '@/assigned-programs/types'
 import { useActiveProgramSummaries } from '@/assigned-programs/useActiveProgramSummaries'
 import { programRowSummary, splitProgramsForPatientPage } from '@/patients/patientPageRules'
+import { Link } from 'react-router'
 import { MakeUpList } from './MakeUpList'
+import { programPagePath } from './programPagePath'
+import { ViewProgramLink } from './ViewProgramLink'
 import { todayRow } from './todayRow'
 import { TodayRowView } from './TodayRowView'
 
@@ -17,9 +20,9 @@ import { TodayRowView } from './TodayRowView'
 // equally, in the home's order (activePrograms) — with its schedule, how far
 // it has got, today's row (the home's own, todayRow) and EVERY missed
 // session that can still be made up (MakeUpList); then the past programs,
-// behind "Show N past programs". Pass 2 adds each program's own page (its
-// weeks, its sessions, its exercises), which the cards and past rows will
-// link to.
+// behind "Show N past programs". Each card and past row leads to the
+// program's own page (pass 2, 2026-10-18: its weeks, its sessions, its
+// exercises).
 //
 // The data is the home's (useActiveProgramSummaries — the same list and the
 // same summary keys), so going from one screen to the other finds it cached.
@@ -97,7 +100,14 @@ export function SessionsHubPage() {
             <ul aria-label="Past programs" className="divide-y rounded-lg border">
               {past.map((program) => (
                 <li key={program.id} className="space-y-0.5 px-4 py-3">
-                  <p className="font-medium">{program.title}</p>
+                  {/* The title IS the link: a past program has nothing else
+                      to do on its row. */}
+                  <Link
+                    to={programPagePath(program.id)}
+                    className="font-medium underline underline-offset-4"
+                  >
+                    {program.title}
+                  </Link>
                   <p className="text-sm text-muted-foreground">{programRowSummary(program)}</p>
                 </li>
               ))}
@@ -159,6 +169,7 @@ function ProgramCard({
             <MakeUpList program={program} summary={summary.data} today={today} headingLevel={4} />
           </>
         )}
+        <ViewProgramLink program={program} />
       </CardContent>
     </Card>
   )
