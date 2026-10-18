@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-rou
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import { readNotice } from '@/common/readNotice'
 import { assignedProgramSummaryQueryKey } from '@/assigned-programs/api'
+import { programSessionsQueryKey } from '@/progress/api'
 import { sessionQueryKey } from './api'
 import { FinishSessionPage } from './FinishSessionPage'
 import type { Session } from './types'
@@ -174,12 +175,15 @@ describe('FinishSessionPage — finishing', () => {
     const queryClient = renderPage()
     await form()
     queryClient.setQueryData(assignedProgramSummaryQueryKey(12, TODAY, '2031-06-25'), summary())
+    queryClient.setQueryData(programSessionsQueryKey(12), [])
     await user.click(screen.getByRole('button', { name: 'Finish session' }))
     expect(await screen.findByText('Home page. Notice: Session finished. Well done!')).toBeInTheDocument()
     expect(queryClient.getQueryData<Session>(sessionQueryKey(31))?.status).toBe('completed')
     expect(
       queryClient.getQueryState(assignedProgramSummaryQueryKey(12, TODAY, '2031-06-25'))?.isInvalidated,
     ).toBe(true)
+    // The progress charts' list too: the check-out brought new scores.
+    expect(queryClient.getQueryState(programSessionsQueryKey(12))?.isInvalidated).toBe(true)
     // Back: the session page — not this form for a session now final.
     await user.click(screen.getByRole('button', { name: 'Back from home' }))
     expect(await screen.findByText('Session page')).toBeInTheDocument()

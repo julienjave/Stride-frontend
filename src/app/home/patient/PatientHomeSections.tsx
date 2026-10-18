@@ -3,6 +3,7 @@ import { ViewProgramLink } from '@/sessions/ViewProgramLink'
 import { Card, CardContent } from '@/components/ui/card'
 import { ProgramProgressBar } from '@/assigned-programs/ProgramProgressBar'
 import type { AssignedProgramListItem, ScheduleSummary } from '@/assigned-programs/types'
+import { PainTrend } from '@/progress/PainTrend'
 import { todayRow, workoutLabel, type TodayRow } from '@/sessions/todayRow'
 import { TodayRowView } from '@/sessions/TodayRowView'
 import { upcomingItems, type ProgramWithSummary } from './patientHomeRules'
@@ -174,6 +175,9 @@ export function MyProgramsSection({ entries }: { entries: HomeEntry[] }) {
               <p className="text-sm text-destructive">Couldn't load the progress. Try refreshing.</p>
             )}
             {summary.data && <ProgramProgressBar title={program.title} summary={summary.data} />}
+            {/* How the pain has gone lately (2026-10-18, with the progress
+                page; decisions §2) — quiet until there's something to say. */}
+            <PainTrend programId={program.id} />
             <ViewProgramLink program={program} />
           </li>
         ))}

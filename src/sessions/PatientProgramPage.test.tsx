@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes, useLocation, useNavigate, useParams } from 'react-router'
@@ -9,7 +9,7 @@ import { formatShortDate } from '@/common/calendarDate'
 import type { AssignedProgramDetail, ScheduleSummary, ScheduleVersion } from '@/assigned-programs/types'
 import { assignedProgramSummaryQueryKey } from '@/assigned-programs/api'
 import { PatientProgramPage } from './PatientProgramPage'
-import { A, B, KNEE, PAT, TODAY, apiError, json, programExercise, scheduledDay, summary, urlOf } from './testData'
+import { A, B, KNEE, PAT, TODAY, apiError, json, programExercise, scheduledDay, session, summary, urlOf } from './testData'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -89,15 +89,19 @@ const SUMMARY: ScheduleSummary = summary({
 
 let program: () => Response
 let summaryAnswer: () => Response
+let sessionsAnswer: () => Response
 
 beforeEach(() => {
   fetchMock.mockReset()
   program = () => json(PROGRAM)
   summaryAnswer = () => json(SUMMARY)
+  // The progress charts' list (PainAndMobility — its own tests cover it).
+  sessionsAnswer = () => json([])
   fetchMock.mockImplementation((input) => {
     const url = urlOf(input)
     if (/\/assigned-programs\/12$/.test(url)) return Promise.resolve(program())
     if (/\/assigned-programs\/12\/summary\?/.test(url)) return Promise.resolve(summaryAnswer())
+    if (url.endsWith('/assigned-programs/12/sessions')) return Promise.resolve(sessionsAnswer())
     return Promise.reject(new Error(`unexpected request: ${url}`))
   })
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -168,10 +172,13 @@ describe('PatientProgramPage — the program', () => {
     await loaded()
     expect(screen.getByText(`Started ${formatCalendarDate('2031-06-02')} · Active`)).toBeInTheDocument()
     expect(screen.getByText('Mon A · Wed B · Fri A')).toBeInTheDocument()
-    expect(paths()).toStrictEqual([
-      '/assigned-programs/12',
-      `/assigned-programs/12/summary?today=${TODAY}&through=${THROUGH}`,
-    ])
+    await waitFor(() =>
+      expect(paths()).toStrictEqual([
+        '/assigned-programs/12',
+        `/assigned-programs/12/summary?today=${TODAY}&through=${THROUGH}`,
+        '/assigned-programs/12/sessions',
+      ]),
+    )
     expect(screen.getByRole('link', { name: 'Back to Sessions' })).toHaveAttribute(
       'href',
       '/patient/sessions',
@@ -183,7 +190,41 @@ describe('PatientProgramPage — the program', () => {
   it("reuses the summary the hub cached — no second request", async () => {
     renderPage('/patient/sessions/programs/12', SUMMARY)
     await loaded()
-    expect(paths()).toStrictEqual(['/assigned-programs/12'])
+    await waitFor(() =>
+      expect(paths()).toStrictEqual(['/assigned-programs/12', '/assigned-programs/12/sessions']),
+    )
+  })
+
+  // The scores over time (2026-10-18) inside "Progress", between the totals
+  // and the weeks — the patient's words.
+  it('shows pain and mobility between the totals and the weeks', async () => {
+    const { exercises: _exercises, ...row } = session({
+      id: 23,
+      localDate: '2031-06-06',
+      status: 'completed',
+      painBefore: 5,
+      painAfter: 3,
+      mobilityAfter: 6,
+    })
+    sessionsAnswer = () => json([row])
+    renderPage()
+    await loaded()
+    const progress = screen.getByRole('region', { name: 'Progress' })
+    const scores = within(progress).getByRole('region', { name: 'Pain and mobility' })
+    expect(within(scores).getByRole('heading', { name: 'Pain and mobility' }).tagName).toBe('H3')
+    expect(await within(scores).findByRole('group', { name: 'Pain chart' })).toBeInTheDocument()
+    const totals = within(progress).getByText('3 sessions done')
+    const firstWeek = within(progress).getAllByText(/^Week \d · /)[0]
+    expect(totals.compareDocumentPosition(scores) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(scores.compareDocumentPosition(firstWeek) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('tells the patient the scores come with the first session', async () => {
+    renderPage()
+    await loaded()
+    expect(
+      await screen.findByText('Your pain and mobility scores will show here after your first session.'),
+    ).toBeInTheDocument()
   })
 
   it('lists what can still be made up, under its own h2', async () => {

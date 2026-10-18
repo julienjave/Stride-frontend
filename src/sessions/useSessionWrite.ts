@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { assignedProgramQueryKey } from '@/assigned-programs/api'
+import { programSessionsQueryKey } from '@/progress/api'
 import { sessionQueryKey } from './api'
 import type { Session } from './types'
 
@@ -10,9 +11,11 @@ import type { Session } from './types'
 //      opened again, shows it with no request);
 //   2. the program's SUMMARIES are marked stale — the prefix
 //      ['assigned-programs', id, 'summary'] reaches the home's entry (with
-//      `through`) and the program page's. Not awaited: the patient is on
-//      their way to another page, which refetches when it shows. The program
-//      itself is NOT invalidated (no session write changes it);
+//      `through`) and the program page's — and its SESSION LIST (the
+//      progress charts, 2026-10-18: a start brings a pain-before score, an
+//      ending the check-out). Not awaited: the patient is on their way to
+//      another page, which refetches when it shows. The program itself is
+//      NOT invalidated (no session write changes it);
 //   3. `onDone` — the page navigates.
 // The callback lives on the hook, not in mutate()'s options (the roster's
 // lesson, decisions §3): it then doesn't depend on the calling component
@@ -31,6 +34,9 @@ export function useSessionWrite<Input>(
       queryClient.setQueryData(sessionQueryKey(session.id), session)
       void queryClient.invalidateQueries({
         queryKey: [...assignedProgramQueryKey(session.assignedProgramId), 'summary'],
+      })
+      void queryClient.invalidateQueries({
+        queryKey: programSessionsQueryKey(session.assignedProgramId),
       })
       onDone(session)
     },

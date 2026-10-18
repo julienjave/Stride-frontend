@@ -231,6 +231,8 @@ beforeEach(() => {
     if (one) return Promise.resolve(programs[Number(one[1])]())
     if (url.endsWith('/assigned-programs?patientId=6')) return Promise.resolve(patientList())
     if (url.endsWith('/users/6')) return Promise.resolve(json(PATIENT))
+    // The progress charts' list (PainAndMobility — its own tests cover it).
+    if (url.endsWith('/assigned-programs/12/sessions')) return Promise.resolve(json([]))
     return Promise.reject(new Error(`unexpected request: ${url}`))
   })
   // Only Date is faked (user-event's own timers keep running): Thursday
@@ -401,6 +403,30 @@ describe('AssignedProgramDetailPage — the header', () => {
     ).toBeInTheDocument()
     expect(screen.queryByText(/Up next/)).not.toBeInTheDocument()
     expect(requested((url) => url.includes('/summary'))).toStrictEqual([])
+    // Nor any scores: no section, no request.
+    expect(screen.queryByRole('region', { name: 'Pain and mobility' })).not.toBeInTheDocument()
+    expect(requested((url) => url.endsWith('/sessions'))).toStrictEqual([])
+  })
+})
+
+// The patient's scores over time (2026-10-18): a section of its own after
+// "Schedule & progress", in the care team's words.
+describe('AssignedProgramDetailPage — pain and mobility', () => {
+  it('shows the section after the schedule and progress, for the care team', async () => {
+    renderPage()
+    const section = await screen.findByRole('region', { name: 'Pain and mobility' })
+    expect(within(section).getByRole('heading', { name: 'Pain and mobility' }).tagName).toBe('H2')
+    expect(await within(section).findByText('No sessions yet.')).toBeInTheDocument()
+    const progress = screen.getByRole('region', { name: 'Schedule & progress' })
+    expect(progress.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(requested((url) => url.endsWith('/sessions'))).toHaveLength(1)
+  })
+
+  // A closed program keeps its history: the scores stay readable.
+  it('shows it for a closed program too', async () => {
+    programs[12] = () => json({ ...PROGRAM, status: 'cancelled', endDate: '2031-06-11' })
+    renderPage()
+    expect(await screen.findByRole('region', { name: 'Pain and mobility' })).toBeInTheDocument()
   })
 })
 

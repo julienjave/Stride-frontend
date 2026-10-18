@@ -91,3 +91,15 @@ export function formatShortDate(date: string, locale?: string): string {
     timeZone: 'UTC',
   }).format(toUtcMidnight(date))
 }
+
+// A day and month only: "19 Oct" in British English, "Oct 19" in American,
+// "19 oct." in French — the progress charts' axis (2026-10-18), where a
+// phone has room for four short dates, not four "Mon 19 Oct". UTC both
+// ways, like formatShortDate.
+export function formatDayMonth(date: string, locale?: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  }).format(toUtcMidnight(date))
+}

@@ -158,14 +158,20 @@ const BACK_SUMMARY = summary({
 // What each GET answers — tests replace entries for their case.
 let list: () => Response
 let summaries: Record<number, () => Response>
+// Each program's session list (the cards' pain trend — PainTrend's own
+// tests cover it): none by default.
+let sessionLists: Record<number, () => Response>
 
 beforeEach(() => {
   fetchMock.mockReset()
   list = () => json([KNEE, BACK])
   summaries = { 12: () => json(KNEE_SUMMARY), 14: () => json(BACK_SUMMARY) }
+  sessionLists = { 12: () => json([]), 14: () => json([]) }
   fetchMock.mockImplementation((input) => {
     const url = urlOf(input)
     if (url.endsWith('/assigned-programs')) return Promise.resolve(list())
+    const sessions = /\/assigned-programs\/(\d+)\/sessions$/.exec(url)
+    if (sessions) return Promise.resolve(sessionLists[Number(sessions[1])]())
     const one = /\/assigned-programs\/(\d+)\/summary\?/.exec(url)
     if (one) return Promise.resolve(summaries[Number(one[1])]())
     return Promise.reject(new Error(`unexpected request: ${url}`))
@@ -213,10 +219,17 @@ describe('PatientHomePage — what it asks for', () => {
   it("asks for the patient's programs, then each active one's summary as of today, two weeks ahead", async () => {
     renderPage()
     await loaded()
-    expect(requested()).toStrictEqual([
-      expect.stringMatching(/\/assigned-programs$/),
-      expect.stringMatching(new RegExp(`/assigned-programs/12/summary\\?today=${TODAY}&through=${THROUGH}$`)),
-      expect.stringMatching(new RegExp(`/assigned-programs/14/summary\\?today=${TODAY}&through=${THROUGH}$`)),
+    const paths = () => requested().map((url) => new URL(url).pathname + new URL(url).search)
+    // The list first; then, in whatever order the cards ask, each active
+    // program's summary — and its sessions, for the card's pain trend
+    // (2026-10-18).
+    await vi.waitFor(() => expect(paths()).toHaveLength(5))
+    expect(paths()[0]).toBe('/assigned-programs')
+    expect(paths().slice(1).sort()).toStrictEqual([
+      '/assigned-programs/12/sessions',
+      `/assigned-programs/12/summary?today=${TODAY}&through=${THROUGH}`,
+      '/assigned-programs/14/sessions',
+      `/assigned-programs/14/summary?today=${TODAY}&through=${THROUGH}`,
     ])
   })
 
@@ -477,6 +490,43 @@ describe('PatientHomePage — My programs', () => {
     await loaded()
     const bar = within(section('My programs')).getByRole('progressbar')
     expect((bar.firstElementChild as HTMLElement).style.width).toBe('100%')
+  })
+
+  // The pain trend (2026-10-18) on the card of the program it belongs to —
+  // and only there: never mixed across programs (decisions §6).
+  it("shows each program's own pain trend", async () => {
+    sessionLists[12] = () =>
+      json(
+        [5, 4, 4, 2, 2, 3]
+          .map((painAfter, i) => ({
+            id: i + 1,
+            assignedProgramId: 12,
+            workoutId: 70,
+            patientId: 6,
+            localDate: `2031-06-0${i + 1}`,
+            countsFor: null,
+            status: 'completed',
+            startedAt: null,
+            completedAt: null,
+            endedAt: null,
+            endReason: null,
+            endNote: null,
+            painBefore: null,
+            painAfter,
+            mobilityAfter: null,
+            totalDurationInSeconds: null,
+            sessionFeedback: null,
+          }))
+          .reverse(),
+      )
+    renderPage()
+    await loaded()
+    const cards = within(section('My programs')).getAllByRole('listitem')
+    expect(
+      await within(cards[0]).findByText(`Pain after sessions: 3 (${formatShortDate('2031-06-06')})`),
+    ).toBeInTheDocument()
+    expect(cards[0]).toHaveTextContent('lower over your last 3 sessions')
+    expect(cards[1]).not.toHaveTextContent('Pain after sessions')
   })
 
   it("says so when a program's progress can't be loaded", async () => {

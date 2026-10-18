@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   addDays,
   daysBetween,
+  formatDayMonth,
   formatShortDate,
   isCalendarDate,
   isoWeekday,
@@ -92,6 +93,22 @@ describe('localDateString', () => {
     // Built from local parts, so 00:30 on 5 January is the 5th everywhere.
     expect(localDateString(new Date(2031, 0, 5, 0, 30))).toBe('2031-01-05')
     expect(localDateString(new Date(2031, 11, 31, 23, 30))).toBe('2031-12-31')
+  })
+})
+
+// The charts' axis (2026-10-18): the day and month only, in the locale's
+// own order.
+describe('formatDayMonth', () => {
+  it('shows the day and month in the given locale', () => {
+    expect(formatDayMonth('2031-01-06', 'en-GB')).toBe('6 Jan')
+    expect(formatDayMonth('2031-01-06', 'en-US')).toBe('Jan 6')
+    expect(formatDayMonth('2031-01-06', 'fr-FR')).toBe('6 janv.')
+  })
+
+  // Read in UTC: the stored day, whatever the viewer's zone (the suite also
+  // runs under TZ=America/Montreal).
+  it('keeps the stored day', () => {
+    expect(formatDayMonth('2031-12-31', 'en-GB')).toBe('31 Dec')
   })
 })
 

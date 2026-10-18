@@ -16,6 +16,9 @@
     --color-sidebar-primary: var(--sidebar-primary);
     --color-sidebar-foreground: var(--sidebar-foreground);
     --color-sidebar: var(--sidebar);
+    --color-score-pain-before: var(--score-pain-before);
+    --color-score-pain-after: var(--score-pain-after);
+    --color-score-mobility: var(--score-mobility);
     --color-chart-5: var(--chart-5);
     --color-chart-4: var(--chart-4);
     --color-chart-3: var(--chart-3);
@@ -72,6 +75,12 @@
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
+    /* The progress charts' series (2026-10-18) — orange, blue, violet from
+       the dataviz reference palette; each pair validated (contrast against
+       the page; before / after apart under colour-blindness simulation). */
+    --score-pain-before: #eb6834;
+    --score-pain-after: #2a78d6;
+    --score-mobility: #6250d6;
     --radius: 0.625rem;
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
@@ -107,6 +116,10 @@
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
+    /* The same hues, stepped for the dark page (not an automatic flip). */
+    --score-pain-before: #d95926;
+    --score-pain-after: #3987e5;
+    --score-mobility: #9085e9;
     --sidebar: oklch(0.205 0 0);
     --sidebar-foreground: oklch(0.985 0 0);
     --sidebar-primary: oklch(0.488 0.243 264.376);

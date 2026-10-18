@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router'
 import { ApiError } from '@/api/client'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { localDateString } from '@/common/calendarDate'
+import { PainAndMobility } from '@/progress/PainAndMobility'
 import { useUser } from '@/users/useUser'
 import { ProgramExercisesSection } from './ProgramExercisesSection'
 import { ProgramActions } from './ProgramActions'
@@ -116,6 +117,12 @@ function ProgramView({ programId }: { programId: number }) {
         summaryLoading={summary.isLoading}
         summaryFailed={summary.isError}
       />
+      {/* The patient's scores over time (2026-10-18) — the same charts as
+          on the patient's own page. Not for a program deleted before any
+          session: it has none (the section above says so). */}
+      {!program.isArchived && (
+        <PainAndMobility program={program} today={today} viewer="practitioner" headingLevel={2} />
+      )}
       <ProgramExercisesSection program={program} isOpen={isOpen} today={today} />
     </div>
   )

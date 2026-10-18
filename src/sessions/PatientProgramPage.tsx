@@ -14,6 +14,7 @@ import { useAssignedProgramSummary } from '@/assigned-programs/useAssignedProgra
 import { programRowSummary } from '@/patients/patientPageRules'
 import { ExercisePhotoCarousel } from '@/programs/ExercisePhotoCarousel'
 import { groupExercisesByWorkout } from '@/workouts/workoutGroups'
+import { PainAndMobility } from '@/progress/PainAndMobility'
 import { MakeUpList } from './MakeUpList'
 import { makeUps } from './makeUpRules'
 import { equipmentText, makeUpTodayLabel, sessionLinkLabel } from './programPageText'
@@ -206,6 +207,9 @@ function Progress({
         Progress
       </h2>
       <ProgramTotals summary={summary} />
+      {/* The scores over time (2026-10-18), between the totals and the
+          weeks: how it went, then how it felt, then each day. */}
+      <PainAndMobility program={program} today={today} viewer="patient" headingLevel={3} />
       <ProgramWeeks
         summary={summary}
         startDate={program.startDate}

@@ -128,7 +128,9 @@ const APP_REASONS: ReadonlySet<SessionEndReason> = new Set([
   'program_closed',
 ])
 
-function isPatientReason(reason: SessionEndReason): boolean {
+// Exported for the progress charts (2026-10-18): a stopped session reached
+// the check-out only when the PATIENT stopped it (progress/scoreRules.ts).
+export function isPatientReason(reason: SessionEndReason): boolean {
   return !APP_REASONS.has(reason)
 }
 
