@@ -40,6 +40,15 @@ export interface PersonRef {
   lastName: string
 }
 
+// The practitioner of a care-team link: their DIRECTORY fields only (the
+// backend's CareTeamPractitioner). Specialties and bio were added for the
+// patient's Team page (2026-10-18); never an email, phone or license.
+export interface CareTeamPractitioner extends PersonRef {
+  avatarUrl: string | null
+  specialties: string[]
+  bio: string | null
+}
+
 // One care-team link, as POST /users/:id/care-team answers it (and, later,
 // GET /users/:id/care-team lists them — the patient page's care team
 // section). Mirrors the backend's CareTeamEntry; the dates arrive as ISO
@@ -47,7 +56,10 @@ export interface PersonRef {
 export interface CareTeamEntry {
   id: number
   patientId: number
-  practitioner: PersonRef & { avatarUrl: string | null }
+  practitioner: CareTeamPractitioner
+  // The clinics the practitioner and the patient both belong to now —
+  // where they see each other (none left: an ended link's history).
+  sharedClinics: ClinicRef[]
   startedAt: string
   endsAt: string | null
   // Computed by the backend with the SAME rule as clinical access (period

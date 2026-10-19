@@ -73,7 +73,8 @@ function link(
   return {
     id: practitioner.id * 100,
     patientId: 6,
-    practitioner: { ...practitioner, avatarUrl: null },
+    practitioner: { ...practitioner, avatarUrl: null, specialties: [], bio: null },
+    sharedClinics: [],
     startedAt: '2026-09-01T10:00:00.000Z',
     endsAt: null,
     isActive: true,

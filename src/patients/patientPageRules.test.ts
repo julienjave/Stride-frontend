@@ -43,7 +43,15 @@ function entry(
   return {
     id: practitionerId * 10,
     patientId: 6,
-    practitioner: { id: practitionerId, firstName: 'P', lastName: `${practitionerId}`, avatarUrl: null },
+    practitioner: {
+      id: practitionerId,
+      firstName: 'P',
+      lastName: `${practitionerId}`,
+      avatarUrl: null,
+      specialties: [],
+      bio: null,
+    },
+    sharedClinics: [],
     startedAt,
     endsAt,
     isActive,

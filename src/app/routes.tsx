@@ -434,12 +434,25 @@ export const router = createBrowserRouter([
                       (module) => module.PatientProgramPage,
                     ),
                   },
-                  // Two navigation sections (design decisions §2) whose
-                  // features don't exist yet — see ComingSoonPage.
+                  // My Team (2026-10-18): the patient's care team, and each
+                  // current member's profile — under `/patient/team/` so the
+                  // Team tab stays highlighted.
                   {
                     path: '/patient/team',
-                    element: <ComingSoonPage title="Team" />,
+                    lazy: page(
+                      () => import('@/team/MyTeamPage'),
+                      (module) => module.MyTeamPage,
+                    ),
                   },
+                  {
+                    path: '/patient/team/:practitionerId',
+                    lazy: page(
+                      () => import('@/team/PractitionerProfilePage'),
+                      (module) => module.PractitionerProfilePage,
+                    ),
+                  },
+                  // A navigation section (design decisions §2) whose feature
+                  // doesn't exist yet (Phase 5) — see ComingSoonPage.
                   {
                     path: '/patient/messages',
                     element: <ComingSoonPage title="Messages" />,

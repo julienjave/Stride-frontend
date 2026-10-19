@@ -95,7 +95,12 @@ export function programRowSummary(
 // longest); then, when the history is shown, past members, most recently
 // ended first. startedAt / endsAt are full ISO timestamps, which also sort
 // correctly as strings (same format, same time zone 'Z').
-export function sortCareTeam(entries: readonly CareTeamEntry[]): CareTeamEntry[] {
+// Generic over the entry type (any shape with these three fields), so the
+// patient's own Team page sorts its entries — which lack the staff-only
+// `reason` — with the same rule.
+export function sortCareTeam<T extends Pick<CareTeamEntry, 'isActive' | 'startedAt' | 'endsAt'>>(
+  entries: readonly T[],
+): T[] {
   return [...entries].sort((a, b) => {
     if (a.isActive !== b.isActive) return a.isActive ? -1 : 1
     if (a.isActive) return a.startedAt.localeCompare(b.startedAt)
