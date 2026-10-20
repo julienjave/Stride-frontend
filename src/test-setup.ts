@@ -67,6 +67,24 @@ vi.mock('@/common/address/addressData', () => ({
       : [],
 }))
 
+// The live messaging connection (Phase 5). AuthenticatedLayout opens one for
+// every practitioner and patient, so ANY test rendering the layout would
+// otherwise try a real WebSocket to localhost:3000 — slow, noisy, and
+// dependent on whether a server happens to be running. Replaced here by a
+// socket that never connects (the screens then say "Connecting…", which no
+// unrelated test looks at). Messaging tests hand the provider their own
+// FakeSocket (src/messages/testSocket.ts) through `createSocket`; the
+// adapter's own test asks for the real module with vi.importActual.
+vi.mock('@/messages/messagingSocket', () => ({
+  SEND_TIMEOUT_MS: 10_000,
+  createMessagingSocket: () => ({
+    onServerEvent: () => {},
+    onConnectionChange: () => {},
+    send: () => Promise.reject(new Error('Not connected')),
+    close: () => {},
+  }),
+}))
+
 afterEach(() => {
   cleanup()
   // The theme is GLOBAL browser state that outlives a component: a test

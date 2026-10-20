@@ -185,6 +185,12 @@ describe('PatientPage — the patient', () => {
     ])
   })
 
+  // Phase 5. Starting the conversation is MessageButton's own test.
+  it('offers to message the patient', async () => {
+    renderPatientPage()
+    expect(await screen.findByRole('button', { name: 'Message Pat Lee' })).toBeInTheDocument()
+  })
+
   it('shows the editable profile — email read-only, no photo upload', async () => {
     renderPatientPage()
     await screen.findByRole('heading', { level: 1, name: 'Pat Lee' })

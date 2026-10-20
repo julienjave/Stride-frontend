@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router'
 import { ChevronLeft } from 'lucide-react'
 import { UserAvatar } from '@/common/UserAvatar'
+import { MessageButton } from '@/messages/MessageButton'
 import { useAssignedPrograms } from '@/assigned-programs/useAssignedPrograms'
 import type { AssignedProgramListItem } from '@/assigned-programs/types'
 import { programRowSummary } from '@/patients/patientPageRules'
@@ -114,6 +115,11 @@ function Profile({ entry }: { entry: MyCareTeamEntry }) {
               ))}
             </ul>
           )}
+          {/* Only a CURRENT member reaches this page (NotOnTeam above), the
+              same rule the backend applies to starting a conversation. */}
+          <div className="flex justify-center sm:justify-start">
+            <MessageButton role="patient" person={practitioner} />
+          </div>
         </div>
       </div>
 

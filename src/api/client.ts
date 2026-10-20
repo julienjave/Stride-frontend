@@ -42,7 +42,11 @@ export class ApiError extends Error {
 // client-side JS just because someone imported it. Falling back to
 // localhost:3000 means `npm run dev` works immediately with no .env setup
 // required, matching the backend's own documented default port.
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
+//
+// Exported (Phase 5) for the messaging socket, which connects to the SAME
+// server: one setting, so the REST calls and the live connection can never
+// point at two different backends.
+export const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
 
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'

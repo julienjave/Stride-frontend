@@ -37,10 +37,9 @@ export interface NavSection {
 //   - Profile is NOT a section — it lives in the account menu, which is
 //     what keeps every role at five tabs or fewer (a phone tab bar's
 //     practical ceiling; sections.test.ts enforces it).
-//   - Sections whose pages don't exist yet (Messages; the patient's
-//     Sessions and Team) still appear, and lead to a "Coming soon" page.
-//     The nav's shape then stays stable as features ship, instead of tabs
-//     appearing one by one.
+//   - Every section has its real page since Phase 5 (Messages was the last
+//     "Coming soon"); the tabs were all there from the start, so the nav's
+//     shape never changed as features shipped.
 export const SECTIONS_BY_ROLE: Record<UserRole, NavSection[]> = {
   practitioner: [
     { label: 'Home', to: roleHomePath('practitioner'), icon: House, end: true },

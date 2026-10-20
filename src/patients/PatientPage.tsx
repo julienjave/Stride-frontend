@@ -5,6 +5,7 @@ import { useCurrentUser } from '@/auth/useCurrentUser'
 import { UserAvatar } from '@/common/UserAvatar'
 import { formatCalendarDate } from '@/common/formatCalendarDate'
 import { InvitationStatus } from '@/invitations/InvitationStatus'
+import { MessageButton } from '@/messages/MessageButton'
 import { ProfileFields } from '@/users/ProfileFields'
 import { useUser } from '@/users/useUser'
 import { CareTeamSection } from './CareTeamSection'
@@ -101,6 +102,11 @@ function PatientView({ patientId }: { patientId: number }) {
             )}
             {/* Every clinic, as on the roster: I'm on the care team. */}
             <ClinicBadges clinics={patient.clinics} />
+            {/* The page opens only for the care team (a 403 otherwise) —
+                exactly who may write to this patient. */}
+            <div className="pt-1">
+              <MessageButton role="practitioner" person={patient} />
+            </div>
           </div>
         </div>
       </div>

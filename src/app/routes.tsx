@@ -6,7 +6,6 @@ import { RequireAuth } from './RequireAuth'
 import { RequireGuest } from './RequireGuest'
 import { RequireRole } from './RequireRole'
 import { AuthenticatedLayout } from './AuthenticatedLayout'
-import { ComingSoonPage } from './ComingSoonPage'
 import { setUnauthorizedHandler } from '@/api/client'
 import { queryClient } from '@/api/queryClient'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
@@ -350,8 +349,6 @@ export const router = createBrowserRouter([
                       (module) => module.ProgramExercisePhotosPage,
                     ),
                   },
-                  // Listed in the navigation (sections.ts) before the feature
-                  // exists — see ComingSoonPage for why.
                   // One session as the care team reads it, with "Mark as
                   // reviewed" — where the home's "For review" list leads (2026-10-19).
                   {
@@ -361,9 +358,33 @@ export const router = createBrowserRouter([
                       (module) => module.SessionReviewPage,
                     ),
                   },
+                  // Messages (Phase 5): a LAYOUT route — the conversation list
+                  // stays mounted beside whichever child is open (desktop),
+                  // the index when none is, `:conversationId` for one. The
+                  // child path is RELATIVE (no leading slash): it continues
+                  // the parent's. The same three pages serve both roles.
                   {
                     path: '/practitioner/messages',
-                    element: <ComingSoonPage title="Messages" />,
+                    lazy: page(
+                      () => import('@/messages/MessagesLayout'),
+                      (module) => module.MessagesLayout,
+                    ),
+                    children: [
+                      {
+                        index: true,
+                        lazy: page(
+                          () => import('@/messages/MessagesIndexPage'),
+                          (module) => module.MessagesIndexPage,
+                        ),
+                      },
+                      {
+                        path: ':conversationId',
+                        lazy: page(
+                          () => import('@/messages/ConversationPage'),
+                          (module) => module.ConversationPage,
+                        ),
+                      },
+                    ],
                   },
                 ],
               },
@@ -460,11 +481,30 @@ export const router = createBrowserRouter([
                       (module) => module.PractitionerProfilePage,
                     ),
                   },
-                  // A navigation section (design decisions §2) whose feature
-                  // doesn't exist yet (Phase 5) — see ComingSoonPage.
+                  // Messages — the practitioner's three pages, under the
+                  // patient's prefix (see /practitioner/messages).
                   {
                     path: '/patient/messages',
-                    element: <ComingSoonPage title="Messages" />,
+                    lazy: page(
+                      () => import('@/messages/MessagesLayout'),
+                      (module) => module.MessagesLayout,
+                    ),
+                    children: [
+                      {
+                        index: true,
+                        lazy: page(
+                          () => import('@/messages/MessagesIndexPage'),
+                          (module) => module.MessagesIndexPage,
+                        ),
+                      },
+                      {
+                        path: ':conversationId',
+                        lazy: page(
+                          () => import('@/messages/ConversationPage'),
+                          (module) => module.ConversationPage,
+                        ),
+                      },
+                    ],
                   },
                 ],
               },

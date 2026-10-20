@@ -13,9 +13,14 @@ interface SectionNavProps {
   // be two places to forget when a section is added.
   variant: 'top' | 'bottom'
   className?: string
+  // A count to show on a section's tab, keyed by the section's `to` — today
+  // only Messages' unread count (Phase 5). Absent or 0 = no badge. Keyed by
+  // address rather than a "messages" flag so the nav stays ignorant of what
+  // the numbers mean: the layout decides, the nav only draws.
+  badges?: Record<string, number>
 }
 
-export function SectionNav({ role, variant, className }: SectionNavProps) {
+export function SectionNav({ role, variant, className, badges = {} }: SectionNavProps) {
   const sections = SECTIONS_BY_ROLE[role]
 
   return (
@@ -31,13 +36,19 @@ export function SectionNav({ role, variant, className }: SectionNavProps) {
           variant === 'top' ? 'gap-1' : 'justify-around',
         )}
       >
-        {sections.map(({ label, to, icon: Icon, end }) => (
+        {sections.map(({ label, to, icon: Icon, end }) => {
+          const badge = badges[to] ?? 0
+          return (
           // `flex-1` on phones: every tab gets an equal share of the width,
           // making each one as large a tap target as possible.
           <li key={to} className={cn(variant === 'bottom' && 'flex-1')}>
             <NavLink
               to={to}
               end={end}
+              // With a badge, the accessible name says what the number is
+              // ("Messages, 3 unread") — the badge itself is hidden from
+              // screen readers, where a bare "3" would mean nothing.
+              aria-label={badge > 0 ? `${label}, ${badge} unread` : undefined}
               // NavLink passes { isActive } to a className FUNCTION — that's
               // how the current section gets highlighted. It also sets
               // aria-current="page" on the active link automatically, so
@@ -56,12 +67,27 @@ export function SectionNav({ role, variant, className }: SectionNavProps) {
               }
             >
               {/* Decorative: the label right under it already names the
-                  link, so the icon would only be announced as noise. */}
-              <Icon className="size-5" aria-hidden="true" />
+                  link, so the icon would only be announced as noise.
+                  `relative` on the wrapper: the badge is positioned
+                  against the icon, on its top-right corner. */}
+              <span className="relative">
+                <Icon className="size-5" aria-hidden="true" />
+                {badge > 0 && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute -top-1.5 -right-2.5 min-w-4 rounded-full bg-primary px-1 text-center text-[10px] leading-4 font-semibold text-primary-foreground"
+                  >
+                    {/* Past 99 the exact number stops mattering on a tab,
+                        and would no longer fit. */}
+                    {badge > 99 ? '99+' : badge}
+                  </span>
+                )}
+              </span>
               {label}
             </NavLink>
           </li>
-        ))}
+          )
+        })}
       </ul>
     </nav>
   )

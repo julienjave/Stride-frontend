@@ -24,6 +24,8 @@ beforeEach(() => {
   fetchMock.mockImplementation((input) => {
     const url = new URL(urlOf(input))
     if (url.pathname.endsWith('/alerts')) return Promise.resolve(alerts())
+    // The card's Messages slot (Phase 5) asks for the conversations.
+    if (url.pathname.endsWith('/conversations')) return Promise.resolve(json([]))
     return Promise.reject(new Error(`unexpected request: ${url.href}`))
   })
 })
@@ -46,10 +48,10 @@ const list = () => screen.findByRole('list', { name: 'For review' })
 const rows = async () => within(await list()).getAllByRole('listitem')
 
 function alertRequests() {
-  return fetchMock.mock.calls.map(([input]) => {
-    const url = new URL(urlOf(input))
-    return url.pathname + url.search
-  })
+  return fetchMock.mock.calls
+    .map(([input]) => new URL(urlOf(input)))
+    .filter((url) => url.pathname.endsWith('/alerts'))
+    .map((url) => url.pathname + url.search)
 }
 
 describe('the For review list on the practitioner home', () => {

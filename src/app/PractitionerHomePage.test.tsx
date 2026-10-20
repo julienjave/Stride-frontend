@@ -71,13 +71,20 @@ describe('PractitionerHomePage', () => {
     expect(screen.getByText(/March/)).toBeInTheDocument()
   })
 
-  it('shows "Coming soon" for messaging only — the To-do is real since 2026-10-19', () => {
+  it('shows the unread messages as a link to Messages — nothing is "Coming soon" any more', async () => {
+    // findBy… retries on a timer: with the clock frozen it would wait for
+    // ever. This test needs no particular time.
+    vi.useRealTimers()
     renderWithUser({ firstName: 'Jamie', lastName: 'Rivera' })
-    expect(screen.getAllByText('Coming soon')).toHaveLength(1)
-    expect(screen.getByText('Messages')).toBeInTheDocument()
+    // Every request answers [] here: no conversations, so nothing unread.
+    expect(await screen.findByRole('link', { name: 'No unread messages' })).toHaveAttribute(
+      'href',
+      '/practitioner/messages',
+    )
+    expect(screen.queryByText('Coming soon')).not.toBeInTheDocument()
   })
 
-  it('links to the three sections with real pages, and not to messaging', () => {
+  it('links to the three sections, Messages being in the card above', () => {
     renderWithUser({ firstName: 'Jamie', lastName: 'Rivera' })
     // Scoped to this page's own shortcuts landmark, and compared in full
     // (name + href, in order), so a missing, extra or reordered link fails.

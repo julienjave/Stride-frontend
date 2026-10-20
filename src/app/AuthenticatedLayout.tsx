@@ -7,6 +7,9 @@ import { SectionNav } from './layout/SectionNav'
 import { SettingsMenu } from './layout/SettingsMenu'
 import { UserMenu } from './layout/UserMenu'
 import { NavigationProgress } from './layout/NavigationProgress'
+import { isMessagingRole, messagesPath, type MessagingRole } from '@/messages/messagesPath'
+import { MessagingConnectionProvider } from '@/messages/MessagingConnectionProvider'
+import { useUnreadMessageCount } from '@/messages/useConversations'
 
 // A LAYOUT route (element with no path, see routes.tsx) wrapping every
 // authenticated page: whichever page matched renders where <Outlet /> is,
@@ -32,6 +35,13 @@ import { NavigationProgress } from './layout/NavigationProgress'
 // the window in JavaScript and rendering only one — would need a resize
 // listener, and would briefly render the wrong one before the first
 // measurement. CSS gets it right from the very first paint, for free.
+//
+// Messaging (Phase 5) lives here too, because it must outlive any one page:
+//   - the LIVE CONNECTION (MessagingConnectionProvider) opens once a user is
+//     known and stays open across page changes — a message arriving while
+//     the practitioner is on the Library still updates the badge;
+//   - the Messages tab's unread BADGE.
+// Both for practitioners and patients only: admins have no messaging.
 export function AuthenticatedLayout() {
   const { data: user } = useCurrentUser()
 
@@ -42,7 +52,29 @@ export function AuthenticatedLayout() {
   }
 
   const role = user.activeRole as UserRole
+  if (!isMessagingRole(role)) return <Shell role={role} />
 
+  return (
+    // key: a NEW connection for a new identity. Switching role (or logging
+    // in as someone else without a reload) changes the key, so React
+    // unmounts the old provider — its cleanup closes the old socket — and
+    // mounts a fresh one; the backend has also cut the old session's
+    // sockets (disconnectSession). One socket never carries two identities.
+    <MessagingConnectionProvider key={`${user.id}:${role}`} userId={user.id}>
+      <MessagingShell role={role} />
+    </MessagingConnectionProvider>
+  )
+}
+
+// The unread count, read INSIDE the provider (its query is the one the
+// connection keeps current) and handed to the nav as a badge on Messages.
+function MessagingShell({ role }: { role: MessagingRole }) {
+  // undefined until the list has loaded: no badge rather than a "0" flash.
+  const { data: unread } = useUnreadMessageCount()
+  return <Shell role={role} badges={{ [messagesPath(role)]: unread ?? 0 }} />
+}
+
+function Shell({ role, badges }: { role: UserRole; badges?: Record<string, number> }) {
   return (
     <div className="min-h-svh">
       {/* `sticky top-0`: the bar scrolls WITH the page until it reaches the
@@ -57,6 +89,7 @@ export function AuthenticatedLayout() {
             role={role}
             variant="top"
             className="mx-auto hidden md:block"
+            badges={badges}
           />
           {/* `ml-auto` pushes the menus to the right edge. On desktop the
               section nav already takes the middle; on phones (where that
@@ -84,7 +117,7 @@ export function AuthenticatedLayout() {
           `viewport-fit=cover`; without that, env(safe-area-inset-bottom)
           is always 0. */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden">
-        <SectionNav role={role} variant="bottom" />
+        <SectionNav role={role} variant="bottom" badges={badges} />
       </div>
     </div>
   )

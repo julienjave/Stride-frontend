@@ -98,6 +98,12 @@ describe('PractitionerProfilePage', () => {
     expect(bio).toHaveClass('whitespace-pre-line')
   })
 
+  // Phase 5. Starting the conversation is MessageButton's own test.
+  it('offers to message them', async () => {
+    renderAt('/patient/team/3')
+    expect(await screen.findByRole('button', { name: 'Message Alex Chen' })).toBeInTheDocument()
+  })
+
   it("lists where they see the patient, with each clinic's contact details", async () => {
     renderAt('/patient/team/3')
     const clinicsSection = await section('Where they see you')

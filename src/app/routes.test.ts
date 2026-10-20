@@ -4,19 +4,22 @@ import type { RouteObject } from 'react-router'
 import { router } from './routes'
 import { LoginPage } from '@/auth/LoginPage'
 import { DashboardRedirect } from './DashboardRedirect'
-import { ComingSoonPage } from './ComingSoonPage'
 import { RouteErrorPage } from './RouteErrorPage'
 
 // The shell: the only PAGES allowed to be imported statically (routes.tsx
 // says why). Any other page added with `element:` instead of `lazy:` would
 // quietly go back into the file every visitor downloads first.
-const STATIC_PAGES: unknown[] = [LoginPage, DashboardRedirect, ComingSoonPage]
+const STATIC_PAGES: unknown[] = [LoginPage, DashboardRedirect]
 
 function allRoutes(routes: RouteObject[]): RouteObject[] {
   return routes.flatMap((route) => [route, ...allRoutes(route.children ?? [])])
 }
 
-const pageRoutes = allRoutes(router.routes).filter((route) => route.path !== undefined)
+// A page is a route with a path, or an INDEX route (the page shown at its
+// parent's own address — Messages with no conversation open).
+const pageRoutes = allRoutes(router.routes).filter(
+  (route) => route.path !== undefined || route.index === true,
+)
 
 describe('the route tree', () => {
   it('has a root route covering every page with a loading fallback and an error page', () => {

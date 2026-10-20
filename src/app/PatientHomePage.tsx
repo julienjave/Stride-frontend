@@ -12,9 +12,9 @@ import { HomeGreeting } from './home/HomeGreeting'
 // other homes: greeting + avatar, a summary card (here Today and Upcoming,
 // stacked — see TodayAndUpcomingCard), then the patient's programs.
 //
-// No shortcuts row yet: the patient's other sections (Sessions, Team,
-// Messages) are still "Coming soon", and HomeShortcuts lists only sections
-// with real pages — the persistent navigation already offers the rest.
+// No shortcuts row: the patient's tab bar has only three other sections
+// (Sessions, Team, Messages), always in view — a row repeating them would
+// add nothing.
 export function PatientHomePage() {
   const { data: user } = useCurrentUser()
   // Today is read ONCE, when the page opens (the program page's rule): a

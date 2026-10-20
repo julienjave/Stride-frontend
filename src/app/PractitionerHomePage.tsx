@@ -1,17 +1,17 @@
 import { useState } from 'react'
-import { Mail } from 'lucide-react'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { ForReviewSection } from '@/alerts/ForReviewSection'
 import { ForReviewSlot } from '@/alerts/ForReviewSlot'
 import { localDateString } from '@/common/calendarDate'
+import { MessagesSlot } from '@/messages/MessagesSlot'
 import { HomeGreeting } from './home/HomeGreeting'
-import { ComingSoonSlot, HomeSummaryCard, TodaySlot } from './home/HomeSummaryCard'
+import { HomeSummaryCard, TodaySlot } from './home/HomeSummaryCard'
 import { HomeShortcuts, type HomeShortcut } from './home/HomeShortcuts'
 
 // Links into the three sections that have real pages. "My Profile" used
 // to be here too; it moved to the account menu with the shared layout
-// (design decisions §1). Messages stays absent: it has no feature yet, and
-// the persistent navigation already offers its "Coming soon" page.
+// (design decisions §1). No Messages shortcut (Phase 5): the card's
+// Messages slot right above already links there, with the unread count.
 //
 // A module-level constant, not built inside the component: it never
 // changes, so there's no reason to create a new array on every render.
@@ -25,8 +25,8 @@ const SHORTCUTS: HomeShortcut[] = [
 // shared pieces in ./home/ (the same structure as the admin home, and
 // later the patient home — decisions §2–§3):
 //   1. Avatar + greeting
-//   2. A card: today's date/time, messaging notifications ("coming soon" —
-//      Phase 5) and how many things are for review (2026-10-19)
+//   2. A card: today's date/time, unread messages (Phase 5) and how many
+//      things are for review (2026-10-19)
 //   3. Links into the sections
 //   4. The "For review" list: patients who have stopped coming, sessions to
 //      look at (decisions §3). BELOW the links (the person's point, after
@@ -62,7 +62,7 @@ export function PractitionerHomePage() {
 
       <HomeSummaryCard>
         <TodaySlot />
-        <ComingSoonSlot label="Messages" icon={Mail} />
+        <MessagesSlot />
         <ForReviewSlot today={today} />
       </HomeSummaryCard>
 
