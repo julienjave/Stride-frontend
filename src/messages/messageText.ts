@@ -55,6 +55,43 @@ export function messageTimeText(sentAt: string, locale?: string): string {
   )
 }
 
+// The read receipt under my newest message (decided 2026-10-20: with the
+// time). Read the SAME day it was sent → the time alone: the day separator
+// above already says which day. Read later → the day too: the weekday within
+// a week of sending ("Seen Tue 14:05"), the date beyond ("Seen Jun 9,
+// 14:05"; the year only if it differs from the sending's). Compared with
+// the sending, not with "now": the receipt then says the same thing
+// whenever the thread is opened, and the function needs no clock.
+export function seenText(readAt: string, sentAt: string, locale?: string): string {
+  const read = new Date(readAt)
+  const sent = new Date(sentAt)
+  const readDay = localDateString(read)
+  const sentDay = localDateString(sent)
+  if (readDay === sentDay) return `Seen ${messageTimeText(readAt, locale)}`
+  const time = { hour: 'numeric', minute: '2-digit' } as const
+  if (readDay <= addDays(sentDay, 6)) {
+    return `Seen ${new Intl.DateTimeFormat(locale, { weekday: 'short', ...time }).format(read)}`
+  }
+  const sameYear = read.getFullYear() === sent.getFullYear()
+  return `Seen ${new Intl.DateTimeFormat(locale, {
+    month: 'short',
+    day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' }),
+    ...time,
+  }).format(read)}`
+}
+
+// The trash button's accessible name: an icon says nothing to a screen
+// reader, and several of my messages can carry one at once — the time says
+// WHICH.
+export function deleteMessageLabel(sentAt: string, locale?: string): string {
+  return `Delete your message sent at ${messageTimeText(sentAt, locale)}`
+}
+
+export const DELETE_TITLE = 'Delete this message?'
+export const DELETE_DESCRIPTION =
+  "It will be removed for both of you, and shown as “Message deleted”. This can't be undone."
+
 // A day separator in the thread. `day` is a local calendar date
 // (YYYY-MM-DD, from groupByDay); it's formatted at local NOON, so no time
 // zone can push it onto the neighbouring day.

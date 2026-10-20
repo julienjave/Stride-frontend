@@ -3,23 +3,8 @@ import { useCurrentUser } from '@/auth/useCurrentUser'
 import { conversationQueryKey, conversationsQueryKey } from './api'
 import { applyNewMessage } from './messageCache'
 import { useMessagingConnection } from './messagingConnection'
+import { dataOrThrow, MessageRefusedError } from './socketAnswer'
 import type { Message } from './types'
-
-// The server refused the message — its status and its own words (a blank
-// message, a read-only conversation…). Thrown by the mutation so the
-// composer can show `message` as it is.
-// (The field is declared, then set: the project's `erasableSyntaxOnly`
-// forbids the `constructor(readonly status: number)` shorthand — TypeScript
-// syntax that would have to generate JavaScript, rather than just be erased.)
-export class MessageRefusedError extends Error {
-  readonly status: number
-
-  constructor(status: number, message: string) {
-    super(message)
-    this.name = 'MessageRefusedError'
-    this.status = status
-  }
-}
 
 // Sending goes through the SOCKET, not the REST fallback (the roadmap), and
 // WAITS for the server's acknowledgement before the message appears
@@ -38,9 +23,7 @@ export function useSendMessage(conversationId: number) {
 
   return useMutation({
     mutationFn: async (messageBody: string) => {
-      const answer = await connection.send<Message>('sendMessage', { conversationId, messageBody })
-      if (!answer.ok) throw new MessageRefusedError(answer.status, answer.message.join(' '))
-      return answer.data
+      return dataOrThrow(await connection.send<Message>('sendMessage', { conversationId, messageBody }))
     },
     onSuccess: (message) => {
       if (me) applyNewMessage(queryClient, message, me.id)

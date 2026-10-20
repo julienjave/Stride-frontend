@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest'
 import {
   charactersLeftText,
   dayLabel,
+  deleteMessageLabel,
   DELETED_TEXT,
   listTimeText,
   messageProblemText,
   NO_MESSAGES_TEXT,
   previewText,
+  seenText,
   unreadCountText,
 } from './messageText'
 import { ALEX_ID, message, summary } from './testData'
@@ -68,6 +70,40 @@ describe('dayLabel', () => {
   it('writes other days in full, with the year only when needed', () => {
     expect(dayLabel('2031-06-02', NOW, LOCALE)).toBe('Monday 2 June')
     expect(dayLabel('2030-06-02', NOW, LOCALE)).toBe('Sunday, 2 June 2030')
+  })
+})
+
+describe('seenText', () => {
+  // Sent on Monday 2 June 2031 at 09:02 local.
+  const SENT = at(2031, 5, 2, 9, 2)
+
+  it('gives the time alone when it was read the day it was sent', () => {
+    expect(seenText(at(2031, 5, 2, 14, 5), SENT, LOCALE)).toBe('Seen 14:05')
+    // The last minute of that day is still that day.
+    expect(seenText(at(2031, 5, 2, 23, 59), SENT, LOCALE)).toBe('Seen 23:59')
+  })
+
+  it('adds the weekday when it was read on a later day of that week', () => {
+    expect(seenText(at(2031, 5, 3, 0, 1), SENT, LOCALE)).toBe('Seen Tue 00:01')
+    // Six days after: still the weekday (it can't be mistaken for the
+    // sending's own weekday, which would be seven days on).
+    expect(seenText(at(2031, 5, 8, 8, 30), SENT, LOCALE)).toBe('Seen Sun 08:30')
+  })
+
+  it('gives the date from a week on, the year only when it changed', () => {
+    expect(seenText(at(2031, 5, 9, 14, 5), SENT, LOCALE)).toBe('Seen 9 Jun, 14:05')
+    expect(seenText(at(2032, 0, 3, 14, 5), at(2031, 11, 20, 9, 0), LOCALE)).toBe('Seen 3 Jan 2032, 14:05')
+  })
+
+  it('follows the locale', () => {
+    expect(seenText(at(2031, 5, 2, 14, 5), SENT, 'en-US')).toBe('Seen 2:05 PM')
+    expect(seenText(at(2031, 5, 9, 14, 5), SENT, 'en-US')).toBe('Seen Jun 9, 2:05 PM')
+  })
+})
+
+describe('deleteMessageLabel', () => {
+  it('says which message, by its time', () => {
+    expect(deleteMessageLabel(at(2031, 5, 2, 9, 2), LOCALE)).toBe('Delete your message sent at 9:02')
   })
 })
 

@@ -6,8 +6,17 @@ import { UserAvatar } from '@/common/UserAvatar'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { ArchiveConversationButton } from './ArchiveConversationButton'
+import { DeleteMessageButton } from './DeleteMessageButton'
 import { messagesPath, type MessagingRole } from './messagesPath'
-import { groupByDay, messageProblem, newestUnreadFrom, threadMessages } from './messageRules'
+import {
+  deletableUntil,
+  groupByDay,
+  messageProblem,
+  newestUnreadFrom,
+  seenMessage,
+  threadMessages,
+} from './messageRules'
 import {
   charactersLeftText,
   dayLabel,
@@ -17,13 +26,15 @@ import {
   NO_MESSAGES_TEXT,
   personName,
   READ_ONLY_TEXT,
+  seenText,
 } from './messageText'
 import { useMessagingConnection } from './messagingConnection'
 import type { ConversationSummary, Message } from './types'
 import { useConversation } from './useConversation'
 import { useConversationMessages } from './useConversationMessages'
 import { useMarkConversationRead } from './useMarkConversationRead'
-import { MessageRefusedError, useSendMessage } from './useSendMessage'
+import { MessageRefusedError } from './socketAnswer'
+import { useSendMessage } from './useSendMessage'
 import { useMessagingViewer } from './useMessagingViewer'
 import { useStickToBottom } from './useStickToBottom'
 
@@ -89,7 +100,8 @@ function Conversation({
 function Header({ summary, role }: { summary: ConversationSummary; role: MessagingRole }) {
   const other = summary.otherParticipant
   return (
-    <div className="flex items-center gap-3 border-b px-4 py-3">
+    // flex-wrap: an archive error takes a line of its own under the row.
+    <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
       {/* Phones only: the list isn't beside the thread, so the way back is
           here. A link to the list's address, as everywhere in Stride (a
           "go back" in the history could leave the app). */}
@@ -106,7 +118,10 @@ function Header({ summary, role }: { summary: ConversationSummary; role: Messagi
         avatarUrl={other.avatarUrl}
         className="size-9 text-xs"
       />
-      <h2 className="min-w-0 truncate text-lg font-semibold">{personName(other)}</h2>
+      {/* flex-1 + min-w-0: the name takes the room left and is cut with
+          "…" rather than pushing the button onto a new line. */}
+      <h2 className="min-w-0 flex-1 truncate text-lg font-semibold">{personName(other)}</h2>
+      <ArchiveConversationButton summary={summary} role={role} />
     </div>
   )
 }
@@ -127,6 +142,8 @@ function Thread({ summary, myId }: { summary: ConversationSummary; myId: number 
   useMarkConversationRead(summary.id, myId, newestUnreadFrom(messages, myId))
 
   const name = personName(summary.otherParticipant)
+  // The one message that carries "Seen", if any (messageRules.ts).
+  const seen = seenMessage(messages, myId)
 
   return (
     // The scrolling box. `min-h-0` lets this flex child shrink below its
@@ -165,7 +182,13 @@ function Thread({ summary, myId }: { summary: ConversationSummary; myId: number 
             </p>
             <ul className="space-y-2">
               {group.messages.map((message) => (
-                <Bubble key={message.id} message={message} mine={message.senderId === myId} otherName={name} />
+                <Bubble
+                  key={message.id}
+                  message={message}
+                  myId={myId}
+                  otherName={name}
+                  seen={message.id === seen?.id}
+                />
               ))}
             </ul>
           </section>
@@ -175,10 +198,33 @@ function Thread({ summary, myId }: { summary: ConversationSummary; myId: number 
   )
 }
 
-function Bubble({ message, mine, otherName }: { message: Message; mine: boolean; otherName: string }) {
+function Bubble({
+  message,
+  myId,
+  otherName,
+  seen,
+}: {
+  message: Message
+  myId: number
+  otherName: string
+  // This message carries the read receipt.
+  seen: boolean
+}) {
+  const mine = message.senderId === myId
   const deleted = message.deletedAt !== null
+  // Where focus lands after deleting this message (DeleteMessageButton).
+  const item = useRef<HTMLLIElement>(null)
   return (
-    <li className={cn('flex flex-col', mine ? 'items-end' : 'items-start')}>
+    // tabIndex -1: focusable from code (after a deletion), but not a Tab
+    // stop — a thread of 50 messages isn't 50 stops on the way to the box.
+    <li
+      ref={item}
+      tabIndex={-1}
+      className={cn(
+        'flex flex-col rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2',
+        mine ? 'items-end' : 'items-start',
+      )}
+    >
       <div
         className={cn(
           // max-w: a bubble never spans the whole pane (long lines are
@@ -195,9 +241,32 @@ function Bubble({ message, mine, otherName }: { message: Message; mine: boolean;
         <span className="sr-only">{mine ? 'You' : otherName}: </span>
         {deleted ? DELETED_TEXT : message.messageBody}
       </div>
-      <time dateTime={message.sentAt} className="mt-0.5 px-1 text-xs text-muted-foreground">
-        {messageTimeText(message.sentAt)}
-      </time>
+      {/* The line under the bubble: its time, then — mine only — EITHER
+          the receipt OR the trash button, never both: a message can be
+          deleted only while unread, and "Seen" means it was read. */}
+      <div className="mt-0.5 flex items-center gap-1 px-1 text-xs text-muted-foreground">
+        <time dateTime={message.sentAt}>{messageTimeText(message.sentAt)}</time>
+        {seen && message.readAt && (
+          <>
+            {/* The dot is decoration: a screen reader reads "14:02 Seen
+                14:05", not "14:02 dot Seen 14:05". */}
+            <span aria-hidden="true">·</span>
+            <span>{seenText(message.readAt, message.sentAt)}</span>
+          </>
+        )}
+        {/* `mine &&` changes no behaviour — deletableUntil already gives
+            null for their messages (a mutation removing it survives,
+            equivalent) — but the other person's bubbles then mount no
+            mutation hook and no state for a button they can never have. */}
+        {mine && (
+          <DeleteMessageButton
+            conversationId={message.conversationId}
+            message={message}
+            deadline={deletableUntil(message, myId)}
+            focusAfterDelete={item}
+          />
+        )}
+      </div>
     </li>
   )
 }

@@ -53,6 +53,18 @@ export function startConversation(userId: number) {
   })
 }
 
+// Archive / unarchive — MY list only (the other person's is untouched).
+// REST, not the socket: the backend has no socket event for them (the
+// server pushes `conversationArchived` to my OTHER tabs; this tab applies
+// the answer itself). Both answer the conversation's summary.
+export function archiveConversation(id: number) {
+  return apiRequest<ConversationSummary>(`/conversations/${id}/archive`, { method: 'PATCH' })
+}
+
+export function unarchiveConversation(id: number) {
+  return apiRequest<ConversationSummary>(`/conversations/${id}/unarchive`, { method: 'PATCH' })
+}
+
 export function markConversationRead(id: number) {
   return apiRequest<ReadReceipt>(`/conversations/${id}/read`, { method: 'PATCH' })
 }

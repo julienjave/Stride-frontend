@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   compareByActivity,
+  deletableUntil,
+  DELETE_WINDOW_MS,
   groupByDay,
   MESSAGE_MAX_LENGTH,
   messageProblem,
   newestUnreadFrom,
   olderPageParam,
+  seenMessage,
   splitArchived,
   threadMessages,
   unreadTotal,
@@ -70,6 +73,49 @@ describe('newestUnreadFrom', () => {
 
   it('takes the highest id even out of order', () => {
     expect(newestUnreadFrom([message(4), message(2)], ALEX_ID)).toBe(4)
+  })
+})
+
+describe('seenMessage', () => {
+  const READ = '2031-06-02T10:00:00.000Z'
+  const mine = (id: number, fields = {}) => message(id, { senderId: ALEX_ID, ...fields })
+
+  it('is my newest message once it is read', () => {
+    expect(seenMessage([message(1, { readAt: READ }), mine(2, { readAt: READ })], ALEX_ID)?.id).toBe(2)
+  })
+
+  it('is nothing while my newest is unread — even if an earlier one of mine was read', () => {
+    expect(seenMessage([mine(1, { readAt: READ }), mine(2)], ALEX_ID)).toBeNull()
+  })
+
+  it('is nothing once they have replied (the reply says they read it)', () => {
+    expect(seenMessage([mine(1, { readAt: READ }), message(2)], ALEX_ID)).toBeNull()
+  })
+
+  it('skips deleted messages — mine or theirs — to find the newest one standing', () => {
+    expect(seenMessage([mine(1, { readAt: READ }), mine(2, { messageBody: null, deletedAt: READ })], ALEX_ID)?.id).toBe(1)
+    expect(
+      seenMessage([mine(1, { readAt: READ }), message(2, { messageBody: null, deletedAt: READ })], ALEX_ID)?.id,
+    ).toBe(1)
+  })
+
+  it('is nothing in an empty thread', () => {
+    expect(seenMessage([], ALEX_ID)).toBeNull()
+  })
+})
+
+describe('deletableUntil', () => {
+  const mine = (fields = {}) => message(1, { senderId: ALEX_ID, ...fields })
+
+  it('is exactly 15 minutes after my unread message was sent', () => {
+    expect(DELETE_WINDOW_MS).toBe(900_000)
+    expect(deletableUntil(mine(), ALEX_ID)).toBe(Date.parse(mine().sentAt) + 15 * 60 * 1000)
+  })
+
+  it("is null for their message, a read one, or a deleted one", () => {
+    expect(deletableUntil(message(1), ALEX_ID)).toBeNull()
+    expect(deletableUntil(mine({ readAt: '2031-06-02T09:05:00.000Z' }), ALEX_ID)).toBeNull()
+    expect(deletableUntil(mine({ messageBody: null, deletedAt: '2031-06-02T09:05:00.000Z' }), ALEX_ID)).toBeNull()
   })
 })
 

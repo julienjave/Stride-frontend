@@ -63,6 +63,46 @@ export function newestUnreadFrom(messages: readonly Message[], myId: number): nu
   return newest
 }
 
+// --- Read receipts --------------------------------------------------------------
+//
+// "Seen" goes under ONE message: mine, read, and the newest message still
+// standing in the thread (deleted ones skipped — a deletion leaves no text
+// to have seen, so it shouldn't hide the receipt of the message before it).
+//
+// One label is enough: the server marks EVERY unread message read at once
+// (PATCH …/read), so if my newest message is read, all of mine before it are
+// too. And once the other person has replied, the reply itself says they
+// read it — the label would only repeat it. (Decided 2026-10-20.)
+export function seenMessage(messages: readonly Message[], myId: number): Message | null {
+  const newest = messages.findLast((message) => message.deletedAt === null)
+  if (!newest || newest.senderId !== myId || newest.readAt === null) return null
+  return newest
+}
+
+// --- Deleting -------------------------------------------------------------------
+
+// How long a message of mine can still be deleted — the backend's
+// DELETE_WINDOW_MS (message-rules.ts; 0048's trigger holds the same 15
+// minutes). Repeated here so the screen offers Delete only while it would
+// succeed; the server still decides.
+export const DELETE_WINDOW_MS = 15 * 60 * 1000
+
+// The last moment (epoch ms) at which I can delete this message, or null if
+// I can't at all: it isn't mine, the other person has read it, or it is
+// deleted already. The server's own rule, "at most 15 minutes" — at exactly
+// 15 minutes it can still go (the trigger's `now() - sent_at > 15 minutes`
+// refuses only past it), so the moment itself is included.
+//
+// Time is the one part the screen can only estimate: `sentAt` is the
+// SERVER's clock, the countdown runs on THIS device's clock. A device a
+// minute fast hides Delete a minute early; one a minute slow offers it a
+// minute too long — and the server then refuses with its own words (409),
+// which the dialog shows. The server stays the judge.
+export function deletableUntil(message: Message, myId: number): number | null {
+  if (message.senderId !== myId || message.readAt !== null || message.deletedAt !== null) return null
+  return Date.parse(message.sentAt) + DELETE_WINDOW_MS
+}
+
 // --- The list -------------------------------------------------------------------
 
 export function splitArchived(conversations: readonly ConversationSummary[]): {
