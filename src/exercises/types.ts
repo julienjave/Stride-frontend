@@ -1,8 +1,9 @@
-// Hand-written, not generated — same gap CurrentUser (auth/types.ts) and
-// RegisterClinicResult already work around: these endpoints have no
-// @ApiResponse decorator backend-side, so openapi-typescript generates
-// their 200 responses as content?: never, an unusable empty type. This
-// models what they actually return instead.
+// Hand-written, like every response type in the app: these endpoints have
+// no @ApiResponse decorator backend-side, so the OpenAPI generator the
+// project once had (openapi-typescript, removed 2026-10-20 — nothing used
+// its output) produced their 200 responses as content?: never, an unusable
+// empty type. This models what they actually return, checked against live
+// responses.
 
 export interface ExerciseAuthor {
   firstName: string

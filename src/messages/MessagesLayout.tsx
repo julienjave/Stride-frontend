@@ -47,6 +47,15 @@ export function MessagesLayout() {
           default — a long unbroken word in a message would push the pane
           wider than the screen. */}
       <section className={cn('min-w-0 flex-1 flex-col md:flex', open ? 'flex' : 'hidden')}>
+        {/* The page's heading on a PHONE with a conversation open: the
+            list — and its visible <h1> "Messages" — is hidden there, and a
+            screen-reader user moving by headings would find no level 1.
+            sr-only: read, not seen (the person's name below is the visible
+            title); md:hidden: gone from md up, where the list's own <h1> is
+            on screen. One heading here covers every state of the pane
+            (loading, the conversation, "Conversation not found"), and no
+            heading has to change level with the screen's width. */}
+        {open && <h1 className="sr-only md:hidden">Messages</h1>}
         <Outlet />
       </section>
     </div>

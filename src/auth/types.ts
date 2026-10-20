@@ -3,12 +3,11 @@ import type { WeightUnit } from '@/common/weight'
 
 // The real shape GET /auth/me, POST /auth/login (post-MFA), and
 // POST /auth/switch-role all return — confirmed against the backend's own
-// documented worked example, not guessed. Notably NOT the same as what
-// openapi-typescript generated for AuthController_me (a bare
-// Record<string, never>) — that endpoint's Swagger decoration doesn't
-// document a response DTO, so the generated type was empty/unusable. We
-// hand-write this instead, matching the backend's own docs, rather than
-// relying on that generated (currently empty) type for this one endpoint.
+// documented worked example, not guessed. Hand-written because the OpenAPI
+// generator the project once had (openapi-typescript, removed 2026-10-20)
+// produced a bare Record<string, never> for AuthController_me — that
+// endpoint's Swagger decoration documents no response DTO, so the generated
+// type was empty and unusable.
 export interface CurrentUser extends Address {
   id: number
   email: string
@@ -64,9 +63,9 @@ export interface CurrentUser extends Address {
 // The real shape POST /auth/register-clinic returns — same generated-type
 // gap CurrentUser above already closed for /auth/me, for the identical
 // reason: Nest's Swagger module can't introspect a plain-object-literal
-// controller return without an explicit @ApiResponse decorator, so
-// openapi-typescript generates AuthController_registerClinic's response as
-// an empty, unusable Record<string, never>.
+// controller return without an explicit @ApiResponse decorator, so the
+// generator (since removed) produced AuthController_registerClinic's
+// response as an empty, unusable Record<string, never>.
 //
 // CurrentUser & { clinicId: number } is confirmed correct two ways, not
 // just assumed: (1) reading auth.service.ts's registerClinic() — it builds

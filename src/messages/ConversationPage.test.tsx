@@ -55,6 +55,24 @@ describe('a conversation', () => {
     expect(item).toHaveTextContent('Pat Lee: Message deleted')
   })
 
+  it('gives a phone a page heading: "Messages", for screen readers, hidden from md up', async () => {
+    renderMessages('/practitioner/messages/12')
+    await screen.findByRole('heading', { level: 2, name: 'Pat Lee' })
+    // jsdom applies no CSS, so both level-1 headings are found here: the
+    // list's (hidden on a phone with a conversation open) and the pane's.
+    // What decides which one a device shows is the classes, checked here and
+    // live in Chromium.
+    const headings = screen.getAllByRole('heading', { level: 1, name: 'Messages' })
+    const paneHeading = headings.find((h) => h.closest('aside') === null)
+    expect(paneHeading).toHaveClass('sr-only', 'md:hidden')
+  })
+
+  it('has no extra heading when no conversation is open (the list shows its own)', async () => {
+    renderMessages('/practitioner/messages')
+    await screen.findByRole('heading', { level: 1, name: 'Messages' })
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+  })
+
   it('says nothing was written yet in an empty conversation', async () => {
     conversation = summary()
     pages[''] = page([])

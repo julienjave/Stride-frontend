@@ -11,8 +11,8 @@ import {
 
 // --- LOGIN -----------------------------------------------------------------
 
-// Matches the backend's UserRole enum exactly (see CreateUserDto's role
-// field in types.generated.ts) — reused both for validating the login
+// Matches the backend's UserRole enum exactly (src/users/dto/
+// create-user.dto.ts) — reused both for validating the login
 // form's optional role field AND for rendering the role-picker's buttons,
 // so there's one definition of "what a valid role even is," not two.
 export const userRoleSchema = z.enum(['admin', 'practitioner', 'patient'])

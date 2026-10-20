@@ -33,8 +33,8 @@ export interface Clinic extends Address {
   isActive: boolean
 }
 
-// The real shape PATCH /clinics/:id accepts — UpdateClinicDto generates as
-// Record<string, never> in types.generated.ts, the same
+// The real shape PATCH /clinics/:id accepts — UpdateClinicDto came out as
+// Record<string, never> from the OpenAPI generator (since removed), the same
 // PartialType(CreateClinicDto)-loses-Swagger-metadata gap RegisterClinicResult
 // already worked around elsewhere. Confirmed by reading create-clinic.dto.ts
 // and update-clinic.dto.ts directly: UpdateClinicDto really is just

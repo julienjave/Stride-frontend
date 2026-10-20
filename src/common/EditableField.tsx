@@ -301,8 +301,9 @@ function FieldRow({ label, value, formatValue, note, action, emptyText }: FieldR
         <p className="text-sm text-muted-foreground">{label}</p>
         {value !== null && value !== '' ? (
           // whitespace-pre-line: a multi-line bio keeps its line breaks.
-          // break-words: a long unbroken string can't overflow the card.
-          <p className="whitespace-pre-line break-words">
+          // wrap-break-word (Tailwind v4's name for overflow-wrap:
+          // break-word): a long unbroken string can't overflow the card.
+          <p className="whitespace-pre-line wrap-break-word">
             {formatValue ? formatValue(value) : value}
           </p>
         ) : (
