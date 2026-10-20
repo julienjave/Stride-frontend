@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router'
 import { ApiError } from '@/api/client'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { localDateString } from '@/common/calendarDate'
+import { ProgramAlertBanner } from '@/alerts/ProgramAlertBanner'
 import { PainAndMobility } from '@/progress/PainAndMobility'
 import { useUser } from '@/users/useUser'
 import { ProgramExercisesSection } from './ProgramExercisesSection'
@@ -104,6 +105,10 @@ function ProgramView({ programId }: { programId: number }) {
         patientPrograms={patientPrograms}
         myId={currentUser.id}
       />
+      {/* "For review" (2026-10-19): this program's attendance alert, if
+          the practitioner's list has one, with "Mark as reviewed". Only an
+          open program can have one (a closed program isn't running). */}
+      {isOpen && <ProgramAlertBanner programId={program.id} today={today} />}
       {isOpen && <ProgramActions programId={program.id} today={today} />}
       {/* Only an open program's title and dates can change; the header
           already shows a closed one's. */}

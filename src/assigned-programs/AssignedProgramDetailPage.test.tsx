@@ -186,6 +186,8 @@ let programs: Record<number, () => Response>
 // for it.)
 let summaries: Record<number, () => Response | Promise<Response>>
 let patientList: () => Response
+// The practitioner's "For review" list (GET /alerts — the banner reads it).
+let alertsAnswer: () => Response
 // GET …/closing (what closing WOULD do), and the writes: POST …/cancel or
 // …/complete, PATCH the program. Each test can replace them.
 // (A promise that never settles stands for an answer still on its way.)
@@ -196,6 +198,7 @@ let patchAnswer: (body: { allowSwaps?: boolean; lateMakeUpDays?: number | null }
 beforeEach(() => {
   fetchMock.mockReset()
   programs = { 12: () => json(PROGRAM) }
+  alertsAnswer = () => json([])
   summaries = { 12: () => json(SUMMARY) }
   patientList = () => json([listRow(PROGRAM)])
   closingPreview = () =>
@@ -231,6 +234,8 @@ beforeEach(() => {
     if (one) return Promise.resolve(programs[Number(one[1])]())
     if (url.endsWith('/assigned-programs?patientId=6')) return Promise.resolve(patientList())
     if (url.endsWith('/users/6')) return Promise.resolve(json(PATIENT))
+    // The "For review" banner's list (its own tests cover it): empty here.
+    if (url.includes('/alerts?today=')) return Promise.resolve(alertsAnswer())
     // The progress charts' list (PainAndMobility — its own tests cover it).
     if (url.endsWith('/assigned-programs/12/sessions')) return Promise.resolve(json([]))
     return Promise.reject(new Error(`unexpected request: ${url}`))
@@ -411,6 +416,39 @@ describe('AssignedProgramDetailPage — the header', () => {
 
 // The patient's scores over time (2026-10-18): a section of its own after
 // "Schedule & progress", in the care team's words.
+// The "For review" banner (2026-10-19) — its own tests cover what it says
+// and does (alerts/ProgramAlertBanner.test.tsx); here: the page shows it
+// for an open program, under the header, and a closed program doesn't
+// even ask for the list.
+describe('AssignedProgramDetailPage — for review', () => {
+  const ALERT = {
+    kind: 'attendance',
+    patient: { id: 6, firstName: 'Pat', lastName: 'Lee', avatarUrl: null },
+    program: { id: 12, title: PROGRAM.title },
+    missedInARow: { days: 3, weeks: 0, since: '2031-06-04' },
+    inactive: null,
+  }
+
+  it("shows this program's alert under the header, with Mark as reviewed", async () => {
+    alertsAnswer = () => json([ALERT])
+    renderPage()
+    const banner = await screen.findByRole('region', { name: 'For review' })
+    expect(within(banner).getByText(/^3 scheduled sessions missed in a row, since /)).toBeInTheDocument()
+    expect(within(banner).getByRole('button', { name: 'Mark as reviewed' })).toBeInTheDocument()
+    const heading = screen.getByRole('heading', { level: 1 })
+    expect(heading.compareDocumentPosition(banner) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('never asks for the list on a closed program', async () => {
+    alertsAnswer = () => json([ALERT])
+    programs[12] = () => json({ ...PROGRAM, status: 'cancelled', endDate: '2031-06-11' })
+    renderPage()
+    expect(await screen.findByRole('region', { name: 'Pain and mobility' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'For review' })).not.toBeInTheDocument()
+    expect(requested((url) => url.includes('/alerts'))).toEqual([])
+  })
+})
+
 describe('AssignedProgramDetailPage — pain and mobility', () => {
   it('shows the section after the schedule and progress, for the care team', async () => {
     renderPage()

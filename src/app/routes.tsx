@@ -352,6 +352,15 @@ export const router = createBrowserRouter([
                   },
                   // Listed in the navigation (sections.ts) before the feature
                   // exists — see ComingSoonPage for why.
+                  // One session as the care team reads it, with "Mark as
+                  // reviewed" — where the home's "For review" list leads (2026-10-19).
+                  {
+                    path: '/practitioner/sessions/:sessionId',
+                    lazy: page(
+                      () => import('@/alerts/SessionReviewPage'),
+                      (module) => module.SessionReviewPage,
+                    ),
+                  },
                   {
                     path: '/practitioner/messages',
                     element: <ComingSoonPage title="Messages" />,

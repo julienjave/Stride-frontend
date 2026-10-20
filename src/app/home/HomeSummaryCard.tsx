@@ -5,7 +5,7 @@ import { useCurrentDateTime } from '@/app/useCurrentDateTime'
 
 // The summary card under every home page's greeting, and the "slots" that
 // go in it. Each role fills the card with its own slots (decisions §2–§3):
-//   practitioner: Today · Messages · To-do
+//   practitioner: Today · Messages · For review
 //   admin:        Today · Metrics · Activity
 //   patient:      Today · Upcoming · … (Phase 4)
 // The card only lays them out; what goes in it is the page's decision.

@@ -1,9 +1,21 @@
 import { afterEach, vi } from 'vitest'
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 // This import has a side effect: it extends Vitest's `expect` with
 // jest-dom's matchers (toBeInTheDocument, toHaveTextContent, etc.) — an
 // extension, not something Vitest ships with by default.
 import '@testing-library/jest-dom/vitest'
+
+// How long every `findBy…` / `waitFor` keeps retrying before failing:
+// 3 seconds instead of Testing Library's 1 (2026-10-19). A page often
+// renders after a CHAIN of requests — SessionPage asks for the session,
+// then for its program — and in a full run on a busy machine (178 files in
+// parallel, 43% of the time spent creating jsdom environments) that chain
+// once took longer than 1 s: "Knee Rehab" never appeared in time, though
+// the code was right (the same test passed 6 times in a row under full CPU
+// load alone). Raising the wait only lets a slow-but-correct render pass;
+// a wrong one still fails — 2 s later. Vitest's own limit per test stays
+// 10 s (vite.config.ts), so a test can still wait this long several times.
+configure({ asyncUtilTimeout: 3_000 })
 
 // Without this, every render() in a test file mounts INTO THE SAME jsdom
 // document, and never gets removed — so test 2 in a file sees test 1's

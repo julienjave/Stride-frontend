@@ -5,6 +5,12 @@ import { MemoryRouter } from 'react-router'
 import { PractitionerHomePage } from './PractitionerHomePage'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 
+// The home asks for the To-do (GET /alerts, 2026-10-19); these tests are
+// about the rest of the page, so the list is empty. The To-do itself is
+// tested in src/alerts/TodoSection.test.tsx.
+const fetchMock = vi.fn<typeof fetch>()
+vi.stubGlobal('fetch', fetchMock)
+
 function renderWithUser(user: {
   firstName: string
   lastName: string
@@ -27,6 +33,8 @@ function renderWithUser(user: {
 
 describe('PractitionerHomePage', () => {
   beforeEach(() => {
+    fetchMock.mockReset()
+    fetchMock.mockImplementation(() => Promise.resolve(new Response('[]')))
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-03-10T14:05:00'))
   })
@@ -63,11 +71,10 @@ describe('PractitionerHomePage', () => {
     expect(screen.getByText(/March/)).toBeInTheDocument()
   })
 
-  it('shows "Coming soon" for both messaging and to-do, not real data', () => {
+  it('shows "Coming soon" for messaging only — the To-do is real since 2026-10-19', () => {
     renderWithUser({ firstName: 'Jamie', lastName: 'Rivera' })
-    // Both slots use the same "Coming soon" text — there should be
-    // exactly two, one per not-yet-built feature.
-    expect(screen.getAllByText('Coming soon')).toHaveLength(2)
+    expect(screen.getAllByText('Coming soon')).toHaveLength(1)
+    expect(screen.getByText('Messages')).toBeInTheDocument()
   })
 
   it('links to the three sections with real pages, and not to messaging', () => {

@@ -1,0 +1,59 @@
+import type { AttendanceAlert, SessionAlert, StaffSession } from './types'
+import { session } from '@/sessions/testData'
+
+// Shared fixtures for the To-do's tests (2026-10-19). Dates in 2031, far
+// from today, so no test depends on when it runs.
+
+export const PAT_ALERT = { id: 6, firstName: 'Pat', lastName: 'Lee', avatarUrl: null }
+export const JO_ALERT = { id: 7, firstName: 'Jo', lastName: 'Novak', avatarUrl: null }
+
+export function attendanceAlert(fields: Partial<AttendanceAlert> = {}): AttendanceAlert {
+  return {
+    kind: 'attendance',
+    patient: JO_ALERT,
+    program: { id: 20, title: 'Lower Back — Jo' },
+    missedInARow: { days: 0, weeks: 2, since: '2031-05-26' },
+    inactive: null,
+    ...fields,
+  }
+}
+
+export function sessionAlert(
+  fields: Partial<Omit<SessionAlert, 'session'>> & { session?: Partial<SessionAlert['session']> } = {},
+): SessionAlert {
+  const { session: sessionFields, ...rest } = fields
+  return {
+    kind: 'session',
+    patient: PAT_ALERT,
+    program: { id: 12, title: 'Knee Rehab — Pat' },
+    reasons: ['pain_high', 'pain_rise'],
+    hardExercises: [],
+    ...rest,
+    session: {
+      id: 31,
+      localDate: '2031-06-10',
+      status: 'completed',
+      endReason: null,
+      painBefore: 3,
+      painAfter: 7,
+      ...sessionFields,
+    },
+  }
+}
+
+// Session 31 as the care team reads it: finished on 10 June, nobody's
+// review yet.
+export function staffSession(fields: Partial<StaffSession> = {}): StaffSession {
+  return {
+    ...session({
+      localDate: '2031-06-10',
+      status: 'completed',
+      completedAt: '2031-06-10T17:00:00.000Z',
+      painBefore: 3,
+      painAfter: 7,
+      mobilityAfter: 4,
+    }),
+    reviews: [],
+    ...fields,
+  }
+}
