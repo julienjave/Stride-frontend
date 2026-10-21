@@ -87,11 +87,29 @@ export const router = createBrowserRouter([
           (module) => module.AcceptInvitationPage,
         ),
       },
+      // The page a password reset email links to (Phase 6) — under no
+      // guard, for the same reason as /accept-invitation: a signed-in
+      // visitor is asked to log out first rather than bounced away.
+      {
+        path: '/reset-password',
+        lazy: page(
+          () => import('@/auth/ResetPasswordPage'),
+          (module) => module.ResetPasswordPage,
+        ),
+      },
       {
         // Routes only a logged-OUT visitor should reach.
         element: <RequireGuest />,
         children: [
           { path: '/login', element: <LoginPage /> },
+          // "Forgot your password?" — asking for a reset link (Phase 6).
+          {
+            path: '/forgot-password',
+            lazy: page(
+              () => import('@/auth/ForgotPasswordPage'),
+              (module) => module.ForgotPasswordPage,
+            ),
+          },
           {
             path: '/register-clinic',
             lazy: page(

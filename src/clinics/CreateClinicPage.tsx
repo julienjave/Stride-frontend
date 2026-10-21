@@ -49,7 +49,7 @@ export function CreateClinicPage() {
   })
 
   return (
-    <div className="mx-auto mt-12 max-w-sm space-y-4">
+    <div className="mx-auto mt-12 max-w-sm space-y-4 px-4">
       <h1 className="text-xl font-semibold">Add a clinic</h1>
       <form
         onSubmit={(e) =>

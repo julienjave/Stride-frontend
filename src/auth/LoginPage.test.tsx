@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter } from 'react-router'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { LoginPage } from './LoginPage'
 import { setupStatusQueryKey } from './useSetupStatus'
 
@@ -252,6 +252,59 @@ describe('LoginPage', () => {
 
       expect(screen.getByLabelText('Email')).toHaveValue('')
       expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    })
+  })
+
+  // Phase 6, password reset (2026-10-21).
+  describe('arriving from the reset page', () => {
+    it('fills in the email and says the password changed and every device was signed out', () => {
+      renderLoginPage({ email: 'jane@example.com', passwordReset: true })
+
+      expect(screen.getByLabelText('Email')).toHaveValue('jane@example.com')
+      expect(screen.getByRole('status')).toHaveTextContent(
+        "Your password has been changed, and you've been signed out on every device. Log in with your new password.",
+      )
+    })
+
+    it("doesn't confuse the two notices", () => {
+      renderLoginPage({ email: 'jane@example.com', passwordSet: true })
+      expect(screen.queryByText(/Your password has been changed/)).not.toBeInTheDocument()
+    })
+  })
+
+  describe('"Forgot your password?"', () => {
+    function ForgotStub() {
+      return <p data-testid="forgot-state">{JSON.stringify(useLocation().state)}</p>
+    }
+
+    function renderWithForgot() {
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={['/login']}>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/forgot-password" element={<ForgotStub />} />
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>,
+      )
+    }
+
+    it('takes the address typed so far along, trimmed', async () => {
+      const user = userEvent.setup()
+      renderWithForgot()
+      await user.type(screen.getByLabelText('Email'), ' jane@example.com ')
+      await user.click(screen.getByRole('link', { name: 'Forgot your password?' }))
+      expect(screen.getByTestId('forgot-state')).toHaveTextContent('{"email":"jane@example.com"}')
+    })
+
+    it('leads to the forgot page with an empty address when nothing was typed', async () => {
+      const user = userEvent.setup()
+      renderWithForgot()
+      expect(screen.getByRole('link', { name: 'Forgot your password?' })).toHaveAttribute('href', '/forgot-password')
+      await user.click(screen.getByRole('link', { name: 'Forgot your password?' }))
+      expect(screen.getByTestId('forgot-state')).toHaveTextContent('{"email":""}')
     })
   })
 })

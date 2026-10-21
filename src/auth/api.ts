@@ -59,6 +59,39 @@ export function verifyMfaCode(payload: MfaCodeFormValues) {
 // (returns undefined without trying to parse an empty body), so this
 // function's return type is effectively Promise<void>. Nothing to send:
 // the backend destroys whatever session the cookie currently points to.
+// --- Password reset (Phase 6, 2026-10-21) — all three PUBLIC: the person
+// has no session (they can't log in). ---
+
+// Ask for a reset link. 204 whether or not the address has an account (the
+// backend never says which), so the page can only say "if…".
+export function requestPasswordReset(email: string) {
+  return apiRequest<void>('/auth/forgot-password', { method: 'POST', body: { email } })
+}
+
+// Is this link still usable? A pure read: the link stays valid. 400 with
+// the reset's own words when it isn't.
+export interface ResetLinkInfo {
+  email: string
+  expiresAt: string
+}
+
+export function checkResetLink(token: string) {
+  return apiRequest<ResetLinkInfo>('/auth/reset-password/check', {
+    method: 'POST',
+    body: { token },
+  })
+}
+
+// Use it: the new password is stored, the link spent, and every session of
+// the account ended (the backend's choice: whoever needed a reset may have
+// lost control of a device).
+export function resetPassword(token: string, newPassword: string) {
+  return apiRequest<void>('/auth/reset-password', {
+    method: 'POST',
+    body: { token, newPassword },
+  })
+}
+
 export function logout() {
   return apiRequest<void>('/auth/logout', { method: 'POST' })
 }

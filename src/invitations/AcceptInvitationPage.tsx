@@ -168,7 +168,7 @@ export function AcceptInvitationPage() {
 
   if (lookup.isPending) {
     return (
-      <p role="status" className="mx-auto mt-24 max-w-sm text-sm text-muted-foreground">
+      <p role="status" className="mx-auto mt-24 max-w-sm px-4 text-sm text-muted-foreground">
         Loading…
       </p>
     )
@@ -194,7 +194,7 @@ export function AcceptInvitationPage() {
     invitation.clinicNames.length > 0 ? ` at ${clinicList.format(invitation.clinicNames)}` : ''
 
   return (
-    <div className="mx-auto mt-24 max-w-sm space-y-4">
+    <div className="mx-auto mt-24 max-w-sm px-4 space-y-4">
       <h1 className="text-xl font-semibold">Welcome to Stride, {invitation.firstName}</h1>
       <p className="text-sm text-muted-foreground">
         Your account{where} is ready. Choose a password to finish setting it up.
@@ -270,7 +270,7 @@ export function AcceptInvitationPage() {
 // whatever explains it.
 function Notice({ heading, children }: { heading: string; children: ReactNode }) {
   return (
-    <div className="mx-auto mt-24 max-w-sm space-y-4">
+    <div className="mx-auto mt-24 max-w-sm px-4 space-y-4">
       <h1 className="text-xl font-semibold">{heading}</h1>
       {children}
     </div>

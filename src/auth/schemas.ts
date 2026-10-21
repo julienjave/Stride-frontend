@@ -26,6 +26,15 @@ export const loginSchema = z.object({
 
 export type LoginFormValues = z.infer<typeof loginSchema>
 
+// "Forgot your password?" — the address to send a reset link to. The same
+// message as the login form's; trimmed first, so a space pasted with the
+// address doesn't refuse it (the backend's @IsEmail() would).
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().email('Enter a valid email address').max(255),
+})
+
+export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>
+
 export const mfaCodeSchema = z.object({
   code: z
     .string()

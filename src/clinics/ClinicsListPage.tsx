@@ -15,7 +15,7 @@ export function ClinicsListPage() {
   const { data: clinics, isLoading, isError } = useClinics(includeInactive)
 
   return (
-    <div className="mx-auto mt-12 max-w-2xl space-y-4">
+    <div className="mx-auto mt-12 max-w-2xl space-y-4 px-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Clinics</h1>
         <Button asChild>

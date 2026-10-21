@@ -25,7 +25,7 @@ export function ClinicEditPage() {
   // of silently calling useClinic(NaN) and letting it fail confusingly
   // further down.
   if (!id || Number.isNaN(clinicId)) {
-    return <p className="text-sm text-destructive">Invalid clinic.</p>
+    return <p className="mx-auto mt-12 max-w-sm px-4 text-sm text-destructive">Invalid clinic.</p>
   }
 
   return <ClinicEditView clinicId={clinicId} />
@@ -44,15 +44,15 @@ function ClinicEditView({ clinicId }: { clinicId: number }) {
   const saveClinic = useSaveClinic(clinicId)
 
   if (isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading clinic…</p>
+    return <p className="mx-auto mt-12 max-w-sm px-4 text-sm text-muted-foreground">Loading clinic…</p>
   }
 
   if (isError || !clinic) {
-    return <p className="text-sm text-destructive">Couldn't load this clinic.</p>
+    return <p className="mx-auto mt-12 max-w-sm px-4 text-sm text-destructive">Couldn't load this clinic.</p>
   }
 
   return (
-    <div className="mx-auto mt-12 max-w-sm space-y-4">
+    <div className="mx-auto mt-12 max-w-sm space-y-4 px-4">
       <h1 className="text-xl font-semibold">{clinic.name}</h1>
 
       <ClinicLogoUpload clinicId={clinicId} logoUrl={clinic.logoUrl} />

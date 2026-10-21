@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useLocation, Link } from 'react-router'
@@ -55,8 +55,15 @@ export function LoginPage() {
   //
   // `email` and `passwordSet` come from the accept-invitation page, after
   // the person chose their first password: the email is filled in for
-  // them, and a line confirms the password was set.
-  const state = location.state as { from?: string; email?: string; passwordSet?: boolean } | null
+  // them, and a line confirms the password was set. `passwordReset` (with
+  // `email`) comes from the reset page (Phase 6); `email` alone from the
+  // forgot page's "Back to log in".
+  const state = location.state as {
+    from?: string
+    email?: string
+    passwordSet?: boolean
+    passwordReset?: boolean
+  } | null
   const redirectTo = state?.from ?? '/'
 
   const credentialsForm = useForm<LoginFormValues>({
@@ -65,6 +72,9 @@ export function LoginPage() {
     // moment, since the state arrives with the navigation to this page.
     defaultValues: { email: state?.email ?? '' },
   })
+
+  // The email as typed right now — for "Forgot your password?".
+  const typedEmail = useWatch({ control: credentialsForm.control, name: 'email' })
 
   const mfaForm = useForm<MfaCodeFormValues>({
     resolver: zodResolver(mfaCodeSchema),
@@ -118,7 +128,7 @@ export function LoginPage() {
 
   if (step === 'role-pending') {
     return (
-      <div className="mx-auto mt-24 max-w-sm space-y-4">
+      <div className="mx-auto mt-24 max-w-sm px-4 space-y-4">
         <h1 className="text-xl font-semibold">Which role do you want to log in as?</h1>
         <div className="flex flex-col gap-2">
           {roleOptions.map((role) => (
@@ -144,7 +154,7 @@ export function LoginPage() {
 
   if (step === 'mfa-pending') {
     return (
-      <div className="mx-auto mt-24 max-w-sm space-y-4">
+      <div className="mx-auto mt-24 max-w-sm px-4 space-y-4">
         <h1 className="text-xl font-semibold">Enter your 6-digit code</h1>
         <form
           onSubmit={(e) => void mfaForm.handleSubmit((values) => mfaMutation.mutate(values))(e)}
@@ -184,12 +194,20 @@ export function LoginPage() {
   }
 
   return (
-    <div className="mx-auto mt-24 max-w-sm space-y-4">
+    <div className="mx-auto mt-24 max-w-sm px-4 space-y-4">
       <h1 className="text-xl font-semibold">Log in</h1>
       {/* role="status": announced by screen readers when the page opens. */}
       {state?.passwordSet && (
         <p role="status" className="text-sm text-muted-foreground">
           Your password is set. Log in to continue.
+        </p>
+      )}
+      {/* After a reset the backend ended every session of the account — so
+          a sign-out on another device is explained here. */}
+      {state?.passwordReset && (
+        <p role="status" className="text-sm text-muted-foreground">
+          Your password has been changed, and you've been signed out on every device. Log in
+          with your new password.
         </p>
       )}
       <form
@@ -227,6 +245,18 @@ export function LoginPage() {
               {credentialsForm.formState.errors.password.message}
             </p>
           )}
+          {/* The address typed so far goes along (navigation state, not the
+              URL — an address in a query string lands in history and logs),
+              so the forgot page opens with it filled in. */}
+          <p className="text-sm">
+            <Link
+              to="/forgot-password"
+              state={{ email: typedEmail.trim() }}
+              className="underline underline-offset-4"
+            >
+              Forgot your password?
+            </Link>
+          </p>
         </div>
 
         {loginMutation.isError && !getMultiRoleOptions(loginMutation.error) && (
