@@ -192,6 +192,17 @@ describe('ProfilePage — what it shows', () => {
     expect(screen.getByText('Not a member of any clinic')).toBeInTheDocument()
     expect(sectionNames()).toContain('profile-section-patient-details')
   })
+
+  // The way to "My records" (decisions §8): for a patient, right under the
+  // heading. (The multi-role test above lists every section of a
+  // practitioner's page: no records row there.)
+  it('leads a patient to their medical records, first on the page', async () => {
+    fakeBackend(patientUser)
+    renderProfile(patientUser, 'patient')
+    const records = await screen.findByRole('region', { name: 'Medical records' })
+    expect(sectionNames()[0]).toBe('profile-records')
+    expect(within(records).getByRole('link', { name: 'My records' })).toHaveAttribute('href', '/profile/records')
+  })
 })
 
 describe('ProfilePage — license number (admin-only, decisions §4)', () => {

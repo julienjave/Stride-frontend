@@ -67,6 +67,20 @@ describe('UserMenu', () => {
     )
   })
 
+  // A patient's own medical file (decisions §8) — by the ACTIVE role.
+  it("offers a patient their records, and nobody else", async () => {
+    renderMenu({ ...julien, activeRole: 'patient', roles: ['patient'] })
+    await openMenu()
+    expect(screen.getByRole('menuitem', { name: 'My records' })).toHaveAttribute('href', '/profile/records')
+  })
+
+  it('offers no records to a practitioner', async () => {
+    renderMenu()
+    await openMenu()
+    expect(screen.getByRole('menuitem', { name: 'Profile' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'My records' })).not.toBeInTheDocument()
+  })
+
   it('Profile navigates to the profile page', async () => {
     renderMenu()
     await openMenu()

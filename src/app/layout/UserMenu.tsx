@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router'
-import { LogOut, UserRound } from 'lucide-react'
+import { FileText, LogOut, UserRound } from 'lucide-react'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { useLogout } from '@/auth/useLogout'
 import { useSwitchRole } from '@/auth/useSwitchRole'
@@ -8,6 +8,7 @@ import { roleLabel } from '@/auth/roleLabel'
 import type { UserRole } from '@/auth/schemas'
 import { UserAvatar } from '@/common/UserAvatar'
 import { roleHomePath } from '@/app/roleHomePath'
+import { MY_RECORDS_PATH } from '@/medical-files/medicalFilePaths'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,8 +18,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
-// The account ("avatar") menu, design decisions §1: Profile, the role
-// switcher, and Log out — everything about "me", in one place.
+// The account ("avatar") menu, design decisions §1: Profile (and, for a
+// patient, My records — decisions §8), the role switcher, and Log out —
+// everything about "me", in one place.
 export function UserMenu() {
   const { data: user } = useCurrentUser()
   const logoutMutation = useLogout()
@@ -105,6 +107,17 @@ export function UserMenu() {
             Profile
           </Link>
         </DropdownMenuItem>
+        {/* A patient's own medical file. By the ACTIVE role: the route is
+            in the patient group, and a practitioner reads files on their
+            patients' pages instead. */}
+        {user.activeRole === 'patient' && (
+          <DropdownMenuItem asChild>
+            <Link to={MY_RECORDS_PATH}>
+              <FileText aria-hidden="true" />
+              My records
+            </Link>
+          </DropdownMenuItem>
+        )}
 
         <RoleSwitcher
           onSwitch={switchTo}

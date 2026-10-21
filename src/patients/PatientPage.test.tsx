@@ -393,6 +393,30 @@ describe('PatientPage — programs', () => {
   })
 })
 
+// The way into the medical file (decisions §8): a section after Programs,
+// with a link and NO data — every request for the file is an audited read,
+// so the patient page must never make one.
+describe('PatientPage — medical file', () => {
+  it('links to the medical file after Programs, and reads nothing from it', async () => {
+    renderPatientPage()
+    const card = await screen.findByRole('region', { name: 'Medical file' })
+    expect(within(card).getByRole('link', { name: 'Open medical file' })).toHaveAttribute(
+      'href',
+      '/practitioner/patients/6/medical-file',
+    )
+    expect(within(card).getByText(/Opening it is recorded in the audit log\./)).toBeInTheDocument()
+
+    const regions = screen.getAllByRole('region').map((region) => region.getAttribute('aria-labelledby'))
+    expect(regions.indexOf('patient-section-medical-file')).toBe(regions.indexOf('patient-section-programs') + 1)
+
+    // Everything else on the page has loaded…
+    await screen.findByRole('region', { name: 'Care team' })
+    await waitFor(() => expect(calls((url) => url.includes('/care-team')).length).toBeGreaterThan(0))
+    // …and nothing asked for the file.
+    expect(calls((url) => url.includes('/medical-files'))).toEqual([])
+  })
+})
+
 describe('PatientPage — care team', () => {
   it('shows each member since when, why, and who added them; only my row can leave', async () => {
     currentTeam = [

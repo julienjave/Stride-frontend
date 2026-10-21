@@ -4,6 +4,8 @@ import { userRoleSchema } from '@/auth/schemas'
 import { useUser } from './useUser'
 import { ProfileFields } from './ProfileFields'
 import { AvatarUpload } from './AvatarUpload'
+import { Link } from 'react-router'
+import { MY_RECORDS_PATH } from '@/medical-files/medicalFilePaths'
 
 // /profile — the logged-in user's own profile, for every role (design
 // decisions §4). Reached from the account menu.
@@ -53,6 +55,23 @@ function ProfileView({ userId, activeRole }: { userId: number; activeRole: strin
         <h1 className="text-xl font-semibold">My profile</h1>
         <p className="text-sm text-muted-foreground">{roleNames}</p>
       </div>
+
+      {/* A patient's way to their medical file from here (decisions §8):
+          the records live in the profile AREA, on a page of their own. By
+          the active role, like the account menu's item. */}
+      {activeRole === 'patient' && (
+        <section aria-labelledby="profile-records" className="space-y-2">
+          <h2 id="profile-records" className="text-sm font-medium text-muted-foreground">
+            Medical records
+          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3">
+            <p className="text-sm">Your practitioners' notes about your care.</p>
+            <Link to={MY_RECORDS_PATH} className="text-sm font-medium underline underline-offset-4">
+              My records
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* The photo, with its Upload/Change/Remove buttons. It replaces the
           plain avatar this header used to show — one avatar per page, and

@@ -232,6 +232,23 @@ export const router = createBrowserRouter([
                       (module) => module.PatientPage,
                     ),
                   },
+                  // The patient's medical file (Phase 6, decisions §8): its
+                  // own page — opening it is the audited read — and the page
+                  // that writes an entry or (`?amends=`) an amendment.
+                  {
+                    path: '/practitioner/patients/:id/medical-file',
+                    lazy: page(
+                      () => import('@/medical-files/MedicalFilePage'),
+                      (module) => module.MedicalFilePage,
+                    ),
+                  },
+                  {
+                    path: '/practitioner/patients/:id/medical-file/new',
+                    lazy: page(
+                      () => import('@/medical-files/MedicalFileEntryPage'),
+                      (module) => module.MedicalFileEntryPage,
+                    ),
+                  },
                   {
                     path: '/practitioner/library',
                     lazy: page(
@@ -462,6 +479,17 @@ export const router = createBrowserRouter([
                     lazy: page(
                       () => import('@/sessions/PatientProgramPage'),
                       (module) => module.PatientProgramPage,
+                    ),
+                  },
+                  // My records (Phase 6, decisions §8): the patient's own
+                  // medical file, read-only. Under `/profile/` — it lives in
+                  // the profile area, not a tab — but in the PATIENT group:
+                  // only a patient has a medical file of their own to read.
+                  {
+                    path: '/profile/records',
+                    lazy: page(
+                      () => import('@/medical-files/MyRecordsPage'),
+                      (module) => module.MyRecordsPage,
                     ),
                   },
                   // My Team (2026-10-18): the patient's care team, and each

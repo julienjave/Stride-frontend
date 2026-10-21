@@ -5,6 +5,7 @@ import { useCurrentUser } from '@/auth/useCurrentUser'
 import { UserAvatar } from '@/common/UserAvatar'
 import { formatCalendarDate } from '@/common/formatCalendarDate'
 import { InvitationStatus } from '@/invitations/InvitationStatus'
+import { MedicalFileLinkCard } from '@/medical-files/MedicalFileLinkCard'
 import { MessageButton } from '@/messages/MessageButton'
 import { ProfileFields } from '@/users/ProfileFields'
 import { useUser } from '@/users/useUser'
@@ -14,8 +15,9 @@ import { PatientProgramsSection } from './PatientProgramsSection'
 
 // The practitioner's patient page (/practitioner/patients/:id) — decided
 // 2026-10-08 (decisions §3, "Patient page"). Top to bottom, in the order a
-// practitioner needs it: who this is, their programs, their care team,
-// their invitation (until they've set up their account), and their profile.
+// practitioner needs it: who this is, their programs, the way into their
+// medical file (its own page — decisions §8), their care team, their
+// invitation (until they've set up their account), and their profile.
 //
 // Only the patient's CARE TEAM sees it: GET /users/:id answers anyone else
 // with a 403, and the page explains that instead of a generic error.
@@ -112,6 +114,8 @@ function PatientView({ patientId }: { patientId: number }) {
       </div>
 
       <PatientProgramsSection patientId={patientId} />
+
+      <MedicalFileLinkCard patientId={patientId} />
 
       <CareTeamSection
         patientId={patientId}
