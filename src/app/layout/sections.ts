@@ -5,6 +5,7 @@ import {
   Dumbbell,
   House,
   MessageSquare,
+  ScrollText,
   Stethoscope,
   Users,
   type LucideIcon,
@@ -58,5 +59,6 @@ export const SECTIONS_BY_ROLE: Record<UserRole, NavSection[]> = {
     { label: 'Home', to: roleHomePath('admin'), icon: House, end: true },
     { label: 'Clinics', to: '/admin/clinics', icon: Building2 },
     { label: 'Users', to: '/admin/users', icon: Users },
+    { label: 'Audit log', to: '/admin/audit-log', icon: ScrollText },
   ],
 }

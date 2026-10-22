@@ -76,7 +76,7 @@ describe('AuthenticatedLayout', () => {
     for (const nav of navs) {
       expect(
         within(nav).getAllByRole('link').map((link) => link.textContent),
-      ).toEqual(['Home', 'Clinics', 'Users'])
+      ).toEqual(['Home', 'Clinics', 'Users', 'Audit log'])
     }
   })
 

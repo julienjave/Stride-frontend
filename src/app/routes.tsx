@@ -201,6 +201,13 @@ export const router = createBrowserRouter([
                       (module) => module.UserEditPage,
                     ),
                   },
+                  {
+                    path: '/admin/audit-log',
+                    lazy: page(
+                      () => import('@/audit-log/AuditLogPage'),
+                      (module) => module.AuditLogPage,
+                    ),
+                  },
                 ],
               },
               {

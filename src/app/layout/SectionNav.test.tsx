@@ -53,12 +53,13 @@ describe('SectionNav', () => {
     ])
   })
 
-  it("renders the admin's three sections", () => {
+  it("renders the admin's four sections", () => {
     renderNav('admin', '/admin')
     expect(linksInNav()).toEqual([
       ['Home', '/admin'],
       ['Clinics', '/admin/clinics'],
       ['Users', '/admin/users'],
+      ['Audit log', '/admin/audit-log'],
     ])
   })
 
