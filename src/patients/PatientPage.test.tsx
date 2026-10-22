@@ -197,7 +197,11 @@ describe('PatientPage — the patient', () => {
 
     expect(screen.getByRole('region', { name: 'Personal details' })).toBeInTheDocument()
     expect(screen.getByText('pat@example.com')).toBeInTheDocument()
-    expect(screen.getByText("Changing an email address isn't available yet.")).toBeInTheDocument()
+    // Self-service only (decisions §12): no "Change" for the practitioner.
+    expect(
+      screen.getByText('Only the person can change their email address, from their own profile.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Change Email' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /photo/i })).not.toBeInTheDocument()
   })
 

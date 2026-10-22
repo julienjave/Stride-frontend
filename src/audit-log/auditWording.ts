@@ -22,6 +22,9 @@ const WORDING: Record<AuditAction, string> = {
   MFA_DISABLED: 'Turned off two-factor sign-in',
   PASSWORD_RESET_REQUESTED: 'Asked for a password reset link',
   PASSWORD_RESET_COMPLETED: 'Reset a password',
+  EMAIL_CHANGE_REQUESTED: 'Asked to change a sign-in email',
+  EMAIL_CHANGE_CONFIRMED: 'Changed a sign-in email',
+  EMAIL_CHANGE_CANCELLED: 'Cancelled a change of sign-in email',
 
   // Accounts
   USER_CREATED: 'Created an account',

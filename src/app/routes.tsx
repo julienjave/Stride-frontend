@@ -97,6 +97,24 @@ export const router = createBrowserRouter([
           (module) => module.ResetPasswordPage,
         ),
       },
+      // The two links of a change of email (Phase 6, decisions §12): the
+      // confirmation sent to the NEW address, the cancel link sent to the OLD
+      // one. Under no guard — opened from an inbox, on any device, signed in
+      // or not; neither needs a session (the token is the proof).
+      {
+        path: '/confirm-email',
+        lazy: page(
+          () => import('@/email-change/ConfirmEmailPage'),
+          (module) => module.ConfirmEmailPage,
+        ),
+      },
+      {
+        path: '/cancel-email-change',
+        lazy: page(
+          () => import('@/email-change/CancelEmailChangePage'),
+          (module) => module.CancelEmailChangePage,
+        ),
+      },
       {
         // Routes only a logged-OUT visitor should reach.
         element: <RequireGuest />,
@@ -143,6 +161,15 @@ export const router = createBrowserRouter([
                 lazy: page(
                   () => import('@/users/ProfilePage'),
                   (module) => module.ProfilePage,
+                ),
+              },
+              // Asking to change one's sign-in email (Phase 6, decisions §12)
+              // — every role, like the profile it belongs to.
+              {
+                path: '/profile/email',
+                lazy: page(
+                  () => import('@/email-change/ChangeEmailPage'),
+                  (module) => module.ChangeEmailPage,
                 ),
               },
               {

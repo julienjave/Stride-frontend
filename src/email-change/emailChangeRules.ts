@@ -1,0 +1,74 @@
+import { z } from 'zod'
+import { ApiError } from '@/api/client'
+
+// The pure rules of the change-of-email screens (decisions §12): where the
+// pages live, the form's checks, how a refusal is read, how the expiry reads.
+
+export const CHANGE_EMAIL_PATH = '/profile/email'
+export const CONFIRM_EMAIL_PATH = '/confirm-email'
+export const CANCEL_EMAIL_CHANGE_PATH = '/cancel-email-change'
+
+// The backend's own words (src/email-change/email-change.service.ts). The
+// page reads WHICH refusal it got by its message, the way the reset page
+// does: one status (400) carries several meanings.
+export const DEAD_LINK_MESSAGE = 'This link is invalid or has expired'
+export const WRONG_PASSWORD_MESSAGE = 'Your current password is not correct'
+export const SAME_EMAIL_MESSAGE = 'This is already your email address'
+// A good confirm link whose address someone took since the request (409).
+export const ADDRESS_TAKEN_MESSAGE =
+  'This address now belongs to another Stride account, so your email was not changed'
+// A cancel link of a change already confirmed (409): too late to stop it.
+export const ALREADY_CONFIRMED_MESSAGE =
+  'This change has already been confirmed. If you did not ask for it, contact your clinic.'
+
+export function hasMessage(error: unknown, status: number, message: string): boolean {
+  return (
+    error instanceof ApiError && error.statusCode === status && error.messages.includes(message)
+  )
+}
+
+export function isDeadLink(error: unknown): boolean {
+  return hasMessage(error, 400, DEAD_LINK_MESSAGE)
+}
+
+export function isAddressTaken(error: unknown): boolean {
+  return hasMessage(error, 409, ADDRESS_TAKEN_MESSAGE)
+}
+
+export function isAlreadyConfirmed(error: unknown): boolean {
+  return hasMessage(error, 409, ALREADY_CONFIRMED_MESSAGE)
+}
+
+// What to show for any other failure: the server's words, or a plain
+// sentence when there was no answer at all (the network).
+export function failureText(error: unknown): string {
+  return error instanceof ApiError
+    ? error.messages.join(' ')
+    : 'Something went wrong. Check your connection and try again.'
+}
+
+// The form. The address is trimmed before it's checked and sent (the backend
+// trims and lowercases A–Z too — its rule; the page doesn't repeat it). The
+// password is sent exactly as typed: spaces may be part of it.
+export const changeEmailSchema = z.object({
+  newEmail: z
+    .string()
+    .trim()
+    .min(1, 'Enter the new email address')
+    .max(255, 'An email address can be at most 255 characters')
+    .email('Enter a valid email address'),
+  currentPassword: z.string().min(1, 'Enter your current password'),
+})
+export type ChangeEmailFormValues = z.input<typeof changeEmailSchema>
+
+// "Fri, Oct 23, 2:31 PM" in the viewer's language and zone: the link lasts 24
+// hours, so the day matters as much as the time.
+export function formatLinkExpiry(expiresAt: string, locale?: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(expiresAt))
+}

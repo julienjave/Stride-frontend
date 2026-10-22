@@ -75,6 +75,10 @@ function urlOf(input: RequestInfo | URL): string {
 function fakeBackend(user: User, patchResponse?: Response) {
   fetchMock.mockImplementation((input, init) => {
     const url = urlOf(input)
+    // The Email row asks whether a change of email is waiting: none.
+    if (url.endsWith('/auth/email-change')) {
+      return Promise.resolve(new Response('{"pending":null}', { status: 200 }))
+    }
     if (!url.endsWith(`/users/${user.id}`)) {
       return Promise.resolve(new Response('{}', { status: 404 }))
     }
@@ -175,12 +179,17 @@ describe('ProfilePage — what it shows', () => {
     ).toBeInTheDocument()
   })
 
-  it('shows the email read-only', async () => {
+  // Never an inline edit (it's the sign-in name): "Change" leads to its own
+  // page, on the person's own profile (decisions §12).
+  it('offers to change the email on its own page, not inline', async () => {
     fakeBackend(multiRoleUser)
     renderProfile(multiRoleUser, 'practitioner')
     await screen.findByText('julien@example.com')
     expect(screen.queryByRole('button', { name: 'Edit Email' })).not.toBeInTheDocument()
-    expect(screen.getByText("Changing an email address isn't available yet.")).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'Change Email' })).toHaveAttribute(
+      'href',
+      '/profile/email',
+    )
   })
 
   it('shows a patient their date of birth as a readable date, and "no clinic" plainly', async () => {

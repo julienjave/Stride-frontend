@@ -83,7 +83,7 @@ function ProfileView({ userId, activeRole }: { userId: number; activeRole: strin
           profile that means: while your ACTIVE role is admin — the same
           rule the backend applies, so the page never offers an edit the
           server would refuse. */}
-      <ProfileFields user={user} canEditLicense={activeRole === 'admin'} />
+      <ProfileFields user={user} canEditLicense={activeRole === 'admin'} ownProfile />
 
       {/* Read-only here: clinic membership is managed by an admin, on the
           user page (UserClinicMemberships). */}

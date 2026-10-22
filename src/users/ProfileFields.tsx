@@ -7,6 +7,7 @@ import { EditableAddress } from '@/common/address/EditableAddress'
 import { roleLabel } from '@/auth/roleLabel'
 import { userRoleSchema } from '@/auth/schemas'
 import { useSaveUser } from './useSaveUser'
+import { EmailRow } from '@/email-change/EmailRow'
 import {
   bioSchema,
   firstNameSchema,
@@ -27,13 +28,18 @@ interface ProfileFieldsProps {
   // may change a license number. The PAGE decides this, since only it
   // knows who is looking; the backend enforces it regardless (403).
   canEditLicense: boolean
+  // The person's OWN profile (/profile): the Email row offers "Change" and
+  // shows a change waiting for its confirmation. Changing an email is
+  // self-service only (decisions §12), so the admin's user page and the
+  // practitioner's patient page leave it out and show the address read-only.
+  ownProfile?: boolean
 }
 
 // The editable profile, shared by /profile and the admin's user page:
 // personal details for everyone, then one section per role the account
 // holds — ALL of them, not only the active one, because these fields
 // belong to the person (decided in design decisions §4).
-export function ProfileFields({ user, canEditLicense }: ProfileFieldsProps) {
+export function ProfileFields({ user, canEditLicense, ownProfile = false }: ProfileFieldsProps) {
   const saveUser = useSaveUser(user.id)
 
   // Walking the canonical role list (admin, practitioner, patient) and
@@ -57,14 +63,18 @@ export function ProfileFields({ user, canEditLicense }: ProfileFieldsProps) {
           schema={lastNameSchema}
           save={(value) => saveUser({ lastName: requiredValue(value) })}
         />
-        {/* Read-only by decision (§4): email is also the login name and
-            the password-reset address, so changing it gets its own flow
-            with verification — a later roadmap item. */}
-        <ReadOnlyField
-          label="Email"
-          value={user.email}
-          note="Changing an email address isn't available yet."
-        />
+        {/* Email is the sign-in name and the password-reset address, so it
+            changes through its own flow with verification (decisions §12)
+            — never as an inline edit, and only by the person. */}
+        {ownProfile ? (
+          <EmailRow email={user.email} />
+        ) : (
+          <ReadOnlyField
+            label="Email"
+            value={user.email}
+            note="Only the person can change their email address, from their own profile."
+          />
+        )}
         <EditableField
           label="Phone"
           value={user.phone}
