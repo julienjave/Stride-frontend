@@ -181,6 +181,15 @@ export const router = createBrowserRouter([
                   (module) => module.ChangePasswordPage,
                 ),
               },
+              // Two-factor sign-in (Phase 6, decisions §14) — every role,
+              // like the email and password changes.
+              {
+                path: '/profile/two-factor',
+                lazy: page(
+                  () => import('@/two-factor/TwoFactorPage'),
+                  (module) => module.TwoFactorPage,
+                ),
+              },
               {
                 // Nested one level further: authenticated AND the right role.
                 // This is the pattern every future role-scoped section (admin

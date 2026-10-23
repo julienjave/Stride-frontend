@@ -7,6 +7,7 @@ import {
   addressPostalCodeSchema,
   addressCountrySchema,
 } from '@/common/address/schemas'
+import { secondFactorField } from '@/two-factor/twoFactorRules'
 
 
 // --- LOGIN -----------------------------------------------------------------
@@ -35,12 +36,10 @@ export const forgotPasswordSchema = z.object({
 
 export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>
 
-export const mfaCodeSchema = z.object({
-  code: z
-    .string()
-    .length(6, 'Enter the 6-digit code')
-    .regex(/^\d+$/, 'Code must be numbers only'),
-})
+// The sign-in's second step: a code from the app OR one of the recovery
+// codes (decisions §14) — the same field every step-up uses, so the rule
+// and its words are written once (two-factor/twoFactorRules.ts).
+export const mfaCodeSchema = z.object({ code: secondFactorField })
 
 export type MfaCodeFormValues = z.infer<typeof mfaCodeSchema>
 

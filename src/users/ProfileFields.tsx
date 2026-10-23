@@ -9,6 +9,7 @@ import { userRoleSchema } from '@/auth/schemas'
 import { useSaveUser } from './useSaveUser'
 import { EmailRow } from '@/email-change/EmailRow'
 import { PasswordRow } from '@/password-change/PasswordRow'
+import { TwoFactorRow } from '@/two-factor/TwoFactorRow'
 import {
   bioSchema,
   firstNameSchema,
@@ -31,7 +32,8 @@ interface ProfileFieldsProps {
   canEditLicense: boolean
   // The person's OWN profile (/profile): a "Sign-in and security" section
   // follows the personal details, with the Email row (it offers "Change" and
-  // shows a change waiting for its confirmation) and the Password row.
+  // shows a change waiting for its confirmation), the Password row and the
+  // Two-factor sign-in row (decisions §14).
   // Changing either is self-service only (decisions §12, §13), so the
   // admin's user page and the practitioner's patient page leave that section
   // out and show the address read-only among the personal details.
@@ -95,6 +97,7 @@ export function ProfileFields({ user, canEditLicense, ownProfile = false }: Prof
         <ProfileSection title="Sign-in and security">
           <EmailRow email={user.email} />
           <PasswordRow />
+          <TwoFactorRow mfaEnabled={user.mfaEnabled} />
         </ProfileSection>
       )}
 

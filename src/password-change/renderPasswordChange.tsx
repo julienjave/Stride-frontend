@@ -64,6 +64,8 @@ export function pendingAnswer(pending: typeof PENDING_EMAIL | null) {
 export function renderPasswordChange(
   entry: string | string[],
   answer: (request: SentRequest) => Response | Promise<Response> | undefined,
+  // Two-factor sign-in on: the form asks a code too (decisions §14).
+  { mfaEnabled = false }: { mfaEnabled?: boolean } = {},
 ) {
   sent = []
   fetchMock.mockReset()
@@ -86,7 +88,7 @@ export function renderPasswordChange(
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: 30_000 }, mutations: { retry: false } },
   })
-  queryClient.setQueryData(currentUserQueryKey, ME)
+  queryClient.setQueryData(currentUserQueryKey, { ...ME, mfaEnabled })
   const entries = Array.isArray(entry) ? entry : [entry]
   render(
     <QueryClientProvider client={queryClient}>

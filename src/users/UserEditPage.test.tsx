@@ -370,3 +370,42 @@ describe('UserEditPage — invitation', () => {
     })
   })
 })
+// The page's own part: it shows whether THIS user has two-factor sign-in on,
+// with the reset (decisions §14). What the section does is tested in
+// src/two-factor/ResetTwoFactorSection.test.tsx.
+describe('UserEditPage — two-factor sign-in', () => {
+  function mockUser(user: object) {
+    fetchMock.mockImplementation((input) => {
+      const url = urlOf(input)
+      if (url.endsWith('/users/1')) {
+        return Promise.resolve(new Response(JSON.stringify(user), { status: 200 }))
+      }
+      if (url.endsWith('/users/1/invitations')) {
+        return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }))
+      }
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }))
+    })
+  }
+
+  it('says Off, with nothing to reset, for an account without it', async () => {
+    mockUser(fullUser)
+    renderAt('/admin/users/1')
+
+    const region = await screen.findByRole('region', { name: 'Two-factor sign-in' })
+    expect(region).toHaveTextContent('Off')
+    expect(
+      screen.queryByRole('button', { name: 'Reset two-factor sign-in' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('offers the reset for an account with it on', async () => {
+    mockUser({ ...fullUser, mfaEnabled: true })
+    renderAt('/admin/users/1')
+
+    const region = await screen.findByRole('region', { name: 'Two-factor sign-in' })
+    expect(region).toHaveTextContent('On')
+    expect(
+      screen.getByRole('button', { name: 'Reset two-factor sign-in' }),
+    ).toBeInTheDocument()
+  })
+})

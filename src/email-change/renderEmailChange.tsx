@@ -55,7 +55,8 @@ export const ME = {
 export function renderEmailChange(
   entry: string | string[],
   answer: (request: SentRequest) => Response | Promise<Response> | undefined,
-  signedIn: { email: string } | null = ME,
+  // `mfaEnabled`: the account has two-factor sign-in on (the form asks a code).
+  signedIn: { email: string; mfaEnabled?: boolean } | null = ME,
 ) {
   sent = []
   fetchMock.mockReset()

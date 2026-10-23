@@ -1,4 +1,4 @@
-import { useForm, type UseFormRegisterReturn } from 'react-hook-form'
+import { useForm, type Resolver, type UseFormRegisterReturn } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router'
@@ -12,9 +12,12 @@ import {
   pendingEmailChangeQueryKey,
   usePendingEmailChange,
 } from '@/email-change/usePendingEmailChange'
+import { SecondFactorField } from '@/two-factor/SecondFactorField'
+import { codeRefusal } from '@/two-factor/twoFactorRules'
 import { changePassword } from './api'
 import {
   changePasswordSchema,
+  changePasswordWithCodeSchema,
   PASSWORD_CHANGED_NOTICE,
   type ChangePasswordFormValues,
 } from './passwordChangeRules'
@@ -31,15 +34,23 @@ export function ChangePasswordPage() {
   // password (the person's choice, as a reset does) — said before the
   // person sends, not discovered afterwards.
   const pendingEmail = usePendingEmailChange().data ?? null
+  // Two-factor sign-in on: the step-up asks a code as well (decisions §14).
+  // Read from the session's current user — RequireAuth waited for it.
+  const withCode = me?.mfaEnabled ?? false
   const form = useForm<ChangePasswordFormValues>({
-    resolver: zodResolver(changePasswordSchema),
-    defaultValues: { currentPassword: '', password: '', confirmPassword: '' },
+    // One of two schemas, cast to the common shape (as in StepUpForm):
+    // without the code, the object schema strips `mfaCode`.
+    resolver: zodResolver(
+      withCode ? changePasswordWithCodeSchema : changePasswordSchema,
+    ) as Resolver<ChangePasswordFormValues>,
+    defaultValues: { currentPassword: '', password: '', confirmPassword: '', mfaCode: '' },
   })
 
   const change = useMutation({
     // Passwords are sent exactly as typed — never trimmed.
+    // The code only when the form asks it (trimmed by the schema).
     mutationFn: (values: ChangePasswordFormValues) =>
-      changePassword(values.currentPassword, values.password),
+      changePassword(values.currentPassword, values.password, withCode ? values.mfaCode : undefined),
     onSuccess: () => {
       // The backend cancelled any pending change of email in the same
       // transaction: the cache is told, so the profile's Email row doesn't
@@ -57,10 +68,19 @@ export function ChangePasswordPage() {
       if (hasMessage(error, 400, WRONG_PASSWORD_MESSAGE)) {
         form.resetField('currentPassword')
         form.setError('currentPassword', { message: WRONG_PASSWORD_MESSAGE }, { shouldFocus: true })
+        return
+      }
+      // A refused code belongs to the code field — cleared and focused too.
+      const refusal = withCode ? codeRefusal(error) : null
+      if (refusal) {
+        form.resetField('mfaCode')
+        form.setError('mfaCode', { message: refusal }, { shouldFocus: true })
       }
     },
   })
-  const wrongPassword = hasMessage(change.error, 400, WRONG_PASSWORD_MESSAGE)
+  const atAField =
+    hasMessage(change.error, 400, WRONG_PASSWORD_MESSAGE) ||
+    (withCode && codeRefusal(change.error) !== null)
   const { errors } = form.formState
 
   return (
@@ -112,7 +132,13 @@ export function ChangePasswordPage() {
           error={errors.confirmPassword?.message}
           registration={form.register('confirmPassword')}
         />
-        {change.isError && !wrongPassword && (
+        {withCode && (
+          <SecondFactorField
+            error={errors.mfaCode?.message}
+            registration={form.register('mfaCode')}
+          />
+        )}
+        {change.isError && !atAField && (
           <p role="alert" className="text-sm text-destructive">
             {failureText(change.error)}
           </p>
@@ -135,7 +161,7 @@ function PasswordField({
   error,
   registration,
 }: {
-  id: keyof ChangePasswordFormValues
+  id: 'currentPassword' | 'password' | 'confirmPassword'
   label: string
   autoComplete: 'current-password' | 'new-password'
   hint?: string

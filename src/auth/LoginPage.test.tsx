@@ -308,3 +308,74 @@ describe('LoginPage', () => {
     })
   })
 })
+// The sign-in's code step takes a recovery code too (decisions §14) — the
+// person's choice: the same field, with a hint.
+describe('LoginPage — the two-factor step', () => {
+  async function reachCodeStep() {
+    apiMock.mockResolvedValueOnce(new Response(JSON.stringify({ mfaRequired: true }), { status: 201 }))
+    const user = userEvent.setup()
+    renderLoginPage()
+    await user.type(screen.getByLabelText('Email'), 'a@b.com')
+    await user.type(screen.getByLabelText('Password'), 'password123')
+    await user.click(screen.getByRole('button', { name: 'Log in' }))
+    await screen.findByLabelText('Authentication code')
+    return user
+  }
+
+  it('says a recovery code works instead, and has no number pad', async () => {
+    await reachCodeStep()
+
+    const code = screen.getByLabelText('Authentication code')
+    expect(code).toHaveAccessibleDescription(
+      'From your authenticator app. Lost your phone? Enter one of your recovery codes instead.',
+    )
+    expect(code).not.toHaveAttribute('inputmode')
+    expect(code).toHaveAttribute('autocomplete', 'one-time-code')
+  })
+
+  it('sends a recovery code, trimmed', async () => {
+    const user = await reachCodeStep()
+    apiMock.mockResolvedValueOnce(new Response(JSON.stringify({ id: 1 }), { status: 201 }))
+
+    await user.type(screen.getByLabelText('Authentication code'), ' ABCDE-23456 ')
+    await user.click(screen.getByRole('button', { name: 'Verify' }))
+
+    await waitFor(() => expect(apiMock).toHaveBeenCalledTimes(2))
+    const [, init] = apiMock.mock.calls[1] ?? []
+    expect(init?.body).toBe('{"code":"ABCDE-23456"}')
+  })
+
+  it('says a refused code at the field — cleared, focused, no other alert', async () => {
+    const user = await reachCodeStep()
+    apiMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ statusCode: 401, message: ['Invalid authentication code'], error: 'Unauthorized' }),
+        { status: 401 },
+      ),
+    )
+
+    await user.type(screen.getByLabelText('Authentication code'), '123456')
+    await user.click(screen.getByRole('button', { name: 'Verify' }))
+
+    const code = screen.getByLabelText('Authentication code')
+    expect(await screen.findByText('Invalid authentication code')).toHaveAttribute('id', 'code-error')
+    expect(code).toHaveValue('')
+    expect(code).toHaveFocus()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('says any other failure under the form', async () => {
+    const user = await reachCodeStep()
+    apiMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ statusCode: 401, message: ['Your sign-in has expired — start again'], error: 'Unauthorized' }),
+        { status: 401 },
+      ),
+    )
+
+    await user.type(screen.getByLabelText('Authentication code'), '123456')
+    await user.click(screen.getByRole('button', { name: 'Verify' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Your sign-in has expired — start again')
+  })
+})

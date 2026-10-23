@@ -8,6 +8,15 @@ describe('actionLabel', () => {
     expect(actionLabel('CONVERSATION_READ')).toBe('Read new messages')
   })
 
+  // Two-factor sign-in, pass 2's three actions (decisions §14).
+  it('words the recovery-code and reset actions', () => {
+    expect(actionLabel('MFA_RECOVERY_CODE_USED')).toBe('Signed in with a recovery code')
+    expect(actionLabel('MFA_RECOVERY_CODES_REGENERATED')).toBe(
+      'Made new two-factor recovery codes',
+    )
+    expect(actionLabel('MFA_RESET_BY_ADMIN')).toBe('Reset two-factor sign-in for an account')
+  })
+
   // An action the table doesn't know is still readable.
   it('makes words from the name of an action it does not know', () => {
     expect(actionLabel('PROGRAM_PAUSED_BY_ROBOT')).toBe('Program paused by robot')

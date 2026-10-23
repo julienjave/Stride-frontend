@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { newPasswordSchema } from '@/auth/newPasswordSchema'
 import { currentPasswordField } from '@/auth/currentPassword'
+import { secondFactorField } from '@/two-factor/twoFactorRules'
 
 // The pure rules of the change-of-password page (decisions §13): where it
 // lives, the form's checks, the backend's words it must recognise, and the
@@ -34,4 +35,13 @@ export const changePasswordSchema = newPasswordSchema
     message: SAME_PASSWORD_MESSAGE,
     path: ['password'],
   })
-export type ChangePasswordFormValues = z.infer<typeof changePasswordSchema>
+export type ChangePasswordFormValues = z.infer<typeof changePasswordSchema> & {
+  // Only on the form of an account with two-factor sign-in on.
+  mfaCode?: string
+}
+
+// The same form plus the code field, for an account with two-factor sign-in
+// on (decisions §14). `safeExtend` again: it keeps the two refinements.
+export const changePasswordWithCodeSchema = changePasswordSchema.safeExtend({
+  mfaCode: secondFactorField,
+})

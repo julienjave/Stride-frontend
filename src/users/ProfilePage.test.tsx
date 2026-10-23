@@ -202,6 +202,10 @@ describe('ProfilePage — what it shows', () => {
       'href',
       '/profile/password',
     )
+    // Two-factor sign-in (decisions §14): off here, so "Set up".
+    expect(within(signIn).getByText('Two-factor sign-in')).toBeInTheDocument()
+    expect(within(signIn).getByRole('link', { name: 'Set up two-factor sign-in' }))
+      .toHaveAttribute('href', '/profile/two-factor')
   })
 
   // Handed over by /profile/password after a change.

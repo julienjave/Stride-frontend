@@ -221,3 +221,93 @@ describe('ChangePasswordPage', () => {
     expect(requests().filter((request) => request.method === 'POST')).toHaveLength(1)
   })
 })
+// An account with two-factor sign-in on proves itself with a code as well
+// (decisions §14): an app code or a recovery code, at its own field.
+describe('ChangePasswordPage — with two-factor sign-in on', () => {
+  it('asks no code when two-factor sign-in is off', () => {
+    renderPasswordChange('/profile/password', pendingAnswer(null))
+
+    expect(screen.queryByLabelText('Two-factor code')).not.toBeInTheDocument()
+  })
+
+  it('sends the code, trimmed, with both passwords', async () => {
+    renderPasswordChange(
+      ['/profile', '/profile/password'],
+      answers(null, () => noContent()),
+      { mfaEnabled: true },
+    )
+
+    const user = await fill('old secret', 'new secret 1')
+    const code = screen.getByLabelText('Two-factor code')
+    // Letters too — a recovery code: no number pad.
+    expect(code).not.toHaveAttribute('inputmode')
+    expect(code).toHaveAccessibleDescription(
+      'From your authenticator app, or one of your recovery codes.',
+    )
+    await user.type(code, ' abcde-23456 ')
+    await send(user)
+
+    await screen.findByText(PASSWORD_CHANGED_NOTICE)
+    expect(requests().find((r) => r.method === 'POST')).toEqual({
+      method: 'POST',
+      path: '/auth/password',
+      body: '{"currentPassword":"old secret","newPassword":"new secret 1","mfaCode":"abcde-23456"}',
+    })
+  })
+
+  it('checks the code before sending anything', async () => {
+    renderPasswordChange('/profile/password', pendingAnswer(null), { mfaEnabled: true })
+
+    const user = await fill('old secret', 'new secret 1')
+    await user.type(screen.getByLabelText('Two-factor code'), '12345')
+    await send(user)
+
+    expect(
+      await screen.findByText(
+        'Enter the 6-digit code from your authenticator app, or one of your recovery codes',
+      ),
+    ).toHaveAttribute('id', 'mfaCode-error')
+    expect(requests().some((r) => r.method === 'POST')).toBe(false)
+  })
+
+  it('says a refused code at the code field — cleared, focused, no other alert', async () => {
+    renderPasswordChange(
+      '/profile/password',
+      answers(null, () => apiError(400, 'Invalid authentication code')),
+      { mfaEnabled: true },
+    )
+
+    const user = await fill('old secret', 'new secret 1')
+    await user.type(screen.getByLabelText('Two-factor code'), '123456')
+    await send(user)
+
+    const code = screen.getByLabelText('Two-factor code')
+    expect(await screen.findByText('Invalid authentication code')).toHaveAttribute(
+      'id',
+      'mfaCode-error',
+    )
+    expect(code).toHaveValue('')
+    expect(code).toHaveFocus()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    // The passwords stay: only the code was wrong.
+    expect(screen.getByLabelText('Current password')).toHaveValue('old secret')
+  })
+
+  it('still says a wrong password at the password field', async () => {
+    renderPasswordChange(
+      '/profile/password',
+      answers(null, () => apiError(400, WRONG_PASSWORD_MESSAGE)),
+      { mfaEnabled: true },
+    )
+
+    const user = await fill('wrong', 'new secret 1')
+    await user.type(screen.getByLabelText('Two-factor code'), '123456')
+    await send(user)
+
+    expect(await screen.findByText(WRONG_PASSWORD_MESSAGE)).toHaveAttribute(
+      'id',
+      'currentPassword-error',
+    )
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})

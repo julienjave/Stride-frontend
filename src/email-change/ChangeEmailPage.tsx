@@ -1,4 +1,4 @@
-import { useForm } from 'react-hook-form'
+import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router'
@@ -6,10 +6,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useCurrentUser } from '@/auth/useCurrentUser'
+import { SecondFactorField } from '@/two-factor/SecondFactorField'
+import { codeRefusal } from '@/two-factor/twoFactorRules'
 import { requestEmailChange } from './api'
 import { pendingEmailChangeQueryKey } from './usePendingEmailChange'
 import {
   changeEmailSchema,
+  changeEmailWithCodeSchema,
   failureText,
   hasMessage,
   SAME_EMAIL_MESSAGE,
@@ -26,16 +29,25 @@ export function ChangeEmailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { data: me } = useCurrentUser()
+  // Two-factor sign-in on: the step-up asks a code as well (decisions §14).
+  const withCode = me?.mfaEnabled ?? false
   const form = useForm<ChangeEmailFormValues>({
-    resolver: zodResolver(changeEmailSchema),
-    defaultValues: { newEmail: '', currentPassword: '' },
+    // One of two schemas, cast to the common shape (as in StepUpForm).
+    resolver: zodResolver(
+      withCode ? changeEmailWithCodeSchema : changeEmailSchema,
+    ) as Resolver<ChangeEmailFormValues>,
+    defaultValues: { newEmail: '', currentPassword: '', mfaCode: '' },
   })
 
   const request = useMutation({
     // The values as the schema PARSED them (zodResolver hands those to the
     // submit handler): the address already trimmed.
     mutationFn: (values: ChangeEmailFormValues) =>
-      requestEmailChange(values.newEmail, values.currentPassword),
+      requestEmailChange(
+        values.newEmail,
+        values.currentPassword,
+        withCode ? values.mfaCode : undefined,
+      ),
     onSuccess: ({ pending }) => {
       // The answer IS the pending change: written into the cache, so the
       // profile shows it at once, without another request.
@@ -52,12 +64,20 @@ export function ChangeEmailPage() {
         form.setError('currentPassword', { message: WRONG_PASSWORD_MESSAGE }, { shouldFocus: true })
       } else if (hasMessage(error, 400, SAME_EMAIL_MESSAGE)) {
         form.setError('newEmail', { message: SAME_EMAIL_MESSAGE }, { shouldFocus: true })
+      } else {
+        // A refused code belongs to the code field — cleared and focused.
+        const refusal = withCode ? codeRefusal(error) : null
+        if (refusal) {
+          form.resetField('mfaCode')
+          form.setError('mfaCode', { message: refusal }, { shouldFocus: true })
+        }
       }
     },
   })
   const fieldError =
     hasMessage(request.error, 400, WRONG_PASSWORD_MESSAGE) ||
-    hasMessage(request.error, 400, SAME_EMAIL_MESSAGE)
+    hasMessage(request.error, 400, SAME_EMAIL_MESSAGE) ||
+    (withCode && codeRefusal(request.error) !== null)
   const { errors } = form.formState
 
   return (
@@ -124,6 +144,12 @@ export function ChangeEmailPage() {
             </p>
           )}
         </div>
+        {withCode && (
+          <SecondFactorField
+            error={errors.mfaCode?.message}
+            registration={form.register('mfaCode')}
+          />
+        )}
         {request.isError && !fieldError && (
           <p role="alert" className="text-sm text-destructive">
             {failureText(request.error)}

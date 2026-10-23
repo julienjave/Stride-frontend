@@ -126,3 +126,59 @@ describe('ChangeEmailPage', () => {
     )
   })
 })
+// An account with two-factor sign-in on proves itself with a code as well
+// (decisions §14).
+describe('ChangeEmailPage — with two-factor sign-in on', () => {
+  const WITH_MFA = { email: 'pat@example.com', mfaEnabled: true }
+
+  it('asks no code when two-factor sign-in is off', () => {
+    renderEmailChange('/profile/email', () => undefined)
+
+    expect(screen.queryByLabelText('Two-factor code')).not.toBeInTheDocument()
+  })
+
+  it('sends the code, trimmed, with the address and the password', async () => {
+    renderEmailChange(
+      ['/profile', '/profile/email'],
+      ({ method }) => (method === 'POST' ? json({ pending: PENDING }, 201) : undefined),
+      WITH_MFA,
+    )
+
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('New email address'), 'pat.new@example.com')
+    await user.type(screen.getByLabelText('Current password'), 'secret pw')
+    await user.type(screen.getByLabelText('Two-factor code'), ' 123456 ')
+    await user.click(screen.getByRole('button', { name: 'Send the confirmation link' }))
+
+    await screen.findByText(/Waiting for confirmation of/)
+    expect(requests()).toEqual([
+      {
+        method: 'POST',
+        path: '/auth/email-change',
+        body: '{"newEmail":"pat.new@example.com","currentPassword":"secret pw","mfaCode":"123456"}',
+      },
+    ])
+  })
+
+  it('says a refused code at the code field — cleared, focused, no other alert', async () => {
+    renderEmailChange(
+      '/profile/email',
+      () => apiError(400, 'This recovery code is not valid, or has already been used'),
+      WITH_MFA,
+    )
+
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('New email address'), 'pat.new@example.com')
+    await user.type(screen.getByLabelText('Current password'), 'secret pw')
+    await user.type(screen.getByLabelText('Two-factor code'), 'abcde-23456')
+    await user.click(screen.getByRole('button', { name: 'Send the confirmation link' }))
+
+    const code = screen.getByLabelText('Two-factor code')
+    expect(
+      await screen.findByText('This recovery code is not valid, or has already been used'),
+    ).toHaveAttribute('id', 'mfaCode-error')
+    expect(code).toHaveValue('')
+    expect(code).toHaveFocus()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})

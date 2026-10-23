@@ -11,6 +11,7 @@ import { DeactivateUserButton } from './DeactivateUserButton'
 import { ReactivateUserButton } from './ReactivateUserButton'
 import { InvitationStatus } from '@/invitations/InvitationStatus'
 import { CareTeamSection } from '@/patients/CareTeamSection'
+import { ResetTwoFactorSection } from '@/two-factor/ResetTwoFactorSection'
 
 export function UserEditPage() {
   const { id } = useParams<{ id: string }>()
@@ -83,6 +84,18 @@ function UserEditView({ userId }: { userId: number }) {
         email={user.email}
         isActive={user.isActive}
       />
+
+      {/* Whether the account has two-factor sign-in on and, when it does,
+          the admin's reset (decisions §14) — never on the admin's own
+          account. `me` is always there on this page (RequireAuth waited). */}
+      {me && (
+        <ResetTwoFactorSection
+          user={user}
+          isSelf={me.id === user.id}
+          adminEmail={me.email}
+          adminHasMfa={me.mfaEnabled}
+        />
+      )}
 
       {/* A patient's care team, with an admin's permissions: add any
           practitioner of the patient's clinics, end any current link

@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { hasMessage } from '@/api/apiErrors'
 import { currentPasswordField } from '@/auth/currentPassword'
+import { secondFactorField } from '@/two-factor/twoFactorRules'
 
 // Shared with changing the password (§13) since 2026-10-22 — re-exported so
 // this feature's pages and tests keep one place to import from.
@@ -50,7 +51,14 @@ export const changeEmailSchema = z.object({
     .email('Enter a valid email address'),
   currentPassword: currentPasswordField,
 })
-export type ChangeEmailFormValues = z.input<typeof changeEmailSchema>
+export type ChangeEmailFormValues = z.input<typeof changeEmailSchema> & {
+  // Only on the form of an account with two-factor sign-in on.
+  mfaCode?: string
+}
+
+// The same form plus the code field, for an account with two-factor sign-in
+// on (decisions §14).
+export const changeEmailWithCodeSchema = changeEmailSchema.extend({ mfaCode: secondFactorField })
 
 // "Fri, Oct 23, 2:31 PM" in the viewer's language and zone: the link lasts 24
 // hours, so the day matters as much as the time.

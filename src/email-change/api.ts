@@ -19,11 +19,14 @@ export function fetchPendingEmailChange() {
 
 // 201 with the pending request — the same answer whether the address is free
 // or already an account's (the backend reveals nothing; only the new inbox's
-// email differs).
-export function requestEmailChange(newEmail: string, currentPassword: string) {
+// email differs). `mfaCode` as for changing the password (password-change/
+// api.ts): only for an account with two-factor sign-in on.
+export function requestEmailChange(newEmail: string, currentPassword: string, mfaCode?: string) {
   return apiRequest<{ pending: PendingEmailChange }>('/auth/email-change', {
     method: 'POST',
-    body: { newEmail, currentPassword },
+    body: mfaCode === undefined
+      ? { newEmail, currentPassword }
+      : { newEmail, currentPassword, mfaCode },
   })
 }
 

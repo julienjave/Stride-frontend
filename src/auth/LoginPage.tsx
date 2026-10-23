@@ -17,6 +17,8 @@ import {
   type UserRole,
 } from './schemas'
 import { ApiError } from '@/api/client'
+import { SecondFactorField } from '@/two-factor/SecondFactorField'
+import { codeRefusal } from '@/two-factor/twoFactorRules'
 
 // A fourth state added to the original three: 'role-pending' sits between
 // 'credentials' and either end state, for exactly the case the backend's
@@ -115,6 +117,14 @@ export function LoginPage() {
       setStep('authenticated')
       void navigate(redirectTo)
     },
+    // A refused code: the field is cleared (whatever was typed is wrong)
+    // and focused, ready for the next one.
+    onError: (error) => {
+      if (codeRefusal(error)) {
+        mfaForm.resetField('code')
+        mfaForm.setFocus('code')
+      }
+    },
   })
 
   // Called when the user clicks one of the role buttons. We deliberately
@@ -153,32 +163,30 @@ export function LoginPage() {
   }
 
   if (step === 'mfa-pending') {
+    // A refused code is said AT the field (it's about what was typed); any
+    // other failure (an expired sign-in step, throttling) under the form.
+    const refusal = codeRefusal(mfaMutation.error)
     return (
       <div className="mx-auto mt-24 max-w-sm px-4 space-y-4">
-        <h1 className="text-xl font-semibold">Enter your 6-digit code</h1>
+        <h1 className="text-xl font-semibold">Enter your two-factor code</h1>
         <form
           onSubmit={(e) => void mfaForm.handleSubmit((values) => mfaMutation.mutate(values))(e)}
           className="space-y-4"
           noValidate
         >
-          <div className="space-y-1">
-            <Label htmlFor="code">Authentication code</Label>
-            <Input
-              id="code"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              aria-invalid={!!mfaForm.formState.errors.code}
-              {...mfaForm.register('code')}
-            />
-            {mfaForm.formState.errors.code && (
-              <p className="text-sm text-destructive">
-                {mfaForm.formState.errors.code.message}
-              </p>
-            )}
-          </div>
+          {/* The same field as every step-up (no number pad: a recovery
+              code has letters), with the hint the person chose: how to get
+              in without the phone (decisions §14). */}
+          <SecondFactorField
+            id="code"
+            label="Authentication code"
+            hint="From your authenticator app. Lost your phone? Enter one of your recovery codes instead."
+            error={mfaForm.formState.errors.code?.message ?? refusal ?? undefined}
+            registration={mfaForm.register('code')}
+          />
 
-          {mfaMutation.isError && (
-            <p className="text-sm text-destructive">
+          {mfaMutation.isError && !refusal && (
+            <p role="alert" className="text-sm text-destructive">
               {mfaMutation.error instanceof ApiError
                 ? mfaMutation.error.messages.join(', ')
                 : 'Something went wrong'}
