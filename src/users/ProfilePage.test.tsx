@@ -120,7 +120,8 @@ function patchCalls() {
 
 // The page inside a layout that ALSO shows the account menu — so a test
 // can check what the header DISPLAYS after an edit, not just the cache.
-function renderProfile(user: User, activeRole: string) {
+// `state`: what the previous page handed over (a notice), as navigate() would.
+function renderProfile(user: User, activeRole: string, state?: unknown) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
@@ -138,7 +139,7 @@ function renderProfile(user: User, activeRole: string) {
         children: [{ path: '/profile', element: <ProfilePage /> }],
       },
     ],
-    { initialEntries: ['/profile'] },
+    { initialEntries: [{ pathname: '/profile', state }] },
   )
   render(
     <QueryClientProvider client={queryClient}>
@@ -169,6 +170,7 @@ describe('ProfilePage — what it shows', () => {
     expect(sectionNames()).toEqual([
       'profile-photo',
       'profile-section-personal-details',
+      'profile-section-sign-in-and-security',
       'profile-section-admin-details',
       'profile-section-practitioner-details',
       'profile-clinics',
@@ -180,16 +182,41 @@ describe('ProfilePage — what it shows', () => {
   })
 
   // Never an inline edit (it's the sign-in name): "Change" leads to its own
-  // page, on the person's own profile (decisions §12).
-  it('offers to change the email on its own page, not inline', async () => {
+  // page, on the person's own profile (decisions §12) — in the sign-in
+  // section beside the password (§13), and only there: the personal details
+  // no longer show the address.
+  it('offers to change the email and the password, each on its own page, in the sign-in section', async () => {
     fakeBackend(multiRoleUser)
     renderProfile(multiRoleUser, 'practitioner')
-    await screen.findByText('julien@example.com')
+    const signIn = await screen.findByRole('region', { name: 'Sign-in and security' })
+    expect(within(signIn).getByText('julien@example.com')).toBeInTheDocument()
+    expect(
+      within(screen.getByRole('region', { name: 'Personal details' })).queryByText('Email'),
+    ).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Edit Email' })).not.toBeInTheDocument()
-    expect(await screen.findByRole('link', { name: 'Change Email' })).toHaveAttribute(
+    expect(within(signIn).getByRole('link', { name: 'Change Email' })).toHaveAttribute(
       'href',
       '/profile/email',
     )
+    expect(within(signIn).getByRole('link', { name: 'Change Password' })).toHaveAttribute(
+      'href',
+      '/profile/password',
+    )
+  })
+
+  // Handed over by /profile/password after a change.
+  it('shows the notice another page handed over, and none otherwise', async () => {
+    fakeBackend(patientUser)
+    renderProfile(patientUser, 'patient', { notice: 'Your password is changed.' })
+    expect(await screen.findByRole('status')).toHaveTextContent('Your password is changed.')
+  })
+
+  it('shows no notice when none was handed over', async () => {
+    fakeBackend(patientUser)
+    renderProfile(patientUser, 'patient')
+    await screen.findByRole('heading', { name: 'My profile' })
+    await screen.findByRole('region', { name: 'Sign-in and security' })
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
   it('shows a patient their date of birth as a readable date, and "no clinic" plainly', async () => {

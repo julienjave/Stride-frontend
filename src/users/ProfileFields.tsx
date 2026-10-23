@@ -8,6 +8,7 @@ import { roleLabel } from '@/auth/roleLabel'
 import { userRoleSchema } from '@/auth/schemas'
 import { useSaveUser } from './useSaveUser'
 import { EmailRow } from '@/email-change/EmailRow'
+import { PasswordRow } from '@/password-change/PasswordRow'
 import {
   bioSchema,
   firstNameSchema,
@@ -28,10 +29,12 @@ interface ProfileFieldsProps {
   // may change a license number. The PAGE decides this, since only it
   // knows who is looking; the backend enforces it regardless (403).
   canEditLicense: boolean
-  // The person's OWN profile (/profile): the Email row offers "Change" and
-  // shows a change waiting for its confirmation. Changing an email is
-  // self-service only (decisions §12), so the admin's user page and the
-  // practitioner's patient page leave it out and show the address read-only.
+  // The person's OWN profile (/profile): a "Sign-in and security" section
+  // follows the personal details, with the Email row (it offers "Change" and
+  // shows a change waiting for its confirmation) and the Password row.
+  // Changing either is self-service only (decisions §12, §13), so the
+  // admin's user page and the practitioner's patient page leave that section
+  // out and show the address read-only among the personal details.
   ownProfile?: boolean
 }
 
@@ -65,10 +68,9 @@ export function ProfileFields({ user, canEditLicense, ownProfile = false }: Prof
         />
         {/* Email is the sign-in name and the password-reset address, so it
             changes through its own flow with verification (decisions §12)
-            — never as an inline edit, and only by the person. */}
-        {ownProfile ? (
-          <EmailRow email={user.email} />
-        ) : (
+            — never as an inline edit, and only by the person: on their own
+            profile it's in the sign-in section below. */}
+        {!ownProfile && (
           <ReadOnlyField
             label="Email"
             value={user.email}
@@ -84,6 +86,17 @@ export function ProfileFields({ user, canEditLicense, ownProfile = false }: Prof
         />
         <EditableAddress address={user} save={(address) => saveUser(address)} />
       </ProfileSection>
+
+      {/* How the person signs in (the person's choice, decisions §13): the
+          two things that could hand the account to someone else, together —
+          each changed on a page of its own, after the current password.
+          Two-factor sign-in would join them. Own profile only. */}
+      {ownProfile && (
+        <ProfileSection title="Sign-in and security">
+          <EmailRow email={user.email} />
+          <PasswordRow />
+        </ProfileSection>
+      )}
 
       {heldRoles.map((role) => (
         <ProfileSection key={role} title={`${roleLabel(role)} details`}>

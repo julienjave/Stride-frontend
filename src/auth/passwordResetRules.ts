@@ -18,13 +18,8 @@ export function isDeadLink(error: unknown): boolean {
   )
 }
 
-// The words of any other failure, for the form: the backend's own (a 429
-// says "too many requests…"), else a generic line (a network failure).
-export function failureText(error: unknown): string {
-  return error instanceof ApiError
-    ? error.messages.join(' ')
-    : 'Something went wrong. Check your connection and try again.'
-}
+// The words of any other failure, for the form — shared (api/apiErrors.ts).
+export { failureText } from '@/api/apiErrors'
 
 // An email carried in navigation state (sign-in → forgot → sign-in, and the
 // reset page → sign-in). State, not the URL: an address in a query string

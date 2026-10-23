@@ -172,6 +172,15 @@ export const router = createBrowserRouter([
                   (module) => module.ChangeEmailPage,
                 ),
               },
+              // Changing one's own password (Phase 6, decisions §13) — every
+              // role, like the email change.
+              {
+                path: '/profile/password',
+                lazy: page(
+                  () => import('@/password-change/ChangePasswordPage'),
+                  (module) => module.ChangePasswordPage,
+                ),
+              },
               {
                 // Nested one level further: authenticated AND the right role.
                 // This is the pattern every future role-scoped section (admin

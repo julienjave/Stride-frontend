@@ -123,6 +123,11 @@ describe('MedicalFileEntryPage — a new entry', () => {
       },
     ])
     // The file is read AFTER the write — the answer includes the new entry.
+    // Waited for through what the read SHOWS: the heading renders at once,
+    // but React Query starts the read after the render is committed — under
+    // a busy full run, a count taken right after the heading could still be
+    // 0. The newest entry's text proves the read happened and answered.
+    expect(await screen.findByText(/Sharp pain/)).toBeInTheDocument()
     const reads = requests().filter((r) => r.path === '/medical-files?patientId=6')
     expect(reads).toHaveLength(1)
     expect(requests().indexOf(reads[0])).toBeGreaterThan(requests().indexOf(posts()[0]))

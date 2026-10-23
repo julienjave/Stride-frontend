@@ -4,7 +4,8 @@ import { userRoleSchema } from '@/auth/schemas'
 import { useUser } from './useUser'
 import { ProfileFields } from './ProfileFields'
 import { AvatarUpload } from './AvatarUpload'
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
+import { readNotice } from '@/common/readNotice'
 import { MY_RECORDS_PATH } from '@/medical-files/medicalFilePaths'
 
 // /profile — the logged-in user's own profile, for every role (design
@@ -29,6 +30,9 @@ function ProfileView({ userId, activeRole }: { userId: number; activeRole: strin
   // whichever page the edit came from. The cost is one extra request when
   // the page opens.
   const { data: user, isLoading, isError } = useUser(userId)
+  // A one-line confirmation another page hands over ("Your password is
+  // changed…", from /profile/password) — read defensively (readNotice).
+  const notice = readNotice(useLocation().state)
 
   if (isLoading) {
     return <p className="mx-auto mt-12 max-w-lg px-4 text-sm text-muted-foreground">Loading profile…</p>
@@ -55,6 +59,15 @@ function ProfileView({ userId, activeRole }: { userId: number; activeRole: strin
         <h1 className="text-xl font-semibold">My profile</h1>
         <p className="text-sm text-muted-foreground">{roleNames}</p>
       </div>
+
+      {notice && (
+        <p
+          role="status"
+          className="rounded-lg border border-green-600/30 bg-green-600/10 p-3 text-sm"
+        >
+          {notice}
+        </p>
+      )}
 
       {/* A patient's way to their medical file from here (decisions §8):
           the records live in the profile AREA, on a page of their own. By

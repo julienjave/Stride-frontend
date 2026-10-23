@@ -1,5 +1,11 @@
 import { z } from 'zod'
-import { ApiError } from '@/api/client'
+import { hasMessage } from '@/api/apiErrors'
+import { currentPasswordField } from '@/auth/currentPassword'
+
+// Shared with changing the password (§13) since 2026-10-22 — re-exported so
+// this feature's pages and tests keep one place to import from.
+export { failureText, hasMessage } from '@/api/apiErrors'
+export { WRONG_PASSWORD_MESSAGE } from '@/auth/currentPassword'
 
 // The pure rules of the change-of-email screens (decisions §12): where the
 // pages live, the form's checks, how a refusal is read, how the expiry reads.
@@ -12,7 +18,6 @@ export const CANCEL_EMAIL_CHANGE_PATH = '/cancel-email-change'
 // page reads WHICH refusal it got by its message, the way the reset page
 // does: one status (400) carries several meanings.
 export const DEAD_LINK_MESSAGE = 'This link is invalid or has expired'
-export const WRONG_PASSWORD_MESSAGE = 'Your current password is not correct'
 export const SAME_EMAIL_MESSAGE = 'This is already your email address'
 // A good confirm link whose address someone took since the request (409).
 export const ADDRESS_TAKEN_MESSAGE =
@@ -20,12 +25,6 @@ export const ADDRESS_TAKEN_MESSAGE =
 // A cancel link of a change already confirmed (409): too late to stop it.
 export const ALREADY_CONFIRMED_MESSAGE =
   'This change has already been confirmed. If you did not ask for it, contact your clinic.'
-
-export function hasMessage(error: unknown, status: number, message: string): boolean {
-  return (
-    error instanceof ApiError && error.statusCode === status && error.messages.includes(message)
-  )
-}
 
 export function isDeadLink(error: unknown): boolean {
   return hasMessage(error, 400, DEAD_LINK_MESSAGE)
@@ -39,14 +38,6 @@ export function isAlreadyConfirmed(error: unknown): boolean {
   return hasMessage(error, 409, ALREADY_CONFIRMED_MESSAGE)
 }
 
-// What to show for any other failure: the server's words, or a plain
-// sentence when there was no answer at all (the network).
-export function failureText(error: unknown): string {
-  return error instanceof ApiError
-    ? error.messages.join(' ')
-    : 'Something went wrong. Check your connection and try again.'
-}
-
 // The form. The address is trimmed before it's checked and sent (the backend
 // trims and lowercases A–Z too — its rule; the page doesn't repeat it). The
 // password is sent exactly as typed: spaces may be part of it.
@@ -57,7 +48,7 @@ export const changeEmailSchema = z.object({
     .min(1, 'Enter the new email address')
     .max(255, 'An email address can be at most 255 characters')
     .email('Enter a valid email address'),
-  currentPassword: z.string().min(1, 'Enter your current password'),
+  currentPassword: currentPasswordField,
 })
 export type ChangeEmailFormValues = z.input<typeof changeEmailSchema>
 

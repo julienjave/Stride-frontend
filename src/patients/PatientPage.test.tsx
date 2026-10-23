@@ -202,6 +202,11 @@ describe('PatientPage — the patient', () => {
       screen.getByText('Only the person can change their email address, from their own profile.'),
     ).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Change Email' })).not.toBeInTheDocument()
+    // Nor the sign-in section with the password (decisions §13).
+    expect(
+      screen.queryByRole('region', { name: 'Sign-in and security' }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Change Password' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /photo/i })).not.toBeInTheDocument()
   })
 
