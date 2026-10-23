@@ -1,7 +1,9 @@
-import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router'
 import { ChevronLeft } from 'lucide-react'
 import { ApiError } from '@/api/client'
+import { LoadError, LoadFailure } from '@/common/LoadError'
+import { NotAvailable } from '@/common/NotAvailable'
 import { UserAvatar } from '@/common/UserAvatar'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -45,7 +47,13 @@ export function ConversationPage() {
   const viewer = useMessagingViewer()
   const conversationId = Number(param)
   if (!viewer) return null
-  if (!Number.isInteger(conversationId) || conversationId < 1) return <NotFound role={viewer.role} />
+  if (!Number.isInteger(conversationId) || conversationId < 1) {
+    return (
+      <Pane>
+        <ConversationNotAvailable role={viewer.role} />
+      </Pane>
+    )
+  }
   // key: going from one conversation to another (desktop: a click in the
   // list — same route, new :id) mounts a FRESH view, so a half-typed
   // message, an error or the scroll position never carries over to the
@@ -65,17 +73,21 @@ function Conversation({
   const conversation = useConversation(conversationId)
 
   if (conversation.isError) {
-    // 404: no such conversation; 403: not one of mine. Either way, nothing
-    // to show — and the same words, so the page doesn't reveal which ids
-    // exist.
-    const error = conversation.error
-    if (error instanceof ApiError && (error.statusCode === 404 || error.statusCode === 403)) {
-      return <NotFound role={role} />
-    }
+    // 404: no such conversation, or one I'm not in (row security hides it);
+    // 403: not one of mine (the service's own check, behind row security).
+    // Either way, nothing to show — and the same words, so the page doesn't
+    // reveal which ids exist. Anything else: "Try again".
     return (
-      <p role="alert" className="p-4 text-sm text-destructive">
-        Couldn't load this conversation. Try refreshing the page.
-      </p>
+      <Pane>
+        <LoadFailure
+          queries={[conversation]}
+          what="this conversation"
+          notAvailable={<ConversationNotAvailable role={role} />}
+          isNotAvailable={isHiddenConversation}
+        >
+          <BackToMessages role={role} />
+        </LoadFailure>
+      </Pane>
     )
   }
   if (!conversation.isSuccess) return <p className="p-4 text-sm text-muted-foreground">Loading…</p>
@@ -152,9 +164,7 @@ function Thread({ summary, myId }: { summary: ConversationSummary; myId: number 
     <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
       {thread.isPending && <p className="text-sm text-muted-foreground">Loading messages…</p>}
       {thread.isError && (
-        <p role="alert" className="text-sm text-destructive">
-          Couldn't load the messages. Try refreshing the page.
-        </p>
+        <LoadError what="the messages" queries={[thread]} />
       )}
       {thread.hasNextPage && (
         <div className="mb-3 text-center">
@@ -349,13 +359,34 @@ function sendErrorText(error: Error): string {
   return "Couldn't send your message. Check your connection and try again."
 }
 
-function NotFound({ role }: { role: MessagingRole }) {
+// The conversation pane's padding, for the states that replace the whole
+// conversation (not available, couldn't load).
+function Pane({ children }: { children: ReactNode }) {
+  return <div className="p-4">{children}</div>
+}
+
+function isHiddenConversation(error: unknown): boolean {
+  return error instanceof ApiError && (error.statusCode === 404 || error.statusCode === 403)
+}
+
+function BackToMessages({ role }: { role: MessagingRole }) {
   return (
-    <div className="space-y-2 p-4">
-      <h2 className="text-lg font-semibold">Conversation not found</h2>
-      <Link to={messagesPath(role)} className="text-sm underline underline-offset-4">
-        Back to messages
-      </Link>
-    </div>
+    <Link to={messagesPath(role)} className="block text-sm underline underline-offset-4">
+      Back to messages
+    </Link>
+  )
+}
+
+// An <h2>: the pane sits beside the list, whose "Messages" is the page's
+// <h1> (on a phone a visually hidden one stands in — MessagesLayout).
+function ConversationNotAvailable({ role }: { role: MessagingRole }) {
+  return (
+    <NotAvailable
+      title="Conversation not available"
+      headingLevel={2}
+      links={[{ to: messagesPath(role), label: 'Back to messages' }]}
+    >
+      This conversation doesn't exist, or you aren't part of it.
+    </NotAvailable>
   )
 }

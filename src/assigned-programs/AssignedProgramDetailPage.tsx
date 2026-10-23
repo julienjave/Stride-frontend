@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router'
-import { ApiError } from '@/api/client'
+import { useParams } from 'react-router'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { localDateString } from '@/common/calendarDate'
 import { ProgramAlertBanner } from '@/alerts/ProgramAlertBanner'
@@ -11,6 +10,7 @@ import { ProgramActions } from './ProgramActions'
 import { ProgramDetailsSection } from './ProgramDetailsSection'
 import { ProgramHeader } from './ProgramHeader'
 import { ProgramScheduleProgress } from './ProgramScheduleProgress'
+import { ProgramLoadFailed, ProgramNotAvailable } from './ProgramNotAvailable'
 import { isProgramOpen } from './permissions'
 import { currentAndPlanned, workoutNames } from './programSchedule'
 import { useAssignedProgram } from './useAssignedProgram'
@@ -29,7 +29,7 @@ export function AssignedProgramDetailPage() {
   const programId = Number(id)
 
   if (!id || !Number.isInteger(programId) || programId < 1) {
-    return <p className="mx-auto mt-8 max-w-2xl px-4 text-sm text-destructive">Invalid program.</p>
+    return <ProgramNotAvailable />
   }
 
   // key={programId}: going from one program to another (the "Continues …"
@@ -48,7 +48,8 @@ function ProgramView({ programId }: { programId: number }) {
   const [today] = useState(() => localDateString())
 
   const { data: currentUser } = useCurrentUser()
-  const { data: program, isLoading, error } = useAssignedProgram(programId)
+  const programQuery = useAssignedProgram(programId)
+  const { data: program, isLoading, error } = programQuery
   // Asked for only once the program is known to be visible: a 404 program
   // needs no summary (it would only 404 too).
   // …and not for a DELETED program: deleted because nothing happened in it,
@@ -71,15 +72,7 @@ function ProgramView({ programId }: { programId: number }) {
     )
   }
 
-  if (error) {
-    return error instanceof ApiError && error.statusCode === 404 ? (
-      <ProgramNotFound />
-    ) : (
-      <p className="mx-auto mt-8 max-w-2xl px-4 text-sm text-destructive">
-        Couldn't load this program. Try refreshing.
-      </p>
-    )
-  }
+  if (error) return <ProgramLoadFailed query={programQuery} what="this program" />
 
   if (!program || !currentUser) return null
 
@@ -129,32 +122,6 @@ function ProgramView({ programId }: { programId: number }) {
         <PainAndMobility program={program} today={today} viewer="practitioner" headingLevel={2} />
       )}
       <ProgramExercisesSection program={program} isOpen={isOpen} today={today} />
-    </div>
-  )
-}
-
-// A 404 means one of two things the backend deliberately doesn't tell
-// apart: no such program, or a program of a patient whose care team I'm
-// not on (row-level security makes it invisible, so it reads as "not
-// found" — telling them apart would confirm that it exists). The page says
-// both, honestly, and where to go. (The roadmap's Phase 6 item on "honest
-// copy for the RLS 404s" — assigned_programs is one of the four.)
-function ProgramNotFound() {
-  return (
-    <div className="mx-auto mt-8 max-w-2xl space-y-3 px-4">
-      <h1 className="text-xl font-semibold">Program not found</h1>
-      <p className="text-sm text-muted-foreground">
-        This program doesn't exist, or it belongs to a patient whose care team you're not on. Only
-        a patient's care team can open their programs.
-      </p>
-      <div className="flex flex-wrap gap-4 text-sm">
-        <Link to="/practitioner/patients" className="font-medium underline">
-          My patients
-        </Link>
-        <Link to="/practitioner/programs" className="font-medium underline">
-          Programs
-        </Link>
-      </div>
     </div>
   )
 }

@@ -10,6 +10,7 @@ import type { AssignedProgramDetail, ScheduleSummary, ScheduleVersion } from '@/
 import { assignedProgramSummaryQueryKey } from '@/assigned-programs/api'
 import { PatientProgramPage } from './PatientProgramPage'
 import { A, B, KNEE, PAT, TODAY, apiError, json, programExercise, scheduledDay, session, summary, urlOf } from './testData'
+import { expectLoadError, expectNotAvailable } from './notAvailableAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -360,22 +361,32 @@ describe('PatientProgramPage — not available', () => {
   it("says a program it can't see isn't available — and asks nothing more", async () => {
     program = () => apiError(404, 'Not found')
     renderPage()
-    expect(await screen.findByRole('alert')).toHaveTextContent("This program doesn't exist, or isn't yours.")
+    await expectNotAvailable('program')
     expect(paths()).toStrictEqual(['/assigned-programs/12'])
   })
 
   it('refuses an address that names no program, asking nothing', async () => {
     renderPage('/patient/sessions/programs/abc')
-    expect(await screen.findByRole('alert')).toHaveTextContent("This program doesn't exist, or isn't yours.")
+    await expectNotAvailable('program')
     expect(paths()).toStrictEqual([])
   })
 
   it('says so when loading fails for another reason', async () => {
     program = () => apiError(500, 'Boom')
     renderPage()
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      "Couldn't load this program. Try refreshing the page.",
-    )
+    await expectLoadError('program')
+  })
+
+  it('"Try again" asks for the program again and shows it', async () => {
+    const user = userEvent.setup()
+    let fail = true
+    program = () => (fail ? apiError(500, 'Boom') : json(PROGRAM))
+    renderPage()
+    await expectLoadError('program')
+    fail = false
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByRole('heading', { name: 'Knee Rehab', level: 1 })).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it("keeps the program and its exercises when only the progress fails", async () => {

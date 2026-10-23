@@ -5,6 +5,8 @@ import { useCurrentUser } from '@/auth/useCurrentUser'
 import { workoutNames } from '@/assigned-programs/programSchedule'
 import { useAssignedProgram } from '@/assigned-programs/useAssignedProgram'
 import { formatShortDate } from '@/common/calendarDate'
+import { LoadFailure } from '@/common/LoadError'
+import { NotAvailable } from '@/common/NotAvailable'
 import { PrescriptionSummary } from '@/common/PrescriptionSummary'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -34,7 +36,13 @@ export function SessionReviewPage() {
   const sessionId = Number(param)
   // A non-number in the address can't be a session: say so without asking
   // the server (the same answer as a session that doesn't exist).
-  if (!Number.isInteger(sessionId) || sessionId < 1) return <NotAvailable />
+  if (!Number.isInteger(sessionId) || sessionId < 1) {
+    return (
+      <Page>
+        <NotAvailableBody />
+      </Page>
+    )
+  }
   return <ReviewView sessionId={sessionId} />
 }
 
@@ -56,13 +64,11 @@ function ReviewView({ sessionId }: { sessionId: number }) {
     )
   }
   if (session.isError) {
-    if (session.error instanceof ApiError && session.error.statusCode === 404) return <NotAvailable />
     return (
       <Page>
-        <p role="alert" className="text-sm text-destructive">
-          Couldn't load this session. Try refreshing the page.
-        </p>
-        <HomeLink />
+        <LoadFailure queries={[session]} what="this session" notAvailable={<NotAvailableBody />}>
+          <HomeLink />
+        </LoadFailure>
       </Page>
     )
   }
@@ -271,15 +277,21 @@ function HomeLink() {
 
 // No such session, or one of a patient whose care team I'm not on — the
 // backend answers both with 404 on purpose (row security), so the page
-// can't tell them apart either, and says what is true of both.
-function NotAvailable() {
+// can't tell them apart either, and says what is true of both — in the
+// shared shape (common/NotAvailable, 2026-10-23), with the program pages'
+// rule sentence. "Back to home": the practitioner's For review list, where
+// these links come from.
+function NotAvailableBody() {
   return (
-    <Page>
-      <h1 className="text-xl font-semibold">Session not available</h1>
-      <p className="text-sm">
-        This session doesn't exist, or it belongs to a patient whose care team you aren't on.
-      </p>
-      <HomeLink />
-    </Page>
+    <NotAvailable
+      title="Session not available"
+      links={[
+        { to: '/practitioner', label: 'Back to home' },
+        { to: '/practitioner/patients', label: 'My patients' },
+      ]}
+    >
+      This session doesn't exist, or it belongs to a patient whose care team you're not on. Only a
+      patient's care team can open their sessions.
+    </NotAvailable>
   )
 }

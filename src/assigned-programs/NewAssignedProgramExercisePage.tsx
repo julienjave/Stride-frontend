@@ -1,8 +1,8 @@
 import { Link, useParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import { ApiError } from '@/api/client'
 import { NewWorkoutExerciseView } from '@/workouts/NewWorkoutExerciseView'
 import type { AddTemplateExerciseFormValues } from '@/programs/schemas'
+import { ProgramLoadFailed, ProgramNotAvailable } from './ProgramNotAvailable'
 import { addProgramExercise, assignedProgramQueryKey } from './api'
 import { isProgramOpen } from './permissions'
 import { useAssignedProgram } from './useAssignedProgram'
@@ -23,7 +23,7 @@ export function NewAssignedProgramExercisePage() {
   const programId = Number(id)
 
   if (!id || !Number.isInteger(programId) || programId < 1) {
-    return <p className="mx-auto mt-8 max-w-2xl px-4 text-sm text-destructive">Invalid program.</p>
+    return <ProgramNotAvailable />
   }
 
   return <NewProgramExercise programId={programId} />
@@ -32,7 +32,8 @@ export function NewAssignedProgramExercisePage() {
 function NewProgramExercise({ programId }: { programId: number }) {
   const queryClient = useQueryClient()
   // Usually already cached: the practitioner comes from the program page.
-  const { data: program, error } = useAssignedProgram(programId)
+  const programQuery = useAssignedProgram(programId)
+  const { data: program, error } = programQuery
   const programPath = `/practitioner/programs/assigned/${programId}`
 
   // The request, then the answer — the whole program — into its cache
@@ -49,15 +50,7 @@ function NewProgramExercise({ programId }: { programId: number }) {
     queryClient.setQueryData(assignedProgramQueryKey(programId), updated)
   }
 
-  if (error) {
-    return (
-      <p className="mx-auto mt-8 max-w-2xl px-4 text-sm text-destructive">
-        {error instanceof ApiError && error.statusCode === 404
-          ? "This program doesn't exist, or isn't one you can see."
-          : "Couldn't load this program. Try refreshing."}
-      </p>
-    )
-  }
+  if (error) return <ProgramLoadFailed query={programQuery} what="this program" />
 
   // Said before the form, not after a refused Add: the backend would answer
   // 409, but the practitioner would have picked an exercise and filled in a

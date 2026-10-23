@@ -1,0 +1,23 @@
+import { expect } from 'vitest'
+import { screen } from '@testing-library/react'
+
+// What every patient page of a program or session shows when the backend
+// answers 404 (or the address names no id): the shared "not available" shape
+// in the patient's words (SessionPageParts.NotAvailable, 2026-10-23) — and no
+// "Try again", since asking again can't change that answer. The links are
+// checked once, in SessionPage.test.tsx.
+export async function expectNotAvailable(what: 'program' | 'session') {
+  const title = what === 'program' ? 'Program not available' : 'Session not available'
+  expect(await screen.findByRole('heading', { level: 1, name: title })).toBeInTheDocument()
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    new RegExp(`^This ${what} doesn't exist, or it isn't one of yours\\.$`),
+  )
+  expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+}
+
+// The other failures: the load error, with "Try again" and the way home.
+export async function expectLoadError(what: 'program' | 'session') {
+  expect(await screen.findByRole('alert')).toHaveTextContent(new RegExp(`^Couldn't load this ${what}\\.$`))
+  expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Back to home' })).toHaveAttribute('href', '/patient')
+}

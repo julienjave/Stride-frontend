@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { ApiError } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -12,7 +11,7 @@ import { completeSession } from './api'
 import { completeBody } from './endingRules'
 import { FEEDBACK_MAX_LENGTH } from './sessionRules'
 import { ScoreScale } from './ScoreScale'
-import { HomeLink, Loading, NotAvailable, Page } from './SessionPageParts'
+import { LoadFailed, Loading, NotAvailable, Page } from './SessionPageParts'
 import { ENDING_NOTICE, checklistProgressText, untickedText } from './sessionText'
 import type { Session } from './types'
 import { useSession } from './useSession'
@@ -49,16 +48,7 @@ function FinishView({ sessionId }: { sessionId: number }) {
   if (session.isError) {
     return (
       <Page>
-        {session.error instanceof ApiError && session.error.statusCode === 404 ? (
-          <NotAvailable what="session" />
-        ) : (
-          <>
-            <p role="alert" className="text-sm text-destructive">
-              Couldn't load this session. Try refreshing the page.
-            </p>
-            <HomeLink />
-          </>
-        )}
+        <LoadFailed what="session" queries={[session]} />
       </Page>
     )
   }

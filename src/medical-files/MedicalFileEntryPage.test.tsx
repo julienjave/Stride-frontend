@@ -6,6 +6,20 @@ import { PAT_USER, renderMedicalFile, requests, type SentRequest } from './rende
 import { chainedFile, entry, json } from './testData'
 import type { MedicalFileEntry } from './types'
 
+// An entry the page can't show (2026-10-23): the shared "not available"
+// shape, both possibilities, and the way back to the file — no "Try again".
+async function expectEntryNotAvailable() {
+  expect(await screen.findByRole('heading', { level: 1, name: 'Entry not available' })).toBeInTheDocument()
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    /^This entry doesn't exist, or it isn't in this patient's medical file\.$/,
+  )
+  expect(screen.getByRole('link', { name: 'Back to the medical file' })).toHaveAttribute(
+    'href',
+    '/practitioner/patients/6/medical-file',
+  )
+  expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+}
+
 const NEW_PATH = '/practitioner/patients/6/medical-file/new'
 const FILE_PATH = '/practitioner/patients/6/medical-file'
 const PATIENT_PATH = '/practitioner/patients/6'
@@ -281,25 +295,30 @@ describe('MedicalFileEntryPage — an amendment', () => {
     expect(screen.queryByRole('button', { name: 'Save the amendment' })).not.toBeInTheDocument()
   })
 
-  it("refuses an entry that isn't in this patient's file — missing, hidden, or another patient's", async () => {
+  it("says an entry that isn't in this patient's file is not available — missing, hidden, or another patient's", async () => {
     renderMedicalFile([`${NEW_PATH}?amends=77`], answers())
-    expect(await screen.findByRole('alert')).toHaveTextContent("This entry isn't in this patient's medical file.")
-    expect(screen.getByRole('link', { name: 'Back to the medical file' })).toHaveAttribute('href', FILE_PATH)
+    await expectEntryNotAvailable()
   })
 
-  it("refuses another patient's entry under this patient's address", async () => {
+  it("says the same of another patient's entry under this patient's address", async () => {
     renderMedicalFile([`${NEW_PATH}?amends=8`], answers({ entries: [entry(8, { patientId: 9 })] }))
-    expect(await screen.findByRole('alert')).toHaveTextContent("This entry isn't in this patient's medical file.")
+    await expectEntryNotAvailable()
     expect(screen.queryByRole('button', { name: 'Save the amendment' })).not.toBeInTheDocument()
   })
 
-  it('says when the entry could not be loaded', async () => {
+  it('says when the entry could not be loaded — and "Try again" asks again', async () => {
+    const user = userEvent.setup()
+    let fail = true
     renderMedicalFile([`${NEW_PATH}?amends=4`], (request) =>
-      request.path === '/medical-files/4'
+      request.path === '/medical-files/4' && fail
         ? json({ statusCode: 500, message: ['Boom'], error: 'Error' }, 500)
         : answers()(request),
     )
-    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't load the entry. Try refreshing the page.")
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Couldn't load the entry\.$/)
+    expect(screen.getByRole('link', { name: 'Back to the medical file' })).toHaveAttribute('href', FILE_PATH)
+    fail = false
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByRole('button', { name: 'Save the amendment' })).toBeInTheDocument()
   })
 
   it('shows a loading line while the version is read', () => {
@@ -309,15 +328,23 @@ describe('MedicalFileEntryPage — an amendment', () => {
 })
 
 describe('MedicalFileEntryPage — the address', () => {
-  it.each([
-    '/practitioner/patients/abc/medical-file/new',
-    '/practitioner/patients/0/medical-file/new',
-    `${NEW_PATH}?amends=abc`,
-    `${NEW_PATH}?amends=0`,
-    `${NEW_PATH}?amends=2.5`,
-  ])('refuses %s', (path) => {
-    renderMedicalFile([path], () => undefined)
-    expect(screen.getByText("This address isn't valid.")).toBeInTheDocument()
-    expect(requests()).toEqual([])
-  })
+  it.each(['/practitioner/patients/abc/medical-file/new', '/practitioner/patients/0/medical-file/new'])(
+    'refuses %s',
+    (path) => {
+      renderMedicalFile([path], () => undefined)
+      expect(screen.getByText("This address isn't valid.")).toBeInTheDocument()
+      expect(requests()).toEqual([])
+    },
+  )
+
+  // An entry id that isn't one: the same words as an entry that doesn't
+  // exist — asking nothing.
+  it.each([`${NEW_PATH}?amends=abc`, `${NEW_PATH}?amends=0`, `${NEW_PATH}?amends=2.5`])(
+    'says %s is not available',
+    async (path) => {
+      renderMedicalFile([path], () => undefined)
+      await expectEntryNotAvailable()
+      expect(requests()).toEqual([])
+    },
+  )
 })

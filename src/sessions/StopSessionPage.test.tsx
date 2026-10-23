@@ -8,6 +8,7 @@ import { readNotice } from '@/common/readNotice'
 import { StopSessionPage } from './StopSessionPage'
 import type { Session } from './types'
 import { PAT, apiError, json, session, urlOf } from './testData'
+import { expectLoadError, expectNotAvailable } from './notAvailableAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -179,12 +180,18 @@ describe('StopSessionPage', () => {
   it("says a session it can't see isn't available", async () => {
     sessionAnswer = () => apiError(404, 'Session not found')
     renderPage()
-    expect(await screen.findByRole('alert')).toHaveTextContent("This session doesn't exist, or isn't yours.")
+    await expectNotAvailable('session')
+  })
+
+  it('says so when loading fails for another reason, with "Try again"', async () => {
+    sessionAnswer = () => apiError(500, 'Internal server error')
+    renderPage()
+    await expectLoadError('session')
   })
 
   it('refuses an address that names no session, asking nothing', async () => {
     renderPage('/patient/sessions/0/stop')
-    expect(await screen.findByRole('alert')).toHaveTextContent("This session doesn't exist, or isn't yours.")
+    await expectNotAvailable('session')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })

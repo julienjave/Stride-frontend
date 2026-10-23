@@ -9,6 +9,7 @@ import { assignedProgramQueryKey, assignedProgramSummaryQueryKey } from '@/assig
 import type { ScheduleSummary } from '@/assigned-programs/types'
 import { SkipSessionPage } from './SkipSessionPage'
 import { A, B, KNEE, PAT, TODAY, apiError, json, scheduledDay, session, summary, urlOf } from './testData'
+import { expectLoadError, expectNotAvailable } from './notAvailableAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -263,15 +264,21 @@ describe('SkipSessionPage — nothing to skip', () => {
   it("says a program it can't see isn't available — asking nothing more", async () => {
     programAnswer = () => apiError(404, 'Assigned program not found')
     renderPage()
-    expect(await screen.findByRole('alert')).toHaveTextContent("This program doesn't exist, or isn't yours.")
+    await expectNotAvailable('program')
     expect(fetchMock.mock.calls.map(([input]) => new URL(urlOf(input)).pathname)).toStrictEqual([
       '/assigned-programs/12',
     ])
   })
 
+  it('says so when loading fails for another reason, with "Try again"', async () => {
+    programAnswer = () => apiError(500, 'Internal server error')
+    renderPage()
+    await expectLoadError('program')
+  })
+
   it('refuses an address that names no program, asking nothing', async () => {
     renderPage('/patient/sessions/skip/x')
-    expect(await screen.findByRole('alert')).toHaveTextContent("This program doesn't exist, or isn't yours.")
+    await expectNotAvailable('program')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })

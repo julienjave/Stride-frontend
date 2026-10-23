@@ -1,13 +1,12 @@
 import { useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { ApiError } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { describeFailure } from '@/workouts/useWorkoutEditing'
 import { stopSession } from './api'
 import { stopBody } from './endingRules'
 import { ReasonPicker } from './ReasonPicker'
 import { ScoreScale } from './ScoreScale'
-import { EndNoteField, HomeLink, Loading, NotAvailable, Page } from './SessionPageParts'
+import { EndNoteField, LoadFailed, Loading, NotAvailable, Page } from './SessionPageParts'
 import { ENDING_NOTICE, checklistProgressText } from './sessionText'
 import type { PatientEndReason, Session } from './types'
 import { useSession } from './useSession'
@@ -42,16 +41,7 @@ function StopView({ sessionId }: { sessionId: number }) {
   if (session.isError) {
     return (
       <Page>
-        {session.error instanceof ApiError && session.error.statusCode === 404 ? (
-          <NotAvailable what="session" />
-        ) : (
-          <>
-            <p role="alert" className="text-sm text-destructive">
-              Couldn't load this session. Try refreshing the page.
-            </p>
-            <HomeLink />
-          </>
-        )}
+        <LoadFailed what="session" queries={[session]} />
       </Page>
     )
   }

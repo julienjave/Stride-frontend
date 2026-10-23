@@ -1,0 +1,47 @@
+import { describe, it, expect } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
+import { NotAvailable } from './NotAvailable'
+
+function renderIt(headingLevel?: 1 | 2) {
+  render(
+    <MemoryRouter>
+      <NotAvailable
+        title="Program not available"
+        headingLevel={headingLevel}
+        links={[
+          { to: '/practitioner/patients', label: 'My patients' },
+          { to: '/practitioner/programs', label: 'Programs' },
+        ]}
+      >
+        This program doesn't exist, or it isn't yours.
+      </NotAvailable>
+    </MemoryRouter>,
+  )
+}
+
+describe('NotAvailable', () => {
+  it('shows a page heading, the sentence as an alert, and every way out', () => {
+    renderIt()
+    expect(screen.getByRole('heading', { level: 1, name: 'Program not available' })).toBeInTheDocument()
+    // The alert carries the sentence ALONE (not the heading or the links):
+    // that is what a screen reader announces when it replaces "Loading…".
+    expect(screen.getByRole('alert')).toHaveTextContent(/^This program doesn't exist, or it isn't yours\.$/)
+    const links = screen.getAllByRole('link')
+    expect(links.map((link) => [link.textContent, link.getAttribute('href')])).toStrictEqual([
+      ['My patients', '/practitioner/patients'],
+      ['Programs', '/practitioner/programs'],
+    ])
+  })
+
+  it('is an <h2> inside a page that already has its <h1>', () => {
+    renderIt(2)
+    expect(screen.getByRole('heading', { level: 2, name: 'Program not available' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
+  })
+
+  it('adds no landmark of its own', () => {
+    renderIt()
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
+  })
+})

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
+import { LoadError } from '@/common/LoadError'
 import { MedicalFileEntryList } from './MedicalFileEntryList'
 import { useMyMedicalFile } from './useMedicalFile'
 
@@ -18,9 +19,7 @@ export function MyRecordsPage() {
   return (
     <Page>
       {file.isError ? (
-        <p role="alert" className="text-sm text-destructive">
-          Couldn't load your records. Try refreshing the page.
-        </p>
+        <LoadError what="your records" queries={[file]} />
       ) : !file.isSuccess ? (
         <p className="text-sm text-muted-foreground">Loading your records…</p>
       ) : file.data.length === 0 ? (

@@ -11,6 +11,7 @@ import { sessionQueryKey } from './api'
 import { FinishSessionPage } from './FinishSessionPage'
 import type { Session } from './types'
 import { KNEE, PAT, TODAY, apiError, json, session, sessionExercise, summary, urlOf } from './testData'
+import { expectLoadError, expectNotAvailable } from './notAvailableAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -247,12 +248,18 @@ describe('FinishSessionPage — nothing to finish', () => {
   it("says a session it can't see isn't available", async () => {
     sessionAnswer = () => apiError(404, 'Session not found')
     renderPage()
-    expect(await screen.findByRole('alert')).toHaveTextContent("This session doesn't exist, or isn't yours.")
+    await expectNotAvailable('session')
+  })
+
+  it('says so when loading fails for another reason, with "Try again"', async () => {
+    sessionAnswer = () => apiError(500, 'Internal server error')
+    renderPage()
+    await expectLoadError('session')
   })
 
   it('refuses an address that names no session, asking nothing', async () => {
     renderPage('/patient/sessions/abc/finish')
-    expect(await screen.findByRole('alert')).toHaveTextContent("This session doesn't exist, or isn't yours.")
+    await expectNotAvailable('session')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })

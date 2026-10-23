@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
-import { ApiError } from '@/api/client'
 import { localDateString } from '@/common/calendarDate'
 import { PrescriptionSummary } from '@/common/PrescriptionSummary'
 import { workoutNames } from '@/assigned-programs/programSchedule'
@@ -8,7 +7,7 @@ import { useAssignedProgram } from '@/assigned-programs/useAssignedProgram'
 import { cn } from '@/lib/utils'
 import { programPagePath } from './programPagePath'
 import { isPlainClick, readFromProgram } from './sessionReturn'
-import { HomeLink, Loading, NotAvailable, Page } from './SessionPageParts'
+import { HomeLink, LoadFailed, Loading, NotAvailable, Page } from './SessionPageParts'
 import { SessionPlayer } from './SessionPlayer'
 import { isRunnable } from './sessionRules'
 import {
@@ -66,16 +65,7 @@ function SessionView({ sessionId }: { sessionId: number }) {
   if (session.isError) {
     return (
       <Page>
-        {session.error instanceof ApiError && session.error.statusCode === 404 ? (
-          <NotAvailable what="session" />
-        ) : (
-          <>
-            <p role="alert" className="text-sm text-destructive">
-              Couldn't load this session. Try refreshing the page.
-            </p>
-            <HomeLink />
-          </>
-        )}
+        <LoadFailed what="session" queries={[session]} />
       </Page>
     )
   }

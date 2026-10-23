@@ -269,23 +269,42 @@ describe('SessionReviewPage', () => {
     ])
   })
 
+  async function expectNotAvailable() {
+    expect(await screen.findByRole('heading', { level: 1, name: 'Session not available' })).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /^This session doesn't exist, or it belongs to a patient whose care team you're not on\. Only a patient's care team can open their sessions\.$/,
+    )
+    expect(
+      screen.getAllByRole('link').map((link) => [link.textContent, link.getAttribute('href')]),
+    ).toStrictEqual([
+      ['Back to home', '/practitioner'],
+      ['My patients', '/practitioner/patients'],
+    ])
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+  }
+
   it("says the session isn't available on a 404 — the same words for missing and not mine", async () => {
     sessionAnswer = () => apiError(404, 'Session 31 not found')
     renderPage()
-    expect(await screen.findByRole('heading', { name: 'Session not available' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Back to home' })).toHaveAttribute('href', '/practitioner')
+    await expectNotAvailable()
   })
 
   it('asks nothing for an address that is not a session number', async () => {
     renderPage('/practitioner/sessions/abc')
-    expect(await screen.findByRole('heading', { name: 'Session not available' })).toBeInTheDocument()
+    await expectNotAvailable()
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('says loading failed on another error, without claiming it is not available', async () => {
-    sessionAnswer = () => apiError(500, 'boom')
+  it('says loading failed on another error, without claiming it is not available — and "Try again" asks again', async () => {
+    const user = userEvent.setup()
+    let fail = true
+    sessionAnswer = () => (fail ? apiError(500, 'boom') : json(staffSession()))
     renderPage()
-    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't load this session. Try refreshing the page.")
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Couldn't load this session\.$/)
+    expect(screen.getByRole('link', { name: 'Back to home' })).toHaveAttribute('href', '/practitioner')
     expect(screen.queryByText('Session not available')).not.toBeInTheDocument()
+    fail = false
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByRole('button', { name: 'Mark as reviewed' })).toBeInTheDocument()
   })
 })

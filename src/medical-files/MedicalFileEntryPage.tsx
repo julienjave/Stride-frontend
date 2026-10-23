@@ -1,7 +1,8 @@
 import { useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
-import { ApiError } from '@/api/client'
+import { LoadFailure } from '@/common/LoadError'
 import { NativeSelect } from '@/common/NativeSelect'
+import { NotAvailable } from '@/common/NotAvailable'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -36,14 +37,19 @@ export function MedicalFileEntryPage() {
   const amendsParam = searchParams.get('amends')
   const amendsId = amendsParam === null ? null : Number(amendsParam)
 
-  if (
-    !Number.isInteger(patientId) ||
-    patientId < 1 ||
-    (amendsId !== null && (!Number.isInteger(amendsId) || amendsId < 1))
-  ) {
+  if (!Number.isInteger(patientId) || patientId < 1) {
     return (
       <Page>
         <p className="text-sm text-destructive">This address isn't valid.</p>
+      </Page>
+    )
+  }
+  // An entry id that isn't a number can't be an entry: the same words as one
+  // that doesn't exist (they reveal nothing a typed id couldn't).
+  if (amendsId !== null && (!Number.isInteger(amendsId) || amendsId < 1)) {
+    return (
+      <Page>
+        <EntryNotAvailable patientId={patientId} />
       </Page>
     )
   }
@@ -59,18 +65,27 @@ export function MedicalFileEntryPage() {
 function AmendView({ patientId, amendsId }: { patientId: number; amendsId: number }) {
   const entry = useMedicalFileEntry(patientId, amendsId)
 
-  if (entry.isError || (entry.isSuccess && entry.data.patientId !== patientId)) {
-    // A 404 (hidden or missing — the backend doesn't say which), or an entry
-    // of ANOTHER patient under this patient's address: neither is amended
-    // here (the backend would refuse the second anyway).
+  // A 404 (hidden or missing — the backend doesn't say which), or an entry
+  // of ANOTHER patient under this patient's address: neither is amended
+  // here (the backend would refuse the second anyway) — "not available".
+  // Any other failure: "Try again".
+  if (entry.isError) {
     return (
       <Page>
-        <p role="alert" className="text-sm text-destructive">
-          {entry.error instanceof ApiError && entry.error.statusCode !== 404
-            ? "Couldn't load the entry. Try refreshing the page."
-            : "This entry isn't in this patient's medical file."}
-        </p>
-        <BackToFile patientId={patientId} />
+        <LoadFailure
+          queries={[entry]}
+          what="the entry"
+          notAvailable={<EntryNotAvailable patientId={patientId} />}
+        >
+          <BackToFile patientId={patientId} />
+        </LoadFailure>
+      </Page>
+    )
+  }
+  if (entry.isSuccess && entry.data.patientId !== patientId) {
+    return (
+      <Page>
+        <EntryNotAvailable patientId={patientId} />
       </Page>
     )
   }
@@ -298,6 +313,20 @@ function BackToFile({ patientId, label = 'Back to the medical file' }: { patient
     <Link to={medicalFilePath(patientId)} className="text-sm underline underline-offset-4">
       {label}
     </Link>
+  )
+}
+
+// The entry to amend can't be shown. Both possibilities, and the way back to
+// the file the practitioner was working in (the shared shape,
+// common/NotAvailable — 2026-10-23).
+function EntryNotAvailable({ patientId }: { patientId: number }) {
+  return (
+    <NotAvailable
+      title="Entry not available"
+      links={[{ to: medicalFilePath(patientId), label: 'Back to the medical file' }]}
+    >
+      This entry doesn't exist, or it isn't in this patient's medical file.
+    </NotAvailable>
   )
 }
 

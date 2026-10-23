@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes } from 'react-router'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import { assignedProgramQueryKey } from './api'
 import { NewAssignedProgramExercisePage } from './NewAssignedProgramExercisePage'
+import { expectProgramLoadError, expectProgramNotAvailable } from './programNotAvailableAssertions'
 import type { AssignedProgramDetail } from './types'
 
 // The program's add page (step 3b-1b). The page itself — the picker round
@@ -113,9 +114,9 @@ function renderAt(path: string) {
 const posts = () => requests.filter(([method]) => method === 'POST')
 
 describe('NewAssignedProgramExercisePage', () => {
-  it('refuses an address whose id is not a program id', () => {
+  it('says an address whose id is not a program id is not available — asking nothing', async () => {
     renderAt('/practitioner/programs/assigned/abc/exercises/new')
-    expect(screen.getByText('Invalid program.')).toBeInTheDocument()
+    await expectProgramNotAvailable()
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -215,9 +216,13 @@ describe('NewAssignedProgramExercisePage', () => {
     program = () => apiError(404, 'Assigned program not found')
     renderAt('/practitioner/programs/assigned/12/exercises/new')
 
-    expect(
-      await screen.findByText("This program doesn't exist, or isn't one you can see."),
-    ).toBeInTheDocument()
+    await expectProgramNotAvailable()
     expect(screen.queryByRole('button', { name: 'Add' })).not.toBeInTheDocument()
+  })
+
+  it('reports any other failure as a failure to load this program', async () => {
+    program = () => apiError(500, 'Internal server error')
+    renderAt('/practitioner/programs/assigned/12/exercises/new')
+    await expectProgramLoadError('this program')
   })
 })

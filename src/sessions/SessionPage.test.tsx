@@ -17,6 +17,7 @@ import {
   sessionExercise,
   urlOf,
 } from './testData'
+import { expectLoadError, expectNotAvailable } from './notAvailableAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -216,7 +217,7 @@ describe('SessionPage', () => {
   it("says a session it can't see isn't available", async () => {
     sessionAnswer = () => apiError(404, 'Session not found')
     renderPage()
-    expect(await screen.findByRole('alert')).toHaveTextContent("This session doesn't exist, or isn't yours.")
+    await expectNotAvailable('session')
     // No program asked for: the session never said which.
     expect(requested()).toStrictEqual([expect.stringMatching(/\/sessions\/31$/)])
   })
@@ -224,14 +225,63 @@ describe('SessionPage', () => {
   it('says so when loading fails for another reason', async () => {
     sessionAnswer = () => apiError(500, 'Internal server error')
     renderPage()
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      "Couldn't load this session. Try refreshing the page.",
+    await expectLoadError('session')
+  })
+
+  it('offers the two ways out a patient has: home and Sessions', async () => {
+    sessionAnswer = () => apiError(404, 'Session not found')
+    renderPage()
+    await expectNotAvailable('session')
+    expect(
+      screen.getAllByRole('link').map((link) => [link.textContent, link.getAttribute('href')]),
+    ).toStrictEqual([
+      ['Back to home', '/patient'],
+      ['Your sessions', '/patient/sessions'],
+    ])
+  })
+
+  it('"Try again" asks for the session again and shows it', async () => {
+    const user = userEvent.setup()
+    let fail = true
+    sessionAnswer = () => (fail ? apiError(500, 'Internal server error') : json(finished()))
+    renderPage()
+    await expectLoadError('session')
+    fail = false
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText(/^Completed · Started at /)).toBeInTheDocument()
+    expect(requested().filter((url) => url.endsWith('/sessions/31'))).toHaveLength(2)
+  })
+
+  // The real TanStack Query flow: a request that never succeeded goes back to
+  // "pending" while it is asked again (the page shows "Loading…"), so the
+  // error block that comes back after a failed retry is a NEW one — it must
+  // say "Still" and put focus back on its button (found in Chromium,
+  // 2026-10-23).
+  it('a retry that fails again: "Loading…", then "Still couldn\'t load", focus on "Try again"', async () => {
+    const user = userEvent.setup()
+    let fail = true
+    sessionAnswer = () => (fail ? apiError(500, 'Internal server error') : json(finished()))
+    renderPage()
+    await expectLoadError('session')
+    // Hold the retry's answer, to see the page while it waits.
+    let release: () => void = () => {}
+    fetchMock.mockImplementationOnce(
+      () => new Promise<Response>((resolve) => (release = () => resolve(apiError(500, 'Internal server error')))),
     )
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText('Loading…')).toBeInTheDocument()
+    release()
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Still couldn't load this session\.$/)
+    expect(screen.getByRole('button', { name: 'Try again' })).toHaveFocus()
+    // And once the server answers, the session.
+    fail = false
+    await user.keyboard('{Enter}')
+    expect(await screen.findByText(/^Completed · Started at /)).toBeInTheDocument()
   })
 
   it('refuses an address that names no session, asking nothing', async () => {
     renderPage('/patient/sessions/0')
-    expect(await screen.findByRole('alert')).toHaveTextContent("This session doesn't exist, or isn't yours.")
+    await expectNotAvailable('session')
     expect(requested()).toStrictEqual([])
   })
 })

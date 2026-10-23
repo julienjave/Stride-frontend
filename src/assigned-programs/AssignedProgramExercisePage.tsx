@@ -16,6 +16,7 @@ import {
   type ProgramExerciseChanges,
 } from './api'
 import { isProgramOpen } from './permissions'
+import { ProgramLoadFailed, ProgramNotAvailable } from './ProgramNotAvailable'
 import { noPhotosText, photoSourceText } from './programPhotos'
 import { useAssignedProgram } from './useAssignedProgram'
 import type { AssignedProgramExercise } from './types'
@@ -54,7 +55,7 @@ export function AssignedProgramExercisePage() {
     !Number.isInteger(exerciseRowId) ||
     exerciseRowId < 1
   ) {
-    return <p className="mx-auto mt-8 max-w-2xl px-4 text-sm text-destructive">Invalid exercise.</p>
+    return <ProgramNotAvailable />
   }
 
   return <ProgramExerciseView programId={programId} exerciseRowId={exerciseRowId} />
@@ -74,7 +75,8 @@ function ProgramExerciseView({
   // a path on THIS site (localPath): `returnTo` comes from the address bar.
   const returnTo = localPath(searchParams.get('returnTo') ?? programPath)
 
-  const { data: program, isLoading, error } = useAssignedProgram(programId)
+  const programQuery = useAssignedProgram(programId)
+  const { data: program, isLoading, error } = programQuery
 
   // What saving one field means here — for the prescription's fields and the
   // description's alike: PATCH the program's exercise, then put the program
@@ -89,15 +91,7 @@ function ProgramExerciseView({
     return <p className="mx-auto mt-8 max-w-2xl px-4 text-sm text-muted-foreground">Loading…</p>
   }
 
-  if (error || !program) {
-    return (
-      <p className="mx-auto mt-8 max-w-2xl px-4 text-sm text-destructive">
-        {error instanceof ApiError && error.statusCode === 404
-          ? "This program doesn't exist, or isn't one you can see."
-          : "Couldn't load this exercise. Try refreshing."}
-      </p>
-    )
-  }
+  if (error || !program) return <ProgramLoadFailed query={programQuery} what="this exercise" />
 
   const exercise = program.exercises.find((row) => row.id === exerciseRowId)
 

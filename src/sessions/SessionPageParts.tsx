@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
+import { type FailedQuery, LoadFailure } from '@/common/LoadError'
+import { NotAvailable as NotAvailablePage } from '@/common/NotAvailable'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { END_NOTE_MAX_LENGTH } from './sessionRules'
@@ -23,15 +25,37 @@ export function HomeLink() {
 
 // A 404 says both things it can mean, without telling them apart — row
 // security makes another patient's program or session invisible, and
-// telling "doesn't exist" from "not yours" would confirm it exists.
+// telling "doesn't exist" from "not yours" would confirm it exists. The
+// shared shape (`common/NotAvailable`), in the patient's words; the ways out
+// are the patient's two places for their programs: home and Sessions.
 export function NotAvailable({ what }: { what: 'program' | 'session' }) {
   return (
-    <>
-      <p role="alert" className="text-sm">
-        This {what} doesn't exist, or isn't yours.
-      </p>
+    <NotAvailablePage
+      title={what === 'program' ? 'Program not available' : 'Session not available'}
+      links={[
+        { to: '/patient', label: 'Back to home' },
+        { to: '/patient/sessions', label: 'Your sessions' },
+      ]}
+    >
+      This {what} doesn't exist, or it isn't one of yours.
+    </NotAvailablePage>
+  )
+}
+
+// What a session-flow page shows when its request(s) failed (the six pages
+// each wrote it out before, 2026-10-23): "not available" for a 404, else
+// the load error with "Try again" and the way home — LoadFailure decides.
+export function LoadFailed({
+  what,
+  queries,
+}: {
+  what: 'program' | 'session'
+  queries: readonly FailedQuery[]
+}) {
+  return (
+    <LoadFailure queries={queries} what={`this ${what}`} notAvailable={<NotAvailable what={what} />}>
       <HomeLink />
-    </>
+    </LoadFailure>
   )
 }
 

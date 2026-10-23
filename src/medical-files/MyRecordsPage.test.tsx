@@ -65,9 +65,14 @@ describe('MyRecordsPage', () => {
     expect(screen.queryByText(/haven't written anything/)).not.toBeInTheDocument()
   })
 
-  it('says when the records could not be loaded', async () => {
-    renderMedicalFile([PATH], answers([], 500), 'patient')
-    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't load your records. Try refreshing the page.")
+  it('says when the records could not be loaded — and "Try again" asks again', async () => {
+    const user = userEvent.setup()
+    let status = 500
+    renderMedicalFile([PATH], (request) => answers([], status)(request), 'patient')
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Couldn't load your records\.$/)
     expect(screen.queryByText(/haven't written anything/)).not.toBeInTheDocument()
+    status = 200
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText(/haven't written anything/)).toBeInTheDocument()
   })
 })

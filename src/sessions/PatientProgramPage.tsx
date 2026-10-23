@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
-import { ApiError } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { addDays, localDateString } from '@/common/calendarDate'
 import { PrescriptionSummary } from '@/common/PrescriptionSummary'
@@ -18,6 +17,7 @@ import { PainAndMobility } from '@/progress/PainAndMobility'
 import { MakeUpList } from './MakeUpList'
 import { makeUps } from './makeUpRules'
 import { equipmentText, makeUpTodayLabel, sessionLinkLabel } from './programPageText'
+import { LoadFailed, NotAvailable, Page } from './SessionPageParts'
 import {
   fromProgramState,
   isPlainClick,
@@ -41,9 +41,9 @@ export function PatientProgramPage() {
   const programId = Number(param)
   if (!Number.isInteger(programId) || programId < 1) {
     return (
-      <ProgramPage>
-        <NotFound />
-      </ProgramPage>
+      <Page>
+        <NotAvailable what="program" />
+      </Page>
     )
   }
   return <ProgramView programId={programId} />
@@ -60,17 +60,13 @@ function ProgramView({ programId }: { programId: number }) {
     through: addDays(today, SUMMARY_HORIZON_DAYS),
   })
 
+  // The session flow's own container (not ProgramPage, whose "Back to
+  // Sessions" would repeat the links these states carry).
   if (program.isError) {
     return (
-      <ProgramPage>
-        {program.error instanceof ApiError && program.error.statusCode === 404 ? (
-          <NotFound />
-        ) : (
-          <p role="alert" className="text-sm text-destructive">
-            Couldn't load this program. Try refreshing the page.
-          </p>
-        )}
-      </ProgramPage>
+      <Page>
+        <LoadFailed what="program" queries={[program]} />
+      </Page>
     )
   }
   if (!program.isSuccess) {
@@ -307,16 +303,5 @@ function ProgramPage({ children }: { children: ReactNode }) {
         Back to Sessions
       </Link>
     </div>
-  )
-}
-
-// A 404 says both things it can mean (row security hides another patient's
-// program — telling "doesn't exist" from "not yours" would confirm it
-// exists): the session flow's wording.
-function NotFound() {
-  return (
-    <p role="alert" className="text-sm">
-      This program doesn't exist, or isn't yours.
-    </p>
   )
 }

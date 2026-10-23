@@ -12,13 +12,13 @@ import {
 import { SortableContext, rectSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ApiError } from '@/api/client'
 import { IMAGE_FILE_ACCEPT } from '@/common/imageFile'
 import { localPath } from '@/exercises/pickerReturnHref'
 import { SortableExerciseImage } from '@/exercises/SortableExerciseImage'
 import { computeReorderedKeys } from '@/exercises/exerciseImageReorder'
 import { useExercise } from '@/exercises/useExercise'
 import { ExercisePhotoCarousel } from '@/programs/ExercisePhotoCarousel'
+import { ProgramLoadFailed, ProgramNotAvailable } from './ProgramNotAvailable'
 import { isProgramOpen } from './permissions'
 import { libraryCopyProblem, photoCountText, photoRoom, uploadProblem } from './programPhotos'
 import { useAssignedProgram } from './useAssignedProgram'
@@ -57,7 +57,7 @@ export function ProgramExercisePhotosPage() {
     !Number.isInteger(exerciseRowId) ||
     exerciseRowId < 1
   ) {
-    return <p className="mx-auto mt-8 max-w-2xl px-4 text-sm text-destructive">Invalid exercise.</p>
+    return <ProgramNotAvailable />
   }
 
   return <PhotosView programId={programId} exerciseRowId={exerciseRowId} />
@@ -69,20 +69,13 @@ function PhotosView({ programId, exerciseRowId }: { programId: number; exerciseR
   // Where Done goes: the page that linked here (the exercise page), kept a
   // path on THIS site — `returnTo` comes from the address bar (localPath).
   const returnTo = localPath(searchParams.get('returnTo') ?? exercisePath)
-  const { data: program, isLoading, error } = useAssignedProgram(programId)
+  const programQuery = useAssignedProgram(programId)
+  const { data: program, isLoading, error } = programQuery
 
   if (isLoading) {
     return <p className="mx-auto mt-8 max-w-2xl px-4 text-sm text-muted-foreground">Loading…</p>
   }
-  if (error || !program) {
-    return (
-      <p className="mx-auto mt-8 max-w-2xl px-4 text-sm text-destructive">
-        {error instanceof ApiError && error.statusCode === 404
-          ? "This program doesn't exist, or isn't one you can see."
-          : "Couldn't load these photos. Try refreshing."}
-      </p>
-    )
-  }
+  if (error || !program) return <ProgramLoadFailed query={programQuery} what="these photos" />
 
   const exercise = program.exercises.find((row) => row.id === exerciseRowId)
   if (!exercise) {

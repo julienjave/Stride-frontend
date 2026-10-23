@@ -13,10 +13,13 @@ vi.stubGlobal('fetch', fetchMock)
 // What the fake server holds — each test changes what it is about.
 let conversation: ConversationSummary | Response
 let pages: Record<string, MessagesPage>
+// The thread's request fails while true (the "Try again" tests).
+let threadFails: boolean
 
 beforeEach(() => {
   fetchMock.mockReset()
   conversation = summary({ lastMessage: message(2), unreadCount: 0 })
+  threadFails = false
   pages = { '': page([message(1, { senderId: ALEX_ID, readAt: '2031-06-02T09:30:00.000Z' }), message(2, { readAt: '2031-06-02T09:30:00.000Z' })]) }
   fakeApi(({ method, path }) => {
     if (method === 'GET' && path === '/conversations') return json([])
@@ -24,7 +27,7 @@ beforeEach(() => {
       return conversation instanceof Response ? conversation.clone() : json(conversation)
     }
     const thread = /^\/conversations\/12\/messages(?:\?before=(\d+))?$/.exec(path)
-    if (method === 'GET' && thread) return json(pages[thread[1] ?? ''])
+    if (method === 'GET' && thread) return threadFails ? apiError(500, 'boom') : json(pages[thread[1] ?? ''])
     if (method === 'PATCH' && path === '/conversations/12/read') {
       return json({ conversationId: 12, readAt: '2031-06-02T10:00:00.000Z', messageIds: [3] })
     }
@@ -120,16 +123,54 @@ describe('a conversation', () => {
     await waitFor(() => expect(requests()).toContain('PATCH /conversations/12/read'))
   })
 
-  it('says "Conversation not found" for one that is not mine or does not exist', async () => {
+  async function expectNotAvailable() {
+    // An <h2>: the list's "Messages" is the page's <h1>.
+    const heading = await screen.findByRole('heading', { level: 2, name: 'Conversation not available' })
+    const block = within(heading.parentElement!)
+    expect(block.getByRole('alert')).toHaveTextContent(/^This conversation doesn't exist, or you aren't part of it\.$/)
+    expect(block.getByRole('link', { name: 'Back to messages' })).toHaveAttribute('href', '/practitioner/messages')
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+  }
+
+  it('says it is not available for one that is not mine or does not exist (404)', async () => {
     conversation = apiError(404, 'Conversation not found')
     renderMessages('/practitioner/messages/12')
-    expect(await screen.findByRole('heading', { name: 'Conversation not found' })).toBeInTheDocument()
+    await expectNotAvailable()
   })
 
-  it('says "Conversation not found" for an address that is not an id, without asking', async () => {
+  it('says the same for a 403 — not one of mine, by the service\'s own check', async () => {
+    conversation = apiError(403, 'You are not part of this conversation')
+    renderMessages('/practitioner/messages/12')
+    await expectNotAvailable()
+  })
+
+  it('says it is not available for an address that is not an id, without asking', async () => {
     renderMessages('/practitioner/messages/abc')
-    expect(await screen.findByRole('heading', { name: 'Conversation not found' })).toBeInTheDocument()
+    await expectNotAvailable()
     expect(requests().filter((r) => r.includes('abc'))).toEqual([])
+  })
+
+  it('on any other failure, "Try again" asks for the conversation again and opens it', async () => {
+    const user = userEvent.setup()
+    conversation = apiError(500, 'boom')
+    renderMessages('/practitioner/messages/12')
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Couldn't load this conversation\.$/)
+    expect(screen.queryByText('Conversation not available')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to messages' })).toHaveAttribute('href', '/practitioner/messages')
+    conversation = summary({ lastMessage: message(2), unreadCount: 0 })
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await log()).toBeInTheDocument()
+  })
+
+  it('when only the messages fail, "Try again" asks for them again', async () => {
+    const user = userEvent.setup()
+    threadFails = true
+    renderMessages('/practitioner/messages/12')
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Couldn't load the messages\.$/)
+    threadFails = false
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText(/Message 2/)).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('offers no box in a read-only conversation, and says why', async () => {

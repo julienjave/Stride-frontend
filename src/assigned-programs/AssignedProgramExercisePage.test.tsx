@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import { AssignedProgramExercisePage } from './AssignedProgramExercisePage'
+import { expectProgramLoadError, expectProgramNotAvailable } from './programNotAvailableAssertions'
 import type { AssignedProgramDetail, AssignedProgramExercise } from './types'
 
 // One exercise of a program: its description (step D-3) and its
@@ -130,10 +131,10 @@ const patches = () => requests.filter(([method]) => method === 'PATCH')
 
 describe('AssignedProgramExercisePage — reading', () => {
   it.each([['/practitioner/programs/assigned/abc/exercises/101'], ['/practitioner/programs/assigned/12/exercises/0']])(
-    'refuses an address that names no exercise (%s)',
-    (path) => {
+    'says an address that names no exercise is not available — asking nothing (%s)',
+    async (path) => {
       renderAt(path)
-      expect(screen.getByText('Invalid exercise.')).toBeInTheDocument()
+      await expectProgramNotAvailable()
       expect(fetchMock).not.toHaveBeenCalled()
     },
   )
@@ -392,9 +393,13 @@ describe('AssignedProgramExercisePage — reading', () => {
   it("says so when the program doesn't exist, or isn't the practitioner's to see", async () => {
     program = () => apiError(404, 'Assigned program not found')
     renderAt(PAGE)
-    expect(
-      await screen.findByText("This program doesn't exist, or isn't one you can see."),
-    ).toBeInTheDocument()
+    await expectProgramNotAvailable()
+  })
+
+  it('reports any other failure as a failure to load this exercise', async () => {
+    program = () => apiError(500, 'Internal server error')
+    renderAt(PAGE)
+    await expectProgramLoadError('this exercise')
   })
 })
 

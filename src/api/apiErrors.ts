@@ -24,3 +24,11 @@ export function failureText(error: unknown): string {
     ? error.messages.join(' ')
     : 'Something went wrong. Check your connection and try again.'
 }
+// A 404: for the four resources row security guards (programs, sessions,
+// conversations, medical-file entries), "no such record" AND "a record you
+// may not see" — the backend answers both alike on purpose. Pages show
+// `NotAvailable` for it (`src/common/`), never "try again": asking again
+// can't change the answer.
+export function isNotFound(error: unknown): boolean {
+  return error instanceof ApiError && error.statusCode === 404
+}

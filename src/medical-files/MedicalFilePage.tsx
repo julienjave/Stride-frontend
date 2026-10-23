@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link, useLocation, useParams } from 'react-router'
 import { ApiError } from '@/api/client'
+import { LoadError } from '@/common/LoadError'
 import { readNotice } from '@/common/readNotice'
 import { Button } from '@/components/ui/button'
 import { useUser } from '@/users/useUser'
@@ -83,9 +84,7 @@ function MedicalFileView({ patientId }: { patientId: number }) {
       )}
 
       {file.isError ? (
-        <p role="alert" className="text-sm text-destructive">
-          Couldn't load the medical file. Try refreshing the page.
-        </p>
+        <LoadError what="the medical file" queries={[file]} />
       ) : !file.isSuccess ? (
         <p className="text-sm text-muted-foreground">Loading the medical file…</p>
       ) : file.data.length === 0 ? (

@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
-import { ApiError } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { localDateString } from '@/common/calendarDate'
 import { PrescriptionSummary } from '@/common/PrescriptionSummary'
@@ -10,7 +9,7 @@ import { useAssignedProgramSummary } from '@/assigned-programs/useAssignedProgra
 import type { AssignedProgramDetail } from '@/assigned-programs/types'
 import { describeFailure } from '@/workouts/useWorkoutEditing'
 import { ScoreScale } from './ScoreScale'
-import { HomeLink, Loading, NotAvailable, Page } from './SessionPageParts'
+import { HomeLink, LoadFailed, Loading, NotAvailable, Page } from './SessionPageParts'
 import { makeUpBlockText, NOT_OFFERED_TEXT } from './makeUpText'
 import { nothingToStartText, startContextText } from './sessionText'
 import {
@@ -72,19 +71,9 @@ function StartSessionView({ programId }: { programId: number }) {
   // TypeScript know `data` is there below (a combined condition doesn't
   // narrow each query's type).
   if (program.isError || summary.isError) {
-    const error = program.error ?? summary.error
     return (
       <Page>
-        {error instanceof ApiError && error.statusCode === 404 ? (
-          <NotAvailable what="program" />
-        ) : (
-          <>
-            <p role="alert" className="text-sm text-destructive">
-              Couldn't load this program. Try refreshing the page.
-            </p>
-            <HomeLink />
-          </>
-        )}
+        <LoadFailed what="program" queries={[program, summary]} />
       </Page>
     )
   }

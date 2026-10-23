@@ -146,10 +146,15 @@ describe('MedicalFilePage', () => {
     expect(screen.getByRole('link', { name: 'My patients' })).toHaveAttribute('href', '/practitioner/patients')
   })
 
-  it('says when the file could not be loaded', async () => {
-    renderMedicalFile([FILE_PATH], answers([], 500))
-    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't load the medical file. Try refreshing the page.")
+  it('says when the file could not be loaded — and "Try again" asks again', async () => {
+    const user = userEvent.setup()
+    let status = 500
+    renderMedicalFile([FILE_PATH], (request) => answers([], status)(request))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Couldn't load the medical file\.$/)
     expect(screen.queryByText(/^No entries yet/)).not.toBeInTheDocument()
+    status = 200
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText(/^No entries yet/)).toBeInTheDocument()
   })
 
   it('shows the notice an entry page leaves for it', async () => {

@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { ApiError } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { localDateString } from '@/common/calendarDate'
 import { workoutNames } from '@/assigned-programs/programSchedule'
@@ -12,7 +11,7 @@ import { skipSession } from './api'
 import { skipBody } from './endingRules'
 import { ReasonPicker } from './ReasonPicker'
 import { ScoreScale } from './ScoreScale'
-import { EndNoteField, HomeLink, Loading, NotAvailable, Page } from './SessionPageParts'
+import { EndNoteField, HomeLink, LoadFailed, Loading, NotAvailable, Page } from './SessionPageParts'
 import { ENDING_NOTICE } from './sessionText'
 import { skippableWorkout } from './startRules'
 import type { PatientEndReason } from './types'
@@ -50,19 +49,9 @@ function SkipView({ programId }: { programId: number }) {
   })
 
   if (program.isError || summary.isError) {
-    const error = program.error ?? summary.error
     return (
       <Page>
-        {error instanceof ApiError && error.statusCode === 404 ? (
-          <NotAvailable what="program" />
-        ) : (
-          <>
-            <p role="alert" className="text-sm text-destructive">
-              Couldn't load this program. Try refreshing the page.
-            </p>
-            <HomeLink />
-          </>
-        )}
+        <LoadFailed what="program" queries={[program, summary]} />
       </Page>
     )
   }

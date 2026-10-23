@@ -22,6 +22,7 @@ import {
   summary,
   urlOf,
 } from './testData'
+import { expectLoadError, expectNotAvailable } from './notAvailableAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -398,21 +399,35 @@ describe('StartSessionPage — nothing to start', () => {
   it("says a program it can't see isn't available — and asks nothing more", async () => {
     program = () => apiError(404, 'Assigned program not found')
     renderPage()
-    expect(await screen.findByRole('alert')).toHaveTextContent("This program doesn't exist, or isn't yours.")
+    await expectNotAvailable('program')
     expect(requests().map((request) => request.path)).toStrictEqual(['/assigned-programs/12'])
   })
 
   it('says so when loading fails for another reason', async () => {
     todaySummary = () => apiError(500, 'Internal server error')
     renderPage()
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      "Couldn't load this program. Try refreshing the page.",
-    )
+    await expectLoadError('program')
+  })
+
+  it('"Try again" asks again only what failed — the summary, not the program — then shows the page', async () => {
+    const user = userEvent.setup()
+    let fail = true
+    todaySummary = () => (fail ? apiError(500, 'Internal server error') : json(DUE))
+    renderPage()
+    await expectLoadError('program')
+    fail = false
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await startForm()).toBeInTheDocument()
+    expect(requests().map((request) => request.path)).toStrictEqual([
+      '/assigned-programs/12',
+      `/assigned-programs/12/summary?today=${TODAY}`,
+      `/assigned-programs/12/summary?today=${TODAY}`,
+    ])
   })
 
   it('refuses an address that names no program, asking nothing', async () => {
     renderPage('/patient/sessions/start/abc')
-    expect(await screen.findByRole('alert')).toHaveTextContent("This program doesn't exist, or isn't yours.")
+    await expectNotAvailable('program')
     expect(requests()).toStrictEqual([])
   })
 })

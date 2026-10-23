@@ -8,6 +8,7 @@ import { formatShortDate } from '@/common/calendarDate'
 import { formatCalendarDate } from '@/common/formatCalendarDate'
 import { assignedProgramQueryKey, assignedProgramSummaryQueryKey } from './api'
 import { AssignedProgramDetailPage } from './AssignedProgramDetailPage'
+import { expectProgramLoadError, expectProgramNotAvailable } from './programNotAvailableAssertions'
 import type { AssignedProgramDetail, ScheduleSummary, ScheduleVersion } from './types'
 
 const fetchMock = vi.fn<typeof fetch>()
@@ -998,26 +999,25 @@ describe('AssignedProgramDetailPage — when it can’t be shown', () => {
   it("explains a 404 — no program, or not this practitioner's patient — and asks nothing more", async () => {
     programs[12] = () => apiError(404, 'Assigned program 12 not found')
     renderPage()
-    expect(await screen.findByRole('heading', { name: 'Program not found' })).toBeInTheDocument()
-    expect(
-      screen.getByText(
-        "This program doesn't exist, or it belongs to a patient whose care team you're not on. Only a patient's care team can open their programs.",
-      ),
-    ).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'My patients' })).toHaveAttribute('href', '/practitioner/patients')
+    await expectProgramNotAvailable()
     // Only the program was asked for: no summary, no patient, no list.
     expect(requested(() => true)).toHaveLength(1)
   })
 
-  it('reports any other failure as a failure to load', async () => {
-    programs[12] = () => apiError(500, 'Internal server error')
+  it('reports any other failure as a failure to load — and "Try again" asks again', async () => {
+    const user = userEvent.setup()
+    let fail = true
+    programs[12] = () => (fail ? apiError(500, 'Internal server error') : json(PROGRAM))
     renderPage()
-    expect(await screen.findByText("Couldn't load this program. Try refreshing.")).toBeInTheDocument()
+    await expectProgramLoadError('this program')
+    fail = false
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByRole('heading', { level: 1, name: 'Knee Rehab — Pat' })).toBeInTheDocument()
   })
 
-  it('refuses an id that is not a program id', () => {
+  it('says an id that is not a program id is not available — asking nothing', async () => {
     renderPage('abc')
-    expect(screen.getByText('Invalid program.')).toBeInTheDocument()
+    await expectProgramNotAvailable()
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { ProgramExercisePhotosPage } from './ProgramExercisePhotosPage'
+import { expectProgramLoadError, expectProgramNotAvailable } from './programNotAvailableAssertions'
 import type { AssignedProgramDetail, AssignedProgramExercise } from './types'
 import type { ExerciseImage } from '@/exercises/types'
 
@@ -151,9 +152,9 @@ describe('ProgramExercisePhotosPage — reading', () => {
   it.each([
     ['/practitioner/programs/assigned/abc/exercises/101/photos'],
     ['/practitioner/programs/assigned/12/exercises/0/photos'],
-  ])('refuses an address that names no exercise (%s)', (path) => {
+  ])('says an address that names no exercise is not available — asking nothing (%s)', async (path) => {
     renderAt(path)
-    expect(screen.getByText('Invalid exercise.')).toBeInTheDocument()
+    await expectProgramNotAvailable()
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -234,9 +235,13 @@ describe('ProgramExercisePhotosPage — reading', () => {
   it("says so when the program doesn't exist, or isn't one the practitioner can see", async () => {
     program = () => apiError(404, 'Assigned program 12 not found')
     renderAt(PAGE)
-    expect(
-      await screen.findByText("This program doesn't exist, or isn't one you can see."),
-    ).toBeInTheDocument()
+    await expectProgramNotAvailable()
+  })
+
+  it('reports any other failure as a failure to load these photos', async () => {
+    program = () => apiError(500, 'Internal server error')
+    renderAt(PAGE)
+    await expectProgramLoadError('these photos')
   })
 })
 
