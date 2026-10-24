@@ -17,6 +17,14 @@ describe('actionLabel', () => {
     expect(actionLabel('MFA_RESET_BY_ADMIN')).toBe('Reset two-factor sign-in for an account')
   })
 
+  // A failed step-up (decisions §16, privacy and security pass 2) — its own
+  // words, not ones made from its name ("Step up failed").
+  it('words a failed step-up', () => {
+    expect(actionLabel('STEP_UP_FAILED')).toBe(
+      'Entered a wrong password or code to confirm a change',
+    )
+  })
+
   // An action the table doesn't know is still readable.
   it('makes words from the name of an action it does not know', () => {
     expect(actionLabel('PROGRAM_PAUSED_BY_ROBOT')).toBe('Program paused by robot')

@@ -21,6 +21,10 @@ const WORDING: Record<AuditAction, string> = {
   MFA_ENABLED: 'Turned on two-factor sign-in',
   MFA_DISABLED: 'Turned off two-factor sign-in',
   MFA_RECOVERY_CODE_USED: 'Signed in with a recovery code',
+  // A change asked for the password (and a code) again, and got a wrong one
+  // (decisions §16); the details say which change, why, the failures in a
+  // row — and "Signed out" on the 5th.
+  STEP_UP_FAILED: 'Entered a wrong password or code to confirm a change',
   MFA_RECOVERY_CODES_REGENERATED: 'Made new two-factor recovery codes',
   MFA_RESET_BY_ADMIN: 'Reset two-factor sign-in for an account',
   PASSWORD_RESET_REQUESTED: 'Asked for a password reset link',

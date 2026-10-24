@@ -177,7 +177,7 @@ describe('apiRequest', () => {
     )
   })
 
-  it('calls the registered unauthorized handler on a mid-session 401, with the current path', async () => {
+  it('calls the registered unauthorized handler on a mid-session 401, with the current path and its words', async () => {
     fetchMock.mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -199,7 +199,7 @@ describe('apiRequest', () => {
     // fake a navigation to some other URL first.
     await expect(apiRequest('/exercises')).rejects.toThrow(ApiError)
 
-    expect(handler).toHaveBeenCalledWith('/')
+    expect(handler).toHaveBeenCalledWith('/', ['Unauthorized'])
 
     // Reset the handler so this test doesn't leak into others — module-
     // level registration state persists across tests in this file

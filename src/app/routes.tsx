@@ -9,6 +9,7 @@ import { AuthenticatedLayout } from './AuthenticatedLayout'
 import { setUnauthorizedHandler } from '@/api/client'
 import { queryClient } from '@/api/queryClient'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
+import { rememberSignOutReason } from '@/auth/currentPassword'
 import { RouteErrorPage } from './RouteErrorPage'
 
 // CODE SPLITTING (2026-10-15). Every PAGE is loaded on demand: its route
@@ -618,7 +619,7 @@ export const router = createBrowserRouter([
 // client.ts stays a plain module with no knowledge of React Router or the
 // query cache; this is the one place that wires the two together, right
 // where the router itself already lives.
-setUnauthorizedHandler((currentPath) => {
+setUnauthorizedHandler((currentPath, message) => {
   // Without this, the CACHED current-user data would still say "logged
   // in" even though the session just expired server-side — RequireGuest
   // would then immediately bounce the user straight back out of /login,
@@ -631,5 +632,9 @@ setUnauthorizedHandler((currentPath) => {
   // call, nowhere near a component. The state shape (`{ from }`) matches
   // RequireAuth's own redirect exactly, so LoginPage only needs to handle
   // ONE shape regardless of which of the two triggered it.
+  // Why, when it was the step-up's sign-out after 5 failures in a row — read
+  // by the sign-in page for its notice (not in the navigation's state: see
+  // rememberSignOutReason).
+  rememberSignOutReason(message)
   void router.navigate('/login', { state: { from: currentPath } })
 })

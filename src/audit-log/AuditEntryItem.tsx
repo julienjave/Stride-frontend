@@ -49,21 +49,30 @@ export function AuditEntryItem({ entry }: { entry: AuditLogEntry }) {
             </>
           )}
         </p>
-        <Button
-          type="button"
-          variant="link"
-          size="sm"
-          className="h-auto p-0"
-          aria-expanded={open}
-          aria-controls={detailsId}
-          onClick={() => setOpen((isOpen) => !isOpen)}
-        >
-          {open ? 'Hide details' : 'Details'}
-        </Button>
-        {open && (
-          <div id={detailsId}>
-            <AuditEntryDetails entry={entry} />
-          </div>
+        {/* An entry about clinical data: who, what, when and about whom
+            above — the details withheld (decisions §16). Said plainly, rather
+            than a "Details" button that would open onto nothing. */}
+        {entry.detailsWithheld ? (
+          <p className="text-xs text-muted-foreground">Clinical details aren't shown to admins.</p>
+        ) : (
+          <>
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              className="h-auto p-0"
+              aria-expanded={open}
+              aria-controls={detailsId}
+              onClick={() => setOpen((isOpen) => !isOpen)}
+            >
+              {open ? 'Hide details' : 'Details'}
+            </Button>
+            {open && (
+              <div id={detailsId}>
+                <AuditEntryDetails entry={entry} />
+              </div>
+            )}
+          </>
         )}
       </article>
     </li>

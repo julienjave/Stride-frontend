@@ -27,6 +27,7 @@ export type AuditAction =
   | 'MFA_ENABLED'
   | 'MFA_DISABLED'
   | 'MFA_RECOVERY_CODE_USED'
+  | 'STEP_UP_FAILED'
   | 'MFA_RECOVERY_CODES_REGENERATED'
   | 'MFA_RESET_BY_ADMIN'
   | 'PASSWORD_RESET_REQUESTED'
@@ -133,8 +134,14 @@ export interface AuditLogEntry {
   entityType: string
   area: string
   entityId: number | null
-  // Its shape depends on the action — see auditDetails.ts.
+  // Its shape depends on the action — see auditDetails.ts. null when
+  // withheld (below).
   details: unknown
+  // True for an entry about clinical data — a program, a session, a message,
+  // a medical file (the backend's CLINICAL_AREAS, decisions §16): the details
+  // stay in the database, but admins — the audit log's only readers — read
+  // no clinical data, so the answer leaves them out and says so.
+  detailsWithheld: boolean
   createdAt: string
   // Who acted, and whom the entry is about (null: about no one — a library
   // change, a sign-in event of some kinds).

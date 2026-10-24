@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { login, verifyMfaCode } from './api'
 import { currentUserQueryKey } from './useCurrentUser'
 import { useSetupStatus } from './useSetupStatus'
+import { forgetSignOutReason, wasSignedOutAfterStepUps } from './currentPassword'
 import {
   loginSchema,
   mfaCodeSchema,
@@ -66,6 +67,15 @@ export function LoginPage() {
     passwordSet?: boolean
     passwordReset?: boolean
   } | null
+
+  // Signed out by the server after 5 wrong passwords or codes in a row
+  // (decisions §16): remembered by the app's 401 handler — read once, when
+  // the page opens (a pure read, in the initialiser), then forgotten (in an
+  // effect), so a later visit doesn't repeat it.
+  const [stepUpSignOut] = useState(wasSignedOutAfterStepUps)
+  useEffect(() => {
+    forgetSignOutReason()
+  }, [])
   const redirectTo = state?.from ?? '/'
 
   const credentialsForm = useForm<LoginFormValues>({
@@ -216,6 +226,14 @@ export function LoginPage() {
         <p role="status" className="text-sm text-muted-foreground">
           Your password has been changed, and you've been signed out on every device. Log in
           with your new password.
+        </p>
+      )}
+      {/* The step-up's sign-out: this session was ended by the server, in the
+          middle of a change — the person must learn why, or it looks like a
+          bug. The other devices are still signed in. */}
+      {stepUpSignOut && (
+        <p role="status" className="text-sm text-muted-foreground">
+          You were signed out after 5 wrong attempts to confirm a change. Log in again to continue.
         </p>
       )}
       <form

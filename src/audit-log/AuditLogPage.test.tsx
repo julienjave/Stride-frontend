@@ -16,6 +16,9 @@ const ALEX = { id: 3, firstName: 'Alex', lastName: 'Chen' }
 const PAT = { id: 6, firstName: 'Pat', lastName: 'Lee' }
 const AVERY = { id: 1, firstName: 'Avery', lastName: 'Admin' }
 
+// The default entry shows its details. (The backend withholds a real
+// program entry's since 2026-10-23 — the screen goes by `detailsWithheld`,
+// not by the area, so the fixture stays a program.)
 function entry(id: number, overrides: Partial<AuditLogEntry> = {}): AuditLogEntry {
   return {
     id,
@@ -25,6 +28,7 @@ function entry(id: number, overrides: Partial<AuditLogEntry> = {}): AuditLogEntr
     area: 'Programs',
     entityId: 7,
     details: { changes: { title: { from: 'Knee', to: 'Knee, phase 2' } } },
+    detailsWithheld: false,
     createdAt: '2031-03-10T13:02:00.000Z',
     performer: ALEX,
     target: PAT,
@@ -224,6 +228,26 @@ describe('AuditLogPage', () => {
     await user.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     expect(within(card).queryByRole('table')).not.toBeInTheDocument()
+  })
+
+  // Decisions §16: an entry about clinical data answers without its details
+  // — the row says so, and offers no "Details" that would open onto nothing.
+  it('says when an entry’s clinical details are withheld, with no Details button', async () => {
+    renderAuditLog('/admin/audit-log', () =>
+      json(
+        page([
+          entry(1, { action: 'SESSION_COMPLETED', entityType: 'sessions', area: 'Sessions', details: null, detailsWithheld: true }),
+          entry(2),
+        ]),
+      ),
+    )
+    const withheld = await screen.findByRole('article', { name: 'Finished a session' })
+    expect(within(withheld).getByText("Clinical details aren't shown to admins.")).toBeInTheDocument()
+    expect(within(withheld).queryByRole('button')).not.toBeInTheDocument()
+    // The entry beside it keeps its toggle — and no such line.
+    const shown = screen.getByRole('article', { name: 'Edited a program' })
+    expect(within(shown).getByRole('button', { name: 'Details' })).toBeInTheDocument()
+    expect(within(shown).queryByText("Clinical details aren't shown to admins.")).not.toBeInTheDocument()
   })
 
   it('shows other details as labelled values', async () => {

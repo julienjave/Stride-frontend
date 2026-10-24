@@ -1,10 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { LoginPage } from './LoginPage'
 import { setupStatusQueryKey } from './useSetupStatus'
+import {
+  forgetSignOutReason,
+  rememberSignOutReason,
+  STEP_UP_SIGNED_OUT_MESSAGE,
+  wasSignedOutAfterStepUps,
+} from './currentPassword'
 
 // Default: an install that's already set up, like nearly every real visit
 // to the sign-in page.
@@ -269,6 +275,36 @@ describe('LoginPage', () => {
     it("doesn't confuse the two notices", () => {
       renderLoginPage({ email: 'jane@example.com', passwordSet: true })
       expect(screen.queryByText(/Your password has been changed/)).not.toBeInTheDocument()
+    })
+  })
+
+  // Privacy and security pass 2 (decisions §16): the server signed this
+  // session out after 5 wrong passwords or codes in a row; the app's 401
+  // handler remembered why (rememberSignOutReason) and brought the person
+  // here.
+  describe('after the step-up sign-out', () => {
+    afterEach(() => {
+      forgetSignOutReason()
+    })
+
+    it('says why the person was signed out — once', () => {
+      rememberSignOutReason([STEP_UP_SIGNED_OUT_MESSAGE])
+      renderLoginPage({ from: '/profile/password' })
+
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'You were signed out after 5 wrong attempts to confirm a change. Log in again to continue.',
+      )
+      // Read once: the page forgets it, so the next visit is an ordinary one.
+      expect(wasSignedOutAfterStepUps()).toBe(false)
+      cleanup()
+      renderLoginPage({ from: '/profile/password' })
+      expect(screen.queryByText(/5 wrong attempts/)).not.toBeInTheDocument()
+    })
+
+    it('says nothing of it after any other sign-out', () => {
+      rememberSignOutReason(['Unauthorized'])
+      renderLoginPage({ from: '/profile/password' })
+      expect(screen.queryByText(/5 wrong attempts/)).not.toBeInTheDocument()
     })
   })
 

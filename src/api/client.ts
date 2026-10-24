@@ -59,7 +59,10 @@ interface RequestOptions {
 // router itself is created) registers a real handler here once; client.ts
 // just knows "call this function when a mid-session 401 happens," without
 // needing to know WHAT that function does.
-type UnauthorizedHandler = (currentPath: string) => void
+// `message`: the 401's own words — most say only "Unauthorized", but one
+// explains a sign-out the person should be told about (5 failed step-ups in
+// a row, decisions §16); the handler decides what to do with them.
+type UnauthorizedHandler = (currentPath: string, message: string[]) => void
 let unauthorizedHandler: UnauthorizedHandler | null = null
 
 export function setUnauthorizedHandler(handler: UnauthorizedHandler) {
@@ -146,7 +149,7 @@ export async function apiRequest<TResponse>(
     // OTHER 401 (a session that expired or was invalidated while the user
     // was actively doing something) genuinely needs to be handled.
     if (body.statusCode === 401 && path !== '/auth/me') {
-      unauthorizedHandler?.(window.location.pathname + window.location.search)
+      unauthorizedHandler?.(window.location.pathname + window.location.search, body.message)
     }
 
     throw new ApiError(body, retryAfterSeconds)
