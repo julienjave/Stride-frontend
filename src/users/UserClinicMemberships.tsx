@@ -12,6 +12,7 @@ import { ApiError } from '@/api/client'
 import { useClinics } from '@/clinics/useClinics'
 import { addClinicMember, removeClinicMember } from '@/clinics/api'
 import { userQueryKey } from './api'
+import { refreshAttention } from './attention'
 
 interface UserClinicMembershipsProps {
   userId: number
@@ -40,10 +41,16 @@ export function UserClinicMemberships({
   // transaction — decisions §3), and adding one brings new candidates. For a
   // patient that's their own team; for a practitioner, the teams of any of
   // their patients — so the whole ['care-team'] prefix is refreshed.
+  //
+  // And the admin home's "needs attention" (decisions §17): a membership
+  // added or removed can move a practitioner into or out of "without a
+  // clinic", and — through the links it ends — patients into "without a care
+  // team" (refreshAttention).
   const invalidateThisUser = () =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: userQueryKey(userId), exact: true }),
       queryClient.invalidateQueries({ queryKey: ['care-team'] }),
+      refreshAttention(queryClient),
     ])
 
   const addMutation = useMutation({

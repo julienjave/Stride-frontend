@@ -110,6 +110,24 @@ function renderSection(mode: Mode = 'practitioner', canAdd = true) {
   return { queryClient }
 }
 
+// The admin home's "needs attention" (decisions §17): a link added or ended
+// can move the patient into or out of "Patients without a care team", so
+// the home's numbers and the users lists must be marked stale. Seeded as
+// cache entries nobody shows, which then STAY invalidated (an observed one
+// would refetch at once and read fresh again).
+function seedAttentionCache(queryClient: QueryClient) {
+  queryClient.setQueryData(['admin-metrics'], {})
+  queryClient.setQueryData(['users-list', 'attention', 'patients-without-care-team'], [])
+}
+
+function expectAttentionRefreshed(queryClient: QueryClient) {
+  expect(queryClient.getQueryState(['admin-metrics'])?.isInvalidated).toBe(true)
+  expect(
+    queryClient.getQueryState(['users-list', 'attention', 'patients-without-care-team'])
+      ?.isInvalidated,
+  ).toBe(true)
+}
+
 function calls(match: (url: string, method: string) => boolean) {
   return fetchMock.mock.calls.filter(([input, init]) => match(urlOf(input), init?.method ?? 'GET'))
 }
@@ -177,7 +195,8 @@ describe('CareTeamSection — adding a practitioner', () => {
 
   it('adds the chosen practitioner with the reason and the END of the chosen day, then closes and refreshes the team', async () => {
     const user = userEvent.setup()
-    renderSection()
+    const { queryClient } = renderSection()
+    seedAttentionCache(queryClient)
     const dialog = await openAddDialog(user, 'Add a colleague')
     const teamFetchesBefore = calls((url, method) => /\/care-team$/.test(url) && method === 'GET').length
 
@@ -199,6 +218,7 @@ describe('CareTeamSection — adding a practitioner', () => {
     expect(
       calls((url, method) => /\/care-team$/.test(url) && method === 'GET').length,
     ).toBeGreaterThan(teamFetchesBefore)
+    expectAttentionRefreshed(queryClient)
   })
 
   it('refreshes the candidates too: the one just added is "on the team" next time', async () => {
@@ -301,7 +321,8 @@ describe('CareTeamSection — what each viewer may do', () => {
 
   it("an admin ends someone's link after a confirmation, for THAT practitioner", async () => {
     const user = userEvent.setup()
-    renderSection('admin')
+    const { queryClient } = renderSection('admin')
+    seedAttentionCache(queryClient)
     await user.click(await screen.findByRole('button', { name: "End Blake Martin's membership" }))
     const dialog = await screen.findByRole('dialog')
 
@@ -324,6 +345,7 @@ describe('CareTeamSection — what each viewer may do', () => {
     expect(ends).toHaveLength(1)
     expect(urlOf(ends[0][0])).toMatch(/\/users\/8\/care-team\/4\/end$/)
     await waitFor(() => expect(screen.queryByText('Blake Martin')).not.toBeInTheDocument())
+    expectAttentionRefreshed(queryClient)
   })
 
   it('offers no "Add" to a viewer who may not add (canAdd false)', async () => {

@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { LoadError } from '@/common/LoadError'
 import { adminMetricsQueryKey, fetchAdminMetrics, type AttentionList } from './api'
 import { moreLine, nothingNeedsAttention, notCountedLine } from './adminHomeText'
+import { ATTENTION_GROUPS, attentionHref, type AttentionKind } from '@/users/attention'
 
 // The admin home's "Metrics" section (decisions §17, the person's choices
 // 2026-10-24): active accounts by role, clinics, invitations still waiting,
@@ -61,13 +62,11 @@ export function AdminMetricsSection() {
             ) : (
               <>
                 <AttentionGroup
-                  title="Patients without a care team"
-                  explanation="No current care-team link to an active practitioner."
+                  kind="patients-without-care-team"
                   list={metrics.data.needsAttention.patientsWithoutCareTeam}
                 />
                 <AttentionGroup
-                  title="Practitioners without a clinic"
-                  explanation="Not a member of any active clinic."
+                  kind="practitioners-without-clinic"
                   list={metrics.data.needsAttention.practitionersWithoutClinic}
                 />
               </>
@@ -92,24 +91,22 @@ function Tile({ label, value }: { label: string; value: number }) {
 
 // One group of accounts needing attention — nothing at all when it's empty
 // (the other group may still have some; the "nothing" sentence above covers
-// the case where both are empty).
-function AttentionGroup({
-  title,
-  explanation,
-  list,
-}: {
-  title: string
-  explanation: string
-  list: AttentionList
-}) {
+// the case where both are empty). Its words come from the users list's
+// filter (src/users/attention.ts), so both pages name it the same way; its
+// title and "and N more" lead to that filter — every account of the group,
+// in the same order, continuing where these first names stop.
+function AttentionGroup({ kind, list }: { kind: AttentionKind; list: AttentionList }) {
   if (list.total === 0) return null
+  const { title, explanation } = ATTENTION_GROUPS[kind]
   const more = moreLine(list)
 
   return (
     <div className="space-y-2 rounded-lg border px-4 py-3">
       <div>
         <p className="font-medium">
-          {title} · {list.total}
+          <Link to={attentionHref(kind)} className="underline-offset-4 hover:underline">
+            {title} · {list.total}
+          </Link>
         </p>
         <p className="text-sm text-muted-foreground">{explanation}</p>
       </div>
@@ -127,7 +124,13 @@ function AttentionGroup({
           </li>
         ))}
       </ul>
-      {more && <p className="text-sm text-muted-foreground">{more}</p>}
+      {more && (
+        <p className="text-sm">
+          <Link to={attentionHref(kind)} className="underline underline-offset-4">
+            {more}
+          </Link>
+        </p>
+      )}
     </div>
   )
 }

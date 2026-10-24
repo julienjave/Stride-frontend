@@ -2,6 +2,7 @@ import { apiRequest } from '@/api/client'
 import { toAddressPayload } from '@/common/address/api'
 import type { CreatedUser, UpdateUserPayload, User } from './types'
 import type { CreateUserFormValues, GrantRoleFormValues } from './schemas'
+import type { AttentionKind } from './attention'
 
 // --- QUERY KEYS --------------------------------------------------------
 
@@ -19,6 +20,13 @@ export function usersListQueryKey(includeInactive = false) {
   return ['users-list', includeInactive] as const
 }
 
+// The list filtered to one "needs attention" group (decisions §17). Under
+// the same 'users-list' prefix, so every invalidation of the lists (a
+// deactivation, refreshAttention…) reaches it too.
+export function usersNeedingAttentionQueryKey(kind: AttentionKind | null) {
+  return ['users-list', 'attention', kind] as const
+}
+
 export function userQueryKey(id: number) {
   return ['users', id] as const
 }
@@ -33,6 +41,12 @@ export function userQueryKey(id: number) {
 // option), but the query string itself is harmless to send regardless.
 export function fetchUsers(includeInactive = false) {
   return apiRequest<User[]>(`/users${includeInactive ? '?includeInactive=true' : ''}`)
+}
+
+// GET /users?attention=… (admins) — the accounts of one group, in the home's
+// order (last name, first name), every one of them.
+export function fetchUsersNeedingAttention(kind: AttentionKind) {
+  return apiRequest<User[]>(`/users?attention=${kind}`)
 }
 
 export function fetchUser(id: number) {

@@ -256,8 +256,15 @@ describe('AdminHomePage', () => {
         ['Kim Lee', '/admin/users/14'],
         ['Hal Moreau', '/admin/users/15'],
       ])
-      expect(within(metricsSection()).getByText('Patients without a care team · 8')).toBeInTheDocument()
-      expect(within(metricsSection()).getByText('and 3 more')).toBeInTheDocument()
+      // The group's title and "and 3 more" lead to the users list filtered
+      // to the group (every account, continuing where these names stop).
+      expect(
+        within(metricsSection()).getByRole('link', { name: 'Patients without a care team · 8' }),
+      ).toHaveAttribute('href', '/admin/users?attention=patients-without-care-team')
+      expect(within(metricsSection()).getByRole('link', { name: 'and 3 more' })).toHaveAttribute(
+        'href',
+        '/admin/users?attention=patients-without-care-team',
+      )
 
       const practitioners = within(metricsSection()).getByRole('list', {
         name: 'Practitioners without a clinic',
@@ -267,7 +274,9 @@ describe('AdminHomePage', () => {
           .getAllByRole('link')
           .map((link) => [link.textContent, link.getAttribute('href')]),
       ).toEqual([['Rory Diaz', '/admin/users/21']])
-      expect(within(metricsSection()).getByText('Practitioners without a clinic · 1')).toBeInTheDocument()
+      expect(
+        within(metricsSection()).getByRole('link', { name: 'Practitioners without a clinic · 1' }),
+      ).toHaveAttribute('href', '/admin/users?attention=practitioners-without-clinic')
       // Everyone in that group is listed: no "more" line for it (the one
       // "more" line is the patients').
       expect(within(metricsSection()).getAllByText(/^and \d+ more$/)).toHaveLength(1)

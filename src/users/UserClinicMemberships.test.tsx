@@ -132,6 +132,10 @@ describe('UserClinicMemberships — adding a clinic', () => {
     // Care teams too: a membership change can add candidates, or (when
     // removed) end links — for this user's team, or their patients'.
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['care-team'] })
+    // And the admin home's "needs attention" (decisions §17): its numbers
+    // and every users list, filtered or not.
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['admin-metrics'] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['users-list'] })
   })
 
   it('shows an error and does not clear the selection on failure', async () => {
@@ -187,5 +191,9 @@ describe('UserClinicMemberships — removing a clinic', () => {
     // Care teams too: a membership change can add candidates, or (when
     // removed) end links — for this user's team, or their patients'.
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['care-team'] })
+    // And the admin home's "needs attention" (decisions §17): its numbers
+    // and every users list, filtered or not.
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['admin-metrics'] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['users-list'] })
   })
 })

@@ -1,17 +1,42 @@
-import { useState } from 'react'
-import { Link } from 'react-router'
+import { useId, useState } from 'react'
+import { Link, useSearchParams } from 'react-router'
 import { Button } from '@/components/ui/button'
-import { useUsers } from './useUsers'
+import { LoadError } from '@/common/LoadError'
+import { NativeSelect } from '@/common/NativeSelect'
+import { useUsers, useUsersNeedingAttention } from './useUsers'
+import { ATTENTION_GROUPS, ATTENTION_KINDS, readAttention } from './attention'
 
 // URL scheme for this feature, mirroring clinics exactly: /admin/users
 // (this page), /admin/users/new (create, already built), /admin/users/:id
 // (the edit view, built alongside this page — see UserEditPage.tsx).
+//
+// "Show" (decisions §17, 2026-10-24): every user, or one of the admin home's
+// "needs attention" groups. The choice lives in the ADDRESS
+// (`?attention=…`), not in component state, so the home can link straight to
+// a group, Back returns to the previous view, and a reload keeps it — the
+// same reasons as the audit log's filters.
 export function UsersListPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const attention = readAttention(searchParams)
+  const showId = useId()
+
   // Off by default — findAll()'s own default matches (includeInactive
   // defaults to false server-side too), so an admin's normal browsing
   // view stays the same as before this feature existed.
   const [includeInactive, setIncludeInactive] = useState(false)
-  const { data: users, isLoading, isError } = useUsers(includeInactive)
+  // Only the list on screen is asked for: the whole list is switched off
+  // while a group is shown, and the group's query does nothing without one.
+  const everyone = useUsers(includeInactive, attention === null)
+  const group = useUsersNeedingAttention(attention)
+  const shown = attention === null ? everyone : group
+  const users = shown.data
+
+  function show(value: string) {
+    const next = new URLSearchParams(searchParams)
+    if (value === '') next.delete('attention')
+    else next.set('attention', value)
+    setSearchParams(next)
+  }
 
   return (
     <div className="mx-auto mt-12 max-w-2xl space-y-4 px-4">
@@ -22,27 +47,56 @@ export function UsersListPage() {
         </Button>
       </div>
 
-      {/* A plain native checkbox, not a shadcn/Radix component — unlike
-          Select, a checkbox doesn't meaningfully benefit from Radix's
-          extra machinery (no popover, no keyboard-nav list to manage),
-          so there's no reason to block on fetching one for this. */}
-      <label className="flex items-center gap-2 text-sm text-muted-foreground">
-        <input
-          type="checkbox"
-          checked={includeInactive}
-          onChange={(e) => setIncludeInactive(e.target.checked)}
-        />
-        Show deactivated users
-      </label>
+      <div className="flex flex-wrap items-center gap-2">
+        <label htmlFor={showId} className="text-sm font-medium">
+          Show
+        </label>
+        {/* A native select (themed option colours — NativeSelect): three
+            fixed choices, nothing a custom listbox would add. */}
+        <NativeSelect
+          id={showId}
+          className="w-auto"
+          value={attention ?? ''}
+          onChange={(event) => show(event.target.value)}
+        >
+          <option value="">All users</option>
+          {ATTENTION_KINDS.map((kind) => (
+            <option key={kind} value={kind}>
+              {ATTENTION_GROUPS[kind].title}
+            </option>
+          ))}
+        </NativeSelect>
+      </div>
 
-      {isLoading && <p className="text-sm text-muted-foreground">Loading users…</p>}
-
-      {isError && (
-        <p className="text-sm text-destructive">Couldn't load users. Try refreshing.</p>
+      {attention === null ? (
+        // A plain native checkbox, not a shadcn/Radix component — unlike
+        // Select, a checkbox doesn't meaningfully benefit from Radix's
+        // extra machinery (no popover, no keyboard-nav list to manage),
+        // so there's no reason to block on fetching one for this.
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={includeInactive}
+            onChange={(e) => setIncludeInactive(e.target.checked)}
+          />
+          Show deactivated users
+        </label>
+      ) : (
+        // A group is about ACTIVE accounts by definition, so the
+        // "deactivated" choice has no meaning here and isn't offered; the
+        // rule is said instead.
+        <p className="text-sm text-muted-foreground">{ATTENTION_GROUPS[attention].explanation}</p>
       )}
 
+      {shown.isPending && <p className="text-sm text-muted-foreground">Loading users…</p>}
+
+      {/* "Try again" asks for this list only (decisions §15). */}
+      {shown.isError && <LoadError what="the users" queries={[shown]} />}
+
       {users && users.length === 0 && (
-        <p className="text-sm text-muted-foreground">No users yet.</p>
+        <p className="text-sm text-muted-foreground">
+          {attention === null ? 'No users yet.' : ATTENTION_GROUPS[attention].empty}
+        </p>
       )}
 
       {users && users.length > 0 && (
