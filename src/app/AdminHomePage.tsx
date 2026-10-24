@@ -1,8 +1,9 @@
-import { ChartColumn, History } from 'lucide-react'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { HomeGreeting } from './home/HomeGreeting'
-import { ComingSoonSlot, HomeSummaryCard, TodaySlot } from './home/HomeSummaryCard'
+import { HomeSummaryCard, TodaySlot } from './home/HomeSummaryCard'
 import { HomeShortcuts, type HomeShortcut } from './home/HomeShortcuts'
+import { AdminMetricsSection } from './home/admin/AdminMetricsSection'
+import { RecentActivitySection } from './home/admin/RecentActivitySection'
 
 // The admin's two sections, both with real pages (list pages, which link on
 // to their "new" forms).
@@ -14,15 +15,15 @@ const SHORTCUTS: HomeShortcut[] = [
 // The admin's home page — the same structure as the practitioner's
 // (decisions §3), built from the same shared pieces in ./home/:
 //   1. Avatar + greeting
-//   2. A card: today's date/time, plus two "coming soon" slots:
-//      - Metrics: which numbers belong here (clinics, users by role, …)
-//        and whether they need backend count endpoints is still open —
-//        a Phase 6 item. Decided 2026-09-27: build the structure first.
-//      - Activity: recent changes, from the audit log the backend already
-//        records (GET /audit-logs) — goes with the Phase 6 audit log
-//        viewer.
+//   2. The summary card: today's date and time
 //   3. Links into the sections
-// Replaces the earlier bare page (an "Admin" heading and two links).
+//   4. Metrics: accounts by role, clinics, invitations waiting, and who
+//      needs attention (GET /admin/metrics)
+//   5. Recent activity: the latest changes in the audit log
+// 4 and 5 replaced two "Coming soon" slots of the card (Phase 6, decisions
+// §17). They are sections UNDER the shortcuts, as the practitioner's "For
+// review" is: content of varying length above the navigation would push it
+// down the screen (the person's point, 2026-10-19).
 export function AdminHomePage() {
   const { data: user } = useCurrentUser()
 
@@ -41,11 +42,12 @@ export function AdminHomePage() {
 
       <HomeSummaryCard>
         <TodaySlot />
-        <ComingSoonSlot label="Metrics" icon={ChartColumn} />
-        <ComingSoonSlot label="Activity" icon={History} />
       </HomeSummaryCard>
 
       <HomeShortcuts links={SHORTCUTS} />
+
+      <AdminMetricsSection />
+      <RecentActivitySection />
     </div>
   )
 }

@@ -6,9 +6,8 @@ import { useAlerts } from './useAlerts'
 // renamed the same day with the person: "To-do" promised tasks, and the
 // roadmap keeps that name for a task list the practitioner manages), replacing
 // its "Coming soon": how many things need a look, as a link down to the list
-// (the For review section, id "review"). Same look as the card's other slots (TodaySlot,
-// ComingSoonSlot in app/home/HomeSummaryCard.tsx): icon, small label,
-// value.
+// (the For review section, id "review"). Same look as the card's other slots (TodaySlot in
+// app/home/HomeSummaryCard.tsx, MessagesSlot): icon, small label, value.
 //
 // The same query as the section (useAlerts with the same `today`): one
 // request feeds both. While it loads the slot shows nothing in its value

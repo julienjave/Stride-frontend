@@ -1,12 +1,11 @@
 import type { ReactNode } from 'react'
-import type { LucideIcon } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { useCurrentDateTime } from '@/app/useCurrentDateTime'
 
 // The summary card under every home page's greeting, and the "slots" that
 // go in it. Each role fills the card with its own slots (decisions §2–§3):
 //   practitioner: Today · Messages · For review
-//   admin:        Today · Metrics · Activity
+//   admin:        Today (its metrics and activity are sections of their own)
 //   patient:      Today · Upcoming · … (Phase 4)
 // The card only lays them out; what goes in it is the page's decision.
 // This is "composition": instead of one component with a prop for every
@@ -56,28 +55,6 @@ export function TodaySlot() {
       <span className="text-xs uppercase text-muted-foreground">Today</span>
       <span className="font-medium">{dateLabel}</span>
       <span className="text-sm text-muted-foreground">{timeLabel}</span>
-    </div>
-  )
-}
-
-interface ComingSoonSlotProps {
-  label: string
-  // The icon COMPONENT itself (e.g. Mail), not an element (<Mail />): the
-  // slot decides how it's drawn (size, aria-hidden), so every slot looks
-  // the same. Written with a capital letter below because JSX treats a
-  // lowercase name as an HTML tag.
-  icon: LucideIcon
-}
-
-// A slot for a feature that doesn't exist yet. Visibly disabled, not
-// hidden — and the "Coming soon" text is real content (a screen reader
-// reads it), not something conveyed by dimmed styling alone.
-export function ComingSoonSlot({ label, icon: Icon }: ComingSoonSlotProps) {
-  return (
-    <div className="flex flex-col items-center gap-1 opacity-50">
-      <Icon className="h-5 w-5" aria-hidden="true" />
-      <span className="text-xs uppercase text-muted-foreground">{label}</span>
-      <span className="text-sm text-muted-foreground">Coming soon</span>
     </div>
   )
 }
