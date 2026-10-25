@@ -144,6 +144,48 @@ describe('UserEditPage — rendering a loaded user', () => {
     expect(await screen.findByText('This account is deactivated.')).toBeInTheDocument()
   })
 
+  // The page hands the account's ROLES to the two buttons: what a
+  // (de)activation does to care-team links depends on them (2026-10-25).
+  // The buttons' own tests cover each role; these prove the page passes
+  // them on.
+  function answerPractitioner(isActive: boolean) {
+    fetchMock.mockImplementation((input) => {
+      const url = urlOf(input)
+      if (url.includes('/users/4')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ ...practitionerUser, isActive }), { status: 200 }),
+        )
+      }
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }))
+    })
+  }
+
+  it("tells the admin, before deactivating a practitioner, that their links end", async () => {
+    answerPractitioner(true)
+    const user = userEvent.setup()
+    renderAt('/admin/users/4')
+
+    await user.click(await screen.findByRole('button', { name: 'Deactivate user' }))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Deactivate Prac Titioner?' })
+    expect(
+      within(dialog).getByText(
+        "Their current care-team links end too. Reactivating the account doesn't restore them.",
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it("tells the admin, before reactivating a practitioner, that their links don't come back", async () => {
+    answerPractitioner(false)
+    const user = userEvent.setup()
+    renderAt('/admin/users/4')
+
+    await user.click(await screen.findByRole('button', { name: 'Reactivate user' }))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Reactivate Prac Titioner?' })
+    expect(within(dialog).getByText(/and don't come back/)).toBeInTheDocument()
+  })
+
   it('has a "Back to users" link pointing to the list route', async () => {
     fetchMock.mockImplementation((input) => {
       const url = urlOf(input)

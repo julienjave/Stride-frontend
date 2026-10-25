@@ -13,10 +13,14 @@ import {
 } from '@/components/ui/dialog'
 import { ApiError } from '@/api/client'
 import { reactivateUser, userQueryKey } from './api'
+import { refreshAttention } from './attention'
 
 interface ReactivateUserButtonProps {
   userId: number
   userName: string
+  // The account's roles: a practitioner's care-team links, ended by the
+  // deactivation, don't come back — the dialog says so.
+  roles: string[]
 }
 
 // Only ever rendered when the user is currently deactivated (see
@@ -24,7 +28,7 @@ interface ReactivateUserButtonProps {
 // one — reactivating your OWN account isn't the dangerous direction (you
 // can't be viewing this page as a deactivated admin in the first place,
 // since deactivation signs you out immediately).
-export function ReactivateUserButton({ userId, userName }: ReactivateUserButtonProps) {
+export function ReactivateUserButton({ userId, userName, roles }: ReactivateUserButtonProps) {
   const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
 
@@ -39,7 +43,9 @@ export function ReactivateUserButton({ userId, userName }: ReactivateUserButtonP
       // this user needs to disappear from the include-inactive list and
       // (re)appear in the active-only one, and 'users-list' is a
       // deliberately separate top-level key from userQueryKey(userId).
-      void queryClient.invalidateQueries({ queryKey: ['users-list'] })
+      // refreshAttention makes that prefix match AND marks the admin home's
+      // numbers stale (an active account again changes the counts).
+      void refreshAttention(queryClient)
       setIsOpen(false)
     },
   })
@@ -58,6 +64,13 @@ export function ReactivateUserButton({ userId, userName }: ReactivateUserButtonP
             messages) is still attached to this same account.
           </DialogDescription>
         </DialogHeader>
+
+        {roles.includes('practitioner') && (
+          <p className="text-sm text-muted-foreground">
+            Their care-team links ended when the account was deactivated, and don't come back:
+            add them to their patients' care teams again where they're needed.
+          </p>
+        )}
 
         {reactivateMutation.isError && (
           <p className="text-sm text-destructive">

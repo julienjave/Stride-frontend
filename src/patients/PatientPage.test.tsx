@@ -185,6 +185,38 @@ describe('PatientPage — the patient', () => {
     ])
   })
 
+  // A deactivated patient's care team keeps its links (2026-10-25), so the
+  // page still opens — saying at once that the patient can't sign in.
+  const DEACTIVATED =
+    "Account deactivated. Pat can't sign in, so they won't see new programs or messages. You're still on their care team and can read their record."
+  // The paragraph whose WHOLE text is the notice (its first words are bold,
+  // in their own element — text matching per element can't see it whole).
+  const isNotice = (_: string, element: Element | null) =>
+    element?.tagName === 'P' && element.textContent === DEACTIVATED
+
+  it('says when the patient is deactivated — and still shows their record', async () => {
+    patientResponse = { status: 200, body: { ...pat, isActive: false } }
+    renderPatientPage()
+
+    expect(await screen.findByText(isNotice)).toBeInTheDocument()
+    // Right under the header, before the record: the first thing after the
+    // name in reading order.
+    const heading = screen.getByRole('heading', { level: 1, name: 'Pat Lee' })
+    const notice = screen.getByText(isNotice)
+    const programsSection = await screen.findByRole('region', { name: 'Programs' })
+    expect(heading.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(notice.compareDocumentPosition(programsSection) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(await screen.findByRole('region', { name: 'Care team' })).toBeInTheDocument()
+  })
+
+  it('says nothing of the kind for an active patient', async () => {
+    renderPatientPage()
+    await screen.findByRole('heading', { level: 1, name: 'Pat Lee' })
+    await screen.findByRole('region', { name: 'Care team' })
+
+    expect(screen.queryByText(/Account deactivated/)).not.toBeInTheDocument()
+  })
+
   // Phase 5. Starting the conversation is MessageButton's own test.
   it('offers to message the patient', async () => {
     renderPatientPage()

@@ -113,6 +113,19 @@ function PatientView({ patientId }: { patientId: number }) {
         </div>
       </div>
 
+      {/* A deactivated patient (decided 2026-10-25): their care team keeps
+          its links — deactivating blocks a sign-in, it isn't a discharge —
+          so the page still opens. Said at the top, before anyone assigns a
+          program or writes a message the patient will never see. Ending
+          care is the practitioner's own act (Leave care team, below). */}
+      {!patient.isActive && (
+        <p className="rounded-md border border-amber-600/40 bg-amber-500/10 p-3 text-sm">
+          <span className="font-medium">Account deactivated.</span> {patient.firstName} can't
+          sign in, so they won't see new programs or messages. You're still on their care team
+          and can read their record.
+        </p>
+      )}
+
       <PatientProgramsSection patientId={patientId} />
 
       <MedicalFileLinkCard patientId={patientId} />

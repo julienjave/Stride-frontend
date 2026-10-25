@@ -15,10 +15,14 @@ import {
 import { ApiError } from '@/api/client'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { deactivateUser, userQueryKey } from './api'
+import { refreshAttention } from './attention'
 
 interface DeactivateUserButtonProps {
   userId: number
   userName: string
+  // The account's roles: what a deactivation does to care-team links
+  // depends on them (decided 2026-10-25), and the dialog says it.
+  roles: string[]
 }
 
 // Only ever rendered when the user is currently active (see UserEditPage,
@@ -28,7 +32,7 @@ interface DeactivateUserButtonProps {
 // returning patient or practitioner needing their old account (and its
 // history) back is a real, expected scenario in a healthcare app, not an
 // edge case worth leaving unsolved the way the clinic gap still is.
-export function DeactivateUserButton({ userId, userName }: DeactivateUserButtonProps) {
+export function DeactivateUserButton({ userId, userName, roles }: DeactivateUserButtonProps) {
   const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -48,6 +52,8 @@ export function DeactivateUserButton({ userId, userName }: DeactivateUserButtonP
   // deactivation from a settings page) can and should still use the same
   // route.
   const isSelf = currentUser?.id === userId
+  const isPractitioner = roles.includes('practitioner')
+  const isPatient = roles.includes('patient')
 
   const deactivateMutation = useMutation({
     mutationFn: () => deactivateUser(userId),
@@ -65,7 +71,15 @@ export function DeactivateUserButton({ userId, userName }: DeactivateUserButtonP
       // userQueryKey(userId) — they're different top-level keys
       // specifically so this kind of prefix invalidation can't collide
       // with it the way it would have if they shared one 'users' prefix.
-      void queryClient.invalidateQueries({ queryKey: ['users-list'] })
+      // refreshAttention makes that prefix match AND marks the admin home's
+      // numbers stale: one deactivated account changes the counts, and a
+      // practitioner's links ending can leave patients with nobody.
+      void refreshAttention(queryClient)
+      // Every care team too: a practitioner's links have just ended on the
+      // server, on as many patients' teams as they were on — the cache
+      // doesn't know which, so the whole ['care-team'] prefix is marked
+      // stale (only the teams on screen are fetched again).
+      void queryClient.invalidateQueries({ queryKey: ['care-team'] })
       setIsOpen(false)
       // findAll() filters to isActive: true, so this user is about to
       // vanish from the list — staying on their own now-orphaned edit
@@ -97,6 +111,23 @@ export function DeactivateUserButton({ userId, userName }: DeactivateUserButtonP
             until an admin reactivates the account from here.
           </DialogDescription>
         </DialogHeader>
+
+        {/* What happens to care-team links (2026-10-25). A practitioner who
+            can't sign in treats nobody: the server ends their links. A
+            patient keeps their care team: deactivating isn't a discharge,
+            and the team must still read the file. An account with both
+            roles gets both sentences — each is about one side of it. */}
+        {(isPractitioner || isPatient) && (
+          <div className="space-y-2 text-sm text-muted-foreground">
+            {isPractitioner && (
+              <p>
+                Their current care-team links end too. Reactivating the account doesn't
+                restore them.
+              </p>
+            )}
+            {isPatient && <p>Their care team keeps access to their records.</p>}
+          </div>
+        )}
 
         {deactivateMutation.isError && (
           <p className="text-sm text-destructive">

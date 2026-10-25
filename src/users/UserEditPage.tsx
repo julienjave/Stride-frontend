@@ -127,6 +127,7 @@ function UserEditView({ userId }: { userId: number }) {
         <DeactivateUserButton
           userId={userId}
           userName={`${user.firstName} ${user.lastName}`}
+          roles={user.roles}
         />
       ) : (
         <div className="space-y-2">
@@ -134,6 +135,7 @@ function UserEditView({ userId }: { userId: number }) {
           <ReactivateUserButton
             userId={userId}
             userName={`${user.firstName} ${user.lastName}`}
+            roles={user.roles}
           />
         </div>
       )}

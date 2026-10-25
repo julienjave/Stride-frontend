@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
 import { DeactivateUserButton } from './DeactivateUserButton'
 import { userQueryKey } from './api'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
+import { adminMetricsQueryKey } from '@/app/home/admin/api'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -17,12 +18,13 @@ beforeEach(() => {
 function renderButton(
   adminId: number,
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+  roles: string[] = ['patient'],
 ) {
   queryClient.setQueryData(currentUserQueryKey, { id: adminId })
   const utils = render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={['/admin/users/7']}>
-        <DeactivateUserButton userId={7} userName="Jamie Doe" />
+        <DeactivateUserButton userId={7} userName="Jamie Doe" roles={roles} />
       </MemoryRouter>
     </QueryClientProvider>,
   )
@@ -58,6 +60,50 @@ describe('DeactivateUserButton — opening the dialog', () => {
   })
 })
 
+// What happens to care-team links, said per role (2026-10-25): the server
+// ends a PRACTITIONER's links; a patient keeps their care team. Each case
+// checks the other sentence is absent too.
+describe('DeactivateUserButton — what happens to care-team links', () => {
+  const ENDS = "Their current care-team links end too. Reactivating the account doesn't restore them."
+  const KEEPS = 'Their care team keeps access to their records.'
+
+  async function openFor(roles: string[]) {
+    const user = userEvent.setup()
+    renderButton(1, undefined, roles)
+    await user.click(screen.getByRole('button', { name: 'Deactivate user' }))
+    // Inside the modal dialog: role queries see only it.
+    return screen.findByRole('dialog', { name: 'Deactivate Jamie Doe?' })
+  }
+
+  it("says a practitioner's links end, and aren't restored", async () => {
+    const dialog = await openFor(['practitioner'])
+
+    expect(within(dialog).getByText(ENDS)).toBeInTheDocument()
+    expect(within(dialog).queryByText(KEEPS)).not.toBeInTheDocument()
+  })
+
+  it("says a patient's care team keeps access to their records", async () => {
+    const dialog = await openFor(['patient'])
+
+    expect(within(dialog).getByText(KEEPS)).toBeInTheDocument()
+    expect(within(dialog).queryByText(ENDS)).not.toBeInTheDocument()
+  })
+
+  it('says both for an account with both roles — one sentence per side', async () => {
+    const dialog = await openFor(['patient', 'practitioner'])
+
+    expect(within(dialog).getByText(ENDS)).toBeInTheDocument()
+    expect(within(dialog).getByText(KEEPS)).toBeInTheDocument()
+  })
+
+  it('says nothing about care teams for an admin-only account', async () => {
+    const dialog = await openFor(['admin'])
+
+    expect(within(dialog).queryByText(ENDS)).not.toBeInTheDocument()
+    expect(within(dialog).queryByText(KEEPS)).not.toBeInTheDocument()
+  })
+})
+
 describe('DeactivateUserButton — cancelling', () => {
   it('Cancel closes the dialog and never calls the API', async () => {
     const user = userEvent.setup()
@@ -86,9 +132,14 @@ describe('DeactivateUserButton — confirming successfully', () => {
     queryClient.setQueryData(userQueryKey(7), { id: 7, isActive: true })
     queryClient.setQueryData(['users-list', false], [{ id: 7, isActive: true }])
     queryClient.setQueryData(['users-list', true], [{ id: 7, isActive: true }])
+    // The admin home's numbers, and two patients' care teams the
+    // practitioner may have been on (nothing says which).
+    queryClient.setQueryData(adminMetricsQueryKey, {})
+    queryClient.setQueryData(['care-team', 5, false], [])
+    queryClient.setQueryData(['care-team', 6, true], [])
 
     const user = userEvent.setup()
-    renderButton(1, queryClient)
+    renderButton(1, queryClient, ['practitioner'])
 
     await user.click(screen.getByRole('button', { name: 'Deactivate user' }))
     await screen.findByText('Deactivate Jamie Doe?')
@@ -112,6 +163,11 @@ describe('DeactivateUserButton — confirming successfully', () => {
     // include-inactive one.
     expect(queryClient.getQueryState(['users-list', false])?.isInvalidated).toBe(true)
     expect(queryClient.getQueryState(['users-list', true])?.isInvalidated).toBe(true)
+    // The home's counts changed, and the practitioner's links ended on the
+    // server: every cached care team is stale.
+    expect(queryClient.getQueryState(adminMetricsQueryKey)?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(['care-team', 5, false])?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(['care-team', 6, true])?.isInvalidated).toBe(true)
   })
 })
 
