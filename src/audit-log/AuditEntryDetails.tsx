@@ -10,7 +10,8 @@ import type { AuditLogEntry } from './types'
 export function AuditEntryDetails({ entry }: { entry: AuditLogEntry }) {
   const [showRaw, setShowRaw] = useState(false)
   const rawId = useId()
-  const items = describeDetails(entry.details)
+  // The action too: some actions' stored values get plain words.
+  const items = describeDetails(entry.details, {}, entry.action)
 
   return (
     <div className="space-y-3 rounded-md bg-muted/40 p-3 text-sm">

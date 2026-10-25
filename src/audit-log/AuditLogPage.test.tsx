@@ -271,6 +271,36 @@ describe('AuditLogPage', () => {
     expect(within(card).queryByText('No further details.')).not.toBeInTheDocument()
   })
 
+  // The page hands the entry's ACTION to the details (2026-10-25): stored
+  // code words get plain ones.
+  it('shows a failed step-up’s details in plain words', async () => {
+    const user = userEvent.setup()
+    renderAuditLog('/admin/audit-log', () =>
+      json(
+        page([
+          entry(1, {
+            action: 'STEP_UP_FAILED',
+            kind: 'sign_in',
+            entityType: 'users',
+            area: 'Accounts',
+            entityId: 6,
+            performer: PAT,
+            details: { purpose: 'email_change', reason: 'wrong_code', consecutiveFailures: 2 },
+          }),
+        ]),
+      ),
+    )
+    const card = await screen.findByRole('article', {
+      name: 'Entered a wrong password or code to confirm a change',
+    })
+    await user.click(within(card).getByRole('button', { name: 'Details' }))
+    expect(within(card).getByText('For').nextElementSibling).toHaveTextContent(
+      'Changing the email address',
+    )
+    expect(within(card).getByText('Reason').nextElementSibling).toHaveTextContent('Wrong code')
+    expect(within(card).getByText('Failures in a row').nextElementSibling).toHaveTextContent('2')
+  })
+
   it('shows a moment in the details like the entry’s own time', async () => {
     const user = userEvent.setup()
     renderAuditLog('/admin/audit-log', () =>

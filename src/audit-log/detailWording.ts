@@ -1,0 +1,134 @@
+import type { AuditAction } from './types'
+
+// Plain words for the VALUES some audit entries store (decided with the
+// person, 2026-10-25). The database keeps the stored value — 'wrong_password'
+// stays 'wrong_password' forever: an audit trail is evidence, and the code
+// matches on these values. Only the screen translates, here, the same way
+// auditWording.ts translates the action names. "Show the raw entry" still
+// shows what is stored.
+//
+// Keyed by ACTION, then by detail KEY: `reason` means something different in
+// each action (a failed step-up's reason is not an email change's), so one
+// table per key would mix them up.
+
+// --- The backend's values, mirrored ------------------------------------------------------------------------
+//
+// Hand-written copies of backend types, like `AuditAction` (types.ts): each
+// word table below is typed `Record<…, string>`, so a value missing a word is
+// a compile error HERE once it's added to these lists. A value the backend
+// stores that isn't listed (an older row, or one added since) is shown as
+// stored — never hidden.
+
+// src/mfa/step-up.service.ts, StepUpPurpose — which change a step-up guarded.
+type StepUpPurpose =
+  | 'email_change'
+  | 'password_change'
+  | 'mfa_setup'
+  | 'mfa_disable'
+  | 'recovery_codes'
+  | 'mfa_reset'
+
+// src/mfa/totp.ts and second-factor.ts — why a second factor was refused.
+type SecondFactorRefusal = 'wrong_code' | 'code_already_used' | 'wrong_recovery_code'
+
+// src/mfa/step-up.service.ts, StepUpFailureReason.
+type StepUpFailureReason = 'wrong_password' | SecondFactorRefusal
+
+// src/email-change/email-change.service.ts — the reasons written into
+// EMAIL_CHANGE_CANCELLED entries (a replaced request or a password change
+// cancels too, but those are written in OTHER entries' details).
+type EmailChangeCancelReason = 'cancelled_in_app' | 'cancelled_by_email_link'
+
+// --- The words -------------------------------------------------------------------------------------------
+
+const SECOND_FACTOR_REFUSAL: Record<SecondFactorRefusal, string> = {
+  wrong_code: 'Wrong code',
+  code_already_used: 'A code that was already used',
+  wrong_recovery_code: "A recovery code that isn't valid or was already used",
+}
+
+// Words for each value, filled from the typed tables above — `satisfies`
+// checks them without widening, so they fit the looser shape below.
+const STEP_UP_PURPOSE = {
+  email_change: 'Changing the email address',
+  password_change: 'Changing the password',
+  mfa_setup: 'Setting up two-factor sign-in',
+  mfa_disable: 'Turning off two-factor sign-in',
+  recovery_codes: 'Getting new recovery codes',
+  mfa_reset: "Resetting someone's two-factor sign-in",
+} satisfies Record<StepUpPurpose, string>
+
+const STEP_UP_REASON = {
+  wrong_password: 'Wrong password',
+  ...SECOND_FACTOR_REFUSAL,
+} satisfies Record<StepUpFailureReason, string>
+
+const EMAIL_CHANGE_CANCEL_REASON = {
+  cancelled_in_app: 'Cancelled in the app',
+  cancelled_by_email_link: 'Cancelled from the link in the email',
+} satisfies Record<EmailChangeCancelReason, string>
+
+// How one detail key of one action is shown: its label, and words for its
+// values (looked up by the value as text — `true` as 'true').
+export interface DetailWording {
+  label?: string
+  values?: Readonly<Record<string, string>>
+}
+
+const DETAIL_WORDING: Partial<Record<AuditAction, Record<string, DetailWording>>> = {
+  STEP_UP_FAILED: {
+    purpose: { label: 'For', values: STEP_UP_PURPOSE },
+    reason: { values: STEP_UP_REASON },
+    consecutiveFailures: { label: 'Failures in a row' },
+    signedOut: { label: 'Signed out', values: { true: 'Yes — this session was ended' } },
+  },
+  MFA_LOGIN_FAILURE: {
+    reason: { values: SECOND_FACTOR_REFUSAL },
+  },
+  EMAIL_CHANGE_CANCELLED: {
+    reason: { values: EMAIL_CHANGE_CANCEL_REASON },
+  },
+}
+
+// --- Lookups ---------------------------------------------------------------------------------------------
+//
+// Object.hasOwn, never `in` or a plain index: the action and the key come
+// from stored data, and `in` also finds what an object INHERITS — a key
+// named 'toString' would find a function (the audit vocabulary's lesson).
+
+// One action's table, or undefined for an action it doesn't know — the one
+// place an action read from stored data is looked up.
+function wordingOf(action: string | undefined): Record<string, DetailWording> | undefined {
+  if (action === undefined || !Object.hasOwn(DETAIL_WORDING, action)) return undefined
+  return DETAIL_WORDING[action as AuditAction]
+}
+
+// The wording for one key of one action, or undefined (then the screen uses
+// its generic label and formatting).
+export function detailWording(action: string | undefined, key: string): DetailWording | undefined {
+  const byKey = wordingOf(action)
+  if (!byKey || !Object.hasOwn(byKey, key)) return undefined
+  return byKey[key]
+}
+
+// The order to show an action's details in: the keys this table knows, in
+// the table's order ("For" before "Reason"), then any others as stored.
+// Postgres stores jsonb with its keys reordered (shorter keys first), so the
+// stored order says nothing — a failed step-up would read "Reason, For".
+export function orderDetailKeys(action: string | undefined, keys: string[]): string[] {
+  const known = Object.keys(wordingOf(action) ?? {})
+  return [
+    ...known.filter((key) => keys.includes(key)),
+    ...keys.filter((key) => !known.includes(key)),
+  ]
+}
+
+// The words for a stored value, or undefined when there are none — a value
+// that isn't text or true / false (a number, a list), or one the table
+// doesn't know.
+export function valueWords(wording: DetailWording | undefined, value: unknown): string | undefined {
+  if (!wording?.values) return undefined
+  if (typeof value !== 'string' && typeof value !== 'boolean') return undefined
+  const text = String(value)
+  return Object.hasOwn(wording.values, text) ? wording.values[text] : undefined
+}

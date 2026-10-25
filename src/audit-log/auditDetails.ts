@@ -17,6 +17,7 @@
 
 import { isCalendarDate } from '@/common/calendarDate'
 import { formatEntryDay, formatEntryMoment } from './auditWording'
+import { detailWording, orderDetailKeys, valueWords } from './detailWording'
 
 export interface ChangeRow {
   field: string
@@ -100,23 +101,43 @@ function changeRows(changes: unknown, dates: DateFormat): ChangeRow[] | null {
   return rows
 }
 
-export function describeDetails(details: unknown, dates: DateFormat = {}): DetailItem[] {
+// `action`: the entry's action. Some actions store values in code words
+// ('wrong_password'); detailWording.ts gives them plain words and, for some
+// keys, a better label. Without it (or for anything the table doesn't know)
+// the generic label and formatting apply.
+export function describeDetails(
+  details: unknown,
+  dates: DateFormat = {},
+  action?: string,
+): DetailItem[] {
   if (details === null || details === undefined) return []
   if (!isPlainObject(details)) {
     return [{ type: 'value', label: 'Details', value: formatValue(details, false, dates) }]
   }
   const items: DetailItem[] = []
-  for (const [key, value] of Object.entries(details)) {
+  for (const key of orderDetailKeys(action, Object.keys(details))) {
+    const value = details[key]
     const rows = key === 'changes' ? changeRows(value, dates) : null
     items.push(
       rows
         ? { type: 'changes', rows }
-        : {
-            type: 'value',
-            label: keyLabel(key),
-            value: formatValue(value, isIdKey(key), dates),
-          },
+        : valueItem(key, value, dates, detailWording(action, key)),
     )
   }
   return items
+}
+
+// One labelled value: the table's label and words when it has them, the
+// generic ones otherwise.
+function valueItem(
+  key: string,
+  value: unknown,
+  dates: DateFormat,
+  wording: ReturnType<typeof detailWording>,
+): DetailItem {
+  return {
+    type: 'value',
+    label: wording?.label ?? keyLabel(key),
+    value: valueWords(wording, value) ?? formatValue(value, isIdKey(key), dates),
+  }
 }
