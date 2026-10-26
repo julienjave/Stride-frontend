@@ -56,8 +56,8 @@ export function AdminMetricsSection() {
             <h3 className="font-semibold">Needs attention</h3>
             {nothingNeedsAttention(metrics.data) ? (
               <p className="text-sm">
-                Nothing needs attention: every patient has a care team, and every practitioner
-                belongs to a clinic.
+                Nothing needs attention: every patient has a care team, every practitioner
+                belongs to a clinic, and no invitation needs sending again.
               </p>
             ) : (
               <>
@@ -68,6 +68,10 @@ export function AdminMetricsSection() {
                 <AttentionGroup
                   kind="practitioners-without-clinic"
                   list={metrics.data.needsAttention.practitionersWithoutClinic}
+                />
+                <AttentionGroup
+                  kind="invitations-to-send-again"
+                  list={metrics.data.needsAttention.invitationsToSendAgain}
                 />
               </>
             )}
@@ -90,8 +94,8 @@ function Tile({ label, value }: { label: string; value: number }) {
 }
 
 // One group of accounts needing attention — nothing at all when it's empty
-// (the other group may still have some; the "nothing" sentence above covers
-// the case where both are empty). Its words come from the users list's
+// (another group may still have some; the "nothing" sentence above covers
+// the case where all are empty). Its words come from the users list's
 // filter (src/users/attention.ts), so both pages name it the same way; its
 // title and "and N more" lead to that filter — every account of the group,
 // in the same order, continuing where these first names stop.

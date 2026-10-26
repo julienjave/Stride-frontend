@@ -8,7 +8,11 @@ import { adminMetricsQueryKey } from '@/app/home/admin/api'
 // home and the list say the same thing.
 
 // The same values as the backend's ATTENTION_KINDS (GET /users?attention=…).
-export const ATTENTION_KINDS = ['patients-without-care-team', 'practitioners-without-clinic'] as const
+export const ATTENTION_KINDS = [
+  'patients-without-care-team',
+  'practitioners-without-clinic',
+  'invitations-to-send-again',
+] as const
 export type AttentionKind = (typeof ATTENTION_KINDS)[number]
 
 // Each group's words: its name, the rule in one sentence, and what the
@@ -26,6 +30,14 @@ export const ATTENTION_GROUPS: Record<
     title: 'Practitioners without a clinic',
     explanation: 'Not a member of any active clinic.',
     empty: 'Every practitioner belongs to a clinic.',
+  },
+  // 2026-10-25 (decisions §19): an open invitation that expired, or whose
+  // email couldn't be sent — the person can't join on their own. A REVOKED
+  // one isn't listed: someone decided it.
+  'invitations-to-send-again': {
+    title: 'Invitations to send again',
+    explanation: "The invitation expired, or its email couldn't be sent.",
+    empty: 'No invitation needs sending again.',
   },
 }
 

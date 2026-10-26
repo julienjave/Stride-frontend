@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
 import { CreateUserPage } from './CreateUserPage'
+import { adminMetricsQueryKey } from '@/app/home/admin/api'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -413,8 +414,10 @@ describe('CreateUserPage — successful submission payloads', () => {
       roles: ['patient'],
     })
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    // The list as the admin last saw it, before this account existed.
+    // The list as the admin last saw it, before this account existed — and
+    // the admin home's numbers, which a new account changes too.
     queryClient.setQueryData(['users-list', false], [])
+    queryClient.setQueryData(adminMetricsQueryKey, {})
     const user = userEvent.setup()
     renderCreateUserPage(queryClient)
     await fillCommonFields(user)
@@ -424,6 +427,7 @@ describe('CreateUserPage — successful submission payloads', () => {
 
     await screen.findByText('Created Jamie Doe (new.user@example.com) as patient.')
     expect(queryClient.getQueryState(['users-list', false])?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(adminMetricsQueryKey)?.isInvalidated).toBe(true)
   })
 })
 
@@ -436,8 +440,11 @@ describe('CreateUserPage — invitations', () => {
     expect(screen.queryByLabelText(/password/i)).not.toBeInTheDocument()
   })
 
-  async function createWithFailedEmail(user: ReturnType<typeof userEvent.setup>) {
-    renderCreateUserPage()
+  async function createWithFailedEmail(
+    user: ReturnType<typeof userEvent.setup>,
+    queryClient?: QueryClient,
+  ) {
+    renderCreateUserPage(queryClient)
     await fillCommonFields(user)
     await user.type(screen.getByLabelText('Date of birth'), '2000-01-01')
     await selectClinic(user, 'Acme Clinic')
@@ -477,6 +484,33 @@ describe('CreateUserPage — invitations', () => {
     expect(call).toBeDefined()
     expect(urlOf(call![0])).toContain('/users/44/invitations')
     expect(call![1]).toEqual(expect.objectContaining({ method: 'POST' }))
+  })
+
+  // The account was on the admin home's "Invitations to send again" (its
+  // email failed): sending again marks the home's numbers stale.
+  it("marks the admin home's numbers stale after sending again", async () => {
+    mockClinicsAndUserCreation({
+      id: 44,
+      firstName: 'Jamie',
+      lastName: 'Doe',
+      email: 'new.user@example.com',
+      roles: ['patient'],
+      invitation: { ...sentInvitation, emailSent: false },
+    })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const user = userEvent.setup()
+    await createWithFailedEmail(user, queryClient)
+    // Fresh again after the create's own refresh, so only the resend can
+    // mark it.
+    queryClient.setQueryData(adminMetricsQueryKey, {})
+    expect(queryClient.getQueryState(adminMetricsQueryKey)?.isInvalidated).toBe(false)
+
+    await user.click(screen.getByRole('button', { name: 'Send the invitation again' }))
+
+    await screen.findByText(
+      `We emailed them an invitation to choose their password. The link works until ${expiryLabel}.`,
+    )
+    expect(queryClient.getQueryState(adminMetricsQueryKey)?.isInvalidated).toBe(true)
   })
 
   it("shows the backend's message when sending again fails", async () => {

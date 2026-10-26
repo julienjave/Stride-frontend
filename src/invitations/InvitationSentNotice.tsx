@@ -1,11 +1,12 @@
 import { useState, type ReactNode } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ApiError } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { sendInvitation } from './api'
 import { formatExpiry } from './formatExpiry'
 import type { CreatedUserInvitation } from './types'
+import { refreshAttention } from '@/users/attention'
 
 interface InvitationSentNoticeProps {
   // The account just created, whose invitation this reports.
@@ -47,15 +48,20 @@ export function InvitationSentNotice({
   // Only offered when the email failed: the account and its invitation
   // exist either way, so the fix is sending a new one — not creating the
   // account again (that would be a 409, email already taken).
+  const queryClient = useQueryClient()
   const resendMutation = useMutation({
     mutationFn: () => sendInvitation(userId),
-    onSuccess: (sent) =>
+    onSuccess: (sent) => {
       setInvitation({
         id: sent.id,
         status: sent.status,
         expiresAt: sent.expiresAt,
         emailSent: sent.emailSent,
-      }),
+      })
+      // The account was on the admin home's "Invitations to send again"
+      // (its email had failed); a new invitation may take it off.
+      void refreshAttention(queryClient)
+    },
   })
 
   return (

@@ -29,6 +29,8 @@ export interface AdminMetrics {
     patientsWithoutCareTeam: AttentionList
     // In no active clinic.
     practitionersWithoutClinic: AttentionList
+    // An open invitation that expired, or whose email couldn't be sent.
+    invitationsToSendAgain: AttentionList
   }
 }
 

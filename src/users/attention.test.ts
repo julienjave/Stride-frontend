@@ -5,12 +5,15 @@ import { userQueryKey, usersListQueryKey, usersNeedingAttentionQueryKey } from '
 import { adminMetricsQueryKey } from '@/app/home/admin/api'
 
 describe('readAttention', () => {
-  it('reads either group from the address', () => {
+  it('reads every group from the address', () => {
     expect(readAttention(new URLSearchParams('attention=patients-without-care-team'))).toBe(
       'patients-without-care-team',
     )
     expect(readAttention(new URLSearchParams('attention=practitioners-without-clinic'))).toBe(
       'practitioners-without-clinic',
+    )
+    expect(readAttention(new URLSearchParams('attention=invitations-to-send-again'))).toBe(
+      'invitations-to-send-again',
     )
   })
 

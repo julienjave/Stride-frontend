@@ -36,6 +36,13 @@ const METRICS: AdminMetrics = {
       total: 1,
       first: [{ id: 21, firstName: 'Rory', lastName: 'Diaz' }],
     },
+    invitationsToSendAgain: {
+      total: 2,
+      first: [
+        { id: 31, firstName: 'Lena', lastName: 'Late' },
+        { id: 32, firstName: 'Stu', lastName: 'Waiting' },
+      ],
+    },
   },
 }
 
@@ -277,6 +284,32 @@ describe('AdminHomePage', () => {
       expect(
         within(metricsSection()).getByRole('link', { name: 'Practitioners without a clinic · 1' }),
       ).toHaveAttribute('href', '/admin/users?attention=practitioners-without-clinic')
+
+      // The third group (2026-10-25), last — the fix is on each user page.
+      const invitations = within(metricsSection()).getByRole('list', {
+        name: 'Invitations to send again',
+      })
+      expect(
+        within(invitations)
+          .getAllByRole('link')
+          .map((link) => [link.textContent, link.getAttribute('href')]),
+      ).toEqual([
+        ['Lena Late', '/admin/users/31'],
+        ['Stu Waiting', '/admin/users/32'],
+      ])
+      expect(
+        within(metricsSection()).getByRole('link', { name: 'Invitations to send again · 2' }),
+      ).toHaveAttribute('href', '/admin/users?attention=invitations-to-send-again')
+      expect(
+        within(metricsSection())
+          .getAllByRole('list')
+          .map((list) => list.getAttribute('aria-label'))
+          .filter((label) => label !== null),
+      ).toEqual([
+        'Patients without a care team',
+        'Practitioners without a clinic',
+        'Invitations to send again',
+      ])
       // Everyone in that group is listed: no "more" line for it (the one
       // "more" line is the patients').
       expect(within(metricsSection()).getAllByText(/^and \d+ more$/)).toHaveLength(1)
@@ -302,12 +335,16 @@ describe('AdminHomePage', () => {
       answers.metrics = () =>
         json({
           ...METRICS,
-          needsAttention: { patientsWithoutCareTeam: NOBODY, practitionersWithoutClinic: NOBODY },
+          needsAttention: {
+            patientsWithoutCareTeam: NOBODY,
+            practitionersWithoutClinic: NOBODY,
+            invitationsToSendAgain: NOBODY,
+          },
         })
       renderWithUser()
       expect(
         await within(metricsSection()).findByText(
-          'Nothing needs attention: every patient has a care team, and every practitioner belongs to a clinic.',
+          'Nothing needs attention: every patient has a care team, every practitioner belongs to a clinic, and no invitation needs sending again.',
         ),
       ).toBeInTheDocument()
       expect(within(metricsSection()).queryAllByRole('list')).toHaveLength(0)

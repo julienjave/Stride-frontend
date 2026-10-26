@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select'
 import { ApiError } from '@/api/client'
 import { useClinics } from '@/clinics/useClinics'
+import { refreshAttention } from './attention'
 import { AddressFields } from '@/common/address/AddressFields'
 import { TagListField } from '@/common/TagListField'
 import { ignoreEmptySelection } from '@/common/ignoreEmptySelection'
@@ -89,7 +90,10 @@ export function CreateUserPage() {
       // (queryClient.ts), so going back to the list right away would show
       // the OLD one without this invalidation. (Fixed 2026-10-08: the
       // comment here still said there was no users list page to refresh.)
-      void queryClient.invalidateQueries({ queryKey: ['users-list'] })
+      // refreshAttention does that AND marks the admin home's numbers stale:
+      // a new account changes the counts, and one whose email failed is on
+      // "Invitations to send again" (decisions §19).
+      void refreshAttention(queryClient)
       // reset() with NO arguments — not reset({ role: 'patient' }) — on
       // purpose. Verified directly, in isolation: this react-hook-form
       // version only reliably clears a registered input's actual DOM

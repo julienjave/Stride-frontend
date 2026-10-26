@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { InvitationStatus } from './InvitationStatus'
 import type { InvitationSummary } from './types'
+import { adminMetricsQueryKey } from '@/app/home/admin/api'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -73,10 +74,10 @@ beforeEach(() => {
   })
 })
 
-function renderStatus(props: Partial<{ isActive: boolean }> = {}) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  })
+function renderStatus(
+  props: Partial<{ isActive: boolean }> = {},
+  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) {
   return render(
     <QueryClientProvider client={queryClient}>
       <InvitationStatus
@@ -296,6 +297,47 @@ describe('InvitationStatus', () => {
           'This account is already set up: its owner has chosen a password.',
         ),
       ).toHaveClass('text-destructive')
+    })
+  })
+
+  // A send or a revoke can take the account off the admin home's
+  // "Invitations to send again" (2026-10-25): the home's numbers and the
+  // users lists are marked stale (refreshAttention). Seeded, unobserved
+  // entries: an invalidated query nobody shows stays marked.
+  describe("the admin home's numbers", () => {
+    function seededClient() {
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      queryClient.setQueryData(adminMetricsQueryKey, {})
+      queryClient.setQueryData(['users-list', 'attention', 'invitations-to-send-again'], [])
+      return queryClient
+    }
+    const stale = (queryClient: QueryClient) => [
+      queryClient.getQueryState(adminMetricsQueryKey)?.isInvalidated,
+      queryClient.getQueryState(['users-list', 'attention', 'invitations-to-send-again'])
+        ?.isInvalidated,
+    ]
+
+    it('are marked stale after a new invitation is sent', async () => {
+      const queryClient = seededClient()
+      const user = userEvent.setup()
+      renderStatus({}, queryClient)
+      expect(stale(queryClient)).toEqual([false, false])
+
+      await user.click(await screen.findByRole('button', { name: 'Send again' }))
+
+      await waitFor(() => expect(stale(queryClient)).toEqual([true, true]))
+    })
+
+    it('are marked stale after a revoke', async () => {
+      const queryClient = seededClient()
+      const user = userEvent.setup()
+      renderStatus({}, queryClient)
+
+      await user.click(await screen.findByRole('button', { name: 'Revoke' }))
+      const dialog = await screen.findByRole('dialog', { name: "Revoke Jane Doe's invitation?" })
+      await user.click(within(dialog).getByRole('button', { name: 'Revoke invitation' }))
+
+      await waitFor(() => expect(stale(queryClient)).toEqual([true, true]))
     })
   })
 

@@ -34,8 +34,8 @@ export function moreLine(list: AttentionList): string | null {
 }
 
 // True when nothing needs attention — the section then says so in one
-// sentence instead of two empty groups.
+// sentence instead of empty groups. Every group counts: one listed with a
+// total is enough to show the groups.
 export function nothingNeedsAttention(metrics: AdminMetrics): boolean {
-  const { patientsWithoutCareTeam, practitionersWithoutClinic } = metrics.needsAttention
-  return patientsWithoutCareTeam.total === 0 && practitionersWithoutClinic.total === 0
+  return Object.values(metrics.needsAttention).every((list) => list.total === 0)
 }

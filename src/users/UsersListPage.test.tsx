@@ -173,6 +173,7 @@ describe('UsersListPage', () => {
         ['', 'All users'],
         ['patients-without-care-team', 'Patients without a care team'],
         ['practitioners-without-clinic', 'Practitioners without a clinic'],
+        ['invitations-to-send-again', 'Invitations to send again'],
       ])
     })
 
@@ -260,12 +261,26 @@ describe('UsersListPage', () => {
       ).toBeInTheDocument()
     })
 
+    // The third group (2026-10-25): its own request, rule and empty words.
+    it('shows the invitations to send again: its request, its rule, its empty words', async () => {
+      fetchMock.mockResolvedValue(json([]))
+      renderUsersListPage('/admin/users?attention=invitations-to-send-again')
+
+      expect(await screen.findByText('No invitation needs sending again.')).toBeInTheDocument()
+      expect(
+        screen.getByText("The invitation expired, or its email couldn't be sent."),
+      ).toBeInTheDocument()
+      expect(showSelect()).toHaveValue('invitations-to-send-again')
+      expect(requests()).toEqual(['/users?attention=invitations-to-send-again'])
+    })
+
     it("doesn't use a group's empty words for the whole list", async () => {
       fetchMock.mockResolvedValue(json([]))
       renderUsersListPage()
 
       await screen.findByText('No users yet.')
       expect(screen.queryByText(/^Every /)).not.toBeInTheDocument()
+      expect(screen.queryByText('No invitation needs sending again.')).not.toBeInTheDocument()
     })
 
     it('reads an unknown value in the address as every user', async () => {

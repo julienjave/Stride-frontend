@@ -7,6 +7,7 @@ function metrics(overrides: {
   deactivatedClinics?: number
   patients?: number
   practitioners?: number
+  invitations?: number
 }): AdminMetrics {
   const list = (total: number) => ({
     total,
@@ -19,6 +20,7 @@ function metrics(overrides: {
     needsAttention: {
       patientsWithoutCareTeam: list(overrides.patients ?? 0),
       practitionersWithoutClinic: list(overrides.practitioners ?? 0),
+      invitationsToSendAgain: list(overrides.invitations ?? 0),
     },
   }
 }
@@ -70,9 +72,10 @@ describe('moreLine', () => {
 })
 
 describe('nothingNeedsAttention', () => {
-  it('is true only when BOTH groups are empty', () => {
+  it('is true only when EVERY group is empty — each one alone is enough to say false', () => {
     expect(nothingNeedsAttention(metrics({}))).toBe(true)
     expect(nothingNeedsAttention(metrics({ patients: 1 }))).toBe(false)
     expect(nothingNeedsAttention(metrics({ practitioners: 1 }))).toBe(false)
+    expect(nothingNeedsAttention(metrics({ invitations: 1 }))).toBe(false)
   })
 })

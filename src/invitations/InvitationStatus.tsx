@@ -15,6 +15,7 @@ import { ApiError } from '@/api/client'
 import { invitationsQueryKey, listInvitations, revokeInvitation, sendInvitation } from './api'
 import { formatExpiry } from './formatExpiry'
 import type { InvitationSummary } from './types'
+import { refreshAttention } from '@/users/attention'
 
 // Where an account's invitation stands, with what can be done about it.
 // Props, not a route parameter: the admin user page uses it today, and the
@@ -88,8 +89,16 @@ export function InvitationStatus({ userId, userName, email, isActive }: Invitati
   // Both actions change more than the one row they return (a resend also
   // closes the previous invitation), so the history is fetched again
   // rather than patched by hand: the server is the one that knows.
+  //
+  // The admin home's "Invitations to send again" too (refreshAttention,
+  // decisions §19): a new invitation takes the account off it, a revoke
+  // too. A query nobody shows is only marked stale, so a practitioner on a
+  // patient's page pays nothing.
   const refreshHistory = () =>
-    queryClient.invalidateQueries({ queryKey: invitationsQueryKey(userId) })
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: invitationsQueryKey(userId) }),
+      refreshAttention(queryClient),
+    ])
 
   const sendMutation = useMutation({
     mutationFn: () => sendInvitation(userId),
