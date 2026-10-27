@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
@@ -86,7 +86,9 @@ beforeEach(() => {
 
 type Mode = 'practitioner' | 'admin'
 
-function renderSection(mode: Mode = 'practitioner', canAdd = true) {
+// `patientActive`: the patient's ACCOUNT (decisions §21) — active unless a
+// test says otherwise.
+function renderSection(mode: Mode = 'practitioner', canAdd = true, patientActive = true) {
   // staleTime as in the app (queryClient.ts): with 0, reopening the dialog
   // would refetch the candidates anyway and hide a missing invalidation.
   const queryClient = new QueryClient({
@@ -102,6 +104,7 @@ function renderSection(mode: Mode = 'practitioner', canAdd = true) {
           myId={ME.id}
           canAdd={canAdd}
           canEndAny={mode === 'admin'}
+          patientActive={patientActive}
           onLeft={mode === 'practitioner' ? () => {} : undefined}
         />
       </MemoryRouter>
@@ -352,6 +355,47 @@ describe('CareTeamSection — what each viewer may do', () => {
     renderSection('practitioner', false)
     await screen.findByText('Blake Martin')
     expect(screen.queryByRole('button', { name: /^Add / })).not.toBeInTheDocument()
+  })
+
+  // Decisions §21: a deactivated patient keeps their team — shown, and its
+  // links can still end — but nobody new joins until the account is
+  // reactivated. Instead of the button, a sentence saying why.
+  const NOBODY_NEW = "Nobody new can join Robin's care team while their account is deactivated."
+
+  it('a deactivated patient, for a practitioner: the team and "Leave", no "Add" — and why', async () => {
+    renderSection('practitioner', true, false)
+    await screen.findByText('Blake Martin')
+
+    expect(screen.queryByRole('button', { name: /^Add / })).not.toBeInTheDocument()
+    expect(screen.getByText(`${NOBODY_NEW} An admin can reactivate it.`)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Leave care team' })).toBeInTheDocument()
+    // Nothing asked for the candidates (the backend would answer 409).
+    expect(calls((url) => url.endsWith('/candidates'))).toHaveLength(0)
+  })
+
+  it('a deactivated patient, for an admin: "End" on every row, no "Add" — and what to do', async () => {
+    renderSection('admin', true, false)
+    await screen.findByText('Blake Martin')
+
+    expect(screen.queryByRole('button', { name: /^Add / })).not.toBeInTheDocument()
+    expect(
+      screen.getByText(`${NOBODY_NEW} Reactivate the account to add someone.`),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: "End Blake Martin's membership" })).toBeInTheDocument()
+  })
+
+  // The sentence replaces a button: a viewer who wouldn't have had it isn't
+  // told about it, and an active patient's team has no such line.
+  it('says nothing of the kind to a viewer who may not add, or for an active patient', async () => {
+    renderSection('practitioner', false, false)
+    await screen.findByText('Blake Martin')
+    expect(screen.queryByText(/Nobody new can join/)).not.toBeInTheDocument()
+    cleanup()
+
+    renderSection('admin', true, true)
+    await screen.findByText('Blake Martin')
+    expect(screen.queryByText(/Nobody new can join/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add someone' })).toBeInTheDocument()
   })
 
   it("forgets an admin's failed End when the dialog is closed and opened again", async () => {

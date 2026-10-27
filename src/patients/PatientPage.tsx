@@ -138,6 +138,7 @@ function PatientView({ patientId }: { patientId: number }) {
         // A practitioner: may add a colleague, may only leave themselves.
         canAdd
         canEndAny={false}
+        patientActive={patient.isActive}
         onLeft={handleLeft}
       />
 

@@ -26,6 +26,11 @@ interface CareTeamSectionProps {
   //               row gets an action: "Leave care team".
   canAdd: boolean
   canEndAny: boolean
+  // Whether the patient's ACCOUNT is active. A deactivated patient keeps
+  // their care team (decisions §18): it's still shown, and links can still
+  // end — but nobody new joins until the account is reactivated (decisions
+  // §21: the backend answers 409). Required, so every page says which it is.
+  patientActive: boolean
   // "Leave care team" needs it (the page navigates away afterwards); a
   // viewer who can't leave — an admin — doesn't pass it.
   onLeft?: () => void
@@ -42,6 +47,7 @@ export function CareTeamSection({
   myId,
   canAdd,
   canEndAny,
+  patientActive,
   onLeft,
 }: CareTeamSectionProps) {
   const [showPast, setShowPast] = useState(false)
@@ -55,7 +61,7 @@ export function CareTeamSection({
         <input type="checkbox" checked={showPast} onChange={(e) => setShowPast(e.target.checked)} />
         Show past members
       </label>
-      {canAdd && (
+      {canAdd && patientActive && (
         <AddCareTeamMemberDialog
           patientId={patientId}
           patientFirstName={patientFirstName}
@@ -98,6 +104,15 @@ export function CareTeamSection({
 
   return (
     <PatientPageSection title="Care team" action={actions}>
+      {/* Instead of the button, why there is none — for whoever would have
+          had it. The admin can do something about it (reactivate, on the
+          same page); a practitioner is told who can. */}
+      {canAdd && !patientActive && (
+        <p className="text-sm text-muted-foreground">
+          Nobody new can join {patientFirstName}'s care team while their account is deactivated.{' '}
+          {canEndAny ? 'Reactivate the account to add someone.' : 'An admin can reactivate it.'}
+        </p>
+      )}
       {isLoading && <p className="text-sm text-muted-foreground">Loading the care team…</p>}
       {isError && (
         <p className="text-sm text-destructive">Couldn't load the care team. Try refreshing.</p>

@@ -206,7 +206,15 @@ describe('PatientPage — the patient', () => {
     const programsSection = await screen.findByRole('region', { name: 'Programs' })
     expect(heading.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(notice.compareDocumentPosition(programsSection) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(await screen.findByRole('region', { name: 'Care team' })).toBeInTheDocument()
+    // Its care team too — with no way to add someone new (decisions §21):
+    // the page passes the account's state on to the section.
+    const careTeam = await screen.findByRole('region', { name: 'Care team' })
+    expect(
+      await within(careTeam).findByText(
+        "Nobody new can join Pat's care team while their account is deactivated. An admin can reactivate it.",
+      ),
+    ).toBeInTheDocument()
+    expect(within(careTeam).queryByRole('button', { name: 'Add a colleague' })).not.toBeInTheDocument()
   })
 
   it('says nothing of the kind for an active patient', async () => {

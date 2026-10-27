@@ -113,6 +113,7 @@ function UserEditView({ userId }: { userId: number }) {
           myId={me.id}
           canAdd
           canEndAny
+          patientActive={user.isActive}
         />
       )}
 

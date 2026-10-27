@@ -422,6 +422,26 @@ describe('UserEditPage — invitation', () => {
       ).toBeInTheDocument()
     })
 
+    // Decisions §21: a deactivated patient's care team is shown (it was "Couldn't
+    // load the care team" — a 404), its links can be ended, and nobody new
+    // added: the page passes the account's state on.
+    it("shows a DEACTIVATED patient's care team, with End but no Add", async () => {
+      mockUser({ ...fullUser, isActive: false })
+      renderAt('/admin/users/1')
+
+      const region = await screen.findByRole('region', { name: 'Care team' })
+      expect(await within(region).findByText('Prac Titioner')).toBeInTheDocument()
+      expect(
+        within(region).getByText(
+          "Nobody new can join Jamie's care team while their account is deactivated. Reactivate the account to add someone.",
+        ),
+      ).toBeInTheDocument()
+      expect(within(region).queryByRole('button', { name: 'Add someone' })).not.toBeInTheDocument()
+      expect(
+        within(region).getByRole('button', { name: "End Prac Titioner's membership" }),
+      ).toBeInTheDocument()
+    })
+
     it('shows no care team for an account that is not a patient', async () => {
       mockUser(practitionerUser)
       renderAt('/admin/users/4')
