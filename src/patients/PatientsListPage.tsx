@@ -10,9 +10,11 @@ import {
 } from '@/components/ui/select'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { readNotice } from '@/common/readNotice'
+import { ShowHiddenToggle } from '@/common/ShowHiddenToggle'
 import { useUsers } from '@/users/useUsers'
 import { PatientIdentity } from './PatientIdentity'
-import { ALL_CLINICS, filterByClinic, sortByName } from './roster'
+import { ALL_CLINICS, filterByClinic, splitByAccount } from './roster'
+import type { User } from '@/users/types'
 
 // "My patients" (/practitioner/patients) — the patients whose care team I'm
 // on (decisions §3: the roster IS my care-team links, nothing separate).
@@ -26,10 +28,17 @@ import { ALL_CLINICS, filterByClinic, sortByName } from './roster'
 //
 // Adding someone happens on its own page (AddPatientPage: search first,
 // then invite) — this page only lists, filters and leads there.
+//
+// DEACTIVATED patients (decisions §22, 2026-10-27): still on my care team,
+// so asked for too (`includeInactive` — its own cache entry, the admin
+// list's key with `true`), but kept under the active list behind "Show N
+// deactivated patients" — off on every visit, like every such switch in the
+// app (ShowHiddenToggle), and marked on their rows.
 export function PatientsListPage() {
   const { data: currentUser } = useCurrentUser()
-  const { data: patients, isLoading, isError } = useUsers()
+  const { data: patients, isLoading, isError } = useUsers(true)
   const [clinicFilter, setClinicFilter] = useState(ALL_CLINICS)
+  const [showDeactivated, setShowDeactivated] = useState(false)
 
   // A one-line confirmation another page can hand over through navigation
   // state — the patient page does after "Leave care team" ("You left Pat
@@ -52,9 +61,10 @@ export function PatientsListPage() {
   // list refetches (after a join, say) and could fall out of step; a value
   // computed from its sources can't. (Sorting a few dozen names on each
   // render costs nothing measurable.)
-  const visiblePatients = patients
-    ? sortByName(filterByClinic(patients, clinicFilter))
-    : undefined
+  const { active: visiblePatients, deactivated } = splitByAccount(
+    filterByClinic(patients ?? [], clinicFilter),
+  )
+  const hasActive = patients?.some((patient) => patient.isActive) ?? false
 
   const chosenClinic = myClinics.find((clinic) => String(clinic.id) === clinicFilter)
 
@@ -122,41 +132,71 @@ export function PatientsListPage() {
         </div>
       )}
 
-      {patients && patients.length > 0 && visiblePatients?.length === 0 && (
+      {/* Patients, but no ACTIVE one: every one of them is deactivated —
+          not "No patients yet", which would be untrue (the switch below
+          says how many). */}
+      {patients && patients.length > 0 && !hasActive && (
+        <p className="text-sm text-muted-foreground">None of your patients has an active account.</p>
+      )}
+
+      {hasActive && visiblePatients.length === 0 && (
         <p className="text-sm text-muted-foreground">
           None of your patients attend {chosenClinic?.name ?? 'this clinic'}.
         </p>
       )}
 
-      {visiblePatients && visiblePatients.length > 0 && (
-        <ul className="divide-y divide-border rounded-lg border">
-          {visiblePatients.map((patient) => (
-            <li key={patient.id}>
-              {/* The whole row is the link to the patient's page — a big
-                  target, easy to hit on a phone. */}
-              <Link
-                to={`/practitioner/patients/${patient.id}`}
-                className="block px-4 py-3 hover:bg-muted/50"
-              >
-                <PatientIdentity
-                  firstName={patient.firstName}
-                  lastName={patient.lastName}
-                  avatarUrl={patient.avatarUrl}
-                  dateOfBirth={patient.patientProfile?.dateOfBirth ?? null}
-                  // ALL of the patient's clinics, including ones I don't
-                  // work at (decided 2026-10-08): on my care team I have
-                  // clinical access anyway, and "Robin is also seen at
-                  // Harbour" is useful to whoever treats Robin. The
-                  // directory search stays at the clinics we share — its
-                  // patients aren't mine, and it shows only what finding
-                  // them needs (decisions §3, directory level).
-                  clinics={patient.clinics}
-                />
-              </Link>
-            </li>
-          ))}
-        </ul>
+      {visiblePatients.length > 0 && <PatientRows label="Patients" patients={visiblePatients} />}
+
+      <ShowHiddenToggle
+        count={deactivated.length}
+        singular="deactivated patient"
+        plural="deactivated patients"
+        checked={showDeactivated}
+        onChange={setShowDeactivated}
+      />
+      {showDeactivated && deactivated.length > 0 && (
+        <PatientRows label="Deactivated patients" patients={deactivated} />
       )}
     </div>
+  )
+}
+
+// One list of patient rows. Named (aria-label): with two lists on the page,
+// a screen reader announces WHICH one it's entering — the patient page's
+// program lists do the same.
+function PatientRows({ label, patients }: { label: string; patients: User[] }) {
+  return (
+    <ul aria-label={label} className="divide-y divide-border rounded-lg border">
+      {patients.map((patient) => (
+        <li key={patient.id}>
+          {/* The whole row is the link to the patient's page — a big
+              target, easy to hit on a phone. */}
+          <Link
+            to={`/practitioner/patients/${patient.id}`}
+            className="block space-y-1 px-4 py-3 hover:bg-muted/50"
+          >
+            <PatientIdentity
+              firstName={patient.firstName}
+              lastName={patient.lastName}
+              avatarUrl={patient.avatarUrl}
+              dateOfBirth={patient.patientProfile?.dateOfBirth ?? null}
+              // ALL of the patient's clinics, including ones I don't
+              // work at (decided 2026-10-08): on my care team I have
+              // clinical access anyway, and "Robin is also seen at
+              // Harbour" is useful to whoever treats Robin. The
+              // directory search stays at the clinics we share — its
+              // patients aren't mine, and it shows only what finding
+              // them needs (decisions §3, directory level).
+              clinics={patient.clinics}
+            />
+            {/* Words, not only a greyed row: the state must be readable
+                (and read out) without relying on colour. */}
+            {!patient.isActive && (
+              <span className="block text-xs text-muted-foreground">Account deactivated</span>
+            )}
+          </Link>
+        </li>
+      ))}
+    </ul>
   )
 }

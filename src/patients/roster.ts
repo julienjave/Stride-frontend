@@ -51,6 +51,24 @@ export function filterByClinic<T extends { clinics: readonly ClinicRef[] }>(
   )
 }
 
+// --- ACCOUNTS ------------------------------------------------------------------
+
+// "My patients" split by account (decisions §22): the ACTIVE ones — the
+// everyday list — and the DEACTIVATED ones, still on my care team (their
+// record is still mine to read) but behind "Show N deactivated patients".
+// Each half sorted by name. One pass over one request
+// (GET /users?includeInactive=true), so the switch can say how many are
+// hidden without a second request.
+export function splitByAccount<T extends Named & { isActive: boolean }>(
+  patients: readonly T[],
+): { active: T[]; deactivated: T[] } {
+  const sorted = sortByName(patients)
+  return {
+    active: sorted.filter((patient) => patient.isActive),
+    deactivated: sorted.filter((patient) => !patient.isActive),
+  }
+}
+
 // --- DIRECTORY SEARCH ------------------------------------------------------
 
 // What the search box's text becomes in the request: trimmed, and '' (= no

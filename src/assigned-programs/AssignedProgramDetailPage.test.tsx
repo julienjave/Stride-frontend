@@ -187,6 +187,8 @@ let programs: Record<number, () => Response>
 // for it.)
 let summaries: Record<number, () => Response | Promise<Response>>
 let patientList: () => Response
+// GET /users/6 — the patient, active unless a test deactivates them.
+let patientAnswer: () => Response
 // The practitioner's "For review" list (GET /alerts — the banner reads it).
 let alertsAnswer: () => Response
 // GET …/closing (what closing WOULD do), and the writes: POST …/cancel or
@@ -202,6 +204,7 @@ beforeEach(() => {
   alertsAnswer = () => json([])
   summaries = { 12: () => json(SUMMARY) }
   patientList = () => json([listRow(PROGRAM)])
+  patientAnswer = () => json(PATIENT)
   closingPreview = () =>
     json({
       cancel: { outcome: 'cancelled', endDate: '2031-06-11' },
@@ -234,7 +237,7 @@ beforeEach(() => {
     const one = /\/assigned-programs\/(\d+)$/.exec(url)
     if (one) return Promise.resolve(programs[Number(one[1])]())
     if (url.endsWith('/assigned-programs?patientId=6')) return Promise.resolve(patientList())
-    if (url.endsWith('/users/6')) return Promise.resolve(json(PATIENT))
+    if (url.endsWith('/users/6')) return Promise.resolve(patientAnswer())
     // The "For review" banner's list (its own tests cover it): empty here.
     if (url.includes('/alerts?today=')) return Promise.resolve(alertsAnswer())
     // The progress charts' list (PainAndMobility — its own tests cover it).
@@ -1044,6 +1047,71 @@ describe('AssignedProgramDetailPage — going to another program', () => {
     await user.click(await screen.findByRole('link', { name: 'Knee Rehab — block 2' }))
     expect(await screen.findByRole('heading', { level: 1, name: 'Knee Rehab — block 2' })).toBeInTheDocument()
     expect(weekDetails(2).open).toBe(true)
+  })
+})
+
+// Decisions §22: a deactivated patient's OPEN program can only be closed —
+// the backend refuses every other change (409). The page draws none of
+// those controls, says why at the top, and keeps Complete / Cancel.
+describe("AssignedProgramDetailPage — a deactivated patient's program", () => {
+  const NOTICE =
+    "This patient's account is deactivated, so this program can't change until an admin reactivates it. You can still complete or cancel it."
+
+  it('says so, keeps Complete and Cancel, and draws no other control', async () => {
+    patientAnswer = () => json({ ...PATIENT, isActive: false })
+    renderPage()
+
+    expect(await screen.findByText(NOTICE)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Complete program' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel program' })).toBeInTheDocument()
+    // Wait for the summary (the week list) before checking what's absent.
+    await screen.findByText(/^Week 2 · /)
+    expect(screen.queryByRole('region', { name: 'Details' })).not.toBeInTheDocument()
+    const schedule = screen.getByRole('region', { name: 'Schedule & progress' })
+    expect(within(schedule).queryByRole('button', { name: /Change schedule|Pause/ })).not.toBeInTheDocument()
+    expect(within(schedule).queryAllByRole('checkbox')).toEqual([])
+    // Still running: what's next is information, not a control.
+    expect(within(schedule).getByText(/Up next/)).toBeInTheDocument()
+    const exercises = screen.getByRole('region', { name: 'Exercises' })
+    expect(within(exercises).queryByRole('button', { name: 'Add a workout' })).not.toBeInTheDocument()
+    expect(within(exercises).queryAllByRole('link')).toEqual([])
+  })
+
+  it('draws them all for an active patient, without the notice', async () => {
+    renderPage()
+    expect(await screen.findByRole('region', { name: 'Details' })).toBeInTheDocument()
+    const schedule = screen.getByRole('region', { name: 'Schedule & progress' })
+    expect(within(schedule).getByRole('button', { name: 'Change schedule' })).toBeInTheDocument()
+    expect(within(schedule).getAllByRole('checkbox')).toHaveLength(2)
+    expect(
+      within(screen.getByRole('region', { name: 'Exercises' })).getByRole('button', { name: 'Add a workout' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(NOTICE)).not.toBeInTheDocument()
+  })
+
+  // "Assign again" is a NEW program: refused for a deactivated patient too.
+  // "Closed" is still the page's first word — the notice above isn't shown.
+  it('offers no "Assign again" on a closed program, and says when it will be possible', async () => {
+    patientAnswer = () => json({ ...PATIENT, isActive: false })
+    programs[12] = () => json({ ...PROGRAM, status: 'completed', endDate: '2031-06-11' })
+    renderPage()
+
+    expect(
+      await screen.findByText(
+        "This patient's account is deactivated: the program can be assigned again once an admin reactivates it.",
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Assign again' })).not.toBeInTheDocument()
+    expect(screen.queryByText(NOTICE)).not.toBeInTheDocument()
+  })
+
+  it('offers "Assign again" on an active patient\'s closed program', async () => {
+    programs[12] = () => json({ ...PROGRAM, status: 'completed', endDate: '2031-06-11' })
+    renderPage()
+    expect(await screen.findByRole('link', { name: 'Assign again' })).toHaveAttribute(
+      'href',
+      '/practitioner/programs/assigned/new?basedOnProgramId=12',
+    )
   })
 })
 

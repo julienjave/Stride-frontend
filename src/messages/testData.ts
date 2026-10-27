@@ -48,6 +48,7 @@ export function summary(fields: Partial<ConversationSummary> = {}): Conversation
     unreadCount: 0,
     archivedAt: null,
     canSend: true,
+    readOnlyReason: null,
     createdAt: '2031-06-01T08:00:00.000Z',
     ...fields,
   }

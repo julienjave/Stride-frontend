@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { YoursBadge } from '@/common/YoursBadge'
 import { formatCalendarDate } from '@/common/formatCalendarDate'
 import { PROGRAM_STATUS_LABELS } from '@/patients/patientPageRules'
+import { DEACTIVATED_ASSIGN_AGAIN_TEXT, DEACTIVATED_PROGRAM_TEXT, programLock } from './programLock'
 import { StateBadge } from './StateBadge'
 import type { Tone } from './progressText'
 import type { AssignedProgramDetail, AssignedProgramListItem } from './types'
@@ -12,9 +13,10 @@ interface ProgramHeaderProps {
   // Whether the program is paused today (the version in force is a pause)
   // — worked out by the page, which already knows the versions.
   isPaused: boolean
-  // The patient's name and date of birth, once loaded (null until then: the
-  // header shows what it can without them rather than waiting).
-  patient: { name: string; dateOfBirth: string | null } | null
+  // The patient's name, date of birth and whether their account is active,
+  // once loaded (null until then: the header shows what it can without them
+  // rather than waiting).
+  patient: { name: string; dateOfBirth: string | null; isActive: boolean } | null
   // The patient's programs (GET /assigned-programs?patientId=), once
   // loaded: the only response that says WHO assigned a program (`assigner`),
   // and it lists the programs this one continues or is continued in. Often
@@ -137,7 +139,13 @@ export function ProgramHeader({
         ))}
       </div>
 
-      <ClosedNotice program={program} />
+      <ClosedNotice program={program} patientActive={patient?.isActive} />
+      {programLock(program, patient?.isActive) === 'patient_deactivated' && (
+        // An open program of a deactivated patient (decisions §22): the
+        // same standing-state box as a closed one — why the page has no
+        // controls, and what it still allows (Complete / Cancel, below).
+        <p className="rounded-md border bg-muted p-3 text-sm">{DEACTIVATED_PROGRAM_TEXT}</p>
+      )}
     </div>
   )
 }
@@ -149,7 +157,17 @@ export function ProgramHeader({
 // assign form with it as the source (decided 2026-10-11 — never reopened in
 // place, which would bring back weeks already judged). Not a deleted one:
 // nothing happened in it to continue (the backend refuses it, 400).
-function ClosedNotice({ program }: { program: AssignedProgramDetail }) {
+//
+// "Assign again" is a NEW program for the patient, so a deactivated
+// patient's closed program says when it will be possible instead (the
+// backend refuses it — 409, decisions §22).
+function ClosedNotice({
+  program,
+  patientActive,
+}: {
+  program: AssignedProgramDetail
+  patientActive: boolean | undefined
+}) {
   let text: string | null = null
   if (program.isArchived) {
     // Archived = cancelled (or deleted) before any session: nothing happened
@@ -167,11 +185,13 @@ function ClosedNotice({ program }: { program: AssignedProgramDetail }) {
       : `${verb}: this program is now read-only.`
   }
   if (!text) return null
-  const canAssignAgain = !program.isArchived
+  const canContinue = !program.isArchived
+  const patientDeactivated = patientActive === false
   return (
     <div className="space-y-2 rounded-md border bg-muted p-3 text-sm">
       <p>{text}</p>
-      {canAssignAgain && (
+      {canContinue && patientDeactivated && <p>{DEACTIVATED_ASSIGN_AGAIN_TEXT}</p>}
+      {canContinue && !patientDeactivated && (
         <Button asChild size="sm" variant="outline">
           <Link to={`/practitioner/programs/assigned/new?basedOnProgramId=${program.id}`}>
             Assign again

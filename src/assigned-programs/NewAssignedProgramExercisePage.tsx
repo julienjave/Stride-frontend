@@ -4,7 +4,8 @@ import { NewWorkoutExerciseView } from '@/workouts/NewWorkoutExerciseView'
 import type { AddTemplateExerciseFormValues } from '@/programs/schemas'
 import { ProgramLoadFailed, ProgramNotAvailable } from './ProgramNotAvailable'
 import { addProgramExercise, assignedProgramQueryKey } from './api'
-import { isProgramOpen } from './permissions'
+import { DEACTIVATED_ADD_EXERCISE_TEXT } from './programLock'
+import { useProgramLock } from './useProgramLock'
 import { useAssignedProgram } from './useAssignedProgram'
 
 // Adding an exercise to a patient's program (step 3b-1b):
@@ -34,6 +35,7 @@ function NewProgramExercise({ programId }: { programId: number }) {
   // Usually already cached: the practitioner comes from the program page.
   const programQuery = useAssignedProgram(programId)
   const { data: program, error } = programQuery
+  const lock = useProgramLock(program)
   const programPath = `/practitioner/programs/assigned/${programId}`
 
   // The request, then the answer — the whole program — into its cache
@@ -56,12 +58,16 @@ function NewProgramExercise({ programId }: { programId: number }) {
   // 409, but the practitioner would have picked an exercise and filled in a
   // prescription for nothing. (Reached by an old link or the Back button
   // after the program was completed or cancelled.)
-  if (program && !isProgramOpen(program)) {
+  // The same for a deactivated patient's program (decisions §22) — its
+  // exercises can't change until an admin reactivates the account.
+  if (program && lock !== null) {
     return (
       <div className="mx-auto mt-8 max-w-2xl space-y-3 px-4">
         <h1 className="text-xl font-semibold">{program.title}</h1>
         <p role="alert" className="text-sm text-muted-foreground">
-          This program is closed: its exercises can't change any more.
+          {lock === 'patient_deactivated'
+            ? DEACTIVATED_ADD_EXERCISE_TEXT
+            : "This program is closed: its exercises can't change any more."}
         </p>
         <Link to={programPath} className="text-sm underline underline-offset-4">
           Back to the program

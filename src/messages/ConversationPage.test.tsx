@@ -181,6 +181,20 @@ describe('a conversation', () => {
     ).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: 'Message' })).not.toBeInTheDocument()
   })
+
+  it("says it's the patient's deactivated account, when it is", async () => {
+    conversation = summary({ lastMessage: message(2), canSend: false, readOnlyReason: 'patient_deactivated' })
+    renderMessages('/practitioner/messages/12')
+    expect(
+      await screen.findByText(
+        "Pat's account is deactivated, so this conversation is read-only until an admin reactivates it.",
+      ),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText("You're no longer on a care team together, so this conversation is read-only."),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Message' })).not.toBeInTheDocument()
+  })
 })
 
 describe('writing a message', () => {
@@ -240,6 +254,29 @@ describe('writing a message', () => {
     })
     expect(
       await screen.findByText("You're no longer on a care team together, so this conversation is read-only."),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Message' })).not.toBeInTheDocument()
+  })
+
+  // The account deactivated while the page was open (decisions §22): the
+  // server answers 409 — the page asks again and turns read-only, with the
+  // account's words.
+  it("turns read-only when the server says the patient's account was deactivated", async () => {
+    const { socket } = await ready()
+    await userEvent.type(box(), 'Hello')
+    await userEvent.click(screen.getByRole('button', { name: 'Send' }))
+    conversation = summary({ lastMessage: message(2), canSend: false, readOnlyReason: 'patient_deactivated' })
+    await socket.answerLast({
+      ok: false,
+      status: 409,
+      message: [
+        "This patient's account is deactivated, so the conversation is read-only until the account is reactivated",
+      ],
+    })
+    expect(
+      await screen.findByText(
+        "Pat's account is deactivated, so this conversation is read-only until an admin reactivates it.",
+      ),
     ).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: 'Message' })).not.toBeInTheDocument()
   })

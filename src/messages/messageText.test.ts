@@ -8,6 +8,8 @@ import {
   messageProblemText,
   NO_MESSAGES_TEXT,
   previewText,
+  READ_ONLY_TEXT,
+  readOnlyText,
   seenText,
   unreadCountText,
 } from './messageText'
@@ -18,6 +20,21 @@ const LOCALE = 'en-GB'
 // Wednesday 4 June 2031, 15:00 local.
 const NOW = new Date(2031, 5, 4, 15, 0)
 const at = (...parts: [number, number, number, number?, number?]) => new Date(...parts).toISOString()
+
+// Decisions §22: the reason picks the words; anything else — an ended care
+// team, or no reason given — keeps the ended care team's sentence.
+describe('readOnlyText', () => {
+  it("names the deactivated patient's account, and who can change it", () => {
+    expect(readOnlyText(summary({ canSend: false, readOnlyReason: 'patient_deactivated' }))).toBe(
+      "Pat's account is deactivated, so this conversation is read-only until an admin reactivates it.",
+    )
+  })
+
+  it('keeps the ended care team sentence otherwise', () => {
+    expect(readOnlyText(summary({ canSend: false, readOnlyReason: 'care_team_ended' }))).toBe(READ_ONLY_TEXT)
+    expect(readOnlyText(summary({ canSend: false, readOnlyReason: null }))).toBe(READ_ONLY_TEXT)
+  })
+})
 
 describe('previewText', () => {
   it("says nothing was written yet when there's no message", () => {

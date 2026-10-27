@@ -5,6 +5,18 @@ import type { CareTeamEntry } from './types'
 // Pure rules behind the patient page — the same split as roster.ts: the
 // page only calls these, the tests check them with plain values.
 
+// --- A DEACTIVATED PATIENT (decisions §22) --------------------------------------
+
+// What the page says instead of the controls the backend would refuse
+// (409): no new program, no message. Their care team still reads the record,
+// adds to the medical file, and completes or cancels open programs — the
+// notice says so, so nobody thinks the page is broken.
+export function deactivatedPatientNotice(firstName: string): string {
+  return `${firstName} can't sign in, so new programs, program changes and messages are turned off until an admin reactivates the account. You're still on their care team: you can read their record, add to their medical file, and complete or cancel their programs.`
+}
+export const DEACTIVATED_NO_NEW_PROGRAM_TEXT =
+  'No new program while the account is deactivated.'
+
 // --- PROGRAMS ----------------------------------------------------------------
 
 // The words shown for each status. A Record keyed by the status type means

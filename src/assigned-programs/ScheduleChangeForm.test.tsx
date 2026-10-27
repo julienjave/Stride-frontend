@@ -114,6 +114,7 @@ function Section({ isOpen }: { isOpen: boolean }) {
       program={program}
       today={TODAY}
       isOpen={isOpen}
+      canChange={isOpen}
       names={workoutNames(program.workouts)}
       summary={undefined}
       summaryLoading={false}

@@ -72,9 +72,16 @@ let requests: [string, string, string | undefined][]
 let program: () => Response
 let addAnswer: () => Response
 
+// GET /users/6 — the program's patient: only `isActive` matters here
+// (decisions §22 — a deactivated patient's program can't change).
+let patientActive: boolean
+const patientAnswer = () =>
+  json({ id: 6, firstName: 'Pat', lastName: 'Lee', roles: ['patient'], isActive: patientActive })
+
 beforeEach(() => {
   fetchMock.mockReset()
   requests = []
+  patientActive = true
   program = () => json(PROGRAM)
   addAnswer = () => json(ANSWERED, 201)
   fetchMock.mockImplementation((input, init) => {
@@ -82,6 +89,7 @@ beforeEach(() => {
     const method = init?.method ?? 'GET'
     requests.push([method, path, init?.body as string | undefined])
     if (method === 'GET' && path === '/assigned-programs/12') return Promise.resolve(program())
+    if (method === 'GET' && path === '/users/6') return Promise.resolve(patientAnswer())
     if (method === 'GET' && path === '/exercises/5') return Promise.resolve(json(SQUAT))
     if (method === 'POST' && path === '/assigned-programs/12/exercises') {
       return Promise.resolve(addAnswer())
@@ -208,6 +216,16 @@ describe('NewAssignedProgramExercisePage', () => {
     expect(screen.getByRole('link', { name: 'Back to the program' })).toHaveAttribute(
       'href',
       '/practitioner/programs/assigned/12',
+    )
+    expect(screen.queryByRole('button', { name: 'Add' })).not.toBeInTheDocument()
+  })
+
+  it("says a deactivated patient's open program takes no new exercise, with no form", async () => {
+    patientActive = false
+    renderAt('/practitioner/programs/assigned/12/exercises/new?exerciseId=5')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "This patient's account is deactivated: no exercise can be added until an admin reactivates it.",
     )
     expect(screen.queryByRole('button', { name: 'Add' })).not.toBeInTheDocument()
   })

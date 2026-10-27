@@ -17,6 +17,8 @@ export interface Message {
   deletedAt: string | null
 }
 
+export type ReadOnlyReason = 'care_team_ended' | 'patient_deactivated'
+
 // One conversation from MY point of view — the list's rows and the
 // thread's header.
 export interface ConversationSummary {
@@ -34,9 +36,14 @@ export interface ConversationSummary {
   unreadCount: number
   // When I archived it; null = in my list.
   archivedAt: string | null
-  // Whether I can write here NOW: we are on a care team together. false =
-  // a read-only history (decided 2026-10-20).
+  // Whether I can write here NOW: we are on a care team together, and the
+  // patient's account is active. false = a read-only history (decided
+  // 2026-10-20; the account since 2026-10-27, decisions §22).
   canSend: boolean
+  // WHY it's read-only (null while canSend): the link ended, or the patient's
+  // account is deactivated — the backend works it out from the same database
+  // functions as canSend, so the two never disagree.
+  readOnlyReason: ReadOnlyReason | null
   createdAt: string
 }
 

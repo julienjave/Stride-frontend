@@ -14,6 +14,18 @@ export const READ_ONLY_TEXT =
   "You're no longer on a care team together, so this conversation is read-only."
 export const READ_ONLY_SHORT_TEXT = 'Read only'
 
+// The banner where the box would be, by reason (decisions §22). A
+// deactivated patient's conversation is only ever opened by a practitioner
+// (the patient can't sign in), so its words are written for them: whose
+// account, and who can change it. Any other reason — or none given — gets
+// the ended care team's sentence, the only one before 2026-10-27.
+export function readOnlyText(summary: Pick<ConversationSummary, 'readOnlyReason' | 'otherParticipant'>): string {
+  if (summary.readOnlyReason === 'patient_deactivated') {
+    return `${summary.otherParticipant.firstName}'s account is deactivated, so this conversation is read-only until an admin reactivates it.`
+  }
+  return READ_ONLY_TEXT
+}
+
 export function personName(person: { firstName: string; lastName: string }): string {
   return `${person.firstName} ${person.lastName}`
 }

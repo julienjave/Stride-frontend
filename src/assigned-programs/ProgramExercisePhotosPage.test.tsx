@@ -104,9 +104,16 @@ let library: () => Response
 // What the photo routes answer, by method and path.
 let answers: Record<string, () => Response>
 
+// GET /users/6 — the program's patient: only `isActive` matters here
+// (decisions §22 — a deactivated patient's program can't change).
+let patientActive: boolean
+const patientAnswer = () =>
+  json({ id: 6, firstName: 'Pat', lastName: 'Lee', roles: ['patient'], isActive: patientActive })
+
 beforeEach(() => {
   fetchMock.mockReset()
   requests = []
+  patientActive = true
   program = () => json(programWith(bridge()))
   library = () => json(libraryExercise(2))
   answers = {}
@@ -115,6 +122,7 @@ beforeEach(() => {
     const method = init?.method ?? 'GET'
     requests.push({ method, path, body: init?.body })
     if (method === 'GET' && path === '/assigned-programs/12') return Promise.resolve(program())
+    if (method === 'GET' && path === '/users/6') return Promise.resolve(patientAnswer())
     if (method === 'GET' && path === '/exercises/5') return Promise.resolve(library())
     const answer = answers[`${method} ${path}`]
     if (answer) return Promise.resolve(answer())
@@ -211,6 +219,20 @@ describe('ProgramExercisePhotosPage — reading', () => {
     renderAt(PAGE)
 
     expect(await screen.findByText('This program is closed: its photos can no longer change.')).toBeInTheDocument()
+    expect(screen.getByAltText('Glute Bridge photo 1')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Browse files|Add the library's photos|Remove this photo/ })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Photos to upload')).not.toBeInTheDocument()
+  })
+
+  it("is read-only on a deactivated patient's open program, saying why", async () => {
+    patientActive = false
+    renderAt(PAGE)
+
+    expect(
+      await screen.findByText(
+        "This patient's account is deactivated: these photos can't change until an admin reactivates it.",
+      ),
+    ).toBeInTheDocument()
     expect(screen.getByAltText('Glute Bridge photo 1')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Browse files|Add the library's photos|Remove this photo/ })).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Photos to upload')).not.toBeInTheDocument()

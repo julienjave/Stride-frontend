@@ -34,6 +34,7 @@ const jo = {
   avatarUrl: null,
   roles: ['patient'],
   patientProfile: { dateOfBirth: '1975-09-30' },
+  isActive: true,
   clinics: [riverside],
 }
 const robin = {
@@ -43,6 +44,7 @@ const robin = {
   avatarUrl: null,
   roles: ['patient'],
   patientProfile: { dateOfBirth: '1992-01-05' },
+  isActive: true,
   clinics: [riverside, harbour],
 }
 const pat = {
@@ -52,8 +54,22 @@ const pat = {
   avatarUrl: null,
   roles: ['patient'],
   patientProfile: { dateOfBirth: '1988-04-12' },
+  isActive: true,
   clinics: [riverside],
 }
+// On my care team, account deactivated (decisions §22): in the answer
+// because the page asks WITH the deactivated ones.
+const dee = {
+  id: 9,
+  firstName: 'Dee',
+  lastName: 'Moss',
+  avatarUrl: null,
+  roles: ['patient'],
+  patientProfile: { dateOfBirth: '1980-02-03' },
+  isActive: false,
+  clinics: [harbour],
+}
+const abe = { ...dee, id: 10, firstName: 'Abe', lastName: 'Adams', clinics: [riverside] }
 
 function respondWithPatients(patients: object[]) {
   fetchMock.mockResolvedValue(new Response(JSON.stringify(patients), { status: 200 }))
@@ -93,7 +109,9 @@ describe('PatientsListPage', () => {
     fetchMock.mockReturnValue(new Promise(() => {}))
     renderRoster()
     expect(screen.getByText('Loading your patients…')).toBeInTheDocument()
-    expect(urlOf(fetchMock.mock.calls[0][0])).toMatch(/\/users$/)
+    // WITH the deactivated ones: the page splits them off itself, and the
+    // switch says how many there are without a second request.
+    expect(urlOf(fetchMock.mock.calls[0][0]).endsWith('/users?includeInactive=true')).toBe(true)
   })
 
   it('lists my patients sorted by last name, each linking to their page', async () => {
@@ -165,11 +183,82 @@ describe('PatientsListPage', () => {
     expect(screen.queryByText('No patients yet')).not.toBeInTheDocument()
   })
 
+  // --- Deactivated patients (decisions §22) ---------------------------------
+
+  // The names in one named list, in order.
+  const namesIn = (label: string) =>
+    within(screen.getByRole('list', { name: label }))
+      .getAllByRole('link')
+      .map((link) => link.querySelector('p')?.textContent)
+
+  it('keeps deactivated patients behind a switch, off on arrival', async () => {
+    respondWithPatients([jo, dee, pat, abe])
+    const user = userEvent.setup()
+    renderRoster()
+
+    await screen.findByText('Jo Novak')
+    expect(namesIn('Patients')).toEqual(['Pat Lee', 'Jo Novak'])
+    expect(screen.queryByText('Dee Moss')).not.toBeInTheDocument()
+    expect(screen.queryByRole('list', { name: 'Deactivated patients' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('checkbox', { name: 'Show 2 deactivated patients' }))
+    // Their own list, under the active one, sorted, each row saying so —
+    // and still a link: their record is still mine to read.
+    expect(namesIn('Deactivated patients')).toEqual(['Abe Adams', 'Dee Moss'])
+    const row = screen.getByRole('link', { name: /Dee Moss/ })
+    expect(row).toHaveAttribute('href', '/practitioner/patients/9')
+    expect(within(row).getByText('Account deactivated')).toBeInTheDocument()
+    expect(
+      within(screen.getByRole('list', { name: 'Patients' })).queryByText('Account deactivated'),
+    ).not.toBeInTheDocument()
+    expect(
+      screen
+        .getByRole('list', { name: 'Patients' })
+        .compareDocumentPosition(screen.getByRole('list', { name: 'Deactivated patients' })) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+
+    await user.click(screen.getByRole('checkbox', { name: 'Show 2 deactivated patients' }))
+    expect(screen.queryByText('Dee Moss')).not.toBeInTheDocument()
+  })
+
+  it('offers no switch when nobody is deactivated', async () => {
+    respondWithPatients([jo, pat])
+    renderRoster()
+    await screen.findByText('Jo Novak')
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+  })
+
+  it('applies the clinic filter to the deactivated patients too', async () => {
+    respondWithPatients([jo, robin, dee, abe])
+    const user = userEvent.setup()
+    renderRoster([riverside, harbour])
+    await screen.findByText('Jo Novak')
+    expect(screen.getByRole('checkbox', { name: 'Show 2 deactivated patients' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('combobox', { name: 'Clinic' }))
+    await user.click(await screen.findByRole('option', { name: 'Harbour Sports Clinic' }))
+    expect(screen.getByRole('checkbox', { name: 'Show 1 deactivated patient' })).toBeInTheDocument()
+  })
+
+  // Every patient deactivated: not "No patients yet" (untrue), not the
+  // clinic filter's sentence — the switch is right under it.
+  it('says so when none of my patients has an active account', async () => {
+    respondWithPatients([dee])
+    renderRoster()
+
+    expect(await screen.findByText('None of your patients has an active account.')).toBeInTheDocument()
+    expect(screen.queryByText('No patients yet')).not.toBeInTheDocument()
+    expect(screen.queryByText(/None of your patients attend/)).not.toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: 'Show 1 deactivated patient' })).toBeInTheDocument()
+  })
+
   it('explains an empty roster and how to fill it', async () => {
     respondWithPatients([])
     renderRoster()
 
     expect(await screen.findByText('No patients yet')).toBeInTheDocument()
+    expect(screen.queryByText('None of your patients has an active account.')).not.toBeInTheDocument()
     expect(
       screen.getByText(
         "Patients appear here once you're on their care team: find someone already in your clinic, or invite a new patient.",

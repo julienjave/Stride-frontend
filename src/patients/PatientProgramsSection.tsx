@@ -9,6 +9,7 @@ import { ShowHiddenToggle } from '@/common/ShowHiddenToggle'
 import { YoursBadge } from '@/common/YoursBadge'
 import { programRowSummary, splitProgramsForPatientPage } from './patientPageRules'
 import { PatientPageSection } from './PatientPageSection'
+import { DEACTIVATED_NO_NEW_PROGRAM_TEXT } from './patientPageRules'
 
 // The patient's programs — including those assigned by other practitioners
 // on the care team (the Programs hub only shows your own). Mine carry the
@@ -25,7 +26,18 @@ import { PatientPageSection } from './PatientPageSection'
 // Each row opens the program's page, and "Assign a program" opens the
 // assign form with this patient already chosen (both arrived with the
 // assign + scheduling item, step 3a-1).
-export function PatientProgramsSection({ patientId }: { patientId: number }) {
+//
+// A deactivated patient gets no new program (decisions §22 — the backend
+// answers 409): no button, and a line saying why in its place. REQUIRED, not
+// defaulted: the compiler lists every caller, so none can forget it (the
+// care-team section's rule, deep-dive §22.2).
+export function PatientProgramsSection({
+  patientId,
+  patientActive,
+}: {
+  patientId: number
+  patientActive: boolean
+}) {
   const [showPast, setShowPast] = useState(false)
   const { data: programs, isLoading, isError } = usePatientAssignedPrograms(patientId)
   const { current, past } = splitProgramsForPatientPage(programs ?? [])
@@ -34,13 +46,18 @@ export function PatientProgramsSection({ patientId }: { patientId: number }) {
     <PatientPageSection
       title="Programs"
       action={
-        <Button asChild size="sm">
-          <Link to={`/practitioner/programs/assigned/new?patientId=${patientId}`}>
-            Assign a program
-          </Link>
-        </Button>
+        patientActive && (
+          <Button asChild size="sm">
+            <Link to={`/practitioner/programs/assigned/new?patientId=${patientId}`}>
+              Assign a program
+            </Link>
+          </Button>
+        )
       }
     >
+      {!patientActive && (
+        <p className="text-sm text-muted-foreground">{DEACTIVATED_NO_NEW_PROGRAM_TEXT}</p>
+      )}
       {isLoading && <p className="text-sm text-muted-foreground">Loading programs…</p>}
       {isError && (
         <p className="text-sm text-destructive">Couldn't load the programs. Try refreshing.</p>

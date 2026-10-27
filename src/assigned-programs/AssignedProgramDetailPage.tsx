@@ -12,6 +12,7 @@ import { ProgramHeader } from './ProgramHeader'
 import { ProgramScheduleProgress } from './ProgramScheduleProgress'
 import { ProgramLoadFailed, ProgramNotAvailable } from './ProgramNotAvailable'
 import { isProgramOpen } from './permissions'
+import { programLock } from './programLock'
 import { currentAndPlanned, workoutNames } from './programSchedule'
 import { useAssignedProgram } from './useAssignedProgram'
 import { useAssignedProgramSummary } from './useAssignedProgramSummary'
@@ -81,6 +82,13 @@ function ProgramView({ programId }: { programId: number }) {
   // Only an open program can change: the backend refuses every write on a
   // completed, cancelled or deleted one (409), so their controls aren't drawn.
   const isOpen = isProgramOpen(program)
+  // …and only while its patient's account is active (decisions §22): a
+  // deactivated patient's open program can still be CLOSED (ProgramActions,
+  // gated by isOpen alone), but nothing else changes. The patient is read
+  // above for the header anyway — no request of its own (useProgramLock is
+  // for the pages that don't have it).
+  const lock = programLock(program, patient?.isActive)
+  const canChange = lock === null
 
   return (
     <div className="mx-auto mt-8 max-w-2xl space-y-8 px-4 pb-8">
@@ -92,6 +100,7 @@ function ProgramView({ programId }: { programId: number }) {
             ? {
                 name: `${patient.firstName} ${patient.lastName}`,
                 dateOfBirth: patient.patientProfile?.dateOfBirth ?? null,
+                isActive: patient.isActive,
               }
             : null
         }
@@ -103,13 +112,14 @@ function ProgramView({ programId }: { programId: number }) {
           open program can have one (a closed program isn't running). */}
       {isOpen && <ProgramAlertBanner programId={program.id} today={today} />}
       {isOpen && <ProgramActions programId={program.id} today={today} />}
-      {/* Only an open program's title and dates can change; the header
-          already shows a closed one's. */}
-      {isOpen && <ProgramDetailsSection program={program} today={today} names={names} />}
+      {/* Only a changeable program's title and dates can change; the
+          header already shows them, and says why they can't. */}
+      {canChange && <ProgramDetailsSection program={program} today={today} names={names} />}
       <ProgramScheduleProgress
         program={program}
         today={today}
         isOpen={isOpen}
+        canChange={canChange}
         names={names}
         summary={summary.data}
         summaryLoading={summary.isLoading}
@@ -121,7 +131,7 @@ function ProgramView({ programId }: { programId: number }) {
       {!program.isArchived && (
         <PainAndMobility program={program} today={today} viewer="practitioner" headingLevel={2} />
       )}
-      <ProgramExercisesSection program={program} isOpen={isOpen} today={today} />
+      <ProgramExercisesSection program={program} canChange={canChange} today={today} />
     </div>
   )
 }

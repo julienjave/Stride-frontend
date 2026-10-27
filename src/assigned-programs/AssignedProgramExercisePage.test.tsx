@@ -86,9 +86,16 @@ let program: () => Response
 // the backend would answer.
 let patchAnswer: (body: Record<string, unknown>) => Response
 
+// GET /users/6 — the program's patient: only `isActive` matters here
+// (decisions §22 — a deactivated patient's program can't change).
+let patientActive: boolean
+const patientAnswer = () =>
+  json({ id: 6, firstName: 'Pat', lastName: 'Lee', roles: ['patient'], isActive: patientActive })
+
 beforeEach(() => {
   fetchMock.mockReset()
   requests = []
+  patientActive = true
   program = () => json(PROGRAM)
   patchAnswer = (body) => json({ ...PROGRAM, exercises: [{ ...BRIDGE, ...body }] })
   fetchMock.mockImplementation((input, init) => {
@@ -97,6 +104,7 @@ beforeEach(() => {
     const body = init?.body as string | undefined
     requests.push([method, path, body])
     if (method === 'GET' && path === '/assigned-programs/12') return Promise.resolve(program())
+    if (method === 'GET' && path === '/users/6') return Promise.resolve(patientAnswer())
     if (method === 'PATCH' && path === '/assigned-programs/12/exercises/101') {
       return Promise.resolve(patchAnswer(JSON.parse(body ?? '{}') as Record<string, unknown>))
     }
@@ -179,6 +187,22 @@ describe('AssignedProgramExercisePage — reading', () => {
     expect(screen.queryByText(NOTE)).not.toBeInTheDocument()
     expect(screen.getByText('This program is closed: its exercises can no longer change.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Back' })).toBeInTheDocument()
+  })
+
+  // An OPEN program of a deactivated patient: read-only too (the backend
+  // answers 409), with its own reason.
+  it("is read-only on a deactivated patient's open program, saying why", async () => {
+    patientActive = false
+    renderAt(PAGE)
+
+    expect(
+      await screen.findByText(
+        "This patient's account is deactivated: the program's exercises can't change until an admin reactivates it.",
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByText('- View Exercise -')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Edit / })).not.toBeInTheDocument()
+    expect(screen.queryByText('This program is closed: its exercises can no longer change.')).not.toBeInTheDocument()
   })
 
   // The photos the patient sees, and — while the program is open — which ones

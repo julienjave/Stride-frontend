@@ -23,18 +23,20 @@ type Group = WorkoutGroup<ProgramWorkout, AssignedProgramExercise>
 //   - An OPEN program: the editor — the template page's own list
 //     (WorkoutListEditor, src/workouts/), with the program's card, its
 //     removal dialog and its delete rule.
-//   - A closed (completed, cancelled, deleted) program: read-only, as before
-//     — the backend refuses every write on it.
+//   - A closed (completed, cancelled, deleted) program, or one whose patient's
+//     account is deactivated (decisions §22): read-only — the backend refuses
+//     every write on it.
 // Either way, the REMOVED exercises (retired: kept for the sessions that
 // used them) are hidden behind "Show N removed exercises" (decided
 // 2026-10-13): part of the record, not of the program.
 export function ProgramExercisesSection({
   program,
-  isOpen,
+  canChange,
   today,
 }: {
   program: AssignedProgramDetail
-  isOpen: boolean
+  // Open AND the patient's account active (decisions §22) — the page decides.
+  canChange: boolean
   today: string
 }) {
   const [showRemoved, setShowRemoved] = useState(false)
@@ -43,7 +45,7 @@ export function ProgramExercisesSection({
 
   return (
     <ProgramPageSection title="Exercises">
-      {isOpen ? (
+      {canChange ? (
         <ProgramExerciseEditor program={program} groups={groups} today={today} />
       ) : (
         <ReadOnlyExercises groups={groups} />

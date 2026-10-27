@@ -29,10 +29,12 @@ export function useSendMessage(conversationId: number) {
       if (me) applyNewMessage(queryClient, message, me.id)
     },
     onError: (error) => {
-      // 403 = no longer on a care team together: the header still says
-      // "can send" until it is fetched again — do that now, so the page
-      // turns read-only instead of offering a box that will refuse again.
-      if (error instanceof MessageRefusedError && error.status === 403) {
+      // 403 = no longer on a care team together; 409 = the patient's account
+      // was deactivated meanwhile (decisions §22 — sending answers no other
+      // 409). Either way the header still says "can send" until it is
+      // fetched again — do that now, so the page turns read-only (with the
+      // right words) instead of offering a box that will refuse again.
+      if (error instanceof MessageRefusedError && (error.status === 403 || error.status === 409)) {
         void queryClient.invalidateQueries({ queryKey: conversationQueryKey(conversationId), exact: true })
         void queryClient.invalidateQueries({ queryKey: conversationsQueryKey, exact: true })
       }

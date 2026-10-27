@@ -14,9 +14,12 @@ import type { AssignedProgramDetail, ScheduleSummary } from './types'
 interface ProgramScheduleProgressProps {
   program: AssignedProgramDetail
   today: string
-  // Whether the program can still change (active, not deleted) — decided
-  // once, by the page, for every control on it.
+  // Whether the program is still running (active, not deleted): it then has
+  // an "up next".
   isOpen: boolean
+  // Whether it can still CHANGE — open AND its patient's account active
+  // (decisions §22) — decided once, by the page, for every control here.
+  canChange: boolean
   names: WorkoutNames
   // The summary query's state, passed down rather than fetched here: the
   // page owns the requests (it decides when the summary may be asked for).
@@ -33,6 +36,7 @@ export function ProgramScheduleProgress({
   program,
   today,
   isOpen,
+  canChange,
   names,
   summary,
   summaryLoading,
@@ -69,13 +73,13 @@ export function ProgramScheduleProgress({
         </div>
       )}
 
-      {isOpen && <ScheduleControls program={program} today={today} names={names} />}
+      {canChange && <ScheduleControls program={program} today={today} names={names} />}
 
-      {isOpen && <RearrangeWeekSwitch programId={program.id} allowSwaps={program.allowSwaps} />}
+      {canChange && <RearrangeWeekSwitch programId={program.id} allowSwaps={program.allowSwaps} />}
       {/* The patient's other freedom with the schedule, beside the first
-          (2026-10-16). Open programs only, like the switch: a closed one
-          takes no new sessions. */}
-      {isOpen && (
+          (2026-10-16). Changeable programs only, like the switch: a closed
+          one takes no new sessions, a deactivated patient's no change. */}
+      {canChange && (
         <LateMakeUpsSetting programId={program.id} lateMakeUpDays={program.lateMakeUpDays} />
       )}
 

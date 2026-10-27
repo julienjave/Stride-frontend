@@ -27,7 +27,7 @@ import {
   messageTimeText,
   NO_MESSAGES_TEXT,
   personName,
-  READ_ONLY_TEXT,
+  readOnlyText,
   seenText,
 } from './messageText'
 import { useMessagingConnection } from './messagingConnection'
@@ -100,10 +100,13 @@ function Conversation({
       {summary.canSend ? (
         <Composer conversationId={conversationId} />
       ) : (
-        // A ended care-team link: the history stays readable, nothing more
-        // can be written (decided 2026-10-20). Said once, where the box
-        // would be — not as an error after a failed send.
-        <p className="border-t bg-muted/50 px-4 py-3 text-sm text-muted-foreground">{READ_ONLY_TEXT}</p>
+        // An ended care-team link, or a deactivated patient (decisions §22):
+        // the history stays readable, nothing more can be written (decided
+        // 2026-10-20). Said once, where the box would be — not as an error
+        // after a failed send — with the reason's own words.
+        <p className="border-t bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+          {readOnlyText(summary)}
+        </p>
       )}
     </div>
   )

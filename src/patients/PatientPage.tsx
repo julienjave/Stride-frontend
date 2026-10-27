@@ -12,6 +12,7 @@ import { useUser } from '@/users/useUser'
 import { CareTeamSection } from './CareTeamSection'
 import { ClinicBadges } from './ClinicBadges'
 import { PatientProgramsSection } from './PatientProgramsSection'
+import { deactivatedPatientNotice } from './patientPageRules'
 
 // The practitioner's patient page (/practitioner/patients/:id) — decided
 // 2026-10-08 (decisions §3, "Patient page"). Top to bottom, in the order a
@@ -105,28 +106,33 @@ function PatientView({ patientId }: { patientId: number }) {
             {/* Every clinic, as on the roster: I'm on the care team. */}
             <ClinicBadges clinics={patient.clinics} />
             {/* The page opens only for the care team (a 403 otherwise) —
-                exactly who may write to this patient. */}
-            <div className="pt-1">
-              <MessageButton role="practitioner" person={patient} />
-            </div>
+                exactly who may write to this patient. Not to a deactivated
+                one (decisions §22: the backend answers 409) — the notice
+                below says why. An existing conversation stays readable
+                from Messages. */}
+            {patient.isActive && (
+              <div className="pt-1">
+                <MessageButton role="practitioner" person={patient} />
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* A deactivated patient (decided 2026-10-25): their care team keeps
           its links — deactivating blocks a sign-in, it isn't a discharge —
-          so the page still opens. Said at the top, before anyone assigns a
-          program or writes a message the patient will never see. Ending
-          care is the practitioner's own act (Leave care team, below). */}
+          so the page still opens. Since 2026-10-27 (decisions §22) writing
+          TO the patient is refused (programs, messages) while writing to
+          the record isn't: the notice says both, at the top. Ending care is
+          the practitioner's own act (Leave care team, below). */}
       {!patient.isActive && (
         <p className="rounded-md border border-amber-600/40 bg-amber-500/10 p-3 text-sm">
-          <span className="font-medium">Account deactivated.</span> {patient.firstName} can't
-          sign in, so they won't see new programs or messages. You're still on their care team
-          and can read their record.
+          <span className="font-medium">Account deactivated.</span>{' '}
+          {deactivatedPatientNotice(patient.firstName)}
         </p>
       )}
 
-      <PatientProgramsSection patientId={patientId} />
+      <PatientProgramsSection patientId={patientId} patientActive={patient.isActive} />
 
       <MedicalFileLinkCard patientId={patientId} />
 

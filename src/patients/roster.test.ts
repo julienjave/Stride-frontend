@@ -3,12 +3,37 @@ import {
   ALL_CLINICS,
   directorySearchTerm,
   filterByClinic,
+  splitByAccount,
   namesFromSearch,
   sortByName,
 } from './roster'
 
 const riverside = { id: 1, name: 'Riverside Physio' }
 const harbour = { id: 2, name: 'Harbour Sports Clinic' }
+
+// Decisions §22: My patients' two lists.
+describe('splitByAccount', () => {
+  const person = (firstName: string, lastName: string, isActive: boolean) => ({
+    firstName,
+    lastName,
+    isActive,
+  })
+
+  it('splits by account, each half sorted by name', () => {
+    const dee = person('Dee', 'Moss', false)
+    const abe = person('Abe', 'Adams', false)
+    const jo = person('Jo', 'Novak', true)
+    const pat = person('Pat', 'Lee', true)
+    expect(splitByAccount([jo, dee, pat, abe])).toEqual({
+      active: [pat, jo],
+      deactivated: [abe, dee],
+    })
+  })
+
+  it('gives two empty lists for no patient', () => {
+    expect(splitByAccount([])).toEqual({ active: [], deactivated: [] })
+  })
+})
 
 describe('sortByName', () => {
   it('sorts by last name, then first name', () => {

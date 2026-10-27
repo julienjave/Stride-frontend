@@ -155,7 +155,7 @@ function Harness() {
   return (
     <ProgramExercisesSection
       program={data}
-      isOpen={data.status === 'active' && !data.isArchived}
+      canChange={data.status === 'active' && !data.isArchived}
       today={TODAY}
     />
   )

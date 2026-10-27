@@ -32,10 +32,14 @@ function patient(id: number, firstName: string, lastName: string, dateOfBirth: s
     roles: ['patient'],
     patientProfile: { dateOfBirth },
     clinics: [{ id: 1, name: 'Riverside Physio' }],
+    isActive: true,
   }
 }
 const PAT = patient(6, 'Pat', 'Lee', '1988-04-12')
 const JO = patient(7, 'Jo', 'Adams', '1975-11-02')
+// On my care team, account deactivated (decisions §22): only in the list
+// WITH the deactivated ones (GET /users?includeInactive=true).
+const DEE = { ...patient(8, 'Dee', 'Moss', '1980-02-03'), isActive: false }
 
 const KNEE = { id: 1, practitionerId: ME.id, title: 'Knee Rehab', description: null, isArchived: false }
 const BACK = { id: 2, practitionerId: 99, title: 'Back Mobility', description: null, isArchived: false }
@@ -184,6 +188,7 @@ beforeEach(() => {
       return Promise.resolve(createResponse())
     }
     if (url.endsWith('/users')) return Promise.resolve(json([PAT, JO]))
+    if (url.endsWith('/users?includeInactive=true')) return Promise.resolve(json([PAT, JO, DEE]))
     if (url.endsWith('/programs')) return Promise.resolve(json([KNEE, BACK, EMPTY_B]))
     const detail = /\/programs\/(\d+)$/.exec(url)
     if (detail) return Promise.resolve(json(DETAILS[Number(detail[1])]))
@@ -690,6 +695,14 @@ describe('NewAssignedProgramPage — assigning again', () => {
       () => (sourcePrograms[9] = () => json({ ...CONTINUED, patientId: 99 })),
       '?basedOnProgramId=9',
       "That program's patient isn't one of your patients any more, so you can't continue it.",
+    ],
+    [
+      // Not "isn't one of your patients": she is — her account is what's in
+      // the way, and the page says so (the backend would answer 409).
+      'a deactivated patient\'s program',
+      () => (sourcePrograms[9] = () => json({ ...CONTINUED, patientId: 8 })),
+      '?basedOnProgramId=9',
+      "This patient's account is deactivated: the program can be assigned again once an admin reactivates it.",
     ],
     [
       'a program that can\'t be found',

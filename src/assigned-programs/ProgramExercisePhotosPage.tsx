@@ -19,7 +19,8 @@ import { computeReorderedKeys } from '@/exercises/exerciseImageReorder'
 import { useExercise } from '@/exercises/useExercise'
 import { ExercisePhotoCarousel } from '@/programs/ExercisePhotoCarousel'
 import { ProgramLoadFailed, ProgramNotAvailable } from './ProgramNotAvailable'
-import { isProgramOpen } from './permissions'
+import { DEACTIVATED_PHOTOS_TEXT } from './programLock'
+import { useProgramLock } from './useProgramLock'
 import { libraryCopyProblem, photoCountText, photoRoom, uploadProblem } from './programPhotos'
 import { useAssignedProgram } from './useAssignedProgram'
 import { useOwnPhotoEditing } from './useOwnPhotoEditing'
@@ -71,6 +72,8 @@ function PhotosView({ programId, exerciseRowId }: { programId: number; exerciseR
   const returnTo = localPath(searchParams.get('returnTo') ?? exercisePath)
   const programQuery = useAssignedProgram(programId)
   const { data: program, isLoading, error } = programQuery
+  // Before the early returns (the rules of hooks); see programLock.ts.
+  const lock = useProgramLock(program)
 
   if (isLoading) {
     return <p className="mx-auto mt-8 max-w-2xl px-4 text-sm text-muted-foreground">Loading…</p>
@@ -103,12 +106,14 @@ function PhotosView({ programId, exerciseRowId }: { programId: number; exerciseR
           {exercise.name} · {program.title}
         </p>
       </div>
-      {isProgramOpen(program) ? (
+      {lock === null ? (
         <PhotoEditor program={program} exercise={exercise} />
       ) : (
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground">
-            This program is closed: its photos can no longer change.
+            {lock === 'patient_deactivated'
+              ? DEACTIVATED_PHOTOS_TEXT
+              : 'This program is closed: its photos can no longer change.'}
           </p>
           <ExercisePhotoCarousel
             images={exercise.ownImages}

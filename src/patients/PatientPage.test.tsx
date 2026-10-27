@@ -117,7 +117,8 @@ beforeEach(() => {
     if (url.match(/\/users\/6$/)) return json(patientResponse.status, patientResponse.body)
     if (url.match(/\/users\/7$/)) return json(200, { ...pat, id: 7, firstName: 'Jo', lastName: 'Novak' })
     if (url.includes('/assigned-programs?patientId=7')) return json(200, josPrograms)
-    if (url.match(/\/users$/)) return json(200, [])
+    // My patients (after leaving): asked WITH the deactivated ones.
+    if (url.match(/\/users\?includeInactive=true$/)) return json(200, [])
     throw new Error(`Unexpected fetch to ${url}`)
   })
 })
@@ -188,7 +189,7 @@ describe('PatientPage — the patient', () => {
   // A deactivated patient's care team keeps its links (2026-10-25), so the
   // page still opens — saying at once that the patient can't sign in.
   const DEACTIVATED =
-    "Account deactivated. Pat can't sign in, so they won't see new programs or messages. You're still on their care team and can read their record."
+    "Account deactivated. Pat can't sign in, so new programs, program changes and messages are turned off until an admin reactivates the account. You're still on their care team: you can read their record, add to their medical file, and complete or cancel their programs."
   // The paragraph whose WHOLE text is the notice (its first words are bold,
   // in their own element — text matching per element can't see it whole).
   const isNotice = (_: string, element: Element | null) =>
@@ -228,6 +229,35 @@ describe('PatientPage — the patient', () => {
   // Phase 5. Starting the conversation is MessageButton's own test.
   it('offers to message the patient', async () => {
     renderPatientPage()
+    expect(await screen.findByRole('button', { name: 'Message Pat Lee' })).toBeInTheDocument()
+  })
+
+  // Decisions §22: the backend refuses a message (409) and a new program
+  // (409) for a deactivated patient — the page offers neither, and says
+  // why: the notice above for both, a line in Programs for the button.
+  it('offers neither a message nor a new program to a deactivated patient', async () => {
+    patientResponse = { status: 200, body: { ...pat, isActive: false } }
+    renderPatientPage()
+
+    await screen.findByText(isNotice)
+    const programs = await screen.findByRole('region', { name: 'Programs' })
+    expect(
+      within(programs).getByText('No new program while the account is deactivated.'),
+    ).toBeInTheDocument()
+    expect(within(programs).queryByRole('link', { name: 'Assign a program' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Message Pat Lee' })).not.toBeInTheDocument()
+  })
+
+  it('offers both, without that line, to an active patient', async () => {
+    renderPatientPage()
+    const programs = await screen.findByRole('region', { name: 'Programs' })
+    expect(within(programs).getByRole('link', { name: 'Assign a program' })).toHaveAttribute(
+      'href',
+      '/practitioner/programs/assigned/new?patientId=6',
+    )
+    expect(
+      within(programs).queryByText('No new program while the account is deactivated.'),
+    ).not.toBeInTheDocument()
     expect(await screen.findByRole('button', { name: 'Message Pat Lee' })).toBeInTheDocument()
   })
 

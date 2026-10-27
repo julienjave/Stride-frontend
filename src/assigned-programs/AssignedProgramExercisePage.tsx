@@ -15,7 +15,8 @@ import {
   updateProgramExercise,
   type ProgramExerciseChanges,
 } from './api'
-import { isProgramOpen } from './permissions'
+import { DEACTIVATED_EXERCISE_TEXT } from './programLock'
+import { useProgramLock } from './useProgramLock'
 import { ProgramLoadFailed, ProgramNotAvailable } from './ProgramNotAvailable'
 import { noPhotosText, photoSourceText } from './programPhotos'
 import { useAssignedProgram } from './useAssignedProgram'
@@ -77,6 +78,10 @@ function ProgramExerciseView({
 
   const programQuery = useAssignedProgram(programId)
   const { data: program, isLoading, error } = programQuery
+  // Called here, before any early return: hooks run in the same order on
+  // every render. null while the program loads; 'closed' or
+  // 'patient_deactivated' once it can't change (programLock.ts).
+  const lock = useProgramLock(program)
 
   // What saving one field means here — for the prescription's fields and the
   // description's alike: PATCH the program's exercise, then put the program
@@ -116,7 +121,7 @@ function ProgramExerciseView({
     )
   }
 
-  const canEdit = isProgramOpen(program)
+  const canEdit = lock === null
   const libraryHref = `/practitioner/library/${exercise.exerciseId}?returnTo=${encodeURIComponent(
     `/practitioner/programs/assigned/${programId}/exercises/${exerciseRowId}?returnTo=${encodeURIComponent(returnTo)}`,
   )}`
@@ -184,7 +189,9 @@ function ProgramExerciseView({
         <p className="text-xs text-muted-foreground">
           {canEdit
             ? 'Changes apply to the next sessions. Sessions already done keep the prescription they were given.'
-            : 'This program is closed: its exercises can no longer change.'}
+            : lock === 'patient_deactivated'
+              ? DEACTIVATED_EXERCISE_TEXT
+              : 'This program is closed: its exercises can no longer change.'}
         </p>
       </div>
 
@@ -199,7 +206,8 @@ function ProgramExerciseView({
 // library page's fields — EditableExerciseTitle and EditableExerciseListField,
 // with the same rules (EXERCISE_LIST_RULES) — given THIS page's `save`, so
 // what they change is this patient's copy, never the library's exercise.
-// Read-only (no pencils) on a closed program: `canEdit`.
+// Read-only (no pencils) on a closed program, or a deactivated patient's:
+// `canEdit`.
 function ProgramExerciseDescription({
   exercise,
   libraryHref,

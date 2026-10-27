@@ -40,6 +40,7 @@ import {
 import type { AssignedProgramDetail } from './types'
 import { useAssignedProgram } from './useAssignedProgram'
 import { useCreateAssignedProgram } from './useCreateAssignedProgram'
+import { DEACTIVATED_ASSIGN_AGAIN_TEXT } from './programLock'
 
 // "Assign a program" — /practitioner/programs/assigned/new. ONE page for the
 // whole assignment (decisions §5, "Settled 2026-10-10", point 5): patient,
@@ -123,9 +124,16 @@ function AssignFromTemplatePage({
 function AssignAgainPage({ continuedId }: { continuedId: string }) {
   const id = Number(continuedId)
   const isValidId = Number.isInteger(id) && id > 0
-  const patientsQuery = useUsers()
+  // My patients WITH the deactivated ones (decisions §22): a deactivated
+  // patient's program can't be assigned again (the backend answers 409),
+  // and the page must say that — not "isn't one of your patients", which
+  // the active-only list would make it say. The form itself is given the
+  // ACTIVE ones only (activePatients).
+  const patientsQuery = useUsers(true)
+  const activePatients = patientsQuery.data?.filter((patient) => patient.isActive)
   const sourceQuery = useAssignedProgram(id, { enabled: isValidId })
   const source = sourceQuery.data
+  const sourcePatient = source && patientsQuery.data?.find((p) => p.id === source.patientId)
 
   // Why it can't be assigned again, or null. Only a COMPLETED or CANCELLED
   // program may be continued (an active one is still running — the backend
@@ -141,8 +149,10 @@ function AssignAgainPage({ continuedId }: { continuedId: string }) {
   } else if (source && source.status === 'active') {
     refusal =
       'That program is still running: complete or cancel it first, then assign it again.'
-  } else if (source && patientsQuery.data && !patientsQuery.data.some((p) => p.id === source.patientId)) {
+  } else if (source && patientsQuery.data && !sourcePatient) {
     refusal = "That program's patient isn't one of your patients any more, so you can't continue it."
+  } else if (sourcePatient && !sourcePatient.isActive) {
+    refusal = DEACTIVATED_ASSIGN_AGAIN_TEXT
   }
 
   return (
@@ -166,7 +176,7 @@ function AssignAgainPage({ continuedId }: { continuedId: string }) {
         // defaultValues are read once — the title and schedule come from
         // the program).
         <AssignProgramForm
-          patients={patientsQuery.data ?? []}
+          patients={activePatients ?? []}
           templates={[]}
           requestedPatientId={String(source.patientId)}
           requestedTemplateId={null}
