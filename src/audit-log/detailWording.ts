@@ -75,7 +75,25 @@ export interface DetailWording {
   values?: Readonly<Record<string, string>>
 }
 
+// The records export's emailed link (decisions §20). `sentTo` is the address
+// the link went to — kept, since "where did a copy go?" must have an answer
+// after the account's email changes; `replacedLinkId` the link it closed.
+// RECORDS_EXPORTED isn't here: its details are clinical (the ids of what went
+// in), withheld from admins — the audit log's only readers.
 const DETAIL_WORDING: Partial<Record<AuditAction, Record<string, DetailWording>>> = {
+  RECORDS_EXPORT_LINK_SENT: {
+    sentTo: { label: 'Sent to' },
+    expiresAt: { label: 'Works until' },
+    patientActive: {
+      label: 'Account',
+      values: { true: 'Active', false: 'Deactivated (the patient can’t sign in)' },
+    },
+    replacedLinkId: { label: 'Replaced the open link' },
+  },
+  RECORDS_EXPORT_LINK_REFUSED: {
+    wrongDatesOfBirth: { label: 'Wrong dates of birth so far' },
+    linkLocked: { label: 'Link locked', values: { true: 'Yes — the link no longer works' } },
+  },
   STEP_UP_FAILED: {
     purpose: { label: 'For', values: STEP_UP_PURPOSE },
     reason: { values: STEP_UP_REASON },

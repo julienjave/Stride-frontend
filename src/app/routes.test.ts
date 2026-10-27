@@ -5,6 +5,7 @@ import { router } from './routes'
 import { LoginPage } from '@/auth/LoginPage'
 import { DashboardRedirect } from './DashboardRedirect'
 import { RouteErrorPage } from './RouteErrorPage'
+import { RecordsDownloadPage } from '@/records-export/RecordsDownloadPage'
 import { apiRequest } from '@/api/client'
 import {
   forgetSignOutReason,
@@ -54,6 +55,17 @@ describe('the route tree', () => {
       const loaded = await route.lazy()
       expect(typeof loaded.Component, route.path).toBe('function')
     }
+  })
+
+  // The records email's link (decisions §20): the patient may be unable to
+  // sign in, so the page sits beside the other pages an email links to — a
+  // direct child of the root, under NO guard (inside RequireAuth it would
+  // send them to sign in; inside RequireGuest, a signed-in visitor away).
+  it('serves the records download link outside every guard', async () => {
+    const route = router.routes[0].children?.find((child) => child.path === '/records-download')
+    expect(route?.element).toBeUndefined()
+    if (typeof route?.lazy !== 'function') throw new Error('/records-download should be lazy')
+    expect((await route.lazy()).Component).toBe(RecordsDownloadPage)
   })
 })
 

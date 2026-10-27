@@ -12,6 +12,7 @@ import { ReactivateUserButton } from './ReactivateUserButton'
 import { InvitationStatus } from '@/invitations/InvitationStatus'
 import { CareTeamSection } from '@/patients/CareTeamSection'
 import { ResetTwoFactorSection } from '@/two-factor/ResetTwoFactorSection'
+import { RecordsExportLinksSection } from '@/records-export/RecordsExportLinksSection'
 
 export function UserEditPage() {
   const { id } = useParams<{ id: string }>()
@@ -112,6 +113,19 @@ function UserEditView({ userId }: { userId: number }) {
           myId={me.id}
           canAdd
           canEndAny
+        />
+      )}
+
+      {/* A copy of a patient's health record, emailed as a download link
+          (decisions §20) — for ANY patient, active or not: a deactivated
+          one can't sign in to download it themselves, and an active one may
+          ask the clinic anyway. The admin never sees the record itself. */}
+      {user.roles.includes('patient') && (
+        <RecordsExportLinksSection
+          patientId={userId}
+          firstName={user.firstName}
+          lastName={user.lastName}
+          email={user.email}
         />
       )}
 

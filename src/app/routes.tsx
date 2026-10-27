@@ -116,6 +116,17 @@ export const router = createBrowserRouter([
           (module) => module.CancelEmailChangePage,
         ),
       },
+      // The records email's link (Phase 6, decisions §20) — under no guard:
+      // the patient may be unable to sign in, and a signed-in visitor is
+      // fine (the download uses no session). Nothing is sent on load — the
+      // page waits for the date of birth and a press (mail scanners).
+      {
+        path: '/records-download',
+        lazy: page(
+          () => import('@/records-export/RecordsDownloadPage'),
+          (module) => module.RecordsDownloadPage,
+        ),
+      },
       {
         // Routes only a logged-OUT visitor should reach.
         element: <RequireGuest />,

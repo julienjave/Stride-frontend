@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { LoadError } from '@/common/LoadError'
+import { DownloadMyRecords } from '@/records-export/DownloadMyRecords'
 import { MedicalFileEntryList } from './MedicalFileEntryList'
 import { useMyMedicalFile } from './useMedicalFile'
 
@@ -13,6 +14,9 @@ import { useMyMedicalFile } from './useMedicalFile'
 // the practitioner's, with the patient's section names and "Corrects the
 // entry of …" for an amendment. Opening it is recorded in the audit log like
 // any read of the file — the patient's own included.
+//
+// Above the notes, "Download a copy" (decisions §20, pass 3): the whole
+// record as a PDF — the notes, the programs and the sessions.
 export function MyRecordsPage() {
   const file = useMyMedicalFile()
 
@@ -47,6 +51,7 @@ function Page({ children }: { children: ReactNode }) {
           version, and the original stays visible.
         </p>
       </div>
+      <DownloadMyRecords />
       {children}
     </div>
   )

@@ -105,6 +105,10 @@ describe('UserEditPage — rendering a loaded user', () => {
   it("shows the user's name, email, roles, and their clinic memberships section", async () => {
     fetchMock.mockImplementation((input) => {
       const url = urlOf(input)
+      // Before '/users/1', which it contains: a patient's records links.
+      if (url.endsWith('/records-export-links')) {
+        return Promise.resolve(new Response('[]', { status: 200 }))
+      }
       if (url.includes('/users/1')) {
         return Promise.resolve(new Response(JSON.stringify(fullUser), { status: 200 }))
       }
@@ -132,6 +136,10 @@ describe('UserEditPage — rendering a loaded user', () => {
   it('shows a deactivated notice for an inactive user', async () => {
     fetchMock.mockImplementation((input) => {
       const url = urlOf(input)
+      // Before '/users/1', which it contains: a patient's records links.
+      if (url.endsWith('/records-export-links')) {
+        return Promise.resolve(new Response('[]', { status: 200 }))
+      }
       if (url.includes('/users/1')) {
         return Promise.resolve(
           new Response(JSON.stringify({ ...fullUser, isActive: false }), { status: 200 }),
@@ -189,6 +197,10 @@ describe('UserEditPage — rendering a loaded user', () => {
   it('has a "Back to users" link pointing to the list route', async () => {
     fetchMock.mockImplementation((input) => {
       const url = urlOf(input)
+      // Before '/users/1', which it contains: a patient's records links.
+      if (url.endsWith('/records-export-links')) {
+        return Promise.resolve(new Response('[]', { status: 200 }))
+      }
       if (url.includes('/users/1')) {
         return Promise.resolve(new Response(JSON.stringify(fullUser), { status: 200 }))
       }
@@ -205,6 +217,10 @@ describe('UserEditPage — rendering a loaded user', () => {
   it('renders GrantRoleForm, offering only roles this user does not already hold', async () => {
     fetchMock.mockImplementation((input) => {
       const url = urlOf(input)
+      // Before '/users/1', which it contains: a patient's records links.
+      if (url.endsWith('/records-export-links')) {
+        return Promise.resolve(new Response('[]', { status: 200 }))
+      }
       if (url.includes('/users/1')) {
         // This user already holds 'patient' — the grant-role dropdown
         // should offer practitioner/admin, not patient again.
@@ -299,6 +315,11 @@ describe('UserEditPage — photo', () => {
         return Promise.resolve(
           new Response(JSON.stringify({ ...withPhoto, avatarUrl: null }), { status: 200 }),
         )
+      }
+      // A patient's page also lists their records links — checked before
+      // '/users/1', which it contains.
+      if (url.endsWith('/users/1/records-export-links')) {
+        return Promise.resolve(new Response('[]', { status: 200 }))
       }
       if (url.includes('/users/1')) {
         return Promise.resolve(new Response(JSON.stringify(withPhoto), { status: 200 }))
@@ -412,6 +433,56 @@ describe('UserEditPage — invitation', () => {
     })
   })
 })
+// The page's own part: a PATIENT's account offers the health record copy
+// (decisions §20) — active or not — and no other account even asks for its
+// links. What the section does is tested in
+// src/records-export/RecordsExportLinksSection.test.tsx.
+describe('UserEditPage — health record copy', () => {
+  function mockUser(user: object) {
+    fetchMock.mockImplementation((input) => {
+      const url = urlOf(input)
+      if (/\/users\/\d+$/.test(url)) {
+        return Promise.resolve(new Response(JSON.stringify(user), { status: 200 }))
+      }
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }))
+    })
+  }
+  const askedForLinks = () =>
+    fetchMock.mock.calls.some(([input]) => urlOf(input).endsWith('/records-export-links'))
+
+  it("offers a patient's copy, with this patient's address", async () => {
+    mockUser(fullUser)
+    renderAt('/admin/users/1')
+    const region = await screen.findByRole('region', { name: 'Health record copy' })
+    expect(within(region).getByText(/^Email Jamie a link to download their health record/)).toBeInTheDocument()
+    expect(await within(region).findByText('No link has been sent yet.')).toBeInTheDocument()
+    await userEvent.click(within(region).getByRole('button', { name: 'Email a download link' }))
+    expect(
+      await screen.findByText(/^It goes to jamie@example\.com, the address on the account\./),
+    ).toBeInTheDocument()
+    expect(
+      fetchMock.mock.calls.some(([input]) => urlOf(input).endsWith('/users/1/records-export-links')),
+    ).toBe(true)
+  })
+
+  // A deactivated patient can't sign in to download it — the reason the
+  // link exists.
+  it('offers it for a deactivated patient too', async () => {
+    mockUser({ ...fullUser, isActive: false })
+    renderAt('/admin/users/1')
+    await screen.findByText('This account is deactivated.')
+    expect(screen.getByRole('region', { name: 'Health record copy' })).toBeInTheDocument()
+  })
+
+  it('offers nothing for an account that is not a patient', async () => {
+    mockUser(practitionerUser)
+    renderAt('/admin/users/4')
+    await screen.findByRole('heading', { name: 'Prac Titioner' })
+    expect(screen.queryByRole('region', { name: 'Health record copy' })).not.toBeInTheDocument()
+    expect(askedForLinks()).toBe(false)
+  })
+})
+
 // The page's own part: it shows whether THIS user has two-factor sign-in on,
 // with the reset (decisions §14). What the section does is tested in
 // src/two-factor/ResetTwoFactorSection.test.tsx.

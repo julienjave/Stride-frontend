@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { describeDetails } from './auditDetails'
 import { detailWording, valueWords } from './detailWording'
+import { formatEntryMoment } from './auditWording'
 
 // Plain words for stored values (2026-10-25). Tested through describeDetails —
 // what the screen shows — plus the two lookups' edges.
@@ -106,6 +107,53 @@ describe('EMAIL_CHANGE_CANCELLED', () => {
     ])
     expect(shown({ reason: 'cancelled_by_email_link' }, 'EMAIL_CHANGE_CANCELLED')).toStrictEqual([
       ['Reason', 'Cancelled from the link in the email'],
+    ])
+  })
+})
+
+// The records export's emailed link (decisions §20). Stored as Postgres
+// returns jsonb — keys reordered — and shown in the table's order.
+describe('RECORDS_EXPORT_LINK_SENT', () => {
+  it('says where the link went, until when, whose account — and which link it replaced', () => {
+    expect(
+      shown(
+        {
+          sentTo: 'pat@example.com',
+          expiresAt: '2031-03-13T09:00:00.000Z',
+          patientActive: false,
+          replacedLinkId: 4,
+        },
+        'RECORDS_EXPORT_LINK_SENT',
+      ),
+    ).toStrictEqual([
+      ['Sent to', 'pat@example.com'],
+      ['Works until', formatEntryMoment('2031-03-13T09:00:00.000Z')],
+      ['Account', 'Deactivated (the patient can’t sign in)'],
+      ['Replaced the open link', '#4'],
+    ])
+  })
+
+  it("shows the details in the table's order, whatever order they're stored in", () => {
+    expect(
+      shown(
+        { replacedLinkId: 4, patientActive: true, expiresAt: '2031-03-13T09:00:00.000Z', sentTo: 'a@b.c' },
+        'RECORDS_EXPORT_LINK_SENT',
+      ).map(([label]) => label),
+    ).toStrictEqual(['Sent to', 'Works until', 'Account', 'Replaced the open link'])
+    expect(shown({ patientActive: true }, 'RECORDS_EXPORT_LINK_SENT')).toStrictEqual([['Account', 'Active']])
+  })
+})
+
+describe('RECORDS_EXPORT_LINK_REFUSED', () => {
+  it('counts the wrong dates of birth, and says when the link locked', () => {
+    expect(shown({ wrongDatesOfBirth: 2 }, 'RECORDS_EXPORT_LINK_REFUSED')).toStrictEqual([
+      ['Wrong dates of birth so far', '2'],
+    ])
+    expect(
+      shown({ linkLocked: true, wrongDatesOfBirth: 5 }, 'RECORDS_EXPORT_LINK_REFUSED'),
+    ).toStrictEqual([
+      ['Wrong dates of birth so far', '5'],
+      ['Link locked', 'Yes — the link no longer works'],
     ])
   })
 })

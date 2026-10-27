@@ -40,8 +40,9 @@ describe('readEmail', () => {
 
 describe('formatLinkExpiry', () => {
   it("gives the link's last moment as a time of day, in the locale's style", () => {
-    // The hour depends on the machine's time zone; the minutes don't.
-    expect(formatLinkExpiry('2031-03-04T13:05:00.000Z', 'en-GB')).toMatch(/^\d{2}:05$/)
+    // The hour depends on the machine's time zone; the minutes don't. One
+    // digit or two in en-GB too ('8:05' before 10 a.m. — in Montreal, say).
+    expect(formatLinkExpiry('2031-03-04T13:05:00.000Z', 'en-GB')).toMatch(/^\d{1,2}:05$/)
     expect(formatLinkExpiry('2031-03-04T13:05:00.000Z', 'en-US')).toMatch(/^\d{1,2}:05\s?(AM|PM)$/)
   })
 })

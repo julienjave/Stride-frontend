@@ -138,6 +138,15 @@ const WORDING: Record<AuditAction, string> = {
   MEDICAL_FILE_ENTRY_AMENDED: 'Amended a medical file entry',
   MEDICAL_FILE_VIEWED: 'Viewed a medical file',
   MEDICAL_FILE_ENTRY_VIEWED: 'Viewed a medical file entry',
+
+  // Records exports (decisions §20): a copy of a patient's whole record, as
+  // a PDF — downloaded by the patient (signed in, or through an emailed
+  // link), never by staff. The download's details (what went in) are
+  // clinical, so withheld from admins; the link's aren't (who sent it where,
+  // how many wrong dates of birth).
+  RECORDS_EXPORTED: 'Downloaded a copy of a health record',
+  RECORDS_EXPORT_LINK_SENT: 'Emailed a health record download link',
+  RECORDS_EXPORT_LINK_REFUSED: 'Entered a wrong date of birth on a download link',
 }
 
 // `Object.hasOwn`, not `in`: `'toString' in WORDING` is true (inherited).

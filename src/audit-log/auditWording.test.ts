@@ -25,6 +25,16 @@ describe('actionLabel', () => {
     )
   })
 
+  // The records export (decisions §20): the patient's copy, and the
+  // emailed link's two actions.
+  it('words the records export actions', () => {
+    expect(actionLabel('RECORDS_EXPORTED')).toBe('Downloaded a copy of a health record')
+    expect(actionLabel('RECORDS_EXPORT_LINK_SENT')).toBe('Emailed a health record download link')
+    expect(actionLabel('RECORDS_EXPORT_LINK_REFUSED')).toBe(
+      'Entered a wrong date of birth on a download link',
+    )
+  })
+
   // An action the table doesn't know is still readable.
   it('makes words from the name of an action it does not know', () => {
     expect(actionLabel('PROGRAM_PAUSED_BY_ROBOT')).toBe('Program paused by robot')

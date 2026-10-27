@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { apiRequest, ApiError, setUnauthorizedHandler } from './client'
+import {
+  apiDownload,
+  apiRequest,
+  ApiError,
+  fileNameFromDisposition,
+  setUnauthorizedHandler,
+} from './client'
 
 // Replace the real global fetch with a mock we control for every test —
 // this is what lets us test client.ts's OWN logic (how it builds a
@@ -229,5 +235,124 @@ describe('apiRequest', () => {
     expect(handler).not.toHaveBeenCalled()
 
     setUnauthorizedHandler(() => {})
+  })
+})
+
+// A FILE instead of JSON (the records export, decisions §20). The same
+// funnel — these tests check what apiDownload adds, and that what it shares
+// with apiRequest (the cookie, the body, the errors) really is shared.
+describe('apiDownload', () => {
+  const PDF_BYTES = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0xe2, 0x9c, 0x93, 0xff])
+
+  it('hands back the body as bytes, untouched, with the name from Content-Disposition', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(PDF_BYTES, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': 'attachment; filename="stride-health-record-2031-03-10.pdf"',
+        },
+      }),
+    )
+
+    const file = await apiDownload('/records-export?timeZone=Europe%2FParis')
+
+    expect(file.fileName).toBe('stride-health-record-2031-03-10.pdf')
+    expect(file.blob.type).toBe('application/pdf')
+    // Byte for byte — 0xff is not valid UTF-8: reading the body as text
+    // would have replaced it.
+    expect(new Uint8Array(await file.blob.arrayBuffer())).toStrictEqual(PDF_BYTES)
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/records-export?timeZone=Europe%2FParis',
+      expect.objectContaining({ method: 'GET', credentials: 'include' }),
+    )
+  })
+
+  // What the browser shows a page when the header isn't exposed across
+  // origins: nothing.
+  it('has no name when the header can not be read', async () => {
+    fetchMock.mockResolvedValue(new Response(PDF_BYTES, { status: 200 }))
+    expect((await apiDownload('/records-export')).fileName).toBeNull()
+  })
+
+  it('sends a JSON body like apiRequest does', async () => {
+    fetchMock.mockResolvedValue(new Response(PDF_BYTES, { status: 200 }))
+
+    await apiDownload('/records-export/download', {
+      method: 'POST',
+      body: { token: 'abc', dateOfBirth: '1990-04-12' },
+    })
+
+    const [url, requestInit] = fetchMock.mock.calls[0]
+    expect(url).toBe('http://localhost:3000/records-export/download')
+    expect(requestInit!.method).toBe('POST')
+    expect(requestInit!.credentials).toBe('include')
+    expect(requestInit!.headers).toEqual({ 'Content-Type': 'application/json' })
+    expect(requestInit!.body).toBe('{"token":"abc","dateOfBirth":"1990-04-12"}')
+  })
+
+  // A refused download answers JSON, like any refusal: the same ApiError,
+  // with its extra fields and Retry-After.
+  it('throws the same ApiError as apiRequest for a refusal', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          statusCode: 400,
+          message: ["This date of birth doesn't match the one on file."],
+          error: 'Bad Request',
+          timestamp: '2031-03-10T12:00:00.000Z',
+          path: '/records-export/download',
+          attemptsLeft: 4,
+        }),
+        { status: 400, headers: { 'Retry-After': '7' } },
+      ),
+    )
+
+    const error = await apiDownload('/records-export/download', { method: 'POST', body: {} }).catch(
+      (caught: unknown) => caught,
+    )
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).statusCode).toBe(400)
+    expect((error as ApiError).messages).toEqual(["This date of birth doesn't match the one on file."])
+    expect((error as ApiError).body.attemptsLeft).toBe(4)
+    expect((error as ApiError).retryAfterSeconds).toBe(7)
+  })
+
+  it('reports a mid-session 401 to the handler, like apiRequest', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          statusCode: 401,
+          message: ['Unauthorized'],
+          error: 'Unauthorized',
+          timestamp: '2031-03-10T12:00:00.000Z',
+          path: '/records-export',
+        }),
+        { status: 401 },
+      ),
+    )
+    const handler = vi.fn()
+    setUnauthorizedHandler(handler)
+
+    await expect(apiDownload('/records-export')).rejects.toThrow(ApiError)
+    expect(handler).toHaveBeenCalledWith('/', ['Unauthorized'])
+
+    setUnauthorizedHandler(() => {})
+  })
+})
+
+describe('fileNameFromDisposition', () => {
+  it('reads the quoted name the backend writes', () => {
+    expect(fileNameFromDisposition('attachment; filename="stride-health-record-2031-03-10.pdf"')).toBe(
+      'stride-health-record-2031-03-10.pdf',
+    )
+  })
+
+  // Anything else falls back to the caller's name rather than a wrong one.
+  it('finds nothing in any other form, or without a header', () => {
+    expect(fileNameFromDisposition(null)).toBeNull()
+    expect(fileNameFromDisposition('attachment')).toBeNull()
+    expect(fileNameFromDisposition('attachment; filename=""')).toBeNull()
+    expect(fileNameFromDisposition("attachment; filename*=UTF-8''r%C3%A9sum%C3%A9.pdf")).toBeNull()
   })
 })

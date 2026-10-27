@@ -119,6 +119,9 @@ export type AuditAction =
   | 'MEDICAL_FILE_ENTRY_AMENDED'
   | 'MEDICAL_FILE_VIEWED'
   | 'MEDICAL_FILE_ENTRY_VIEWED'
+  | 'RECORDS_EXPORTED'
+  | 'RECORDS_EXPORT_LINK_SENT'
+  | 'RECORDS_EXPORT_LINK_REFUSED'
 
 export interface AuditPerson {
   id: number
