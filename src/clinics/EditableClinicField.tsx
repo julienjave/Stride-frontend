@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { ZodType } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { updateClinic, clinicQueryKey } from './api'
 import type { UpdateClinicPayload } from './types'
 
@@ -171,9 +171,7 @@ export function EditableClinicField({
       {validationError && <p className="text-sm text-destructive">{validationError}</p>}
       {updateMutation.isError && (
         <p className="text-sm text-destructive">
-          {updateMutation.error instanceof ApiError
-            ? updateMutation.error.messages.join(', ')
-            : 'Something went wrong'}
+          {failureText(updateMutation.error)}
         </p>
       )}
     </div>

@@ -20,6 +20,7 @@ import { setupStatusQueryKey, useSetupStatus } from './useSetupStatus'
 import type { SetupStatus } from './types'
 import { registerClinicSchema, type RegisterClinicFormValues } from './schemas'
 import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 
 export function RegisterClinicPage() {
   const queryClient = useQueryClient()
@@ -409,7 +410,7 @@ export function RegisterClinicPage() {
             up" page above. */}
         {registerClinicMutation.isError && (
           <p className="text-sm text-destructive">
-            {error instanceof ApiError ? error.messages.join(', ') : 'Something went wrong'}
+            {failureText(error)}
           </p>
         )}
 

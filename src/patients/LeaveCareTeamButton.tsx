@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -75,9 +75,7 @@ export function LeaveCareTeamButton({
 
         {leaveMutation.isError && (
           <p className="text-sm text-destructive">
-            {leaveMutation.error instanceof ApiError
-              ? leaveMutation.error.messages.join(', ')
-              : 'Something went wrong'}
+            {failureText(leaveMutation.error)}
           </p>
         )}
 

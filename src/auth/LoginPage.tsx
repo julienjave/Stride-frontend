@@ -18,6 +18,7 @@ import {
   type UserRole,
 } from './schemas'
 import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { SecondFactorField } from '@/two-factor/SecondFactorField'
 import { codeRefusal } from '@/two-factor/twoFactorRules'
 
@@ -163,9 +164,7 @@ export function LoginPage() {
         </div>
         {loginMutation.isError && !getMultiRoleOptions(loginMutation.error) && (
           <p className="text-sm text-destructive">
-            {loginMutation.error instanceof ApiError
-              ? loginMutation.error.messages.join(', ')
-              : 'Something went wrong'}
+            {failureText(loginMutation.error)}
           </p>
         )}
       </div>
@@ -197,9 +196,7 @@ export function LoginPage() {
 
           {mfaMutation.isError && !refusal && (
             <p role="alert" className="text-sm text-destructive">
-              {mfaMutation.error instanceof ApiError
-                ? mfaMutation.error.messages.join(', ')
-                : 'Something went wrong'}
+              {failureText(mfaMutation.error)}
             </p>
           )}
 
@@ -287,9 +284,7 @@ export function LoginPage() {
 
         {loginMutation.isError && !getMultiRoleOptions(loginMutation.error) && (
           <p className="text-sm text-destructive">
-            {loginMutation.error instanceof ApiError
-              ? loginMutation.error.messages.join(', ')
-              : 'Something went wrong'}
+            {failureText(loginMutation.error)}
           </p>
         )}
 

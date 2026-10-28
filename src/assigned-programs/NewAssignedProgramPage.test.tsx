@@ -167,7 +167,7 @@ function json(body: unknown, status = 200) {
 
 // What POST /assigned-programs answers — replaced by a test that needs a
 // refusal.
-let createResponse: () => Response
+let createResponse: () => Response | Promise<Response>
 // GET /assigned-programs/:id — the program to continue ("Assign again").
 let sourcePrograms: Record<number, () => Response>
 
@@ -569,6 +569,20 @@ describe('NewAssignedProgramPage — saving', () => {
     )
     expect(screen.getByRole('button', { name: 'Assign program' })).toBeEnabled()
     expect(screen.queryByText('Program page')).not.toBeInTheDocument()
+  })
+
+  // No answer at all: the page's own sentence, and the form stays.
+  it('says to check the connection when no answer comes, and stays on the form', async () => {
+    createResponse = () => Promise.reject(new TypeError('Failed to fetch'))
+    const user = userEvent.setup()
+    renderPage('?patientId=6&templateId=2')
+    await user.click(await screen.findByLabelText('Monday'))
+    await user.click(screen.getByRole('button', { name: 'Assign program' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /^Couldn't assign the program\. Check your connection and try again\.$/,
+    )
+    expect(screen.getByRole('button', { name: 'Assign program' })).toBeEnabled()
   })
 
   it('Cancel goes back where the practitioner came from', async () => {

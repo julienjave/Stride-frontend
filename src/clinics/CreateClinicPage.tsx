@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { AddressFields } from '@/common/address/AddressFields'
 import { createClinic } from './api'
 import { createClinicSchema, type CreateClinicFormValues } from './schemas'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 
 export function CreateClinicPage() {
   const queryClient = useQueryClient()
@@ -125,9 +125,7 @@ export function CreateClinicPage() {
 
         {createClinicMutation.isError && (
           <p className="text-sm text-destructive">
-            {createClinicMutation.error instanceof ApiError
-              ? createClinicMutation.error.messages.join(', ')
-              : 'Something went wrong'}
+            {failureText(createClinicMutation.error)}
           </p>
         )}
 

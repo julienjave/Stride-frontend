@@ -1,7 +1,7 @@
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -600,14 +600,14 @@ function AssignProgramForm({
 
       {createMutation.isError && (
         // role="alert": announced by screen readers as soon as it appears.
-        // The backend's own words: they say what was refused and why.
-        <div role="alert" className="space-y-1 text-sm text-destructive">
-          {createMutation.error instanceof ApiError ? (
-            createMutation.error.messages.map((message) => <p key={message}>{message}</p>)
-          ) : (
-            <p>Couldn't assign the program. Check your connection and try again.</p>
+        // The backend's own words say what was refused and why — through the
+        // app's one rule (failureText), which joins several into one line.
+        <p role="alert" className="text-sm text-destructive">
+          {failureText(
+            createMutation.error,
+            "Couldn't assign the program. Check your connection and try again.",
           )}
-        </div>
+        </p>
       )}
 
       <div className="flex flex-wrap gap-2">

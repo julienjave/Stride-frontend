@@ -94,8 +94,8 @@ describe('ReactivateClinicButton — confirming successfully', () => {
 describe('ReactivateClinicButton — a failed confirm', () => {
   it('shows the error message and keeps the dialog open', async () => {
     fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ statusCode: 500, message: ['Internal server error'] }), {
-        status: 500,
+      new Response(JSON.stringify({ statusCode: 400, message: ['Refused by the server'] }), {
+        status: 400,
       }),
     )
 
@@ -106,7 +106,7 @@ describe('ReactivateClinicButton — a failed confirm', () => {
     await screen.findByText('Reactivate Acme Clinic?')
     await user.click(screen.getByRole('button', { name: 'Reactivate' }))
 
-    expect(await screen.findByText('Internal server error')).toBeInTheDocument()
+    expect(await screen.findByText('Refused by the server')).toBeInTheDocument()
     expect(screen.getByText('Reactivate Acme Clinic?')).toBeInTheDocument()
   })
 })

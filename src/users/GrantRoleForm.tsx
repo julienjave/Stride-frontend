@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { TagListField } from '@/common/TagListField'
 import { grantRole, userQueryKey } from './api'
 import {
@@ -182,9 +182,7 @@ function GrantRoleFormView({
 
       {grantRoleMutation.isError && (
         <p className="text-sm text-destructive">
-          {grantRoleMutation.error instanceof ApiError
-            ? grantRoleMutation.error.messages.join(', ')
-            : 'Could not grant that role.'}
+          {failureText(grantRoleMutation.error, 'Could not grant that role.')}
         </p>
       )}
 

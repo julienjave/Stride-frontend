@@ -120,8 +120,8 @@ describe('ArchiveExerciseButton — a failed confirm', () => {
   it('shows the error message and keeps the dialog open, without navigating away', async () => {
     fetchMock.mockResolvedValue(
       new Response(
-        JSON.stringify({ statusCode: 500, message: ['Internal server error'] }),
-        { status: 500 },
+        JSON.stringify({ statusCode: 400, message: ['Refused by the server'] }),
+        { status: 400 },
       ),
     )
 
@@ -134,7 +134,7 @@ describe('ArchiveExerciseButton — a failed confirm', () => {
     await user.click(deleteButtons[deleteButtons.length - 1])
 
     expect(
-      await screen.findByText('Internal server error'),
+      await screen.findByText('Refused by the server'),
     ).toBeInTheDocument()
     expect(screen.getByText('Delete Wall Slide?')).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/practitioner/library/1')

@@ -1,4 +1,4 @@
-import { ApiError } from '@/api/client'
+import { hasMessage } from '@/api/apiErrors'
 
 // The password reset pages' small rules (Phase 6, 2026-10-21), pure and
 // tested on their own (passwordResetRules.test.ts).
@@ -11,11 +11,7 @@ import { ApiError } from '@/api/client'
 export const DEAD_LINK_MESSAGE = 'This password reset link is invalid or has expired'
 
 export function isDeadLink(error: unknown): boolean {
-  return (
-    error instanceof ApiError &&
-    error.statusCode === 400 &&
-    error.messages.includes(DEAD_LINK_MESSAGE)
-  )
+  return hasMessage(error, 400, DEAD_LINK_MESSAGE)
 }
 
 // The words of any other failure, for the form — shared (api/apiErrors.ts).

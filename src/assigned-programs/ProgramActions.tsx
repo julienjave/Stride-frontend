@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -83,9 +83,10 @@ function CloseProgramButton({
 
         {closeMutation.isError && (
           <p role="alert" className="text-sm text-destructive">
-            {closeMutation.error instanceof ApiError
-              ? closeMutation.error.messages.join(' ')
-              : "Couldn't do it. Check your connection and try again."}
+            {failureText(
+              closeMutation.error,
+              "Couldn't do it. Check your connection and try again.",
+            )}
           </p>
         )}
 

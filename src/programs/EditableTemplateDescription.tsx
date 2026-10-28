@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Check, Pencil, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { updateTemplate, programQueryKey } from './api'
 import { upsertInProgramsList } from './programsListCache'
 import { TEMPLATE_DESCRIPTION_MAX_LENGTH } from './schemas'
@@ -134,9 +134,7 @@ export function EditableTemplateDescription({
       )}
       {updateMutation.isError && (
         <p className="text-sm text-destructive">
-          {updateMutation.error instanceof ApiError
-            ? updateMutation.error.messages.join(', ')
-            : 'Something went wrong'}
+          {failureText(updateMutation.error)}
         </p>
       )}
     </div>

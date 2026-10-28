@@ -191,4 +191,15 @@ describe('GrantRoleForm — successful submission', () => {
       await screen.findByText('User already has the "admin" role'),
     ).toBeInTheDocument()
   })
+
+  // No answer at all: the form says which action failed.
+  it('says the role could not be granted when no answer comes', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
+    const user = userEvent.setup()
+    renderForm(['patient'])
+    await selectRole(user, 'Admin')
+    await user.click(screen.getByRole('button', { name: 'Grant role' }))
+
+    expect(await screen.findByText(/^Could not grant that role\.$/)).toBeInTheDocument()
+  })
 })

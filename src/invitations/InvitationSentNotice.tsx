@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { sendInvitation } from './api'
@@ -97,9 +97,7 @@ export function InvitationSentNotice({
           </Button>
           {resendMutation.isError && (
             <p className="text-destructive">
-              {resendMutation.error instanceof ApiError
-                ? resendMutation.error.messages.join(', ')
-                : 'Something went wrong'}
+              {failureText(resendMutation.error)}
             </p>
           )}
         </>

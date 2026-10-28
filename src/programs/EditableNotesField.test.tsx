@@ -28,9 +28,9 @@ beforeEach(() => {
 function failWith(message: string) {
   save.mockRejectedValue(
     new ApiError({
-      statusCode: 500,
+      statusCode: 400,
       message: [message],
-      error: 'Internal Server Error',
+      error: 'Bad Request',
       timestamp: '2031-06-20T10:00:00Z',
       path: '/x',
     }),
@@ -110,12 +110,12 @@ describe('EditableNotesField', () => {
   })
 
   it('shows the API error message on a failed save', async () => {
-    failWith('Internal error')
+    failWith('Refused by the server')
     const user = userEvent.setup()
     renderField('Original')
     await user.click(screen.getByRole('button', { name: 'Edit Notes' }))
     await user.click(screen.getByRole('button', { name: 'Save Notes' }))
 
-    expect(await screen.findByText('Internal error')).toBeInTheDocument()
+    expect(await screen.findByText('Refused by the server')).toBeInTheDocument()
   })
 })

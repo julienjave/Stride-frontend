@@ -398,17 +398,30 @@ describe('AvatarUpload — removing', () => {
 
   it("clears a previous upload's error message when a removal starts", async () => {
     fetchMock
-      .mockResolvedValueOnce(jsonResponse({ statusCode: 500, message: ['Upload broke'] }, 500))
+      .mockResolvedValueOnce(jsonResponse({ statusCode: 400, message: ['Upload refused'] }, 400))
       .mockResolvedValueOnce(jsonResponse(makeUser(null)))
     const user = userEvent.setup()
     renderUpload(OLD_URL)
 
     await pickAndCrop(user, makeFile('me.png', 'image/png', 1000))
-    expect(await screen.findByText('Upload broke')).toBeInTheDocument()
+    expect(await screen.findByText('Upload refused')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Remove photo' }))
 
-    await waitFor(() => expect(screen.queryByText('Upload broke')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText('Upload refused')).not.toBeInTheDocument())
+  })
+})
+
+describe('AvatarUpload — a removal that gets no answer', () => {
+  // No answer at all: the component says which action failed.
+  it('says the photo could not be removed', async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    const user = userEvent.setup()
+    renderUpload(OLD_URL)
+
+    await user.click(screen.getByRole('button', { name: 'Remove photo' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Couldn't remove the photo\.$/)
   })
 })
 
@@ -417,31 +430,31 @@ describe('AvatarUpload — a new attempt replaces old messages', () => {
     // Only one response: picking a file no longer uploads anything by
     // itself (the crop dialog opens first).
     fetchMock.mockResolvedValueOnce(
-      jsonResponse({ statusCode: 500, message: ['Remove broke'] }, 500),
+      jsonResponse({ statusCode: 400, message: ['Removal refused'] }, 400),
     )
     const user = userEvent.setup()
     renderUpload(OLD_URL)
 
     await user.click(screen.getByRole('button', { name: 'Remove photo' }))
-    expect(await screen.findByText('Remove broke')).toBeInTheDocument()
+    expect(await screen.findByText('Removal refused')).toBeInTheDocument()
 
     await user.upload(fileInput(), makeFile('me.png', 'image/png', 1000))
 
-    expect(screen.queryByText('Remove broke')).not.toBeInTheDocument()
+    expect(screen.queryByText('Removal refused')).not.toBeInTheDocument()
   })
 
   it("clears a previous upload's error message as soon as a new file is picked", async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse({ statusCode: 500, message: ['Upload broke'] }, 500))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ statusCode: 400, message: ['Upload refused'] }, 400))
     const user = userEvent.setup()
     renderUpload(null)
 
     await pickAndCrop(user, makeFile('me.png', 'image/png', 1000))
-    expect(await screen.findByText('Upload broke')).toBeInTheDocument()
+    expect(await screen.findByText('Upload refused')).toBeInTheDocument()
 
     // Only picked — not saved yet. The old failure is no longer news.
     await user.upload(fileInput(), makeFile('again.png', 'image/png', 1000))
 
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
-    expect(screen.queryByText('Upload broke')).not.toBeInTheDocument()
+    expect(screen.queryByText('Upload refused')).not.toBeInTheDocument()
   })
 })

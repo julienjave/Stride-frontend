@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { UserAvatar } from '@/common/UserAvatar'
 import { Button } from '@/components/ui/button'
 import {
@@ -209,9 +209,7 @@ export function AddCareTeamMemberDialog({
 
         {addMutation.isError && (
           <p className="text-sm text-destructive">
-            {addMutation.error instanceof ApiError
-              ? addMutation.error.messages.join(', ')
-              : 'Something went wrong'}
+            {failureText(addMutation.error)}
           </p>
         )}
 

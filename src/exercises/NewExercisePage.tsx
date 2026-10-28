@@ -5,7 +5,7 @@ import { useNavigate, Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { createExercise } from './api'
 import { createExerciseSchema, type CreateExerciseFormValues } from './schemas'
 import { DynamicStringListField } from './DynamicStringListField'
@@ -124,9 +124,7 @@ export function NewExercisePage() {
 
         {createExerciseMutation.isError && (
           <p className="text-sm text-destructive">
-            {createExerciseMutation.error instanceof ApiError
-              ? createExerciseMutation.error.messages.join(', ')
-              : 'Something went wrong'}
+            {failureText(createExerciseMutation.error)}
           </p>
         )}
 

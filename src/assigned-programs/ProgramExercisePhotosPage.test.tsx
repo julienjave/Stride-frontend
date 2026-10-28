@@ -102,7 +102,7 @@ let requests: { method: string; path: string; body: unknown }[]
 let program: () => Response
 let library: () => Response
 // What the photo routes answer, by method and path.
-let answers: Record<string, () => Response>
+let answers: Record<string, () => Response | Promise<Response>>
 
 // GET /users/6 — the program's patient: only `isActive` matters here
 // (decisions §22 — a deactivated patient's program can't change).
@@ -342,7 +342,21 @@ describe('ProgramExercisePhotosPage — uploading', () => {
     await screen.findByText('2 of 10 photos')
 
     await user.upload(screen.getByLabelText('Photos to upload'), png('a.png'))
-    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't upload the photos. Try again.")
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Couldn't upload the photos. Something went wrong on our side. Try again in a moment.",
+    )
+  })
+
+  // No answer at all: what failed, then "Try again." — nothing came back.
+  it('says what failed, and to try again, when no answer comes', async () => {
+    answers[`POST ${PHOTOS}`] = () => Promise.reject(new TypeError('Failed to fetch'))
+    const user = renderAt(PAGE)
+    await screen.findByText('2 of 10 photos')
+
+    await user.upload(screen.getByLabelText('Photos to upload'), png('a.png'))
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /^Couldn't upload the photos\. Try again\.$/,
+    )
   })
 })
 

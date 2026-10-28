@@ -285,6 +285,19 @@ describe('ScheduleChangeForm — changing the schedule', () => {
     expect(screen.getByRole('button', { name: 'Save schedule' })).toBeEnabled()
   })
 
+  // No answer at all: nothing came back to show — the form's own sentence.
+  it('says to check the connection when no answer comes, and stays open', async () => {
+    scheduleAnswer = () => Promise.reject(new TypeError('Failed to fetch'))
+    const user = userEvent.setup()
+    renderSection()
+    await user.click(screen.getByRole('button', { name: 'Change schedule' }))
+    await user.click(screen.getByRole('button', { name: 'Save schedule' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /^Couldn't save\. Check your connection and try again\.$/,
+    )
+    expect(screen.getByRole('button', { name: 'Save schedule' })).toBeEnabled()
+  })
+
   it("closes on \"Don't change\", sending nothing, focus back on its button", async () => {
     const user = userEvent.setup()
     renderSection()

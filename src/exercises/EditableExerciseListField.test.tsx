@@ -191,7 +191,9 @@ describe('EditableExerciseListField — editing', () => {
       screen.getByRole('button', { name: 'Save Primary Muscles' }),
     )
 
-    expect(await screen.findByText('Something went wrong')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Something went wrong. Check your connection and try again.'),
+    ).toBeInTheDocument()
   })
 })
 

@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { uploadClinicLogo, removeClinicLogo, clinicQueryKey } from './api'
 import { IMAGE_FILE_ACCEPT, imageFileSchema } from '@/common/imageFile'
 import type { Clinic } from './types'
@@ -184,16 +184,12 @@ export function ClinicLogoUpload({ clinicId, logoUrl }: ClinicLogoUploadProps) {
       {validationError && <p className="text-sm text-destructive">{validationError}</p>}
       {uploadMutation.isError && (
         <p className="text-sm text-destructive">
-          {uploadMutation.error instanceof ApiError
-            ? uploadMutation.error.messages.join(', ')
-            : 'Something went wrong'}
+          {failureText(uploadMutation.error)}
         </p>
       )}
       {removeMutation.isError && (
         <p className="text-sm text-destructive">
-          {removeMutation.error instanceof ApiError
-            ? removeMutation.error.messages.join(', ')
-            : 'Could not remove the logo.'}
+          {failureText(removeMutation.error, 'Could not remove the logo.')}
         </p>
       )}
     </div>

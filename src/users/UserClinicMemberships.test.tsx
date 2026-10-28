@@ -154,9 +154,45 @@ describe('UserClinicMemberships — adding a clinic', () => {
       await screen.findByText('This user is already a member of this clinic'),
     ).toBeInTheDocument()
   })
+
+  // No answer at all (the network): nothing came back to show, so the
+  // component says which action failed (failureText's caller sentence).
+  it('says the clinic could not be added when no answer comes', async () => {
+    mockClinicsAnd(undefined)
+    const answered = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation((input, init) =>
+      urlOf(input).includes('/members')
+        ? Promise.reject(new TypeError('Failed to fetch'))
+        : answered(input, init),
+    )
+    const user = userEvent.setup()
+    renderMemberships([])
+
+    await user.click(screen.getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: 'Acme Clinic' }))
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+
+    expect(await screen.findByText(/^Could not add that clinic\.$/)).toBeInTheDocument()
+  })
 })
 
 describe('UserClinicMemberships — removing a clinic', () => {
+  it('says the clinic could not be removed when no answer comes', async () => {
+    mockClinicsAnd(undefined)
+    const answered = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation((input, init) =>
+      urlOf(input).includes('/members')
+        ? Promise.reject(new TypeError('Failed to fetch'))
+        : answered(input, init),
+    )
+    const user = userEvent.setup()
+    renderMemberships([{ id: 1, name: 'Acme Clinic' }])
+
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
+
+    expect(await screen.findByText(/^Could not remove that clinic\.$/)).toBeInTheDocument()
+  })
+
   it("DELETEs the right membership and invalidates this user's cache", async () => {
     mockClinicsAnd(undefined, 200)
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })

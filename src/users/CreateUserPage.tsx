@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { useClinics } from '@/clinics/useClinics'
 import { refreshAttention } from './attention'
 import { AddressFields } from '@/common/address/AddressFields'
@@ -335,9 +335,7 @@ export function CreateUserPage() {
 
         {createUserMutation.isError && (
           <p className="text-sm text-destructive">
-            {createUserMutation.error instanceof ApiError
-              ? createUserMutation.error.messages.join(', ')
-              : 'Something went wrong'}
+            {failureText(createUserMutation.error)}
           </p>
         )}
 

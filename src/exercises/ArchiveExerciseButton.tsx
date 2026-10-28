@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { archiveExercise, exerciseQueryKey } from './api'
 
 interface ArchiveExerciseButtonProps {
@@ -69,9 +69,7 @@ export function ArchiveExerciseButton({
 
         {archiveMutation.isError && (
           <p className="text-sm text-destructive">
-            {archiveMutation.error instanceof ApiError
-              ? archiveMutation.error.messages.join(', ')
-              : 'Something went wrong'}
+            {failureText(archiveMutation.error)}
           </p>
         )}
 

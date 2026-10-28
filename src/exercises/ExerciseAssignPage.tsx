@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { usePrograms } from '@/programs/usePrograms'
 import { assignExerciseToProgram } from '@/programs/api'
 import { canModifyProgram } from '@/programs/permissions'
@@ -174,9 +174,7 @@ function ExerciseAssignView({ exerciseId }: { exerciseId: number }) {
 
           {assignMutation.isError && (
             <p className="text-sm text-destructive">
-              {assignMutation.error instanceof ApiError
-                ? assignMutation.error.messages.join(', ')
-                : 'Something went wrong'}
+              {failureText(assignMutation.error)}
             </p>
           )}
 

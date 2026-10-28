@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { useLogout } from '@/auth/useLogout'
 import { acceptInvitation, lookupInvitation } from './api'
@@ -37,7 +38,7 @@ function getRefusal(error: unknown): Refusal | null {
   if (error.statusCode !== 404 && error.statusCode !== 410) return null
   const { reason } = error.body
   return {
-    message: error.messages.join(' '),
+    message: failureText(error),
     // body fields are `unknown` (see ApiError): narrowed against the known
     // list, so a value this page doesn't know about just means "no
     // particular next step" instead of being trusted blindly.
@@ -180,9 +181,7 @@ export function AcceptInvitationPage() {
     return (
       <Notice heading="We couldn't load your invitation">
         <p className="text-sm text-destructive">
-          {lookup.error instanceof ApiError
-            ? lookup.error.messages.join(', ')
-            : 'Something went wrong. Check your connection and try again.'}
+          {failureText(lookup.error)}
         </p>
         <Button onClick={() => void lookup.refetch()}>Try again</Button>
       </Notice>
@@ -249,9 +248,7 @@ export function AcceptInvitationPage() {
             this is for the rest — too many attempts, a server error. */}
         {acceptMutation.isError && (
           <p className="text-sm text-destructive">
-            {acceptMutation.error instanceof ApiError
-              ? acceptMutation.error.messages.join(', ')
-              : 'Something went wrong'}
+            {failureText(acceptMutation.error)}
           </p>
         )}
 

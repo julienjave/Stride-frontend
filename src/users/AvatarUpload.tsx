@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Area } from 'react-easy-crop'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { UserAvatar } from '@/common/UserAvatar'
 import { IMAGE_FILE_ACCEPT } from '@/common/imageFile'
 import { removeAvatar, uploadAvatar } from './api'
@@ -242,16 +242,12 @@ export function AvatarUpload({ user }: AvatarUploadProps) {
       )}
       {uploadMutation.isError && (
         <p role="alert" className="text-sm text-destructive">
-          {uploadMutation.error instanceof ApiError
-            ? uploadMutation.error.messages.join(', ')
-            : "Couldn't upload the photo."}
+          {failureText(uploadMutation.error, "Couldn't upload the photo.")}
         </p>
       )}
       {removeMutation.isError && (
         <p role="alert" className="text-sm text-destructive">
-          {removeMutation.error instanceof ApiError
-            ? removeMutation.error.messages.join(', ')
-            : "Couldn't remove the photo."}
+          {failureText(removeMutation.error, "Couldn't remove the photo.")}
         </p>
       )}
     </section>

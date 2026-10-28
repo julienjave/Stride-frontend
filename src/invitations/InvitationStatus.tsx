@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { invitationsQueryKey, listInvitations, revokeInvitation, sendInvitation } from './api'
 import { formatExpiry } from './formatExpiry'
 import type { InvitationSummary } from './types'
@@ -33,7 +33,7 @@ interface InvitationStatusProps {
 }
 
 function errorText(error: unknown) {
-  return error instanceof ApiError ? error.messages.join(', ') : 'Something went wrong'
+  return failureText(error)
 }
 
 function personName(person: { firstName: string; lastName: string }) {

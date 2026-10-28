@@ -84,7 +84,7 @@ let requests: [string, string, string | undefined][]
 let program: () => Response
 // The PATCH's answer: by default the program with the change applied, as
 // the backend would answer.
-let patchAnswer: (body: Record<string, unknown>) => Response
+let patchAnswer: (body: Record<string, unknown>) => Response | Promise<Response>
 
 // GET /users/6 — the program's patient: only `isActive` matters here
 // (decisions §22 — a deactivated patient's program can't change).
@@ -357,7 +357,22 @@ describe('AssignedProgramExercisePage — reading', () => {
 
       await user.click(await screen.findByRole('radio', { name: "This patient's own photos" }))
 
-      expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't change the photos. Try again.")
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        "Couldn't change the photos. Something went wrong on our side. Try again in a moment.",
+      )
+    })
+
+    // No answer at all: what failed, then "Try again." — nothing came back.
+    it('says what failed, and to try again, when no answer comes', async () => {
+      program = () => answer(true)
+      patchAnswer = () => Promise.reject(new TypeError('Failed to fetch'))
+      const user = renderAt(PAGE)
+
+      await user.click(await screen.findByRole('radio', { name: "This patient's own photos" }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        /^Couldn't change the photos\. Try again\.$/,
+      )
     })
 
     // Always offered while open (adding never switches the choice), with how

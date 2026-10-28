@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query'
 import { Check, Pencil, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import {
   EXERCISE_NAME_MAX_LENGTH,
   type ExerciseDescriptionChanges,
@@ -153,9 +153,7 @@ export function EditableExerciseTitle({
       )}
       {updateMutation.isError && (
         <p className="text-sm text-destructive">
-          {updateMutation.error instanceof ApiError
-            ? updateMutation.error.messages.join(', ')
-            : 'Something went wrong'}
+          {failureText(updateMutation.error)}
         </p>
       )}
     </div>

@@ -96,8 +96,8 @@ describe('ClinicLogoUpload — removing the logo', () => {
 
   it('shows the backend error message on a failed removal', async () => {
     fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ statusCode: 500, message: ['Internal server error'] }), {
-        status: 500,
+      new Response(JSON.stringify({ statusCode: 400, message: ['Refused by the server'] }), {
+        status: 400,
       }),
     )
 
@@ -106,7 +106,18 @@ describe('ClinicLogoUpload — removing the logo', () => {
 
     await user.click(screen.getByRole('button', { name: 'Remove logo' }))
 
-    expect(await screen.findByText('Internal server error')).toBeInTheDocument()
+    expect(await screen.findByText('Refused by the server')).toBeInTheDocument()
+  })
+
+  // No answer at all: the component says which action failed.
+  it('says the logo could not be removed when no answer comes', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
+    const user = userEvent.setup()
+    renderUpload('https://storage.example.com/signed/logo.png')
+
+    await user.click(screen.getByRole('button', { name: 'Remove logo' }))
+
+    expect(await screen.findByText(/^Could not remove the logo\.$/)).toBeInTheDocument()
   })
 
   it('disables both the upload and remove buttons while a removal is in flight', async () => {
@@ -237,8 +248,8 @@ describe('ClinicLogoUpload — the preview after a failed upload', () => {
   // looking as if it had been saved.
   it('drops the preview and goes back to the stored logo (here: none)', async () => {
     fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ statusCode: 500, message: ['Upload broke'] }), {
-        status: 500,
+      new Response(JSON.stringify({ statusCode: 400, message: ['Upload refused'] }), {
+        status: 400,
       }),
     )
     const user = userEvent.setup()
@@ -247,15 +258,15 @@ describe('ClinicLogoUpload — the preview after a failed upload', () => {
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     await user.upload(input, makeFile('logo.png', 'image/png', 1000))
 
-    expect(await screen.findByText('Upload broke')).toBeInTheDocument()
+    expect(await screen.findByText('Upload refused')).toBeInTheDocument()
     expect(screen.queryByRole('img', { name: 'Clinic logo' })).not.toBeInTheDocument()
     expect(screen.getByText('No logo')).toBeInTheDocument()
   })
 
   it('keeps showing the previously saved logo, not the failed one', async () => {
     fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ statusCode: 500, message: ['Upload broke'] }), {
-        status: 500,
+      new Response(JSON.stringify({ statusCode: 400, message: ['Upload refused'] }), {
+        status: 400,
       }),
     )
     const user = userEvent.setup()
@@ -264,7 +275,7 @@ describe('ClinicLogoUpload — the preview after a failed upload', () => {
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     await user.upload(input, makeFile('logo.png', 'image/png', 1000))
 
-    expect(await screen.findByText('Upload broke')).toBeInTheDocument()
+    expect(await screen.findByText('Upload refused')).toBeInTheDocument()
     expect(screen.getByRole('img', { name: 'Clinic logo' })).toHaveAttribute(
       'src',
       'https://storage.example.com/signed/logo.png',

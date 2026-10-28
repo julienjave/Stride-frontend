@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { reactivateClinic, clinicQueryKey } from './api'
 
 interface ReactivateClinicButtonProps {
@@ -50,9 +50,7 @@ export function ReactivateClinicButton({ clinicId, clinicName }: ReactivateClini
 
         {reactivateMutation.isError && (
           <p className="text-sm text-destructive">
-            {reactivateMutation.error instanceof ApiError
-              ? reactivateMutation.error.messages.join(', ')
-              : 'Something went wrong'}
+            {failureText(reactivateMutation.error)}
           </p>
         )}
 

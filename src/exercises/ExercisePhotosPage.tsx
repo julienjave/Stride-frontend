@@ -17,7 +17,7 @@ import {
 } from '@dnd-kit/sortable'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { useExercise } from './useExercise'
 import {
   exerciseQueryKey,
@@ -246,9 +246,7 @@ function ExercisePhotosView({ exerciseId }: { exerciseId: number }) {
       )}
       {uploadMutation.isError && (
         <p className="text-sm text-destructive">
-          {uploadMutation.error instanceof ApiError
-            ? uploadMutation.error.messages.join(', ')
-            : 'Something went wrong'}
+          {failureText(uploadMutation.error)}
         </p>
       )}
 

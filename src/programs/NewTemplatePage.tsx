@@ -5,7 +5,7 @@ import { useNavigate, Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { createTemplate } from './api'
 import { upsertInProgramsList } from './programsListCache'
 import { createTemplateSchema, type CreateTemplateFormValues } from './schemas'
@@ -90,9 +90,7 @@ export function NewTemplatePage() {
 
         {createTemplateMutation.isError && (
           <p className="text-sm text-destructive">
-            {createTemplateMutation.error instanceof ApiError
-              ? createTemplateMutation.error.messages.join(', ')
-              : 'Something went wrong'}
+            {failureText(createTemplateMutation.error)}
           </p>
         )}
 

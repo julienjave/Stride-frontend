@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { useClinics } from '@/clinics/useClinics'
 import { addClinicMember, removeClinicMember } from '@/clinics/api'
 import { userQueryKey } from './api'
@@ -136,16 +136,12 @@ export function UserClinicMemberships({
 
       {removeMutation.isError && (
         <p className="text-sm text-destructive">
-          {removeMutation.error instanceof ApiError
-            ? removeMutation.error.messages.join(', ')
-            : 'Could not remove that clinic.'}
+          {failureText(removeMutation.error, 'Could not remove that clinic.')}
         </p>
       )}
       {addMutation.isError && (
         <p className="text-sm text-destructive">
-          {addMutation.error instanceof ApiError
-            ? addMutation.error.messages.join(', ')
-            : 'Could not add that clinic.'}
+          {failureText(addMutation.error, 'Could not add that clinic.')}
         </p>
       )}
     </div>

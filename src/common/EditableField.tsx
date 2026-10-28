@@ -4,7 +4,7 @@ import type { ZodType } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 
 interface EditableFieldProps {
   label: string
@@ -187,9 +187,7 @@ export function EditableField({
   const errorMessage =
     validationError ??
     (mutation.isError
-      ? mutation.error instanceof ApiError
-        ? mutation.error.messages.join(', ')
-        : 'Something went wrong'
+      ? failureText(mutation.error)
       : null)
 
   // Computed from the draft on every render while editing — typing or

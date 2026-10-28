@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -116,9 +116,7 @@ export function AddToMyPatientsDialog({
 
         {joinMutation.isError && (
           <p className="text-sm text-destructive">
-            {joinMutation.error instanceof ApiError
-              ? joinMutation.error.messages.join(', ')
-              : 'Something went wrong'}
+            {failureText(joinMutation.error)}
           </p>
         )}
 

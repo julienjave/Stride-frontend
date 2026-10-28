@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
 import { Button } from '@/components/ui/button'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { duplicateTemplate, programQueryKey } from './api'
 import { upsertInProgramsList } from './programsListCache'
 
@@ -47,9 +47,7 @@ export function DuplicateTemplateButton({
       </Button>
       {duplicateMutation.isError && (
         <p className="text-sm text-destructive">
-          {duplicateMutation.error instanceof ApiError
-            ? duplicateMutation.error.messages.join(', ')
-            : 'Something went wrong'}
+          {failureText(duplicateMutation.error)}
         </p>
       )}
     </div>

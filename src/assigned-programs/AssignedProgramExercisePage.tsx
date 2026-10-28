@@ -1,7 +1,7 @@
 import { Link, useParams, useSearchParams } from 'react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { EditableExerciseListField } from '@/exercises/EditableExerciseListField'
 import { EditableExerciseTitle } from '@/exercises/EditableExerciseTitle'
 import { EXERCISE_LIST_RULES } from '@/exercises/descriptionRules'
@@ -335,9 +335,7 @@ function ProgramExercisePhotos({
       {choose.isError && (
         <p role="alert" className="text-sm text-destructive">
           {"Couldn't change the photos. "}
-          {choose.error instanceof ApiError && choose.error.statusCode < 500
-            ? choose.error.messages.join(' ')
-            : 'Try again.'}
+          {failureText(choose.error, 'Try again.')}
         </p>
       )}
       <ExercisePhotoCarousel

@@ -374,7 +374,7 @@ describe('TemplateDetailPage — as the owner', () => {
     )
 
     expect(
-      await screen.findByText("Couldn't remove that exercise. Try again."),
+      await screen.findByText("Couldn't remove that exercise. Something went wrong on our side. Try again in a moment."),
     ).toBeInTheDocument()
   })
 

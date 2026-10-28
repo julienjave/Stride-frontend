@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router'
 import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -272,5 +273,5 @@ function inviteErrorMessage(error: Error): string {
       'reactivate the account), then add them from the search. Otherwise, check the email.'
     )
   }
-  return error instanceof ApiError ? error.messages.join(', ') : 'Something went wrong'
+  return failureText(error)
 }

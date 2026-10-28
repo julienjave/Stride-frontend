@@ -351,6 +351,23 @@ describe('Template workouts — renaming', () => {
     await user.click(screen.getByRole('button', { name: 'Rename workout B' }))
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
+
+  // No answer at all: the field's own sentence.
+  it('says the rename failed, and to try again, when no answer comes', async () => {
+    serve(makeTemplate())
+    const answered = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation((input, init) =>
+      init?.method === 'PATCH' ? Promise.reject(new TypeError('Failed to fetch')) : answered(input, init),
+    )
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Rename workout B' }))
+    await user.type(screen.getByRole('textbox', { name: 'Name of workout B' }), 'Strength{Enter}')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /^Couldn't rename the workout\. Try again\.$/,
+    )
+  })
 })
 
 describe('Template workouts — moving and copying', () => {
@@ -440,14 +457,16 @@ describe('Template workouts — moving and copying', () => {
     expect(screen.queryByText(/^Moved/)).not.toBeInTheDocument()
   })
 
-  it('reports a failed copy, and a server error as "Try again."', async () => {
+  it("reports a failed copy, and a server error in the app's shared sentence", async () => {
     serve(makeTemplate(), () => jsonResponse({ statusCode: 500, message: ['Internal error'] }, 500))
     const user = userEvent.setup()
     renderPage()
     const menu = await openMenu(user, 'More actions for Squat in workout A · Mobility')
     await user.click(within(menu).getByRole('menuitem', { name: 'Copy to B' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't copy Squat. Try again.")
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Couldn't copy Squat. Something went wrong on our side. Try again in a moment.",
+    )
   })
 
   it("clears the last action's message when the next one starts", async () => {

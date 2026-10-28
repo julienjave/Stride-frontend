@@ -325,7 +325,9 @@ describe('SessionPlayer — Done, at once', () => {
     renderPage()
     await opened()
     await user.click(doneButton('Squat'))
-    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't save “Done” for Squat. Try again.")
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Couldn't save “Done” for Squat. Something went wrong on our side. Try again in a moment.",
+    )
     expect(doneButton('Squat')).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByText('1 of 3 exercises done')).toBeInTheDocument()
   })
@@ -442,7 +444,9 @@ describe('SessionPlayer — one request at a time', () => {
     await user.click(doneButton('Squat'))
     await user.click(screen.getByRole('radio', { name: '7' }))
     first.answer(json(null))
-    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't save “Done” for Squat. Try again.")
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Couldn't save “Done” for Squat. Something went wrong on our side. Try again in a moment.",
+    )
     // While the rating's request is still unanswered: the tick undone, the
     // rating kept.
     expect(doneButton('Squat')).toHaveAttribute('aria-pressed', 'false')

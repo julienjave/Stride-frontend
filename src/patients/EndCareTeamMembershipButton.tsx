@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -73,9 +73,7 @@ export function EndCareTeamMembershipButton({
 
         {endMutation.isError && (
           <p className="text-sm text-destructive">
-            {endMutation.error instanceof ApiError
-              ? endMutation.error.messages.join(', ')
-              : 'Something went wrong'}
+            {failureText(endMutation.error)}
           </p>
         )}
 

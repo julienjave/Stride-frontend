@@ -176,7 +176,7 @@ describe('CreateClinicPage', () => {
     await fillRequiredFields(user)
     await user.click(screen.getByRole('button', { name: 'Create clinic' }))
 
-    expect(await screen.findByText('Internal server error')).toBeInTheDocument()
+    expect(await screen.findByText('Something went wrong on our side. Try again in a moment.')).toBeInTheDocument()
   })
 
   it('navigates to the NEW clinic\'s own page (not the list) on success, using the id the server returned', async () => {

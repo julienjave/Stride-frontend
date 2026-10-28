@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import {
   applyExerciseOrder,
   applyWorkoutOrder,
@@ -12,15 +12,13 @@ import {
 
 // What a failed request says on screen: "<what failed>. <why>".
 //
-// The backend's 4xx messages are written for people and say what to do
-// ("Workout B still has exercises: move or remove them first"), so they're
-// shown as they are. A 5xx or a network failure carries nothing useful to
-// the practitioner, so it gets "Try again." — the request itself was fine.
+// The why is the app's one rule (failureText, api/apiErrors.ts): a 4xx's own
+// words — written for people, they say what to do ("Workout B still has
+// exercises: move or remove them first") —, the shared sentence for a 5xx,
+// and "Try again." when no answer came at all (the request itself may be
+// fine).
 export function describeFailure(action: string, error: unknown): string {
-  if (error instanceof ApiError && error.statusCode < 500) {
-    return `${action}. ${error.messages.join(' ')}`
-  }
-  return `${action}. Try again.`
+  return `${action}. ${failureText(error, 'Try again.')}`
 }
 
 // What the editor works on: something with workouts and exercises — a

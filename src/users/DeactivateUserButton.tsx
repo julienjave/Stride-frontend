@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { deactivateUser, userQueryKey } from './api'
 import { refreshAttention } from './attention'
@@ -131,9 +131,7 @@ export function DeactivateUserButton({ userId, userName, roles }: DeactivateUser
 
         {deactivateMutation.isError && (
           <p className="text-sm text-destructive">
-            {deactivateMutation.error instanceof ApiError
-              ? deactivateMutation.error.messages.join(', ')
-              : 'Something went wrong'}
+            {failureText(deactivateMutation.error)}
           </p>
         )}
 

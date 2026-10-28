@@ -225,7 +225,7 @@ describe('InvitationStatus', () => {
 
       expect(screen.getByText('Loading invitation…')).toBeInTheDocument()
       expect(
-        await screen.findByText("Couldn't load the invitation: Internal server error"),
+        await screen.findByText("Couldn't load the invitation: Something went wrong on our side. Try again in a moment."),
       ).toBeInTheDocument()
     })
   })

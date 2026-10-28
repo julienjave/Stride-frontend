@@ -6,7 +6,7 @@ import { useSearchParams, useNavigate, Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { workoutLabel } from '@/common/workoutLabel'
 import { useExercise } from '@/exercises/useExercise'
 import { usePreferredWeightUnit } from '@/auth/usePreferredWeightUnit'
@@ -368,9 +368,7 @@ export function NewWorkoutExerciseView({
 
         {addMutation.isError && (
           <p className="text-sm text-destructive">
-            {addMutation.error instanceof ApiError
-              ? addMutation.error.messages.join(', ')
-              : 'Something went wrong'}
+            {failureText(addMutation.error)}
           </p>
         )}
 

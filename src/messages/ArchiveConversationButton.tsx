@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router'
 import { Archive, ArchiveRestore } from 'lucide-react'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { Button } from '@/components/ui/button'
 import { messagesPath, type MessagingRole } from './messagesPath'
 import type { ConversationSummary } from './types'
@@ -57,9 +57,10 @@ export function ArchiveConversationButton({ summary, role }: { summary: Conversa
       </Button>
       {archive.isError && (
         <p role="alert" className="basis-full text-sm text-destructive">
-          {archive.error instanceof ApiError
-            ? archive.error.messages.join(' ')
-            : `Couldn't ${word.toLowerCase()} this conversation. Try again.`}
+          {failureText(
+            archive.error,
+            `Couldn't ${word.toLowerCase()} this conversation. Try again.`,
+          )}
         </p>
       )}
     </>

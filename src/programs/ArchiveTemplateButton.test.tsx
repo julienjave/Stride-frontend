@@ -143,8 +143,8 @@ describe('ArchiveTemplateButton — a failed confirm', () => {
   it('shows the error message and keeps the dialog open, without navigating away', async () => {
     fetchMock.mockResolvedValue(
       new Response(
-        JSON.stringify({ statusCode: 500, message: ['Internal server error'] }),
-        { status: 500 },
+        JSON.stringify({ statusCode: 400, message: ['Refused by the server'] }),
+        { status: 400 },
       ),
     )
     const user = userEvent.setup()
@@ -152,7 +152,7 @@ describe('ArchiveTemplateButton — a failed confirm', () => {
 
     await openAndConfirm(user)
 
-    expect(await screen.findByText('Internal server error')).toBeInTheDocument()
+    expect(await screen.findByText('Refused by the server')).toBeInTheDocument()
     expect(screen.getByText('Delete Shoulder Rehab?')).toBeInTheDocument()
     expect(router.state.location.pathname).toBe(
       '/practitioner/programs/templates/1',

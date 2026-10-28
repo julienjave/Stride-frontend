@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import {
   assignedProgramQueryKey,
   copyLibraryImagesToProgramExercise,
@@ -16,9 +16,10 @@ import type { AssignedProgramDetail } from './types'
 // and the program page all read it, so all three show the new photos.
 //
 // One message area for the page (`problem`), as the workout editor has: the
-// next action clears it. "<What failed>. <the backend's reason for a 4xx, or
-// 'Try again.'>" — a 4xx reason is written for people ("…this one has 8, so 2
-// more can be added"); a 5xx or a network failure isn't.
+// next action clears it. "<What failed>. <why>" — the why from the app's one
+// rule (failureText): a 4xx's reason, written for people ("…this one has 8,
+// so 2 more can be added"), the shared sentence for a 5xx, "Try again." when
+// no answer came.
 //
 // `isBusy`: while any write is on its way, the page disables every control
 // that changes the photos — a second change built on a list about to be
@@ -33,13 +34,7 @@ export function useOwnPhotoEditing(programId: number, exerciseRowId: number) {
   }
   function failed(what: string) {
     return (error: Error) => {
-      setProblem(
-        `${what} ${
-          error instanceof ApiError && error.statusCode < 500
-            ? error.messages.join(' ')
-            : 'Try again.'
-        }`,
-      )
+      setProblem(`${what} ${failureText(error, 'Try again.')}`)
     }
   }
 

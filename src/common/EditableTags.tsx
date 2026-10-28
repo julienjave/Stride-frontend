@@ -1,7 +1,7 @@
 import { useId, useState, type FormEvent } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { TagInput } from './TagInput'
 import {
   commitTagText,
@@ -113,9 +113,7 @@ export function EditableTags({
   const errorMessage =
     error ??
     (mutation.isError
-      ? mutation.error instanceof ApiError
-        ? mutation.error.messages.join(', ')
-        : 'Something went wrong'
+      ? failureText(mutation.error)
       : null)
 
   return (

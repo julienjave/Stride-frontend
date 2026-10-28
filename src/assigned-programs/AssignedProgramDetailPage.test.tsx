@@ -195,8 +195,11 @@ let alertsAnswer: () => Response
 // …/complete, PATCH the program. Each test can replace them.
 // (A promise that never settles stands for an answer still on its way.)
 let closingPreview: () => Response | Promise<Response>
-let closeAnswer: (action: string) => Response
-let patchAnswer: (body: { allowSwaps?: boolean; lateMakeUpDays?: number | null }) => Response
+let closeAnswer: (action: string) => Response | Promise<Response>
+let patchAnswer: (body: {
+  allowSwaps?: boolean
+  lateMakeUpDays?: number | null
+}) => Response | Promise<Response>
 
 beforeEach(() => {
   fetchMock.mockReset()
@@ -1307,6 +1310,19 @@ describe('AssignedProgramDetailPage — closing the program', () => {
     await within(reopened).findByText(/It will end on/)
     expect(within(reopened).queryByRole('alert')).not.toBeInTheDocument()
   })
+
+  // No answer at all: the dialog's own sentence.
+  it('says to check the connection when no answer comes', async () => {
+    const user = userEvent.setup()
+    closeAnswer = () => Promise.reject(new TypeError('Failed to fetch'))
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Cancel program' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(await within(dialog).findByRole('button', { name: 'Cancel program' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      /^Couldn't do it\. Check your connection and try again\.$/,
+    )
+  })
 })
 
 describe('AssignedProgramDetailPage — letting the patient rearrange the week', () => {
@@ -1367,6 +1383,18 @@ describe('AssignedProgramDetailPage — letting the patient rearrange the week',
     await user.click(box)
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'This program is completed, so it can no longer change',
+    )
+    expect(box).toBeChecked()
+  })
+
+  it('stays as it was, saying to try again, when no answer comes', async () => {
+    const user = userEvent.setup()
+    patchAnswer = () => Promise.reject(new TypeError('Failed to fetch'))
+    renderPage()
+    const box = await screen.findByRole('checkbox', { name: 'Let the patient rearrange the week' })
+    await user.click(box)
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /^Couldn't save the change\. Try again\.$/,
     )
     expect(box).toBeChecked()
   })
@@ -1526,6 +1554,18 @@ describe('AssignedProgramDetailPage — late make-ups', () => {
     await user.click(box)
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'This program is completed, so it can no longer change',
+    )
+    expect(box).not.toBeChecked()
+  })
+
+  it('stays as it was, saying to try again, when no answer comes', async () => {
+    const user = userEvent.setup()
+    patchAnswer = () => Promise.reject(new TypeError('Failed to fetch'))
+    renderPage()
+    const box = await screen.findByRole('checkbox', { name: CHECKBOX })
+    await user.click(box)
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /^Couldn't save the change\. Try again\.$/,
     )
     expect(box).not.toBeChecked()
   })

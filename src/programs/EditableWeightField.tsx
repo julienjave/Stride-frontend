@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query'
 import { Check, Pencil, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { usePreferredWeightUnit } from '@/auth/usePreferredWeightUnit'
 import { WeightValue } from '@/common/WeightValue'
 import type { WeightUnit } from '@/common/weight'
@@ -215,9 +215,7 @@ export function EditableWeightField({
       )}
       {updateMutation.isError && (
         <p className="text-sm text-destructive">
-          {updateMutation.error instanceof ApiError
-            ? updateMutation.error.messages.join(', ')
-            : 'Something went wrong'}
+          {failureText(updateMutation.error)}
         </p>
       )}
     </div>

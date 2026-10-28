@@ -1,5 +1,5 @@
 import { ApiError } from '@/api/client'
-import { hasMessage } from '@/api/apiErrors'
+import { failureText, hasMessage } from '@/api/apiErrors'
 import type { RecordsExportLinkSummary, UnusableLinkReason } from './types'
 
 // The records export screens' small rules (decisions §20, pass 3) — pure,
@@ -38,17 +38,17 @@ export function browserTimeZone(): string {
 
 // For any download (My records, the link's page) that wasn't a refusal the
 // page handles itself:
-//   - 429: the backend allows 5 copies a minute; its own words
-//     ("ThrottlerException: Too Many Requests") are a class name, not a
-//     sentence. Retry-After says how long to wait, when the browser lets the
-//     app read it (the backend exposes it — cors-options.ts);
-//   - 5xx: the server's words ("Internal server error") help nobody;
-//   - any other refusal: the server's own words, written for people;
-//   - no answer at all: the network.
+//   - 429: the backend allows 5 copies a minute. Its own sentence (since
+//     2026-10-27, config/rate-limits.ts) speaks of "attempts", for every
+//     route; here the exact word is "downloads". Retry-After says how long
+//     to wait, when the browser lets the app read it (the backend exposes
+//     it — cors-options.ts);
+//   - 5xx: a sentence about THIS action (the copy), more exact than the
+//     app's general one;
+//   - anything else: the app's one rule (failureText, api/apiErrors.ts) —
+//     a refusal's own words, or the network.
 export function downloadFailureText(error: unknown): string {
-  if (!(error instanceof ApiError)) {
-    return 'Something went wrong. Check your connection and try again.'
-  }
+  if (!(error instanceof ApiError)) return failureText(error)
   if (error.statusCode === 429) {
     const wait = error.retryAfterSeconds
     return wait === undefined || Number.isNaN(wait)
@@ -58,7 +58,7 @@ export function downloadFailureText(error: unknown): string {
   if (error.statusCode >= 500) {
     return "Your copy couldn't be made just now. Try again in a moment."
   }
-  return error.messages.join(' ')
+  return failureText(error)
 }
 
 function secondsText(seconds: number): string {
@@ -84,7 +84,7 @@ const UNUSABLE_REASONS: readonly string[] = ['used', 'replaced', 'locked', 'expi
 
 export function linkRefusal(error: unknown): LinkRefusal | null {
   if (!(error instanceof ApiError)) return null
-  const message = error.messages.join(' ')
+  const message = failureText(error)
   if (error.statusCode === 404) return { kind: 'not_valid', message }
   if (error.statusCode === 410) {
     // Body fields are `unknown` (ApiError): narrowed against the known list,

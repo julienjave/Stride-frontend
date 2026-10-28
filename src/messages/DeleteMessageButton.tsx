@@ -1,5 +1,6 @@
 import { useRef, useState, type RefObject } from 'react'
 import { Trash2 } from 'lucide-react'
+import { SERVER_PROBLEM_TEXT } from '@/api/apiErrors'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -127,9 +128,13 @@ export function DeleteMessageButton({ conversationId, message, deadline, focusAf
   )
 }
 
-// A refusal (409: read meanwhile, or too late): the server's own words.
-// Anything else (no answer in time, the connection dropped): try again.
+// A refusal (409: read meanwhile, or too late): the server's own words — a
+// failure on the server's side (500) the app's shared sentence, as for every
+// REST answer (failureText). Anything else (no answer in time, the
+// connection dropped): try again.
 function deleteErrorText(error: Error): string {
-  if (error instanceof MessageRefusedError) return error.message
+  if (error instanceof MessageRefusedError) {
+    return error.status >= 500 ? SERVER_PROBLEM_TEXT : error.message
+  }
   return "Couldn't delete your message. Check your connection and try again."
 }

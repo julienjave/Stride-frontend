@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query'
 import { Check, Pencil, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { workoutLetter } from '@/common/workoutLabel'
 import { WORKOUT_NAME_MAX_LENGTH, normalizeWorkoutName } from './workoutGroups'
 
@@ -153,9 +153,7 @@ export function WorkoutHeader({
         )}
         {renameMutation.isError && (
           <p role="alert" className="text-sm text-destructive">
-            {renameMutation.error instanceof ApiError
-              ? renameMutation.error.messages.join(' ')
-              : "Couldn't rename the workout. Try again."}
+            {failureText(renameMutation.error, "Couldn't rename the workout. Try again.")}
           </p>
         )}
       </div>

@@ -371,8 +371,8 @@ describe('ExerciseAssignPage', () => {
         exercises: [],
       },
       addExerciseResponse: jsonResponse(
-        { statusCode: 500, message: ['Internal error'] },
-        500,
+        { statusCode: 400, message: ['Refused by the server'] },
+        400,
       ),
     })
     const user = userEvent.setup()
@@ -380,7 +380,7 @@ describe('ExerciseAssignPage', () => {
     await user.click(await screen.findByText('Shoulder Rehab'))
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
 
-    expect(await screen.findByText('Internal error')).toBeInTheDocument()
+    expect(await screen.findByText('Refused by the server')).toBeInTheDocument()
     expect(screen.getByText('Assign to Shoulder Rehab?')).toBeInTheDocument()
   })
 

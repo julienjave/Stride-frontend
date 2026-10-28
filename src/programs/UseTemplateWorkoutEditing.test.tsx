@@ -111,7 +111,9 @@ describe('useTemplateWorkoutEditing — reordering workouts', () => {
     await answer(jsonResponse({ statusCode: 500, message: ['Internal error'] }, 500))
 
     await waitFor(() => expect(cached()).toStrictEqual(template))
-    expect(result.current.problem).toBe("Couldn't reorder the workouts. Try again.")
+    expect(result.current.problem).toBe(
+      "Couldn't reorder the workouts. Something went wrong on our side. Try again in a moment.",
+    )
   })
 })
 
@@ -240,10 +242,12 @@ describe('describeFailure', () => {
     )
   })
 
-  it('says "Try again." for a server error or a network failure', () => {
+  // The why comes from the app's one rule (failureText): a server error
+  // gets the shared sentence, no answer at all "Try again.".
+  it('says the shared sentence for a server error, and "Try again." for a network failure', () => {
     const serverError = apiError(500, ['Internal error'])
     expect(describeFailure("Couldn't add a workout", serverError)).toBe(
-      "Couldn't add a workout. Try again.",
+      "Couldn't add a workout. Something went wrong on our side. Try again in a moment.",
     )
     expect(describeFailure("Couldn't add a workout", new TypeError('Failed to fetch'))).toBe(
       "Couldn't add a workout. Try again.",

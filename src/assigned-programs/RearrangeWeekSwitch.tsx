@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { useUpdateAssignedProgram } from './useUpdateAssignedProgram'
 
 // "Let the patient rearrange the week" — the program's `allowSwaps`
@@ -39,9 +39,7 @@ export function RearrangeWeekSwitch({
       </p>
       {update.isError && (
         <p role="alert" className="text-destructive">
-          {update.error instanceof ApiError
-            ? update.error.messages.join(' ')
-            : "Couldn't save the change. Try again."}
+          {failureText(update.error, "Couldn't save the change. Try again.")}
         </p>
       )}
     </div>

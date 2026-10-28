@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { NativeSelect } from '@/common/NativeSelect'
 import { useUpdateAssignedProgram } from './useUpdateAssignedProgram'
 
@@ -84,9 +84,7 @@ export function LateMakeUpsSetting({
       </p>
       {update.isError && (
         <p role="alert" className="text-destructive">
-          {update.error instanceof ApiError
-            ? update.error.messages.join(' ')
-            : "Couldn't save the change. Try again."}
+          {failureText(update.error, "Couldn't save the change. Try again.")}
         </p>
       )}
     </div>

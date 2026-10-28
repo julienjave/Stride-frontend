@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { formatShortDate, isCalendarDate } from '@/common/calendarDate'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -213,9 +213,7 @@ export function ScheduleChangeForm({
         // The backend's own words: they say what was refused and why (a
         // change at the same moment by a colleague, a program closed since).
         <p role="alert" className="text-sm text-destructive">
-          {addVersion.error instanceof ApiError
-            ? addVersion.error.messages.join(' ')
-            : "Couldn't save. Check your connection and try again."}
+          {failureText(addVersion.error, "Couldn't save. Check your connection and try again.")}
         </p>
       )}
 

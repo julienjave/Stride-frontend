@@ -302,13 +302,15 @@ describe('StartSessionPage — starting', () => {
     expect(screen.queryByText(/Session page/)).not.toBeInTheDocument()
   })
 
-  it('says "Try again." for a server failure', async () => {
+  it("says the app's shared sentence for a server failure", async () => {
     startAnswer = () => Promise.resolve(apiError(500, 'Internal server error'))
     const user = userEvent.setup()
     renderPage()
     await startForm()
     await user.click(screen.getByRole('button', { name: 'Start session' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't start the session. Try again.")
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Couldn't start the session. Something went wrong on our side. Try again in a moment.",
+    )
   })
 })
 

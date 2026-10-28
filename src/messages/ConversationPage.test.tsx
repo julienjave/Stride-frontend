@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { apiError, json } from '@/sessions/testData'
+import { apiError, json, urlOf } from '@/sessions/testData'
 import { conversationQueryKey } from './api'
 import { deleteMessageLabel, seenText } from './messageText'
 import { fakeApi, fetchMock, renderMessages, requests } from './renderMessages'
@@ -239,6 +239,20 @@ describe('writing a message', () => {
     // Typing again clears the old error.
     await userEvent.type(box(), '!')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  // A failure on the server's side: the app's shared sentence, never
+  // "Internal server error" — as for every REST answer (failureText). The
+  // whole text is matched: the server's words mustn't sit beside it.
+  it("says the server's side failed for a 500, and keeps the text", async () => {
+    const { socket } = await ready()
+    await userEvent.type(box(), 'Hello')
+    await userEvent.click(screen.getByRole('button', { name: 'Send' }))
+    await socket.answerLast({ ok: false, status: 500, message: ['Internal server error'] })
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /^Something went wrong on our side\. Try again in a moment\.$/,
+    )
+    expect(box()).toHaveValue('Hello')
   })
 
   it('turns read-only when the server says we are no longer on a care team together', async () => {
@@ -485,6 +499,21 @@ describe('deleting a message', () => {
     expect(screen.getByRole('dialog', { name: 'Delete this message?' })).toBeInTheDocument()
   })
 
+  // The same shared sentence for a delete the server failed (500).
+  it("says the server's side failed when a delete gets a 500", async () => {
+    pages[''] = page([message(1, { readAt: READ }), mine(2)])
+    const { socket } = renderMessages('/practitioner/messages/12')
+    await screen.findByText(/Message 2/)
+    await userEvent.click(trash(2)!)
+    const dialog = await screen.findByRole('dialog', { name: 'Delete this message?' })
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
+    await socket.answerLast({ ok: false, status: 500, message: ['Internal server error'] })
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      /^Something went wrong on our side\. Try again in a moment\.$/,
+    )
+  })
+
   it('says to try again when no answer comes — and a reopened dialog starts clean', async () => {
     pages[''] = page([message(1, { readAt: READ }), mine(2)])
     const { socket } = renderMessages('/practitioner/messages/12')
@@ -682,8 +711,28 @@ describe('archiving', () => {
     )
     const { router } = renderMessages('/practitioner/messages/12')
     await userEvent.click(await archiveButton())
-    expect(await screen.findByRole('alert')).toHaveTextContent('Something broke')
+    // A 500's own words ("Something broke") never reach the screen: the
+    // app's shared sentence does (failureText).
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Something went wrong on our side. Try again in a moment.',
+    )
     expect(router.state.location.pathname).toBe('/practitioner/messages/12')
+  })
+
+  // No answer at all: the button's own sentence, naming what it tried.
+  it('says to try again when no answer comes', async () => {
+    serve(() => undefined)
+    const answered = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation((input, init) =>
+      init?.method === 'PATCH' && urlOf(input).endsWith('/conversations/12/archive')
+        ? Promise.reject(new TypeError('Failed to fetch'))
+        : answered(input, init),
+    )
+    renderMessages('/practitioner/messages/12')
+    await userEvent.click(await archiveButton())
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /^Couldn't archive this conversation\. Try again\.$/,
+    )
   })
 
   it('turns back into Archive when a new message unarchives it', async () => {

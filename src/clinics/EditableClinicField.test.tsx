@@ -195,7 +195,7 @@ describe('EditableClinicField — a failed save', () => {
     await user.type(screen.getByRole('textbox'), '999-9999')
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
-    expect(await screen.findByText('Internal server error')).toBeInTheDocument()
+    expect(await screen.findByText('Something went wrong on our side. Try again in a moment.')).toBeInTheDocument()
     // Still editable — a failed save should not silently discard the draft.
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument()
   })

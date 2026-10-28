@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { deactivateClinic, clinicQueryKey } from './api'
 
 interface DeactivateClinicButtonProps {
@@ -74,9 +74,7 @@ export function DeactivateClinicButton({ clinicId, clinicName }: DeactivateClini
 
         {deactivateMutation.isError && (
           <p className="text-sm text-destructive">
-            {deactivateMutation.error instanceof ApiError
-              ? deactivateMutation.error.messages.join(', ')
-              : 'Something went wrong'}
+            {failureText(deactivateMutation.error)}
           </p>
         )}
 

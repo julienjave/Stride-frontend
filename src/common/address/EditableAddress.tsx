@@ -3,7 +3,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { AddressFields } from './AddressFields'
 import { addressSchema, type AddressFormValues } from './schemas'
 import { EMPTY_ADDRESS_PATCH, toAddressPatch, type AddressPatch } from './api'
@@ -122,9 +122,7 @@ function AddressEditor({ label, address, canRemove, save, onDone }: AddressEdito
   })
 
   const errorMessage = mutation.isError
-    ? mutation.error instanceof ApiError
-      ? mutation.error.messages.join(', ')
-      : 'Something went wrong'
+    ? failureText(mutation.error)
     : null
 
   return (

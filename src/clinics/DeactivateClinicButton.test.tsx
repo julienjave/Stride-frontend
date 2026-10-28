@@ -108,8 +108,8 @@ describe('DeactivateClinicButton — confirming successfully', () => {
 describe('DeactivateClinicButton — a failed confirm', () => {
   it('shows the error message and keeps the dialog open, without navigating away', async () => {
     fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ statusCode: 500, message: ['Internal server error'] }), {
-        status: 500,
+      new Response(JSON.stringify({ statusCode: 400, message: ['Refused by the server'] }), {
+        status: 400,
       }),
     )
 
@@ -120,7 +120,7 @@ describe('DeactivateClinicButton — a failed confirm', () => {
     await screen.findByText('Deactivate Acme Clinic?')
     await user.click(screen.getByRole('button', { name: 'Deactivate' }))
 
-    expect(await screen.findByText('Internal server error')).toBeInTheDocument()
+    expect(await screen.findByText('Refused by the server')).toBeInTheDocument()
     // Still open — the confirmation copy is still visible.
     expect(screen.getByText('Deactivate Acme Clinic?')).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/admin/clinics/1')
