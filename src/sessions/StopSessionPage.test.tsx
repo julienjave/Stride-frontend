@@ -73,6 +73,8 @@ async function form() {
   return screen.findByRole('heading', { name: 'Stop your session' })
 }
 
+const ENDED = { level: 1, name: 'Session already ended' } as const
+
 describe('StopSessionPage', () => {
   it('says what stopping means, and asks why — the patient’s four reasons, none chosen', async () => {
     renderPage()
@@ -140,6 +142,7 @@ describe('StopSessionPage', () => {
     sessionAnswer = () => json(session({ localDate: '2031-06-11', startedAt: '2031-06-11T12:00:00.000Z' }))
     renderPage()
     expect(await form()).toBeInTheDocument()
+    expect(screen.queryByRole('heading', ENDED)).not.toBeInTheDocument()
   })
 
   it('takes no second tap while stopping', async () => {
@@ -170,11 +173,28 @@ describe('StopSessionPage', () => {
     )
   })
 
-  it('says a finished session is finished — no form', async () => {
-    sessionAnswer = () => json(stopped())
+  // Before 2026-10-28 every ending read "This session is already finished."
+  // — wrong for a stopped or skipped one. Each now says its own status.
+  it.each([
+    ['stopped', () => stopped(), "It's recorded as: Stopped (no time). It can no longer be changed."],
+    [
+      'skipped',
+      () => session({ status: 'skipped', endReason: 'illness', startedAt: null }),
+      "It's recorded as: Skipped (illness). It can no longer be changed.",
+    ],
+    [
+      'completed',
+      () => session({ status: 'completed', completedAt: '2031-06-12T13:00:00.000Z' }),
+      "It's recorded as: Completed. It can no longer be changed.",
+    ],
+  ])('says a %s session has ended, with its status — no form', async (_, ended, text) => {
+    sessionAnswer = () => json(ended())
     renderPage()
-    expect(await screen.findByText('This session is already finished.')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', ENDED)).toBeInTheDocument()
+    expect(screen.getByText(text)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'See the session' })).toHaveAttribute('href', '/patient/sessions/31')
     expect(screen.queryByRole('button', { name: 'Stop session' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Stop your session' })).not.toBeInTheDocument()
   })
 
   it("says a session it can't see isn't available", async () => {
@@ -197,6 +217,19 @@ describe('StopSessionPage', () => {
     sessionAnswer = () => json(session())
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     const heading = await screen.findByRole('heading', { level: 1, name: 'Stop your session' })
+    await waitFor(() => expect(heading).toHaveFocus())
+  })
+
+  // "Already ended" had no heading before 2026-10-28: focus fell back to the
+  // top of the page after a working retry.
+  it('a "Try again" that works on an ended session puts focus on its heading', async () => {
+    const user = userEvent.setup()
+    sessionAnswer = () => apiError(500, 'Internal server error')
+    renderPage()
+    await expectLoadError('session')
+    sessionAnswer = () => json(stopped())
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    const heading = await screen.findByRole('heading', ENDED)
     await waitFor(() => expect(heading).toHaveFocus())
   })
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { type Ref, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -12,8 +12,14 @@ import { completeSession } from './api'
 import { completeBody } from './endingRules'
 import { FEEDBACK_MAX_LENGTH } from './sessionRules'
 import { ScoreScale } from './ScoreScale'
-import { LoadFailed, Loading, NotAvailable, Page } from './SessionPageParts'
-import { ENDING_NOTICE, checklistProgressText, untickedText } from './sessionText'
+import { LoadFailed, Loading, NotAvailable, Page, SessionAlreadyEnded } from './SessionPageParts'
+import {
+  CANNOT_FINISH_HEADING,
+  ENDING_NOTICE,
+  checklistProgressText,
+  earlierDayText,
+  untickedText,
+} from './sessionText'
 import type { Session } from './types'
 import { useSession } from './useSession'
 import { useSessionWrite } from './useSessionWrite'
@@ -45,6 +51,12 @@ function FinishView({ sessionId }: { sessionId: number }) {
   const program = useAssignedProgram(session.data?.assignedProgramId ?? 0, {
     enabled: session.isSuccess,
   })
+  // After a "Try again" that worked, focus goes to the heading of whatever
+  // the page then shows — the form, or one of the two states below; each
+  // takes this ref (the start page's pattern). The hook lives HERE, above
+  // the three, because a hook can't be called inside a branch, and because
+  // only this view knows when the session has arrived (`isSuccess`).
+  const heading = useRetryFocus<HTMLHeadingElement>('this session', session.isSuccess)
 
   if (session.isError) {
     return (
@@ -61,15 +73,11 @@ function FinishView({ sessionId }: { sessionId: number }) {
     )
   }
 
-  const sessionPath = `/patient/sessions/${sessionId}`
-  // Finished already (a second tab, an old link): nothing to finish.
+  // Ended already (a second tab, an old link): nothing to finish.
   if (session.data.status !== 'in_progress') {
     return (
       <Page>
-        <p>This session is already finished.</p>
-        <Link to={sessionPath} className="text-sm underline underline-offset-4">
-          See the session
-        </Link>
+        <SessionAlreadyEnded session={session.data} heading={heading} />
       </Page>
     )
   }
@@ -78,11 +86,16 @@ function FinishView({ sessionId }: { sessionId: number }) {
   if (session.data.localDate !== today) {
     return (
       <Page>
-        <p>
-          This session was started on another day, so it can no longer be finished. You can stop
-          it instead: it will be kept as not finished.
-        </p>
-        <Link to={`${sessionPath}/stop`} className="text-sm underline underline-offset-4">
+        <div className="space-y-1">
+          <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+            {CANNOT_FINISH_HEADING}
+          </h1>
+          <p>{earlierDayText(session.data.localDate)}</p>
+        </div>
+        <Link
+          to={`/patient/sessions/${sessionId}/stop`}
+          className="text-sm underline underline-offset-4"
+        >
           Stop the session
         </Link>
       </Page>
@@ -93,10 +106,18 @@ function FinishView({ sessionId }: { sessionId: number }) {
   const subtitle = program.data
     ? `${program.data.title}${names?.several ? `: ${names.labelOf(session.data.workoutId)}` : ''}`
     : null
-  return <FinishForm session={session.data} subtitle={subtitle} />
+  return <FinishForm session={session.data} subtitle={subtitle} heading={heading} />
 }
 
-function FinishForm({ session, subtitle }: { session: Session; subtitle: string | null }) {
+function FinishForm({
+  session,
+  subtitle,
+  heading,
+}: {
+  session: Session
+  subtitle: string | null
+  heading: Ref<HTMLHeadingElement>
+}) {
   const navigate = useNavigate()
   const [painAfter, setPainAfter] = useState<number | null>(null)
   const [mobilityAfter, setMobilityAfter] = useState<number | null>(null)
@@ -109,11 +130,6 @@ function FinishForm({ session, subtitle }: { session: Session; subtitle: string 
   )
   const unticked = untickedText(session.exercises)
   const sessionPath = `/patient/sessions/${session.id}`
-  // After a "Try again" that worked, focus goes to this form's heading. (The
-  // form mounts only once the session is there, so `shown` is simply true.
-  // The page's other two states — finished already, or from another day —
-  // have no heading of their own; nothing is focused for them.)
-  const heading = useRetryFocus<HTMLHeadingElement>('this session', true)
 
   return (
     <Page>

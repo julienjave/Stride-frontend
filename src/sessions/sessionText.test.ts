@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import {
   REASON_CHOICES,
+  alreadyEndedText,
   checklistProgressText,
   countsForText,
+  earlierDayText,
   leftOpenText,
   nothingToStartText,
   sessionStatusText,
@@ -92,6 +94,36 @@ describe('sessionStatusText', () => {
     [{ status: 'incomplete' as const, endReason: null }, 'Stopped (another reason)'],
   ])('%j → %s', (session, text) => {
     expect(sessionStatusText(session)).toBe(text)
+  })
+})
+
+describe('alreadyEndedText', () => {
+  // Each ending in its own words — a stopped or skipped session is never
+  // called "finished" (the sentence these pages wrote before).
+  it.each([
+    [{ status: 'completed' as const, endReason: null }, "It's recorded as: Completed. It can no longer be changed."],
+    [
+      { status: 'incomplete' as const, endReason: 'pain' as const },
+      "It's recorded as: Stopped (pain). It can no longer be changed.",
+    ],
+    [
+      { status: 'incomplete' as const, endReason: 'not_finished_in_time' as const },
+      "It's recorded as: Not finished (left open until a later session started). It can no longer be changed.",
+    ],
+    [
+      { status: 'skipped' as const, endReason: 'no_time' as const },
+      "It's recorded as: Skipped (no time). It can no longer be changed.",
+    ],
+  ])('%j → %s', (session, text) => {
+    expect(alreadyEndedText(session)).toBe(text)
+  })
+})
+
+describe('earlierDayText', () => {
+  it("names the session's own day, and what is left to do", () => {
+    expect(earlierDayText('2031-06-09', L)).toBe(
+      'It was started on Mon 9 Jun. You can stop it instead: it will be kept as not finished.',
+    )
   })
 })
 

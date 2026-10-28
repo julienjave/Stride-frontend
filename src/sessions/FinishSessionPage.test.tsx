@@ -9,6 +9,7 @@ import { assignedProgramSummaryQueryKey } from '@/assigned-programs/api'
 import { programSessionsQueryKey } from '@/progress/api'
 import { sessionQueryKey } from './api'
 import { FinishSessionPage } from './FinishSessionPage'
+import { earlierDayText } from './sessionText'
 import type { Session } from './types'
 import { KNEE, PAT, TODAY, apiError, json, session, sessionExercise, summary, urlOf } from './testData'
 import { expectLoadError, expectNotAvailable } from './notAvailableAssertions'
@@ -223,26 +224,69 @@ describe('FinishSessionPage — finishing', () => {
   })
 })
 
+// The three things the page can show once the session is there — each
+// test checks the other two are absent.
+const ENDED = { level: 1, name: 'Session already ended' } as const
+const EARLIER_DAY = { level: 1, name: 'This session can no longer be finished' } as const
+
+// Ended AND from an earlier day: the two checks disagree here, and "ended"
+// must win (there is nothing to stop either).
+function stoppedYesterday() {
+  return open({
+    status: 'incomplete',
+    endReason: 'pain',
+    localDate: '2031-06-11',
+    startedAt: '2031-06-11T12:00:00.000Z',
+    endedAt: '2031-06-11T12:20:00.000Z',
+  })
+}
+
 describe('FinishSessionPage — nothing to finish', () => {
-  it('says a finished session is finished — no form', async () => {
+  it('says a completed session has ended, with its status — no form', async () => {
     sessionAnswer = () => json(open({ status: 'completed', completedAt: '2031-06-12T13:00:00.000Z' }))
     renderPage()
-    expect(await screen.findByText('This session is already finished.')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', ENDED)).toBeInTheDocument()
+    expect(screen.getByText("It's recorded as: Completed. It can no longer be changed.")).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'See the session' })).toHaveAttribute('href', '/patient/sessions/31')
     expect(screen.queryByRole('button', { name: 'Finish session' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Finish your session' })).not.toBeInTheDocument()
+  })
+
+  // Before 2026-10-28 this said "This session is already finished." — wrong
+  // for a stopped session, which the app keeps as NOT finished.
+  it('never calls a stopped session finished — even one from an earlier day', async () => {
+    sessionAnswer = () => json(stoppedYesterday())
+    renderPage()
+    expect(await screen.findByRole('heading', ENDED)).toBeInTheDocument()
+    expect(screen.getByText("It's recorded as: Stopped (pain). It can no longer be changed.")).toBeInTheDocument()
+    expect(screen.queryByText(/already finished/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', EARLIER_DAY)).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Stop the session' })).not.toBeInTheDocument()
   })
 
   // Completing happens on a session's own day: an earlier day's open
   // session can only be stopped.
-  it('offers Stop, not Finish, for a session from an earlier day', async () => {
+  it('offers Stop, not Finish, for a session from an earlier day — naming its day', async () => {
     sessionAnswer = () => json(open({ localDate: '2031-06-11', startedAt: '2031-06-11T12:00:00.000Z' }))
     renderPage()
-    expect(await screen.findByText(/started on another day, so it can no longer be finished/)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', EARLIER_DAY)).toBeInTheDocument()
+    // The words are sessionText's (tested there, in a pinned locale); here,
+    // that the page passes the SESSION's day — not today's.
+    expect(screen.getByText(earlierDayText('2031-06-11'))).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Stop the session' })).toHaveAttribute(
       'href',
       '/patient/sessions/31/stop',
     )
     expect(screen.queryByRole('button', { name: 'Finish session' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Finish your session' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', ENDED)).not.toBeInTheDocument()
+  })
+
+  it('shows neither state above the form of an open session of today', async () => {
+    renderPage()
+    await form()
+    expect(screen.queryByRole('heading', ENDED)).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', EARLIER_DAY)).not.toBeInTheDocument()
   })
 
   it("says a session it can't see isn't available", async () => {
@@ -265,6 +309,26 @@ describe('FinishSessionPage — nothing to finish', () => {
     sessionAnswer = () => json(open())
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     const heading = await screen.findByRole('heading', { level: 1, name: 'Finish your session' })
+    await waitFor(() => expect(heading).toHaveFocus())
+  })
+
+  // The two states had no heading before 2026-10-28: focus fell back to the
+  // top of the page after a working retry.
+  it.each([
+    ['an ended session', () => json(stoppedYesterday()), ENDED],
+    [
+      'a session from an earlier day',
+      () => json(open({ localDate: '2031-06-11', startedAt: '2031-06-11T12:00:00.000Z' })),
+      EARLIER_DAY,
+    ],
+  ])('a "Try again" that works on %s puts focus on its heading', async (_, answer, name) => {
+    const user = userEvent.setup()
+    sessionAnswer = () => apiError(500, 'Internal server error')
+    renderPage()
+    await expectLoadError('session')
+    sessionAnswer = answer
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    const heading = await screen.findByRole('heading', name)
     await waitFor(() => expect(heading).toHaveFocus())
   })
 

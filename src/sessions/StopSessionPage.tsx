@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { type Ref, useRef, useState } from 'react'
 import { useRetryFocus } from '@/common/useRetryFocus'
 import { Link, useNavigate, useParams } from 'react-router'
 import { Button } from '@/components/ui/button'
@@ -7,7 +7,14 @@ import { stopSession } from './api'
 import { stopBody } from './endingRules'
 import { ReasonPicker } from './ReasonPicker'
 import { ScoreScale } from './ScoreScale'
-import { EndNoteField, LoadFailed, Loading, NotAvailable, Page } from './SessionPageParts'
+import {
+  EndNoteField,
+  LoadFailed,
+  Loading,
+  NotAvailable,
+  Page,
+  SessionAlreadyEnded,
+} from './SessionPageParts'
 import { ENDING_NOTICE, checklistProgressText } from './sessionText'
 import type { PatientEndReason, Session } from './types'
 import { useSession } from './useSession'
@@ -38,6 +45,11 @@ export function StopSessionPage() {
 
 function StopView({ sessionId }: { sessionId: number }) {
   const session = useSession(sessionId)
+  // After a "Try again" that worked, focus goes to the heading of whatever
+  // the page then shows — the form or "already ended"; both take this ref
+  // (the start page's pattern: the hook above the branches, `shown` when
+  // the session has arrived).
+  const heading = useRetryFocus<HTMLHeadingElement>('this session', session.isSuccess)
 
   if (session.isError) {
     return (
@@ -56,20 +68,14 @@ function StopView({ sessionId }: { sessionId: number }) {
   if (session.data.status !== 'in_progress') {
     return (
       <Page>
-        <p>This session is already finished.</p>
-        <Link
-          to={`/patient/sessions/${sessionId}`}
-          className="text-sm underline underline-offset-4"
-        >
-          See the session
-        </Link>
+        <SessionAlreadyEnded session={session.data} heading={heading} />
       </Page>
     )
   }
-  return <StopForm session={session.data} />
+  return <StopForm session={session.data} heading={heading} />
 }
 
-function StopForm({ session }: { session: Session }) {
+function StopForm({ session, heading }: { session: Session; heading: Ref<HTMLHeadingElement> }) {
   const navigate = useNavigate()
   const [reason, setReason] = useState<PatientEndReason | null>(null)
   const [note, setNote] = useState('')
@@ -79,9 +85,6 @@ function StopForm({ session }: { session: Session }) {
   // question (focus on its first choice).
   const [missingReason, setMissingReason] = useState(false)
   const reasonRef = useRef<HTMLDivElement>(null)
-  // After a "Try again" that worked, focus goes to this form's heading (the
-  // form mounts with the session: `shown` is true).
-  const heading = useRetryFocus<HTMLHeadingElement>('this session', true)
   const stop = useSessionWrite(
     (body: ReturnType<typeof stopBody>) => stopSession(session.id, body),
     () => void navigate('/patient', { replace: true, state: { notice: ENDING_NOTICE.stopped } }),

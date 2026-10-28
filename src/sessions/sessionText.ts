@@ -73,6 +73,29 @@ export function sessionStatusText(session: Pick<Session, 'status' | 'endReason'>
   }
 }
 
+// --- THE FINISH AND STOP PAGES: NOTHING LEFT TO DO ----------------------------------
+
+// A session that has ENDED, opened at Finish or Stop (an old link, a second
+// tab). Decided with the person 2026-10-28: one heading for every ending,
+// and the session's status in the words the session page already shows —
+// before, both pages said "This session is already finished." for ANY
+// ending, which was wrong for a stopped or skipped session (the app calls
+// those "not finished").
+export const ALREADY_ENDED_HEADING = 'Session already ended'
+
+export function alreadyEndedText(session: Pick<Session, 'status' | 'endReason'>): string {
+  return `It's recorded as: ${sessionStatusText(session)}. It can no longer be changed.`
+}
+
+// Finish, for a session still open from an EARLIER day: completing happens
+// on a session's own day, so stopping is what's left. The day is the
+// session's own (`localDate` — the one the home's "left open" line names).
+export const CANNOT_FINISH_HEADING = 'This session can no longer be finished'
+
+export function earlierDayText(localDate: string, locale?: string): string {
+  return `It was started on ${formatShortDate(localDate, locale)}. You can stop it instead: it will be kept as not finished.`
+}
+
 // When the session began: "Started at 14:05" on its own day; "Started on
 // Tue 13 Oct" on another (the time would say little a day later). The time
 // is the START's moment in the viewer's zone (`timeZone` only for tests);
