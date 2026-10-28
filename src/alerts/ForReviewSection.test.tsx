@@ -7,7 +7,7 @@ import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import { localDateString } from '@/common/calendarDate'
 import { PractitionerHomePage } from '@/app/PractitionerHomePage'
 import { apiError, json, urlOf } from '@/sessions/testData'
-import { attendanceAlert, joinAlert, sessionAlert } from './testData'
+import { attendanceAlert, complaintReviewAlert, joinAlert, sessionAlert } from './testData'
 import type { Alert } from './types'
 import { expectSkeleton } from '@/common/loadingAssertions'
 
@@ -20,15 +20,21 @@ vi.stubGlobal('fetch', fetchMock)
 let alerts: () => Response
 // "Mark as reviewed" on a join notice (2026-10-28): its answer.
 let joinReview: () => Response | Promise<Response>
+// … and on a complaint review's notice (pass 2).
+let complaintReview: () => Response | Promise<Response>
 
 beforeEach(() => {
   fetchMock.mockReset()
   alerts = () => json([])
   joinReview = () => json({ reviewedAt: '2031-06-12T12:00:00.000Z' })
+  complaintReview = () => json({ reviewedAt: '2031-06-12T12:00:00.000Z' })
   fetchMock.mockImplementation((input, init) => {
     const url = new URL(urlOf(input))
     if (init?.method === 'POST' && url.pathname.endsWith('/alerts/care-team-joins/41/review')) {
       return Promise.resolve(joinReview())
+    }
+    if (init?.method === 'POST' && url.pathname.endsWith('/alerts/complaint-reviews/12/review')) {
+      return Promise.resolve(complaintReview())
     }
     if (url.pathname.endsWith('/alerts')) return Promise.resolve(alerts())
     // The card's Messages slot (Phase 5) asks for the conversations.
@@ -221,11 +227,11 @@ describe('the For review list on the practitioner home', () => {
 
   // --- A colleague joined a patient's care team (2026-10-28) ---
 
-  it('says the list holds care-team joins too', async () => {
+  it('says the list holds care-team joins and complaint reviews too', async () => {
     renderHome()
     expect(
       await screen.findByText(
-        'Your patients who have stopped coming, sessions of the last 14 days to look at, and colleagues who joined their care teams.',
+        'Your patients who have stopped coming, sessions of the last 14 days to look at, colleagues who joined their care teams, and complaint reviews of their records.',
       ),
     ).toBeInTheDocument()
   })
@@ -306,5 +312,75 @@ describe('the For review list on the practitioner home', () => {
     consoleError.mockRestore()
     expect(within(all[0]).getByRole('link')).toHaveAttribute('href', '/practitioner/programs/assigned/41')
     expect(within(all[1]).getByText('Sam Lee joined the care team')).toBeInTheDocument()
+  })
+
+  // --- An admin opened a complaint review (2026-10-28, pass 2) ---
+
+  it('gives a complaint review row who opened it, when, what it means — and no link', async () => {
+    alerts = () => json([complaintReviewAlert()])
+    renderHome()
+    const [row] = await rows()
+    expect(within(row).getByText('Pat Lee')).toBeInTheDocument()
+    expect(within(row).getByText('Avery Admin opened a complaint review of the record')).toBeInTheDocument()
+    expect(
+      within(row).getByText(
+        "While it's open, that admin can download copies of the record. The reason stays with the clinic's admins.",
+      ),
+    ).toBeInTheDocument()
+    expect(within(row).getByText(/10.*17/)).toBeInTheDocument()
+    expect(
+      within(row).getByRole('button', { name: "Mark as reviewed: complaint review of Pat Lee's record" }),
+    ).toHaveTextContent('Mark as reviewed')
+    // Nothing to go and see: no link at all.
+    expect(within(row).queryByRole('link')).not.toBeInTheDocument()
+  })
+
+  it('marks a complaint review seen: its own POST, focus to the heading, said', async () => {
+    let listed = [complaintReviewAlert()]
+    alerts = () => json(listed)
+    const user = userEvent.setup()
+    renderHome()
+    const [row] = await rows()
+    listed = []
+    await user.click(within(row).getByRole('button', { name: /^Mark as reviewed/ }))
+    expect(postRequests()).toEqual(['/alerts/complaint-reviews/12/review undefined'])
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 2, name: 'For review' })).toHaveFocus(),
+    )
+    expect(
+      await screen.findByText("Marked as reviewed: the complaint review of Pat Lee's record.", {
+        selector: '[role="status"]',
+      }),
+    ).toBeInTheDocument()
+    expect(await screen.findByText("You're all caught up.")).toBeInTheDocument()
+  })
+
+  it('says a refused complaint review mark in the row', async () => {
+    alerts = () => json([complaintReviewAlert()])
+    complaintReview = () => apiError(409, 'This complaint review is not in your For review list')
+    const user = userEvent.setup()
+    renderHome()
+    const [row] = await rows()
+    await user.click(within(row).getByRole('button', { name: /^Mark as reviewed/ }))
+    expect(await within(row).findByRole('alert')).toHaveTextContent(
+      'This complaint review is not in your For review list',
+    )
+    expect(within(row).getByRole('button', { name: /^Mark as reviewed/ })).toBeEnabled()
+  })
+
+  it('keys a complaint review apart from a join and a session of the same number', async () => {
+    const consoleError = vi.spyOn(console, 'error')
+    alerts = () =>
+      json([
+        sessionAlert({ session: { ...sessionAlert().session, id: 12 } }),
+        joinAlert({ link: { id: 12 } }),
+        complaintReviewAlert(),
+      ])
+    renderHome()
+    expect(await rows()).toHaveLength(3)
+    expect(
+      consoleError.mock.calls.filter((call) => String(call[0]).includes('same key')),
+    ).toEqual([])
+    consoleError.mockRestore()
   })
 })

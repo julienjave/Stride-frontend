@@ -108,7 +108,7 @@ describe('UserEditPage — loading and error states', () => {
     let userFailures = 1
     fetchMock.mockImplementation((input) => {
       const url = urlOf(input)
-      if (url.endsWith('/records-export-links')) {
+      if (url.endsWith('/records-export-links') || url.endsWith('/complaint-reviews')) {
         return Promise.resolve(new Response('[]', { status: 200 }))
       }
       if (url.endsWith('/users/1') && userFailures > 0) {
@@ -134,8 +134,9 @@ describe('UserEditPage — rendering a loaded user', () => {
   it("shows the user's name, email, roles, and their clinic memberships section", async () => {
     fetchMock.mockImplementation((input) => {
       const url = urlOf(input)
-      // Before '/users/1', which it contains: a patient's records links.
-      if (url.endsWith('/records-export-links')) {
+      // Before '/users/1', which they contain: a patient's records links and
+      // complaint reviews.
+      if (url.endsWith('/records-export-links') || url.endsWith('/complaint-reviews')) {
         return Promise.resolve(new Response('[]', { status: 200 }))
       }
       if (url.includes('/users/1')) {
@@ -165,8 +166,9 @@ describe('UserEditPage — rendering a loaded user', () => {
   it('shows a deactivated notice for an inactive user', async () => {
     fetchMock.mockImplementation((input) => {
       const url = urlOf(input)
-      // Before '/users/1', which it contains: a patient's records links.
-      if (url.endsWith('/records-export-links')) {
+      // Before '/users/1', which they contain: a patient's records links and
+      // complaint reviews.
+      if (url.endsWith('/records-export-links') || url.endsWith('/complaint-reviews')) {
         return Promise.resolve(new Response('[]', { status: 200 }))
       }
       if (url.includes('/users/1')) {
@@ -226,8 +228,9 @@ describe('UserEditPage — rendering a loaded user', () => {
   it('has a "Back to users" link pointing to the list route', async () => {
     fetchMock.mockImplementation((input) => {
       const url = urlOf(input)
-      // Before '/users/1', which it contains: a patient's records links.
-      if (url.endsWith('/records-export-links')) {
+      // Before '/users/1', which they contain: a patient's records links and
+      // complaint reviews.
+      if (url.endsWith('/records-export-links') || url.endsWith('/complaint-reviews')) {
         return Promise.resolve(new Response('[]', { status: 200 }))
       }
       if (url.includes('/users/1')) {
@@ -246,8 +249,9 @@ describe('UserEditPage — rendering a loaded user', () => {
   it('renders GrantRoleForm, offering only roles this user does not already hold', async () => {
     fetchMock.mockImplementation((input) => {
       const url = urlOf(input)
-      // Before '/users/1', which it contains: a patient's records links.
-      if (url.endsWith('/records-export-links')) {
+      // Before '/users/1', which they contain: a patient's records links and
+      // complaint reviews.
+      if (url.endsWith('/records-export-links') || url.endsWith('/complaint-reviews')) {
         return Promise.resolve(new Response('[]', { status: 200 }))
       }
       if (url.includes('/users/1')) {
@@ -345,9 +349,9 @@ describe('UserEditPage — photo', () => {
           new Response(JSON.stringify({ ...withPhoto, avatarUrl: null }), { status: 200 }),
         )
       }
-      // A patient's page also lists their records links — checked before
-      // '/users/1', which it contains.
-      if (url.endsWith('/users/1/records-export-links')) {
+      // A patient's page also lists their records links and complaint
+      // reviews — checked before '/users/1', which they contain.
+      if (url.endsWith('/users/1/records-export-links') || url.endsWith('/users/1/complaint-reviews')) {
         return Promise.resolve(new Response('[]', { status: 200 }))
       }
       if (url.includes('/users/1')) {
@@ -529,6 +533,33 @@ describe('UserEditPage — health record copy', () => {
     await screen.findByRole('heading', { name: 'Prac Titioner' })
     expect(screen.queryByRole('region', { name: 'Health record copy' })).not.toBeInTheDocument()
     expect(askedForLinks()).toBe(false)
+    // Nor a complaint review (decisions §25, pass 2): only a patient has a
+    // record to review.
+    expect(screen.queryByRole('region', { name: 'Complaint reviews' })).not.toBeInTheDocument()
+    expect(askedForReviews()).toBe(false)
+  })
+
+  // The complaint review (decisions §25, pass 2) — what the section does is
+  // tested in src/complaint-reviews/ComplaintReviewsSection.test.tsx.
+  const askedForReviews = () =>
+    fetchMock.mock.calls.some(([input]) => urlOf(input).endsWith('/complaint-reviews'))
+
+  it("offers a complaint review of a patient's record — this patient's", async () => {
+    mockUser(fullUser)
+    renderAt('/admin/users/1')
+    const region = await screen.findByRole('region', { name: 'Complaint reviews' })
+    expect(await within(region).findByText('No review has been opened.')).toBeInTheDocument()
+    expect(within(region).getByRole('button', { name: 'Open a review' })).toBeInTheDocument()
+    expect(
+      fetchMock.mock.calls.some(([input]) => urlOf(input).endsWith('/users/1/complaint-reviews')),
+    ).toBe(true)
+  })
+
+  it('offers a complaint review for a deactivated patient too', async () => {
+    mockUser({ ...fullUser, isActive: false })
+    renderAt('/admin/users/1')
+    await screen.findByText('This account is deactivated.')
+    expect(await screen.findByRole('region', { name: 'Complaint reviews' })).toBeInTheDocument()
   })
 })
 

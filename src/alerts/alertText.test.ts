@@ -3,6 +3,10 @@ import {
   alertCountText,
   alertLinkLabel,
   attendanceLines,
+  COMPLAINT_REVIEW_EXPLAINED,
+  complaintReviewPeriodText,
+  complaintReviewReviewLabel,
+  complaintReviewText,
   inactivityText,
   joinLinkLabel,
   joinPeriodText,
@@ -11,7 +15,7 @@ import {
   missedRunText,
   sessionReasonsText,
 } from './alertText'
-import { attendanceAlert, joinAlert, sessionAlert } from './testData'
+import { attendanceAlert, complaintReviewAlert, joinAlert, sessionAlert } from './testData'
 
 // en-GB pins the date format ("Mon 26 May"); the sentences around it are
 // the point. (US formatting adds a comma — "Mon, May 26" — and nothing here
@@ -174,5 +178,41 @@ describe('a colleague who joined the care team', () => {
   it('names both controls in full, starting with their visible words', () => {
     expect(joinReviewLabel(joinAlert())).toBe("Mark as reviewed: Sam Lee on Pat Lee's care team")
     expect(joinLinkLabel(joinAlert())).toBe('View care team (Pat Lee)')
+  })
+})
+
+describe('an admin who opened a complaint review', () => {
+  it('says who opened it — and nothing of why', () => {
+    expect(complaintReviewText(complaintReviewAlert())).toBe(
+      'Avery Admin opened a complaint review of the record',
+    )
+    expect(COMPLAINT_REVIEW_EXPLAINED).toBe(
+      "While it's open, that admin can download copies of the record. The reason stays with the clinic's admins.",
+    )
+  })
+
+  it('says until when while it runs, and when it ended once over', () => {
+    const running = new Date('2031-06-12T12:00:00.000Z')
+    expect(complaintReviewPeriodText(complaintReviewAlert(), running, L)).toBe(
+      'Tue 10 Jun · until Tue 17 Jun',
+    )
+    // Its 7 days ran out — at that very moment counts as over.
+    expect(
+      complaintReviewPeriodText(complaintReviewAlert(), new Date('2031-06-17T12:00:00.000Z'), L),
+    ).toBe('Tue 10 Jun · ended Tue 17 Jun')
+    // Ended early by an admin: the day it was ended, not the expiry.
+    expect(
+      complaintReviewPeriodText(
+        complaintReviewAlert({ review: { endedAt: '2031-06-11T12:00:00.000Z' } }),
+        running,
+        L,
+      ),
+    ).toBe('Tue 10 Jun · ended Wed 11 Jun')
+  })
+
+  it('names its button in full, starting with the visible words', () => {
+    expect(complaintReviewReviewLabel(complaintReviewAlert())).toBe(
+      "Mark as reviewed: complaint review of Pat Lee's record",
+    )
   })
 })

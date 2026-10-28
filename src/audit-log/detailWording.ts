@@ -94,6 +94,21 @@ const DETAIL_WORDING: Partial<Record<AuditAction, Record<string, DetailWording>>
     wrongDatesOfBirth: { label: 'Wrong dates of birth so far' },
     linkLocked: { label: 'Link locked', values: { true: 'Yes — the link no longer works' } },
   },
+  // The complaint review (decisions §25, pass 2). `openedBy` is a user id, as
+  // stored (the entry's own "who" is the admin who acted).
+  COMPLAINT_REVIEW_OPENED: {
+    reason: { label: 'Reason' },
+    caseReference: { label: 'Case reference' },
+    expiresAt: { label: 'Open until' },
+  },
+  COMPLAINT_REVIEW_ENDED: {
+    openedBy: { label: 'Opened by (user id)' },
+    expiresAt: { label: 'Would have been open until' },
+  },
+  COMPLAINT_REVIEW_NOTICE_REVIEWED: {
+    complaintReviewId: { label: 'Complaint review' },
+    openedBy: { label: 'Opened by (user id)' },
+  },
   STEP_UP_FAILED: {
     purpose: { label: 'For', values: STEP_UP_PURPOSE },
     reason: { values: STEP_UP_REASON },

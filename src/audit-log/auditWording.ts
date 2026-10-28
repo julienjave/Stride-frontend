@@ -124,6 +124,7 @@ const WORDING: Record<AuditAction, string> = {
   SESSION_REVIEWED: 'Marked a session as reviewed',
   PROGRAM_ALERT_REVIEWED: 'Marked a program alert as reviewed',
   CARE_TEAM_JOIN_REVIEWED: 'Marked a care-team join as reviewed',
+  COMPLAINT_REVIEW_NOTICE_REVIEWED: 'Marked a complaint review notice as reviewed',
   ALERTS_VIEWED: 'Viewed the For review list',
 
   // Messaging (who wrote to whom and when — never the text)
@@ -142,12 +143,18 @@ const WORDING: Record<AuditAction, string> = {
 
   // Records exports (decisions §20): a copy of a patient's whole record, as
   // a PDF — downloaded by the patient (signed in, or through an emailed
-  // link), never by staff. The download's details (what went in) are
-  // clinical, so withheld from admins; the link's aren't (who sent it where,
-  // how many wrong dates of birth).
+  // link), or, under a complaint review (decisions §25), by the admin who
+  // opened it: the entry's "who" says which. The download's details (what
+  // went in) are clinical, so withheld from admins; the link's aren't (who
+  // sent it where, how many wrong dates of birth).
   RECORDS_EXPORTED: 'Downloaded a copy of a health record',
   RECORDS_EXPORT_LINK_SENT: 'Emailed a health record download link',
   RECORDS_EXPORT_LINK_REFUSED: 'Entered a wrong date of birth on a download link',
+
+  // The complaint review (decisions §25, pass 2): a time-boxed access, with a
+  // reason, to copies of one patient's record.
+  COMPLAINT_REVIEW_OPENED: 'Opened a complaint review of a health record',
+  COMPLAINT_REVIEW_ENDED: 'Ended a complaint review early',
 }
 
 // `Object.hasOwn`, not `in`: `'toString' in WORDING` is true (inherited).

@@ -15,6 +15,7 @@ import { InvitationStatus } from '@/invitations/InvitationStatus'
 import { CareTeamSection } from '@/patients/CareTeamSection'
 import { ResetTwoFactorSection } from '@/two-factor/ResetTwoFactorSection'
 import { RecordsExportLinksSection } from '@/records-export/RecordsExportLinksSection'
+import { ComplaintReviewsSection } from '@/complaint-reviews/ComplaintReviewsSection'
 import { Loading } from '@/common/Loading'
 
 export function UserEditPage() {
@@ -139,6 +140,19 @@ function UserEditView({ userId }: { userId: number }) {
           firstName={user.firstName}
           lastName={user.lastName}
           email={user.email}
+        />
+      )}
+
+      {/* A complaint review (decisions §25, pass 2): a time-boxed, reasoned
+          access to copies of THIS patient's record — the only way an admin
+          sees one (no standing access, decisions §16). `me`: copies are for
+          the admin who opened the review. */}
+      {user.roles.includes('patient') && me && (
+        <ComplaintReviewsSection
+          patientId={userId}
+          firstName={user.firstName}
+          lastName={user.lastName}
+          myId={me.id}
         />
       )}
 

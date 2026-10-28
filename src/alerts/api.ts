@@ -34,9 +34,6 @@ export function reviewSession(id: number) {
   return apiRequest<StaffSession>(`/sessions/${id}/review`, { method: 'POST' })
 }
 
-// "Mark as reviewed" for a program's attendance alert (2026-10-19). Only
-// `today` is sent — the day the alert is judged on; the server works out
-// the facts being reviewed itself, so they're never the client's word.
 // "Mark as reviewed" on a care-team join notice — no body: the server counts
 // the 14 days on its own clock (a link starts at an instant).
 export function reviewCareTeamJoin(linkId: number) {
@@ -45,6 +42,17 @@ export function reviewCareTeamJoin(linkId: number) {
   })
 }
 
+// "Mark as reviewed" on a complaint review's notice (decisions §25, pass 2) —
+// no body either: a review opens at an instant too.
+export function reviewComplaintReviewNotice(reviewId: number) {
+  return apiRequest<{ reviewedAt: string }>(`/alerts/complaint-reviews/${reviewId}/review`, {
+    method: 'POST',
+  })
+}
+
+// "Mark as reviewed" for a program's attendance alert (2026-10-19). Only
+// `today` is sent — the day the alert is judged on; the server works out
+// the facts being reviewed itself, so they're never the client's word.
 export function reviewProgramAlert(programId: number, today: string) {
   return apiRequest<ProgramAlertReview>(`/alerts/programs/${programId}/review`, {
     method: 'POST',

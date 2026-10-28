@@ -2,6 +2,7 @@ import { formatShortDate, localDateString } from '@/common/calendarDate'
 import type {
   AttendanceAlert,
   CareTeamJoinAlert,
+  ComplaintReviewAlert,
   Inactivity,
   MissedRun,
   PersonName,
@@ -136,4 +137,37 @@ export function joinReviewLabel(alert: CareTeamJoinAlert): string {
 
 export function joinLinkLabel(alert: CareTeamJoinAlert): string {
   return `View care team (${fullName(alert.patient)})`
+}
+
+// --- AN ADMIN OPENED A COMPLAINT REVIEW (2026-10-28) -------------------------------
+
+// What happened, naming who: "Avery Admin opened a complaint review of the
+// record" (the patient is the row's heading). Never why — the alert has no
+// reason to say.
+export function complaintReviewText(alert: ComplaintReviewAlert): string {
+  return `${fullName(alert.review.openedBy)} opened a complaint review of the record`
+}
+
+// When: the day it opened, then its end — "until" while it runs, "ended" once
+// it is over, whether an admin ended it early (endedAt) or its 7 days ran out
+// (expiresAt). `now` decides which, as for a join.
+//   "Wed 28 Oct · until Wed 4 Nov"   "Wed 28 Oct · ended Thu 29 Oct"
+export function complaintReviewPeriodText(
+  alert: ComplaintReviewAlert,
+  now: Date,
+  locale?: string,
+): string {
+  const { openedAt, expiresAt, endedAt } = alert.review
+  const end = endedAt ?? expiresAt
+  const over = new Date(end) <= now
+  return `${dayOf(openedAt, locale)} · ${over ? 'ended' : 'until'} ${dayOf(end, locale)}`
+}
+
+// What it means for the reader, said once per row: the admin can make copies,
+// and the reason isn't something the app will show them.
+export const COMPLAINT_REVIEW_EXPLAINED =
+  "While it's open, that admin can download copies of the record. The reason stays with the clinic's admins."
+
+export function complaintReviewReviewLabel(alert: ComplaintReviewAlert): string {
+  return `Mark as reviewed: complaint review of ${fullName(alert.patient)}'s record`
 }

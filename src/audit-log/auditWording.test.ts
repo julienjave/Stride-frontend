@@ -35,6 +35,15 @@ describe('actionLabel', () => {
     )
   })
 
+  // The complaint review (decisions §25, pass 2).
+  it('words the complaint review actions', () => {
+    expect(actionLabel('COMPLAINT_REVIEW_OPENED')).toBe('Opened a complaint review of a health record')
+    expect(actionLabel('COMPLAINT_REVIEW_ENDED')).toBe('Ended a complaint review early')
+    expect(actionLabel('COMPLAINT_REVIEW_NOTICE_REVIEWED')).toBe(
+      'Marked a complaint review notice as reviewed',
+    )
+  })
+
   // An action the table doesn't know is still readable.
   it('makes words from the name of an action it does not know', () => {
     expect(actionLabel('PROGRAM_PAUSED_BY_ROBOT')).toBe('Program paused by robot')

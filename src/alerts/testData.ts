@@ -1,4 +1,10 @@
-import type { AttendanceAlert, CareTeamJoinAlert, SessionAlert, StaffSession } from './types'
+import type {
+  AttendanceAlert,
+  CareTeamJoinAlert,
+  ComplaintReviewAlert,
+  SessionAlert,
+  StaffSession,
+} from './types'
 import { session } from '@/sessions/testData'
 
 // Shared fixtures for the To-do's tests (2026-10-19). Dates in 2031, far
@@ -74,6 +80,30 @@ export function joinAlert(
       startedAt: '2031-06-10T12:00:00.000Z',
       endsAt: null,
       ...link,
+    },
+  }
+}
+
+// Avery Admin opened a complaint review of Pat's record on 10 June 2031 at noon
+// UTC, for the 7 days (until 17 June) — same calendar days in Paris and
+// Montreal.
+export function complaintReviewAlert(
+  fields: Partial<Omit<ComplaintReviewAlert, 'review'>> & {
+    review?: Partial<ComplaintReviewAlert['review']>
+  } = {},
+): ComplaintReviewAlert {
+  const { review, ...rest } = fields
+  return {
+    kind: 'complaint_review',
+    patient: PAT_ALERT,
+    ...rest,
+    review: {
+      id: 12,
+      openedBy: { id: 1, firstName: 'Avery', lastName: 'Admin' },
+      openedAt: '2031-06-10T12:00:00.000Z',
+      expiresAt: '2031-06-17T12:00:00.000Z',
+      endedAt: null,
+      ...review,
     },
   }
 }

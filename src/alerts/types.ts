@@ -94,7 +94,24 @@ export interface PersonName {
   lastName: string
 }
 
-export type Alert = AttendanceAlert | SessionAlert | CareTeamJoinAlert
+// An admin opened a complaint review of one of my patients' records (decisions
+// §25, pass 2 — the backend's ComplaintReviewAlert): who, when, until, and
+// whether it was ended early. NEVER why — the reason stays with the admins,
+// down to the database, so this type has no field for it. Instants (ISO).
+export interface ComplaintReviewAlert {
+  kind: 'complaint_review'
+  patient: AlertPatient
+  review: {
+    id: number
+    openedBy: PersonName
+    openedAt: string
+    expiresAt: string
+    // Set when an admin ended it before its 7 days.
+    endedAt: string | null
+  }
+}
+
+export type Alert = AttendanceAlert | SessionAlert | CareTeamJoinAlert | ComplaintReviewAlert
 
 // One review of a session: who on the care team looked at it, and when.
 export interface SessionReview {

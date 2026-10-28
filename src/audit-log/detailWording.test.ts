@@ -204,3 +204,37 @@ describe('anything the table does not know', () => {
     expect(valueWords(wording, 'a')).toBe('A')
   })
 })
+
+// The complaint review (decisions §25, pass 2): why, under which case
+// number, until when — in that order, whatever order Postgres stored them in.
+describe('COMPLAINT_REVIEW_OPENED', () => {
+  it('says the reason, the case reference and until when', () => {
+    expect(
+      shown(
+        { expiresAt: '2031-03-13T09:00:00.000Z', caseReference: 'CR-14', reason: 'Knee worse' },
+        'COMPLAINT_REVIEW_OPENED',
+      ),
+    ).toStrictEqual([
+      ['Reason', 'Knee worse'],
+      ['Case reference', 'CR-14'],
+      ['Open until', formatEntryMoment('2031-03-13T09:00:00.000Z')],
+    ])
+  })
+})
+
+describe('COMPLAINT_REVIEW_ENDED and the notice', () => {
+  it('says who had opened it and when it would have closed; which review was seen', () => {
+    expect(
+      shown({ openedBy: 7, expiresAt: '2031-03-13T09:00:00.000Z' }, 'COMPLAINT_REVIEW_ENDED'),
+    ).toStrictEqual([
+      ['Opened by (user id)', '7'],
+      ['Would have been open until', formatEntryMoment('2031-03-13T09:00:00.000Z')],
+    ])
+    expect(
+      shown({ openedBy: 7, complaintReviewId: 12 }, 'COMPLAINT_REVIEW_NOTICE_REVIEWED'),
+    ).toStrictEqual([
+      ['Complaint review', '#12'],
+      ['Opened by (user id)', '7'],
+    ])
+  })
+})
