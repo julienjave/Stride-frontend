@@ -1,5 +1,12 @@
-import { formatShortDate } from '@/common/calendarDate'
-import type { AttendanceAlert, Inactivity, MissedRun, SessionAlert } from './types'
+import { formatShortDate, localDateString } from '@/common/calendarDate'
+import type {
+  AttendanceAlert,
+  CareTeamJoinAlert,
+  Inactivity,
+  MissedRun,
+  PersonName,
+  SessionAlert,
+} from './types'
 
 // The "For review" list's words (2026-10-19). Pure functions — an alert in, sentences
 // out — so the wording is tested apart from the screens, the pattern of
@@ -87,4 +94,46 @@ export function alertLinkLabel(alert: SessionAlert | AttendanceAlert, locale?: s
   return alert.kind === 'session'
     ? `Review ${who}'s session of ${formatShortDate(alert.session.localDate, locale)}`
     : `View program ${alert.program.title} (${who})`
+}
+// --- A COLLEAGUE JOINED THE CARE TEAM (2026-10-28) ---------------------------------
+
+const fullName = (person: PersonName) => `${person.firstName} ${person.lastName}`
+
+// The day of an instant, in the viewer's zone ("Tue 27 Oct"): a link starts at
+// a moment, and the viewer's calendar decides which day that was.
+function dayOf(instant: string, locale?: string): string {
+  return formatShortDate(localDateString(new Date(instant)), locale)
+}
+
+// What happened, naming who did it: "Sam Lee joined the care team" when they
+// joined by themselves; "Avery Admin added Sam Lee to the care team" when
+// someone else did. (The patient is the row's own heading.)
+export function joinText(alert: CareTeamJoinAlert): string {
+  const { practitioner, addedBy } = alert.link
+  return addedBy === null
+    ? `${fullName(practitioner)} joined the care team`
+    : `${fullName(addedBy)} added ${fullName(practitioner)} to the care team`
+}
+
+// When: the day it started, then — when the link has an end — whether they
+// have left since or are covering until a day. `now` decides which (a
+// parameter, so the words are tested at a fixed moment).
+//   "Tue 27 Oct"   "Tue 27 Oct · left Wed 28 Oct"   "Tue 27 Oct · until Fri 6 Nov"
+export function joinPeriodText(alert: CareTeamJoinAlert, now: Date, locale?: string): string {
+  const { startedAt, endsAt } = alert.link
+  const started = dayOf(startedAt, locale)
+  if (endsAt === null) return started
+  const ended = new Date(endsAt) <= now
+  return `${started} · ${ended ? 'left' : 'until'} ${dayOf(endsAt, locale)}`
+}
+
+// The row's two controls, named in full for a screen reader (starting with the
+// visible words, for voice control): a list of identical "Mark as reviewed"
+// buttons can't be told apart otherwise.
+export function joinReviewLabel(alert: CareTeamJoinAlert): string {
+  return `Mark as reviewed: ${fullName(alert.link.practitioner)} on ${fullName(alert.patient)}'s care team`
+}
+
+export function joinLinkLabel(alert: CareTeamJoinAlert): string {
+  return `View care team (${fullName(alert.patient)})`
 }

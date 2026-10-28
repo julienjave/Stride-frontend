@@ -1,13 +1,24 @@
-import { useState } from 'react'
+import { type RefObject, useState } from 'react'
 import { Link } from 'react-router'
 import { formatShortDate } from '@/common/calendarDate'
 import { LoadError } from '@/common/LoadError'
 import { useRetryFocus } from '@/common/useRetryFocus'
 import { UserAvatar } from '@/common/UserAvatar'
 import { sessionStatusText } from '@/sessions/sessionText'
-import { alertLinkLabel, attendanceLines, sessionReasonsText } from './alertText'
-import type { Alert } from './types'
+import { failureText } from '@/api/apiErrors'
+import { Button } from '@/components/ui/button'
+import {
+  alertLinkLabel,
+  attendanceLines,
+  joinLinkLabel,
+  joinPeriodText,
+  joinReviewLabel,
+  joinText,
+  sessionReasonsText,
+} from './alertText'
+import type { Alert, CareTeamJoinAlert } from './types'
 import { useAlerts } from './useAlerts'
+import { useReviewCareTeamJoin } from './useReviewCareTeamJoin'
 import { ListSkeleton } from '@/common/Loading'
 
 // How many rows show before "Show all N" — a home page is a summary; a
@@ -24,12 +35,19 @@ export const FOR_REVIEW_FIRST_ROWS = 5
 //   - attendance → the program page (its weeks show the missed days, and
 //     its banner has "Mark as reviewed");
 //   - a session → its review page (scores, ratings, notes, "Mark as
-//     reviewed").
+//     reviewed");
+//   - a colleague who joined a patient's care team (2026-10-28, decisions
+//     §25) → "Mark as reviewed" right in the row (there is nothing more to
+//     read), and a link to the patient's page, where the care team is.
 export function ForReviewSection({ today }: { today: string }) {
   const alerts = useAlerts(today)
   const [showAll, setShowAll] = useState(false)
   // After a "Try again" that worked, focus goes to the section's heading.
   const heading = useRetryFocus<HTMLHeadingElement>("what's for review", alerts.isSuccess)
+  // Said after a join notice is marked reviewed — its row (and the button that
+  // had focus) leaves the list, so focus goes to the heading and this polite
+  // status says what happened.
+  const [reviewedNote, setReviewedNote] = useState('')
 
   return (
     // id="review": the target of the card slot's "#review" link. scroll-mt
@@ -40,7 +58,11 @@ export function ForReviewSection({ today }: { today: string }) {
           For review
         </h2>
         <p className="text-sm text-muted-foreground">
-          Your patients who have stopped coming, and sessions of the last 14 days to look at.
+          Your patients who have stopped coming, sessions of the last 14 days to look at, and
+          colleagues who joined their care teams.
+        </p>
+        <p role="status" className="sr-only">
+          {reviewedNote}
         </p>
       </div>
       {alerts.isPending && <ListSkeleton label="Loading what's for review…" rows={2} />}
@@ -52,7 +74,12 @@ export function ForReviewSection({ today }: { today: string }) {
         <>
           <ul aria-label="For review" className="divide-y rounded-lg border">
             {(showAll ? alerts.data : alerts.data.slice(0, FOR_REVIEW_FIRST_ROWS)).map((alert) => (
-              <ReviewRow key={rowKey(alert)} alert={alert} />
+              <ReviewRow
+                key={rowKey(alert)}
+                alert={alert}
+                heading={heading}
+                onReviewed={setReviewedNote}
+              />
             ))}
           </ul>
           {alerts.data.length > FOR_REVIEW_FIRST_ROWS && (
@@ -74,13 +101,32 @@ export function ForReviewSection({ today }: { today: string }) {
 }
 
 // React's `key`: unique among the rows and stable across refetches. A
-// program has at most one attendance row, a session one review row — so
-// kind + id is unique (a program and a session may share a number).
+// program has at most one attendance row, a session one review row, a link one
+// join row — so kind + id is unique (a program and a session may share a
+// number).
 function rowKey(alert: Alert): string {
-  return alert.kind === 'session' ? `session-${alert.session.id}` : `program-${alert.program.id}`
+  switch (alert.kind) {
+    case 'session':
+      return `session-${alert.session.id}`
+    case 'attendance':
+      return `program-${alert.program.id}`
+    case 'care_team_join':
+      return `join-${alert.link.id}`
+  }
 }
 
-function ReviewRow({ alert }: { alert: Alert }) {
+function ReviewRow({
+  alert,
+  heading,
+  onReviewed,
+}: {
+  alert: Alert
+  heading: RefObject<HTMLHeadingElement | null>
+  onReviewed: (note: string) => void
+}) {
+  if (alert.kind === 'care_team_join') {
+    return <JoinRow alert={alert} heading={heading} onReviewed={onReviewed} />
+  }
   const name = `${alert.patient.firstName} ${alert.patient.lastName}`
   const lines =
     alert.kind === 'attendance'
@@ -118,6 +164,73 @@ function ReviewRow({ alert }: { alert: Alert }) {
       >
         {alert.kind === 'session' ? 'Review' : 'View program'}
       </Link>
+    </li>
+  )
+}
+// A colleague joined the care team: who, by whom, when — and "Mark as
+// reviewed" in place. A failure is said in the row (`failureText`, the app's
+// one wording rule); after success, focus moves to the section's heading
+// BEFORE the row leaves (its button would take focus with it), and the
+// section's status says what was done.
+function JoinRow({
+  alert,
+  heading,
+  onReviewed,
+}: {
+  alert: CareTeamJoinAlert
+  heading: RefObject<HTMLHeadingElement | null>
+  onReviewed: (note: string) => void
+}) {
+  const review = useReviewCareTeamJoin(alert.link.id)
+  const name = `${alert.patient.firstName} ${alert.patient.lastName}`
+  // "Now", read ONCE when the row appears (a lazy initial state, not a call
+  // during render — rendering must not depend on the clock): it only decides
+  // "left" vs "until", which a page open for a while needn't re-decide.
+  const [now] = useState(() => new Date())
+
+  return (
+    <li className="flex items-start gap-3 px-4 py-3">
+      <UserAvatar
+        firstName={alert.patient.firstName}
+        lastName={alert.patient.lastName}
+        avatarUrl={alert.patient.avatarUrl}
+        className="size-9 shrink-0 text-xs"
+      />
+      <div className="min-w-0 flex-1 space-y-1">
+        <p className="font-medium">{name}</p>
+        <p className="text-sm">{joinText(alert)}</p>
+        <p className="text-sm text-muted-foreground">{joinPeriodText(alert, now)}</p>
+        {review.isError && (
+          <p role="alert" className="text-sm text-destructive">
+            {failureText(review.error)}
+          </p>
+        )}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1">
+          <Button
+            size="sm"
+            variant="outline"
+            aria-label={joinReviewLabel(alert)}
+            disabled={review.isPending}
+            onClick={() =>
+              review.mutate(undefined, {
+                onSuccess: () => {
+                  heading.current?.focus()
+                  onReviewed(`Marked as reviewed: ${joinText(alert)} of ${name}.`)
+                },
+              })
+            }
+          >
+            {review.isPending ? 'Marking…' : 'Mark as reviewed'}
+          </Button>
+          <Link
+            to={`/practitioner/patients/${alert.patient.id}`}
+            aria-label={joinLinkLabel(alert)}
+            className="text-sm font-medium underline underline-offset-4"
+          >
+            View care team
+          </Link>
+        </div>
+      </div>
     </li>
   )
 }

@@ -71,7 +71,30 @@ export interface SessionAlert {
   hardExercises: { name: string; rating: number }[]
 }
 
-export type Alert = AttendanceAlert | SessionAlert
+// A colleague joined one of my patients' care teams (decisions §25, the
+// post-Phase-6 tidy-up — the backend's CareTeamJoinAlert). `addedBy` is null
+// when they joined by themselves; `endsAt` as stored — in the past, they have
+// left since; in the future, a planned cover; null, open-ended. Instants (ISO
+// strings), not calendar days: a link starts at a moment.
+export interface CareTeamJoinAlert {
+  kind: 'care_team_join'
+  patient: AlertPatient
+  link: {
+    id: number
+    practitioner: PersonName
+    addedBy: PersonName | null
+    startedAt: string
+    endsAt: string | null
+  }
+}
+
+export interface PersonName {
+  id: number
+  firstName: string
+  lastName: string
+}
+
+export type Alert = AttendanceAlert | SessionAlert | CareTeamJoinAlert
 
 // One review of a session: who on the care team looked at it, and when.
 export interface SessionReview {

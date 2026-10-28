@@ -6,8 +6,8 @@ import { MemoryRouter } from 'react-router'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import { localDateString } from '@/common/calendarDate'
 import { PractitionerHomePage } from '@/app/PractitionerHomePage'
-import { json, urlOf } from '@/sessions/testData'
-import { attendanceAlert, sessionAlert } from './testData'
+import { apiError, json, urlOf } from '@/sessions/testData'
+import { attendanceAlert, joinAlert, sessionAlert } from './testData'
 import type { Alert } from './types'
 import { expectSkeleton } from '@/common/loadingAssertions'
 
@@ -18,12 +18,18 @@ const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
 
 let alerts: () => Response
+// "Mark as reviewed" on a join notice (2026-10-28): its answer.
+let joinReview: () => Response | Promise<Response>
 
 beforeEach(() => {
   fetchMock.mockReset()
   alerts = () => json([])
-  fetchMock.mockImplementation((input) => {
+  joinReview = () => json({ reviewedAt: '2031-06-12T12:00:00.000Z' })
+  fetchMock.mockImplementation((input, init) => {
     const url = new URL(urlOf(input))
+    if (init?.method === 'POST' && url.pathname.endsWith('/alerts/care-team-joins/41/review')) {
+      return Promise.resolve(joinReview())
+    }
     if (url.pathname.endsWith('/alerts')) return Promise.resolve(alerts())
     // The card's Messages slot (Phase 5) asks for the conversations.
     if (url.pathname.endsWith('/conversations')) return Promise.resolve(json([]))
@@ -47,6 +53,12 @@ function renderHome() {
 
 const list = () => screen.findByRole('list', { name: 'For review' })
 const rows = async () => within(await list()).getAllByRole('listitem')
+
+function postRequests() {
+  return fetchMock.mock.calls
+    .filter(([, init]) => init?.method === 'POST')
+    .map(([input, init]) => `${new URL(urlOf(input)).pathname} ${init?.body as string}`)
+}
 
 function alertRequests() {
   return fetchMock.mock.calls
@@ -205,5 +217,94 @@ describe('the For review list on the practitioner home', () => {
     renderHome()
     expect(await rows()).toHaveLength(5)
     expect(screen.queryByRole('button', { name: /Show/ })).not.toBeInTheDocument()
+  })
+
+  // --- A colleague joined a patient's care team (2026-10-28) ---
+
+  it('says the list holds care-team joins too', async () => {
+    renderHome()
+    expect(
+      await screen.findByText(
+        'Your patients who have stopped coming, sessions of the last 14 days to look at, and colleagues who joined their care teams.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('gives a join row who joined, by whom, when — and its two controls', async () => {
+    alerts = () =>
+      json([joinAlert({ link: { addedBy: { id: 1, firstName: 'Avery', lastName: 'Admin' } } })])
+    renderHome()
+    const [row] = await rows()
+    expect(within(row).getByText('Pat Lee')).toBeInTheDocument()
+    expect(within(row).getByText('Avery Admin added Sam Lee to the care team')).toBeInTheDocument()
+    // The day (its words are alertText's, tested there).
+    expect(within(row).getByText(/10/)).toBeInTheDocument()
+    const link = within(row).getByRole('link', { name: 'View care team (Pat Lee)' })
+    expect(link).toHaveAttribute('href', '/practitioner/patients/6')
+    expect(within(row).getByRole('button', { name: "Mark as reviewed: Sam Lee on Pat Lee's care team" }))
+      .toHaveTextContent('Mark as reviewed')
+    // No program line: a join is about the team, not a program.
+    expect(within(row).queryByText(/Knee Rehab|Lower Back/)).not.toBeInTheDocument()
+  })
+
+  it('marks a join reviewed: one POST, the list asked again, focus to the heading, said', async () => {
+    let answer!: (response: Response) => void
+    joinReview = () => new Promise((resolve) => (answer = resolve))
+    let listed = [joinAlert()]
+    alerts = () => json(listed)
+    const user = userEvent.setup()
+    renderHome()
+    const [row] = await rows()
+    await user.click(within(row).getByRole('button', { name: /^Mark as reviewed/ }))
+    // While it's on its way: one request, the button busy and disabled.
+    expect(within(row).getByRole('button', { name: /^Mark as reviewed/ })).toBeDisabled()
+    expect(within(row).getByRole('button', { name: /^Mark as reviewed/ })).toHaveTextContent('Marking…')
+    await user.click(within(row).getByRole('button', { name: /^Mark as reviewed/ }))
+    expect(postRequests()).toEqual(['/alerts/care-team-joins/41/review undefined'])
+
+    listed = []
+    answer(json({ reviewedAt: '2031-06-12T12:00:00.000Z' }))
+    const heading = screen.getByRole('heading', { level: 2, name: 'For review' })
+    await waitFor(() => expect(heading).toHaveFocus())
+    expect(
+      await screen.findByText('Marked as reviewed: Sam Lee joined the care team of Pat Lee.', {
+        selector: '[role="status"]',
+      }),
+    ).toBeInTheDocument()
+    // Asked again (the cache was marked stale): the row is gone.
+    expect(await screen.findByText("You're all caught up.")).toBeInTheDocument()
+    expect(alertRequests()).toHaveLength(2)
+  })
+
+  it('says a refused review in the row, in the app\'s words, and keeps it', async () => {
+    alerts = () => json([joinAlert()])
+    joinReview = () => apiError(409, 'This change to the care team is not in your For review list')
+    const user = userEvent.setup()
+    renderHome()
+    const [row] = await rows()
+    await user.click(within(row).getByRole('button', { name: /^Mark as reviewed/ }))
+    expect(await within(row).findByRole('alert')).toHaveTextContent(
+      'This change to the care team is not in your For review list',
+    )
+    expect(within(row).getByRole('button', { name: /^Mark as reviewed/ })).toBeEnabled()
+    expect(screen.getByRole('heading', { level: 2, name: 'For review' })).not.toHaveFocus()
+  })
+
+  it('keeps a join among the others in the backend\'s order, by its own key', async () => {
+    // A program and a link with the same number: two rows, both kept — and
+    // two different React keys. React still draws both rows when two keys
+    // collide; it says so on console.error (and may mix the rows up on a
+    // later update), so the test listens for that.
+    const consoleError = vi.spyOn(console, 'error')
+    alerts = () => json([attendanceAlert({ program: { id: 41, title: 'Lower Back — Jo' } }), joinAlert()])
+    renderHome()
+    const all = await rows()
+    expect(all).toHaveLength(2)
+    expect(
+      consoleError.mock.calls.filter((call) => String(call[0]).includes('same key')),
+    ).toEqual([])
+    consoleError.mockRestore()
+    expect(within(all[0]).getByRole('link')).toHaveAttribute('href', '/practitioner/programs/assigned/41')
+    expect(within(all[1]).getByText('Sam Lee joined the care team')).toBeInTheDocument()
   })
 })

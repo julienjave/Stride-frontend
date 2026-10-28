@@ -4,10 +4,14 @@ import {
   alertLinkLabel,
   attendanceLines,
   inactivityText,
+  joinLinkLabel,
+  joinPeriodText,
+  joinReviewLabel,
+  joinText,
   missedRunText,
   sessionReasonsText,
 } from './alertText'
-import { attendanceAlert, sessionAlert } from './testData'
+import { attendanceAlert, joinAlert, sessionAlert } from './testData'
 
 // en-GB pins the date format ("Mon 26 May"); the sentences around it are
 // the point. (US formatting adds a comma — "Mon, May 26" — and nothing here
@@ -132,5 +136,43 @@ describe('alertLinkLabel', () => {
   it('starts with the visible words, then says whose and which', () => {
     expect(alertLinkLabel(sessionAlert(), L)).toBe("Review Pat Lee's session of Tue 10 Jun")
     expect(alertLinkLabel(attendanceAlert(), L)).toBe('View program Lower Back — Jo (Jo Novak)')
+  })
+})
+describe('a colleague who joined the care team', () => {
+  it('says who joined, or who added whom', () => {
+    expect(joinText(joinAlert())).toBe('Sam Lee joined the care team')
+    expect(
+      joinText(joinAlert({ link: { addedBy: { id: 1, firstName: 'Avery', lastName: 'Admin' } } })),
+    ).toBe('Avery Admin added Sam Lee to the care team')
+  })
+
+  it('says the day, and whether they left since or cover until a day', () => {
+    const now = new Date('2031-06-12T12:00:00.000Z')
+    expect(joinPeriodText(joinAlert(), now, L)).toBe('Tue 10 Jun')
+    expect(joinPeriodText(joinAlert({ link: { endsAt: '2031-06-11T12:00:00.000Z' } }), now, L)).toBe(
+      'Tue 10 Jun · left Wed 11 Jun',
+    )
+    expect(joinPeriodText(joinAlert({ link: { endsAt: '2031-06-20T12:00:00.000Z' } }), now, L)).toBe(
+      'Tue 10 Jun · until Fri 20 Jun',
+    )
+    // An end at this very moment has happened: "left".
+    expect(joinPeriodText(joinAlert({ link: { endsAt: now.toISOString() } }), now, L)).toBe(
+      'Tue 10 Jun · left Thu 12 Jun',
+    )
+  })
+
+  it("says the day in the viewer's zone, not UTC's", () => {
+    // 02:30 UTC is still the day before in Montreal (the suite also runs
+    // there): the expected day comes from Intl in the machine's own zone.
+    const startedAt = '2031-06-10T02:30:00.000Z'
+    const local = new Intl.DateTimeFormat(L, { weekday: 'short', day: 'numeric', month: 'short' })
+      .format(new Date(startedAt))
+      .replace(',', '')
+    expect(joinPeriodText(joinAlert({ link: { startedAt } }), new Date('2031-06-12T12:00:00.000Z'), L)).toBe(local)
+  })
+
+  it('names both controls in full, starting with their visible words', () => {
+    expect(joinReviewLabel(joinAlert())).toBe("Mark as reviewed: Sam Lee on Pat Lee's care team")
+    expect(joinLinkLabel(joinAlert())).toBe('View care team (Pat Lee)')
   })
 })

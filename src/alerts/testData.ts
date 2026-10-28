@@ -1,4 +1,4 @@
-import type { AttendanceAlert, SessionAlert, StaffSession } from './types'
+import type { AttendanceAlert, CareTeamJoinAlert, SessionAlert, StaffSession } from './types'
 import { session } from '@/sessions/testData'
 
 // Shared fixtures for the To-do's tests (2026-10-19). Dates in 2031, far
@@ -55,5 +55,25 @@ export function staffSession(fields: Partial<StaffSession> = {}): StaffSession {
     }),
     reviews: [],
     ...fields,
+  }
+}
+// Sam Lee joined Pat's care team by themselves on 10 June 2031, at noon UTC —
+// the same calendar day in Paris and Montreal, where the tests run.
+export function joinAlert(
+  fields: Partial<Omit<CareTeamJoinAlert, 'link'>> & { link?: Partial<CareTeamJoinAlert['link']> } = {},
+): CareTeamJoinAlert {
+  const { link, ...rest } = fields
+  return {
+    kind: 'care_team_join',
+    patient: PAT_ALERT,
+    ...rest,
+    link: {
+      id: 41,
+      practitioner: { id: 4, firstName: 'Sam', lastName: 'Lee' },
+      addedBy: null,
+      startedAt: '2031-06-10T12:00:00.000Z',
+      endsAt: null,
+      ...link,
+    },
   }
 }

@@ -123,6 +123,7 @@ const WORDING: Record<AuditAction, string> = {
   // The practitioners' "For review" list
   SESSION_REVIEWED: 'Marked a session as reviewed',
   PROGRAM_ALERT_REVIEWED: 'Marked a program alert as reviewed',
+  CARE_TEAM_JOIN_REVIEWED: 'Marked a care-team join as reviewed',
   ALERTS_VIEWED: 'Viewed the For review list',
 
   // Messaging (who wrote to whom and when — never the text)
