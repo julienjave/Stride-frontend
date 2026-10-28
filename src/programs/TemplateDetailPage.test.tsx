@@ -12,6 +12,7 @@ import {
   retryThenExpectFocusOn,
 } from '@/common/loadFailureAssertions'
 import type { ProgramTemplateDetail, TemplateExercise } from './types'
+import { expectLoading } from '@/common/loadingAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -142,7 +143,7 @@ describe('TemplateDetailPage — loading and errors', () => {
   it('shows a loading state before the template resolves', () => {
     fetchMock.mockReturnValue(new Promise(() => {}))
     renderAt('/practitioner/programs/templates/1')
-    expect(screen.getByText('Loading…')).toBeInTheDocument()
+    expectLoading('Loading…')
   })
 
   it('any other failure: the load error with its reason; a retry that works focuses the title', async () => {

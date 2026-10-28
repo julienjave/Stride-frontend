@@ -15,6 +15,7 @@ import { EditableNumberField } from './EditableNumberField'
 import { EditableWeightField } from './EditableWeightField'
 import { EditableNotesField } from './EditableNotesField'
 import { ExercisePhotoCarousel } from './ExercisePhotoCarousel'
+import { Loading } from '@/common/Loading'
 
 // The View/Edit screen reached by clicking any exercise card on
 // TemplateDetailPage's exercise list (the card passes its own page's
@@ -130,11 +131,7 @@ function ProgramExerciseView({
   })
 
   if (isLoading) {
-    return (
-      <p className="mx-auto mt-12 max-w-2xl px-4 text-sm text-muted-foreground">
-        Loading…
-      </p>
-    )
+    return <Loading className="mx-auto mt-12 max-w-2xl px-4" />
   }
 
   // The template's read failed: a 404 → "Template not found"; anything
@@ -169,7 +166,7 @@ function ProgramExerciseView({
       </div>
 
       {isLoadingExercise ? (
-        <p className="text-sm text-muted-foreground">Loading exercise…</p>
+        <Loading label="Loading the exercise…" />
       ) : exerciseQuery.isError || !exercise ? (
         <LoadError what="this exercise's details" queries={[exerciseQuery]} />
       ) : (

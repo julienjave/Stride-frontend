@@ -5,6 +5,7 @@ import { useRetryFocus } from '@/common/useRetryFocus'
 import { useExercises } from './useExercises'
 import { ExerciseCard } from './ExerciseCard'
 import { AddExerciseCard } from './AddExerciseCard'
+import { GridSkeleton } from '@/common/Loading'
 
 export function ExerciseLibraryPage() {
   // Raw, instant state the search input is actually bound to — kept
@@ -79,9 +80,7 @@ export function ExerciseLibraryPage() {
         </label>
       </div>
 
-      {isLoading && (
-        <p className="text-sm text-muted-foreground">Loading exercises…</p>
-      )}
+      {isLoading && <GridSkeleton label="Loading exercises…" />}
 
       {isError && <LoadError what="the exercises" queries={[exercises]} />}
 

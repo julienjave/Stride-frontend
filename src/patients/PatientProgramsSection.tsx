@@ -12,6 +12,7 @@ import { YoursBadge } from '@/common/YoursBadge'
 import { programRowSummary, splitProgramsForPatientPage } from './patientPageRules'
 import { PatientPageSection } from './PatientPageSection'
 import { DEACTIVATED_NO_NEW_PROGRAM_TEXT } from './patientPageRules'
+import { ListSkeleton } from '@/common/Loading'
 
 // The patient's programs — including those assigned by other practitioners
 // on the care team (the Programs hub only shows your own). Mine carry the
@@ -64,7 +65,7 @@ export function PatientProgramsSection({
       {!patientActive && (
         <p className="text-sm text-muted-foreground">{DEACTIVATED_NO_NEW_PROGRAM_TEXT}</p>
       )}
-      {isLoading && <p className="text-sm text-muted-foreground">Loading programs…</p>}
+      {isLoading && <ListSkeleton label="Loading the programs…" rows={2} />}
       {isError && <LoadError what="the programs" queries={[programsQuery]} />}
       {/* Two different empty states: never had a program, or none NOW —
           "No programs assigned yet" would be untrue for the second, and

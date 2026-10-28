@@ -11,6 +11,7 @@ import {
   expectRecordNotFound,
   retryThenExpectFocusOn,
 } from '@/common/loadFailureAssertions'
+import { expectLoading } from '@/common/loadingAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -93,7 +94,7 @@ describe('UserEditPage — loading and error states', () => {
   it('shows a loading state before the user resolves', () => {
     fetchMock.mockReturnValue(new Promise(() => {}))
     renderAt('/admin/users/1')
-    expect(screen.getByText('Loading user…')).toBeInTheDocument()
+    expectLoading('Loading the user…')
   })
 
   it('a 404: "User not found", and no Try again', async () => {

@@ -15,6 +15,7 @@ import { InvitationStatus } from '@/invitations/InvitationStatus'
 import { CareTeamSection } from '@/patients/CareTeamSection'
 import { ResetTwoFactorSection } from '@/two-factor/ResetTwoFactorSection'
 import { RecordsExportLinksSection } from '@/records-export/RecordsExportLinksSection'
+import { Loading } from '@/common/Loading'
 
 export function UserEditPage() {
   const { id } = useParams<{ id: string }>()
@@ -46,7 +47,7 @@ function UserEditView({ userId }: { userId: number }) {
   const heading = useRetryFocus<HTMLHeadingElement>('this user', userQuery.isSuccess)
 
   if (isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading user…</p>
+    return <Loading label="Loading the user…" />
   }
 
   // A 404: "User not found" (no such account — accounts are never deleted,

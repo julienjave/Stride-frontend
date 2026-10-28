@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { apiError, json } from '@/sessions/testData'
 import { expectLoadError, retryThenExpectFocusOn } from '@/common/loadFailureAssertions'
 import { fakeApi, fetchMock, renderMessages } from './renderMessages'
 import { ALEX_ID, message, PAT_PERSON, summary } from './testData'
 import type { ConversationSummary } from './types'
+import { expectSkeleton, holdRequests } from '@/common/loadingAssertions'
 
 vi.stubGlobal('fetch', fetchMock)
 
@@ -142,5 +143,14 @@ describe('the conversation list', () => {
     list = [summary({ otherParticipant: { ...PAT_PERSON, firstName: 'Alex', lastName: 'Chen' }, lastMessage: message(1) })]
     renderMessages('/patient/messages', { user: { id: 6, activeRole: 'patient' } })
     expect(within(await inbox()).getByRole('link')).toHaveAttribute('href', '/patient/messages/12')
+  })
+})
+
+// The list loads behind a skeleton of rows with photos (pass 2).
+describe('ConversationList — while it loads', () => {
+  it('a skeleton of the conversations', async () => {
+    holdRequests(fetchMock, (url) => new URL(url).pathname === '/conversations')
+    renderMessages('/practitioner/messages')
+    await waitFor(() => expectSkeleton('Loading your conversations…'))
   })
 })

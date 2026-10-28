@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { SERVER_PROBLEM_TEXT } from '@/api/apiErrors'
 import { apiError, json, urlOf } from '@/sessions/testData'
 import { ProgramAlertBanner } from './ProgramAlertBanner'
 import { useAlerts } from './useAlerts'
@@ -142,5 +143,19 @@ describe('ProgramAlertBanner', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Nothing on this program needs reviewing right now')
     expect(screen.getByRole('button', { name: 'Mark as reviewed' })).toBeEnabled()
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  // Through the shared rule (failureText, since 2026-10-28): before, a 5xx
+  // showed the server's own words.
+  it.each([
+    ['a server failure', () => Promise.resolve(apiError(500, 'Internal server error')), SERVER_PROBLEM_TEXT],
+    ['no answer', () => Promise.reject(new TypeError('Failed to fetch')), "Couldn't save. Try again."],
+  ])('%s: plain words', async (_, answer: () => Promise<Response>, words) => {
+    alerts = () => json([attendanceAlert()])
+    reviewAnswer = answer
+    renderBanner()
+    await region()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Mark as reviewed' }))
+    expect((await screen.findByRole('alert')).textContent).toBe(words)
   })
 })

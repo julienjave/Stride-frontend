@@ -8,6 +8,7 @@ import { sessionStatusText } from '@/sessions/sessionText'
 import { alertLinkLabel, attendanceLines, sessionReasonsText } from './alertText'
 import type { Alert } from './types'
 import { useAlerts } from './useAlerts'
+import { ListSkeleton } from '@/common/Loading'
 
 // How many rows show before "Show all N" — a home page is a summary; a
 // long caseload's list shouldn't push everything else off the screen.
@@ -42,7 +43,7 @@ export function ForReviewSection({ today }: { today: string }) {
           Your patients who have stopped coming, and sessions of the last 14 days to look at.
         </p>
       </div>
-      {alerts.isPending && <p className="text-sm text-muted-foreground">Loading what's for review…</p>}
+      {alerts.isPending && <ListSkeleton label="Loading what's for review…" rows={2} />}
       {alerts.isError && <LoadError what="what's for review" queries={[alerts]} />}
       {alerts.isSuccess && alerts.data.length === 0 && (
         <p className="text-sm">You're all caught up.</p>

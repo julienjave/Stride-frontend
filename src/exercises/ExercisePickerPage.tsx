@@ -6,6 +6,7 @@ import { useRetryFocus } from '@/common/useRetryFocus'
 import { useExercises } from './useExercises'
 import { ExerciseCard } from './ExerciseCard'
 import { localPath, pickerReturnHref } from './pickerReturnHref'
+import { GridSkeleton } from '@/common/Loading'
 
 // A genuinely reusable "pick an exercise" page — not scoped to templates
 // specifically, and not a modal (see the design discussion: this app's
@@ -105,9 +106,7 @@ export function ExercisePickerPage() {
         </label>
       </div>
 
-      {isLoading && (
-        <p className="text-sm text-muted-foreground">Loading exercises…</p>
-      )}
+      {isLoading && <GridSkeleton label="Loading exercises…" />}
 
       {isError && <LoadError what="the exercises" queries={[exercises]} />}
 

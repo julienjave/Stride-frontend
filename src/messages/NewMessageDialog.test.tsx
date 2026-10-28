@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { SERVER_PROBLEM_TEXT } from '@/api/apiErrors'
 import { ALEX, BLAKE, member, SAM } from '@/team/testData'
 import { apiError, json } from '@/sessions/testData'
 import { fakeApi, fetchMock, renderMessages, requests } from './renderMessages'
+import { START_CONVERSATION_FAILED_TEXT } from './messageText'
 import { PAT_ID, summary } from './testData'
+import { expectSkeleton, holdRequests } from '@/common/loadingAssertions'
 
 vi.stubGlobal('fetch', fetchMock)
 
@@ -127,6 +130,28 @@ describe('New message', () => {
     )
   })
 
+  // Through the shared rule (failureText, since 2026-10-28).
+  it("a server failure when starting: the shared sentence, not the server's words", async () => {
+    started = apiError(500, 'Internal server error')
+    renderMessages('/practitioner/messages')
+    const dialog = await open()
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Pat Lee' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(new RegExp(`^${SERVER_PROBLEM_TEXT}$`))
+  })
+
+  it('no answer when starting: says so, and to check the connection', async () => {
+    const answered = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation((input, init) =>
+      init?.method === 'POST' ? Promise.reject(new TypeError('Failed to fetch')) : answered(input, init),
+    )
+    renderMessages('/practitioner/messages')
+    const dialog = await open()
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Pat Lee' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      new RegExp(`^${START_CONVERSATION_FAILED_TEXT}$`),
+    )
+  })
+
   it('says so when there is nobody to write to', async () => {
     fakeApi(({ path }) => {
       if (path === '/conversations') return json([])
@@ -136,5 +161,14 @@ describe('New message', () => {
     renderMessages('/practitioner/messages')
     const dialog = await open()
     expect(await within(dialog).findByText("You aren't on any patient's care team yet.")).toBeInTheDocument()
+  })
+})
+
+// The people to write to load behind a skeleton, in the dialog (pass 2).
+describe('New message — while it loads', () => {
+  it('a skeleton of the patients to write to', async () => {
+    holdRequests(fetchMock, (url) => new URL(url).pathname === '/users')
+    renderMessages('/practitioner/messages')
+    expectSkeleton('Loading your patients…', await open())
   })
 })

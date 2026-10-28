@@ -22,6 +22,7 @@ import { localDateString } from '@/common/calendarDate'
 import { filterCandidates } from './patientPageRules'
 import { useAddCareTeamMember } from './useCareTeamChange'
 import { useCareTeamCandidates } from './useCareTeamCandidates'
+import { ListSkeleton } from '@/common/Loading'
 
 // The backend's limit (AddCareTeamMemberDto: @MaxLength(255)).
 const REASON_MAX_LENGTH = 255
@@ -121,9 +122,7 @@ export function AddCareTeamMemberDialog({
 
         <fieldset className="space-y-2">
           <legend className="mb-1 text-sm font-medium">Practitioner</legend>
-          {candidates.isLoading && (
-            <p className="text-sm text-muted-foreground">Loading practitioners…</p>
-          )}
+          {candidates.isLoading && <ListSkeleton label="Loading the practitioners…" rows={2} avatar />}
           {candidates.isError && <LoadError what="the practitioners" queries={[candidates]} />}
           {candidates.data && candidates.data.length === 0 && (
             <p className="text-sm text-muted-foreground">

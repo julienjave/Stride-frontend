@@ -13,6 +13,7 @@ import {
 } from '@/common/loadFailureAssertions'
 import { exercisesListQueryKey } from './api'
 import type { ExerciseDetail } from './types'
+import { expectLoading } from '@/common/loadingAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -89,7 +90,7 @@ describe('ExerciseDetailPage', () => {
   it('shows a loading state before the exercise resolves', () => {
     fetchMock.mockReturnValue(new Promise(() => {}))
     renderAt('/practitioner/library/1')
-    expect(screen.getByText('Loading…')).toBeInTheDocument()
+    expectLoading('Loading…')
   })
 
   it('any other failure: the load error with its reason; a retry that works puts focus on the name', async () => {

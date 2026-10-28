@@ -15,6 +15,7 @@ import { CareTeamSection } from './CareTeamSection'
 import { ClinicBadges } from './ClinicBadges'
 import { PatientProgramsSection } from './PatientProgramsSection'
 import { deactivatedPatientNotice } from './patientPageRules'
+import { Loading } from '@/common/Loading'
 
 // The practitioner's patient page (/practitioner/patients/:id) — decided
 // 2026-10-08 (decisions §3, "Patient page"). Top to bottom, in the order a
@@ -62,9 +63,7 @@ function PatientView({ patientId }: { patientId: number }) {
   if (hasLeft) return null
 
   if (isLoading) {
-    return (
-      <p className="mx-auto mt-8 max-w-2xl px-4 text-sm text-muted-foreground">Loading patient…</p>
-    )
+    return <Loading label="Loading the patient…" className="mx-auto mt-8 max-w-2xl px-4" />
   }
 
   if (error) {

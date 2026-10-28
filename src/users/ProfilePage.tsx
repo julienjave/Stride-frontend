@@ -9,6 +9,7 @@ import { LoadError } from '@/common/LoadError'
 import { readNotice } from '@/common/readNotice'
 import { useRetryFocus } from '@/common/useRetryFocus'
 import { MY_RECORDS_PATH } from '@/medical-files/medicalFilePaths'
+import { Loading } from '@/common/Loading'
 
 // /profile — the logged-in user's own profile, for every role (design
 // decisions §4). Reached from the account menu.
@@ -40,7 +41,7 @@ function ProfileView({ userId, activeRole }: { userId: number; activeRole: strin
   const notice = readNotice(useLocation().state)
 
   if (isLoading) {
-    return <p className="mx-auto mt-12 max-w-lg px-4 text-sm text-muted-foreground">Loading profile…</p>
+    return <Loading label="Loading your profile…" className="mx-auto mt-12 max-w-lg px-4" />
   }
 
   // No "not found" here: it's the signed-in person's own account. Any

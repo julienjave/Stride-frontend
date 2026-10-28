@@ -22,6 +22,7 @@ import { noPhotosText, photoSourceText } from './programPhotos'
 import { useAssignedProgram } from './useAssignedProgram'
 import type { AssignedProgramExercise } from './types'
 import { useRetryFocus } from '@/common/useRetryFocus'
+import { Loading } from '@/common/Loading'
 
 // One exercise of a patient's program — its description (step D-3) and its
 // prescription (step 3b-1b), editable while the program is open:
@@ -97,7 +98,7 @@ function ProgramExerciseView({
   }
 
   if (isLoading) {
-    return <p className="mx-auto mt-8 max-w-2xl px-4 text-sm text-muted-foreground">Loading…</p>
+    return <Loading className="mx-auto mt-8 max-w-2xl px-4" />
   }
 
   if (error || !program) return <ProgramLoadFailed query={programQuery} what="this exercise" />

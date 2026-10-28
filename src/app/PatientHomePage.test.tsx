@@ -8,6 +8,7 @@ import { formatShortDate } from '@/common/calendarDate'
 import { expectLoadError, retryThenExpectFocusOn } from '@/common/loadFailureAssertions'
 import type { AssignedProgramListItem, ScheduleSummary, ScheduledDay } from '@/assigned-programs/types'
 import { PatientHomePage } from './PatientHomePage'
+import { expectSkeleton } from '@/common/loadingAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -159,7 +160,8 @@ const BACK_SUMMARY = summary({
 
 // What each GET answers — tests replace entries for their case.
 let list: () => Response
-let summaries: Record<number, () => Response>
+// (A promise too: a summary that never answers, for the loading states.)
+let summaries: Record<number, () => Response | Promise<Response>>
 // Each program's session list (the cards' pain trend — PainTrend's own
 // tests cover it): none by default.
 let sessionLists: Record<number, () => Response>
@@ -212,9 +214,12 @@ function section(name: string) {
 }
 
 async function loaded() {
-  // "Loading…" disappears once every summary is in.
+  // Every loading state (a status region saying "Loading …") is gone once
+  // every summary is in.
   expect(await screen.findByRole('heading', { name: 'My programs' })).toBeInTheDocument()
-  await vi.waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
+  await vi.waitFor(() =>
+    expect(screen.queryAllByRole('status').filter((region) => region.textContent?.startsWith('Loading'))).toEqual([]),
+  )
 }
 
 describe('PatientHomePage — what it asks for', () => {
@@ -598,7 +603,23 @@ describe('PatientHomePage — no program', () => {
     // An answer that never comes.
     fetchMock.mockImplementation(() => new Promise<Response>(() => {}))
     renderPage()
-    expect(screen.getByText('Loading your programs…')).toBeInTheDocument()
+    expectSkeleton('Loading your programs…')
+  })
+
+  // The list is in, the summaries aren't: each program's Today row, the
+  // Upcoming list and each card's progress are skeletons — the titles
+  // already known stay as text.
+  it('while the summaries load: a skeleton per Today row, for Upcoming, and per card', async () => {
+    summaries = { 12: () => new Promise<Response>(() => {}), 14: () => new Promise<Response>(() => {}) }
+    renderPage()
+    const today = await screen.findByRole('heading', { name: 'Today' })
+    const todaySection = today.closest('section') as HTMLElement
+    expectSkeleton("Loading today's plan for Knee Rehab…", todaySection)
+    expectSkeleton("Loading today's plan for Lower Back…", todaySection)
+    expect(within(todaySection).getAllByText('Knee Rehab', { selector: 'p' })).toHaveLength(1)
+    expectSkeleton("Loading what's coming up…", section('Upcoming'))
+    expectSkeleton('Loading the progress of Knee Rehab…', section('My programs'))
+    expectSkeleton('Loading the progress of Lower Back…', section('My programs'))
   })
 })
 

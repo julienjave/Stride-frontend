@@ -21,6 +21,7 @@ import { assignExerciseToProgram } from '@/programs/api'
 import { canModifyProgram } from '@/programs/permissions'
 import { useAssignedPrograms } from '@/assigned-programs/useAssignedPrograms'
 import { assignExerciseToAssignedProgram } from '@/assigned-programs/api'
+import { ListSkeleton } from '@/common/Loading'
 
 type AssignTarget = 'template' | 'assigned'
 
@@ -125,7 +126,7 @@ function ExerciseAssignView({ exerciseId }: { exerciseId: number }) {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <ListSkeleton label={`Loading ${what}…`} layout="cards" />
       ) : isError ? (
         <LoadError what={what} queries={[shownQuery]} />
       ) : items.length === 0 ? (

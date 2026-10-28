@@ -1,4 +1,4 @@
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { Button } from '@/components/ui/button'
 import { attendanceLines } from './alertText'
 import type { Alert, AttendanceAlert } from './types'
@@ -67,7 +67,7 @@ export function ProgramAlertBanner({ programId, today }: { programId: number; to
       </div>
       {review.isError && (
         <p role="alert" className="text-sm text-destructive">
-          {review.error instanceof ApiError ? review.error.message : "Couldn't save. Try again."}
+          {failureText(review.error, "Couldn't save. Try again.")}
         </p>
       )}
     </section>

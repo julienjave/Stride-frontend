@@ -27,6 +27,7 @@ import {
   viewedSessionState,
 } from './sessionReturn'
 import { workoutLabel } from './todayRow'
+import { Loading } from '@/common/Loading'
 
 // One of the patient's programs — `/patient/sessions/programs/:programId`
 // (the Sessions hub's pass 2, agreed 2026-10-17). Active or past: what it
@@ -79,7 +80,7 @@ function ProgramView({ programId }: { programId: number }) {
   if (!program.isSuccess) {
     return (
       <ProgramPage>
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <Loading label="Loading the program…" />
       </ProgramPage>
     )
   }
@@ -110,7 +111,7 @@ function ProgramView({ programId }: { programId: number }) {
         )}
       </div>
 
-      {summary.isPending && <p className="text-sm text-muted-foreground">Loading progress…</p>}
+      {summary.isPending && <Loading label="Loading the progress…" />}
       {summary.isError && <LoadError what="the progress" queries={[summary]} />}
       {summary.data && (
         <>

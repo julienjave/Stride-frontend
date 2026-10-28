@@ -16,6 +16,7 @@ import type {
   AssignedProgram,
   AssignedProgramDetail,
 } from '@/assigned-programs/types'
+import { expectSkeleton, holdRequests } from '@/common/loadingAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -431,5 +432,14 @@ describe('ExerciseAssignPage', () => {
       'href',
       '/practitioner/library/42',
     )
+  })
+})
+
+// Lists load behind a skeleton (the loading / error pass, pass 2).
+describe('ExerciseAssignPage — while it loads', () => {
+  it('a skeleton of the templates to choose from', async () => {
+    holdRequests(fetchMock, (url) => new URL(url).pathname === '/programs')
+    renderAt('/practitioner/library/5/assign')
+    await waitFor(() => expectSkeleton('Loading the templates…'))
   })
 })

@@ -26,6 +26,7 @@ import { useAssignedProgram } from './useAssignedProgram'
 import { useOwnPhotoEditing } from './useOwnPhotoEditing'
 import type { AssignedProgramDetail, AssignedProgramExercise } from './types'
 import { useRetryFocus } from '@/common/useRetryFocus'
+import { Loading } from '@/common/Loading'
 
 // A program exercise's OWN photos (program-specific photos, 2026-10-17):
 // `/practitioner/programs/assigned/:id/exercises/:rowId/photos`, from the
@@ -79,7 +80,7 @@ function PhotosView({ programId, exerciseRowId }: { programId: number; exerciseR
   const lock = useProgramLock(program)
 
   if (isLoading) {
-    return <p className="mx-auto mt-8 max-w-2xl px-4 text-sm text-muted-foreground">Loading…</p>
+    return <Loading className="mx-auto mt-8 max-w-2xl px-4" />
   }
   if (error || !program) return <ProgramLoadFailed query={programQuery} what="these photos" />
 

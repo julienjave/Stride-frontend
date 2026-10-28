@@ -22,6 +22,7 @@ import {
   formatLinkMoment,
   LINK_VALIDITY_HOURS,
 } from './recordsExportRules'
+import { ListSkeleton } from '@/common/Loading'
 
 // The admin's "Email a download link" on a patient's user page (decisions
 // §20, pass 3) — for a patient who can't sign in (deactivated, or never
@@ -161,7 +162,7 @@ export function RecordsExportLinksSection({
       {links.isError ? (
         <LoadError what="the links sent" queries={[links]} />
       ) : !links.isSuccess ? (
-        <p className="text-sm text-muted-foreground">Loading the links sent…</p>
+        <ListSkeleton label="Loading the links sent…" rows={2} />
       ) : links.data.length === 0 ? (
         <p className="text-sm text-muted-foreground">No link has been sent yet.</p>
       ) : (

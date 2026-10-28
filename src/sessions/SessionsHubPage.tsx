@@ -16,6 +16,7 @@ import { programPagePath } from './programPagePath'
 import { ViewProgramLink } from './ViewProgramLink'
 import { todayRow } from './todayRow'
 import { TodayRowView } from './TodayRowView'
+import { ListSkeleton, Loading } from '@/common/Loading'
 
 // The patient's Sessions tab — `/patient/sessions` (Phase 4, the Sessions
 // hub, agreed 2026-10-17). Pass 1: one card per ACTIVE program — listed
@@ -44,7 +45,7 @@ export function SessionsHubPage() {
   if (list.isPending) {
     return (
       <HubPage heading={heading}>
-        <p className="text-sm text-muted-foreground">Loading your programs…</p>
+        <ListSkeleton label="Loading your programs…" rows={2} layout="cards" />
       </HubPage>
     )
   }
@@ -169,7 +170,7 @@ function ProgramCard({
             </p>
           )}
         </div>
-        {summary.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {summary.isPending && <Loading label="Loading this program's sessions…" />}
         {summary.isError && <LoadError what="this program's sessions" queries={[summary]} />}
         {summary.data && (
           <>

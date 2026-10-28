@@ -14,6 +14,7 @@ import {
 import { PatientPage } from './PatientPage'
 import { PatientsListPage } from './PatientsListPage'
 import type { CareTeamEntry } from './types'
+import { expectSkeleton, holdRequests } from '@/common/loadingAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -613,7 +614,7 @@ describe('PatientPage — care team', () => {
   it("starts fresh on another patient's page: the past-members toggle doesn't carry over", async () => {
     const user = userEvent.setup()
     const { queryClient } = renderPatientPage()
-    // Jo's page was visited earlier, so Jo is cached: no "Loading patient…"
+    // Jo's page was visited earlier, so Jo is cached: no "Loading the patient…"
     // in between (which would unmount the section and hide the problem) —
     // only the `key` on the view makes the next patient start fresh.
     queryClient.setQueryData(['users', 7], { ...pat, id: 7, firstName: 'Jo', lastName: 'Novak' })
@@ -751,5 +752,16 @@ describe('PatientPage — leaving the care team', () => {
 
     const reopened = await screen.findByRole('dialog')
     await waitFor(() => expect(within(reopened).queryByText('Refused')).not.toBeInTheDocument())
+  })
+})
+
+// The patient's programs load behind a skeleton (the loading / error pass,
+// pass 2), under a page already drawn.
+describe('PatientPage — while the programs load', () => {
+  it('a skeleton of the programs', async () => {
+    holdRequests(fetchMock, (url) => url.includes('/assigned-programs?patientId=6'))
+    renderPatientPage()
+    const programs = (await screen.findByRole('heading', { level: 2, name: 'Programs' })).closest('section')!
+    expectSkeleton('Loading the programs…', programs)
   })
 })

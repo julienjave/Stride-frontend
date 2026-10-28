@@ -18,6 +18,7 @@ import { invitationsQueryKey, listInvitations, revokeInvitation, sendInvitation 
 import { formatExpiry } from './formatExpiry'
 import type { InvitationSummary } from './types'
 import { refreshAttention } from '@/users/attention'
+import { Loading } from '@/common/Loading'
 
 // Where an account's invitation stands, with what can be done about it.
 // Props, not a route parameter: the admin user page uses it today, and the
@@ -121,7 +122,7 @@ export function InvitationStatus({ userId, userName, email, isActive }: Invitati
   })
 
   if (invitations.isPending) {
-    return <p className="text-sm text-muted-foreground">Loading invitation…</p>
+    return <Loading label="Loading the invitation…" />
   }
 
   // Inside the section it would have been (2026-10-28 — before, a bare line

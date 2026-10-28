@@ -6,6 +6,7 @@ import { auditLogQueryKey, fetchAuditLog } from '@/audit-log/api'
 import { NO_FILTERS, writeFilters, type AuditLogQuery } from '@/audit-log/auditFilters'
 import { actionLabel, formatEntryMoment } from '@/audit-log/auditWording'
 import type { AuditLogEntry, AuditPerson } from '@/audit-log/types'
+import { ListSkeleton } from '@/common/Loading'
 
 // How many changes the home shows; the audit log has the rest.
 export const RECENT_ACTIVITY_ROWS = 5
@@ -51,9 +52,7 @@ export function RecentActivitySection() {
         </p>
       </div>
 
-      {changes.isPending && (
-        <p className="text-sm text-muted-foreground">Loading recent activity…</p>
-      )}
+      {changes.isPending && <ListSkeleton label="Loading recent activity…" />}
       {changes.isError && <LoadError what="recent activity" queries={[changes]} />}
       {changes.isSuccess && changes.data.data.length === 0 && (
         <p className="text-sm">No changes recorded yet.</p>

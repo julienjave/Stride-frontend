@@ -11,6 +11,7 @@ import { PatientPageSection } from './PatientPageSection'
 import { isOnlyActiveMember, sortCareTeam } from './patientPageRules'
 import type { CareTeamEntry } from './types'
 import { useCareTeam } from './useCareTeam'
+import { ListSkeleton } from '@/common/Loading'
 
 interface CareTeamSectionProps {
   patientId: number
@@ -118,7 +119,7 @@ export function CareTeamSection({
           {canEndAny ? 'Reactivate the account to add someone.' : 'An admin can reactivate it.'}
         </p>
       )}
-      {isLoading && <p className="text-sm text-muted-foreground">Loading the care team…</p>}
+      {isLoading && <ListSkeleton label="Loading the care team…" rows={2} avatar />}
       {isError && <LoadError what="the care team" queries={[careTeam]} />}
       {entries && entries.length === 0 && (
         // Possible for an admin: a patient whose last practitioner was

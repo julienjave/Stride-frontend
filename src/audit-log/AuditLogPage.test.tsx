@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
+import { expectSkeleton } from '@/common/loadingAssertions'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router'
@@ -195,12 +196,13 @@ describe('AuditLogPage', () => {
 
   it('counts the entries in a live region', async () => {
     renderAuditLog('/admin/audit-log', () => json(page([entry(1), entry(2)], { total: 41, totalPages: 3 })))
-    expect(await screen.findByRole('status')).toHaveTextContent('41 entries')
+    // The count's own live region (the list's loading state is one too).
+    expect(await screen.findByText('41 entries', { selector: '[role="status"]' })).toBeInTheDocument()
   })
 
   it('says "1 entry" for one', async () => {
     renderAuditLog()
-    expect(await screen.findByRole('status')).toHaveTextContent(/^1 entry$/)
+    expect(await screen.findByText(/^1 entry$/, { selector: '[role="status"]' })).toBeInTheDocument()
   })
 
   // --- details ---
@@ -427,7 +429,7 @@ describe('AuditLogPage', () => {
   it('says it is loading until the first answer', async () => {
     let answer: (response: Response) => void = () => {}
     renderAuditLog('/admin/audit-log', () => new Promise((resolve) => (answer = resolve)))
-    expect(await screen.findByText('Loading the audit log…')).toBeInTheDocument()
+    await waitFor(() => expectSkeleton('Loading the audit log…'))
     answer(json(page([entry(1)])))
     await screen.findByRole('article')
     expect(screen.queryByText('Loading the audit log…')).not.toBeInTheDocument()

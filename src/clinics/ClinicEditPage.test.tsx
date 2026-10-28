@@ -10,6 +10,7 @@ import {
   expectRecordNotFound,
   retryThenExpectFocusOn,
 } from '@/common/loadFailureAssertions'
+import { expectLoading } from '@/common/loadingAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -59,7 +60,7 @@ describe('ClinicEditPage — loading and error states', () => {
   it('shows a loading state before the clinic resolves', () => {
     fetchMock.mockReturnValue(new Promise(() => {}))
     renderAt('/admin/clinics/1')
-    expect(screen.getByText('Loading clinic…')).toBeInTheDocument()
+    expectLoading('Loading the clinic…')
   })
 
   it('a 404: "Clinic not found", and no Try again', async () => {

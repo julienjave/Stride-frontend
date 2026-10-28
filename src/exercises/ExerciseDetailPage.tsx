@@ -14,6 +14,7 @@ import { EditableExerciseTitle } from './EditableExerciseTitle'
 import { EditableExerciseListField } from './EditableExerciseListField'
 import { ArchiveExerciseButton } from './ArchiveExerciseButton'
 import type { ExerciseDetail } from './types'
+import { Loading } from '@/common/Loading'
 
 // Where to go when this page can't show its exercise (RecordNotFound).
 const WAYS_OUT: [{ to: string; label: string }] = [
@@ -71,11 +72,7 @@ function ExerciseDetailView({ exerciseId }: { exerciseId: number }) {
   }
 
   if (isLoading) {
-    return (
-      <p className="mx-auto mt-12 max-w-2xl px-4 text-sm text-muted-foreground">
-        Loading…
-      </p>
-    )
+    return <Loading className="mx-auto mt-12 max-w-2xl px-4" />
   }
 
   // A 404: no such exercise ("Exercise not found", no Try again). Anything

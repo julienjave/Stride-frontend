@@ -9,6 +9,7 @@ import { useUser } from '@/users/useUser'
 import { MedicalFileEntryList } from './MedicalFileEntryList'
 import { medicalFileEntryPath, patientPagePath } from './medicalFilePaths'
 import { useMedicalFile } from './useMedicalFile'
+import { ListSkeleton } from '@/common/Loading'
 
 // The practitioner's view of a patient's medical file —
 // `/practitioner/patients/:id/medical-file` (Phase 6, decisions §8). Its OWN
@@ -91,7 +92,7 @@ function MedicalFileView({ patientId }: { patientId: number }) {
       {file.isError ? (
         <LoadError what="the medical file" queries={[file]} />
       ) : !file.isSuccess ? (
-        <p className="text-sm text-muted-foreground">Loading the medical file…</p>
+        <ListSkeleton label="Loading the medical file…" rows={2} layout="cards" />
       ) : file.data.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           No entries yet. The first one is usually the initial assessment.

@@ -11,6 +11,7 @@ import { listTimeText, personName, previewText, READ_ONLY_SHORT_TEXT } from './m
 import { NewMessageDialog } from './NewMessageDialog'
 import type { ConversationSummary } from './types'
 import { useConversations } from './useConversations'
+import { ListSkeleton } from '@/common/Loading'
 
 interface ConversationListProps {
   role: MessagingRole
@@ -43,7 +44,7 @@ export function ConversationList({ role, myId, selectedId }: ConversationListPro
         <NewMessageDialog role={role} />
       </div>
       <div className="flex-1 overflow-y-auto">
-        {conversations.isPending && <p className="p-4 text-sm text-muted-foreground">Loading conversations…</p>}
+        {conversations.isPending && <ListSkeleton label="Loading your conversations…" avatar className="p-4" />}
         {conversations.isError && (
           <div className="p-4">
             <LoadError what="your conversations" queries={[conversations]} />

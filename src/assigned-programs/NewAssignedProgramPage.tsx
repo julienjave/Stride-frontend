@@ -44,6 +44,7 @@ import type { AssignedProgramDetail } from './types'
 import { useAssignedProgram } from './useAssignedProgram'
 import { useCreateAssignedProgram } from './useCreateAssignedProgram'
 import { DEACTIVATED_ASSIGN_AGAIN_TEXT } from './programLock'
+import { Loading } from '@/common/Loading'
 
 // "Assign a program" — /practitioner/programs/assigned/new. ONE page for the
 // whole assignment (decisions §5, "Settled 2026-10-10", point 5): patient,
@@ -107,7 +108,7 @@ function AssignFromTemplatePage({
         Assign a program
       </h1>
       {patientsQuery.isLoading || templatesQuery.isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <Loading label="Loading your patients and templates…" />
       ) : patientsQuery.isError || templatesQuery.isError ? (
         // "Try again" asks again only the list(s) that failed.
         <LoadError what="your patients and templates" queries={[patientsQuery, templatesQuery]} />
@@ -192,7 +193,7 @@ function AssignAgainPage({ continuedId }: { continuedId: string }) {
       ) : loadFailed ? (
         <LoadError what="the program and your patients" queries={[sourceQuery, patientsQuery]} />
       ) : patientsQuery.isLoading || !source ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <Loading label="Loading the program and your patients…" />
       ) : (
         // As for templates: the form only once its data is here (its
         // defaultValues are read once — the title and schedule come from
@@ -470,9 +471,7 @@ function AssignProgramForm({
           {errors.templateId && (
             <p className="text-sm text-destructive">{errors.templateId.message}</p>
           )}
-          {templateQuery.isLoading && (
-            <p className="text-sm text-muted-foreground">Loading the template…</p>
-          )}
+          {templateQuery.isLoading && <Loading label="Loading the template…" />}
           {templateQuery.isError && <LoadError what="this template" queries={[templateQuery]} />}
           {problem && <p className="text-sm text-destructive">{problem}</p>}
           {template && !problem && workoutOptions.length > 1 && (

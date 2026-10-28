@@ -25,6 +25,7 @@ import {
   type ScoreViewer,
 } from './scoreText'
 import { useProgramSessions } from './useProgramSessions'
+import { Loading } from '@/common/Loading'
 
 // "Pain and mobility" — one program's scores over time (the progress page,
 // agreed 2026-10-18; decisions §6). On BOTH program pages: the patient's
@@ -73,7 +74,7 @@ export function PainAndMobility({
 
   function body() {
     if (sessions.isPending) {
-      return <p className="text-sm text-muted-foreground">Loading pain and mobility…</p>
+      return <Loading label="Loading pain and mobility…" />
     }
     if (sessions.isError) {
       return <LoadError what="the pain and mobility scores" queries={[sessions]} />

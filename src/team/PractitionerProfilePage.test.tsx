@@ -8,6 +8,7 @@ import { formatCalendarDate } from '@/common/formatCalendarDate'
 import { expectLoadError, retryThenExpectFocusOn } from '@/common/loadFailureAssertions'
 import { PractitionerProfilePage } from './PractitionerProfilePage'
 import { ALEX, HARBOUR, PAT, RIVERSIDE, SAM, clinic, json, member, program, urlOf } from './testData'
+import { expectSkeleton, holdRequests } from '@/common/loadingAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -243,5 +244,14 @@ describe('PractitionerProfilePage', () => {
     programs = good
     await retryThenExpectFocusOn(user, { level: 2, name: 'Programs from them' })
     expect(await within(programsSection).findByRole('link', { name: 'Knee Rehab' })).toBeInTheDocument()
+  })
+})
+
+// Their programs load behind a skeleton (pass 2).
+describe('PractitionerProfilePage — while it loads', () => {
+  it('a skeleton of the programs from them, under their profile', async () => {
+    holdRequests(fetchMock, (url) => url.endsWith('/assigned-programs'))
+    renderAt(`/patient/team/${ALEX.id}`)
+    expectSkeleton('Loading your programs…', await section('Programs from them'))
   })
 })

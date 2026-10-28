@@ -9,6 +9,7 @@ import { DIRECTORY_RESULT_LIMIT, MIN_SEARCH_LENGTH } from './api'
 import { PatientIdentity } from './PatientIdentity'
 import { directorySearchTerm, namesFromSearch } from './roster'
 import { useDirectoryPatients } from './useDirectoryPatients'
+import { ListSkeleton } from '@/common/Loading'
 
 // The same delay as the exercise library's search: long enough that typing
 // "martin" at normal speed sends one request, not six; short enough that
@@ -106,7 +107,7 @@ export function AddPatientPage() {
         )}
       </div>
 
-      {isLoading && <p className="text-sm text-muted-foreground">Loading patients…</p>}
+      {isLoading && <ListSkeleton label="Loading the patients…" avatar />}
 
       {isError && <LoadError what="the search results" queries={[directory]} />}
 

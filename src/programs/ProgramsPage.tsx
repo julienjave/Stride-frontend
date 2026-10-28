@@ -9,6 +9,7 @@ import { isOwnTemplate } from './permissions'
 import { YoursBadge } from '@/common/YoursBadge'
 import { useAssignedPrograms } from '@/assigned-programs/useAssignedPrograms'
 import { isOwnAssignedProgram } from '@/assigned-programs/permissions'
+import { ListSkeleton } from '@/common/Loading'
 
 type ProgramKind = 'template' | 'assigned'
 
@@ -122,7 +123,7 @@ export function ProgramsPage() {
       )}
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <ListSkeleton label={`Loading ${what}…`} layout="cards" />
       ) : isError ? (
         <LoadError what={what} queries={[shownQuery]} />
       ) : (

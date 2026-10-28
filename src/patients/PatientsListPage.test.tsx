@@ -7,6 +7,7 @@ import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import { formatCalendarDate } from '@/common/formatCalendarDate'
 import { PatientsListPage } from './PatientsListPage'
 import { errorResponse, expectLoadError, retryThenExpectFocusOn } from '@/common/loadFailureAssertions'
+import { expectSkeleton } from '@/common/loadingAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -109,7 +110,7 @@ describe('PatientsListPage', () => {
   it('shows a loading state, then asks GET /users for my patients', () => {
     fetchMock.mockReturnValue(new Promise(() => {}))
     renderRoster()
-    expect(screen.getByText('Loading your patients…')).toBeInTheDocument()
+    expectSkeleton('Loading your patients…')
     // WITH the deactivated ones: the page splits them off itself, and the
     // switch says how many there are without a second request.
     expect(urlOf(fetchMock.mock.calls[0][0]).endsWith('/users?includeInactive=true')).toBe(true)

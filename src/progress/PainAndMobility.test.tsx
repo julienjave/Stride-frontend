@@ -8,6 +8,7 @@ import { A, B, KNEE, TODAY, apiError, json, session, urlOf } from '@/sessions/te
 import type { ProgramSession } from './api'
 import { PainAndMobility } from './PainAndMobility'
 import type { ScoreViewer } from './scoreText'
+import { expectLoading } from '@/common/loadingAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -65,7 +66,7 @@ describe('PainAndMobility', () => {
         listed(2, '2031-06-09', { painBefore: 6, painAfter: 4, mobilityAfter: 5 }),
       ])
     renderSection()
-    expect(screen.getByText('Loading pain and mobility…')).toBeInTheDocument()
+    expectLoading('Loading pain and mobility…')
     expect(await screen.findByRole('group', { name: 'Pain chart' })).toHaveAccessibleDescription(
       `2 sessions with a pain score. Latest (${formatShortDate('2031-06-11')}): 4 before, 2 after. Tap or point at the chart to read a session — or focus it and use the arrow keys.`,
     )

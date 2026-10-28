@@ -12,6 +12,7 @@ import { ProgramTotals, ProgramWeeks } from './ProgramWeeks'
 import { currentAndPlanned, describeVersion, type WorkoutNames } from './programSchedule'
 import { upNextText } from './progressText'
 import type { AssignedProgramDetail, ScheduleSummary } from './types'
+import { Loading } from '@/common/Loading'
 
 interface ProgramScheduleProgressProps {
   program: AssignedProgramDetail
@@ -95,7 +96,7 @@ export function ProgramScheduleProgress({
           Deleted before any session: there's no progress to show.
         </p>
       )}
-      {summaryLoading && <p className="text-sm text-muted-foreground">Loading progress…</p>}
+      {summaryLoading && <Loading label="Loading the progress…" />}
       {summaryFailure && <LoadError what="the progress" queries={[summaryFailure]} />}
       {summary && (
         <>

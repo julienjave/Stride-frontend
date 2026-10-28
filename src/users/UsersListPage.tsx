@@ -6,6 +6,7 @@ import { NativeSelect } from '@/common/NativeSelect'
 import { useRetryFocus } from '@/common/useRetryFocus'
 import { useUsers, useUsersNeedingAttention } from './useUsers'
 import { ATTENTION_GROUPS, ATTENTION_KINDS, readAttention } from './attention'
+import { ListSkeleton } from '@/common/Loading'
 
 // URL scheme for this feature, mirroring clinics exactly: /admin/users
 // (this page), /admin/users/new (create, already built), /admin/users/:id
@@ -93,7 +94,7 @@ export function UsersListPage() {
         <p className="text-sm text-muted-foreground">{ATTENTION_GROUPS[attention].explanation}</p>
       )}
 
-      {shown.isPending && <p className="text-sm text-muted-foreground">Loading users…</p>}
+      {shown.isPending && <ListSkeleton label="Loading the users…" />}
 
       {/* "Try again" asks for this list only (decisions §15). */}
       {shown.isError && <LoadError what="the users" queries={[shown]} />}

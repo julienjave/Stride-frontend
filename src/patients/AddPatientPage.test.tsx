@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router'
 import { errorResponse, expectLoadError, retryThenExpectFocusOn } from '@/common/loadFailureAssertions'
 import { AddPatientPage } from './AddPatientPage'
 import type { DirectoryPatient } from './types'
+import { expectSkeleton } from '@/common/loadingAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -335,5 +336,14 @@ describe('AddPatientPage — adding a patient', () => {
     const reopened = await screen.findByRole('dialog')
     expect(within(reopened).getByLabelText('Reason (optional)')).toHaveValue('')
     expect(within(reopened).queryByText('Refused')).not.toBeInTheDocument()
+  })
+})
+
+// The directory loads behind a skeleton of rows with photos (pass 2).
+describe('AddPatientPage — while it loads', () => {
+  it('a skeleton of the patients', () => {
+    fetchMock.mockImplementation(() => new Promise<Response>(() => {}))
+    renderAddPatientPage()
+    expectSkeleton('Loading the patients…')
   })
 })

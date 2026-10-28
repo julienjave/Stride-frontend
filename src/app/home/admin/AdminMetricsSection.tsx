@@ -5,6 +5,7 @@ import { useRetryFocus } from '@/common/useRetryFocus'
 import { adminMetricsQueryKey, fetchAdminMetrics, type AttentionList } from './api'
 import { moreLine, nothingNeedsAttention, notCountedLine } from './adminHomeText'
 import { ATTENTION_GROUPS, attentionHref, type AttentionKind } from '@/users/attention'
+import { LinesSkeleton } from '@/common/Loading'
 
 // The admin home's "Metrics" section (decisions §17, the person's choices
 // 2026-10-24): active accounts by role, clinics, invitations still waiting,
@@ -32,7 +33,7 @@ export function AdminMetricsSection() {
         </p>
       </div>
 
-      {metrics.isPending && <p className="text-sm text-muted-foreground">Loading metrics…</p>}
+      {metrics.isPending && <LinesSkeleton label="Loading the metrics…" lines={3} />}
       {/* "Try again" refetches just this request (decisions §15) — not
           "Try refreshing the page", which reloads the whole app for it. */}
       {metrics.isError && <LoadError what="the metrics" queries={[metrics]} />}

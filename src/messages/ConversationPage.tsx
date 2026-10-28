@@ -41,6 +41,7 @@ import { MessageRefusedError } from './socketAnswer'
 import { useSendMessage } from './useSendMessage'
 import { useMessagingViewer } from './useMessagingViewer'
 import { useStickToBottom } from './useStickToBottom'
+import { Loading } from '@/common/Loading'
 
 // One conversation — `/<role>/messages/:conversationId`: who, the thread,
 // and the box to write in.
@@ -95,7 +96,7 @@ function Conversation({
       </Pane>
     )
   }
-  if (!conversation.isSuccess) return <p className="p-4 text-sm text-muted-foreground">Loading…</p>
+  if (!conversation.isSuccess) return <Loading label="Loading the conversation…" className="p-4" />
 
   const summary = conversation.data
   return (
@@ -191,7 +192,7 @@ function Thread({
     // content's height — without it, the thread would grow the page
     // instead of scrolling inside.
     <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-      {thread.isPending && <p className="text-sm text-muted-foreground">Loading messages…</p>}
+      {thread.isPending && <Loading label="Loading the messages…" />}
       {thread.isError && (
         <LoadError what="the messages" queries={[thread]} />
       )}

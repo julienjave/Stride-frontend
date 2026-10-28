@@ -7,6 +7,7 @@ import { AuditLogFiltersPanel } from './AuditLogFiltersPanel'
 import { hasFilters, rangeProblem, toQuery } from './auditFilters'
 import { useAuditActions, useAuditLog } from './useAuditLog'
 import { useFiltersInAddress } from './useFiltersInAddress'
+import { ListSkeleton } from '@/common/Loading'
 
 // /admin/audit-log — the audit trail, newest first (decisions §11). Every
 // filter lives in the address (auditFilters.ts, useFiltersInAddress.ts): the
@@ -56,7 +57,7 @@ export function AuditLogPage() {
       ) : log.isError ? (
         <LoadError what="the audit log" queries={[log]} />
       ) : !data ? (
-        <p className="text-sm text-muted-foreground">Loading the audit log…</p>
+        <ListSkeleton label="Loading the audit log…" rows={5} />
       ) : (
         <>
           {/* A live region: a screen reader hears the new count after each

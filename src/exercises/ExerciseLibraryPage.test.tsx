@@ -10,6 +10,7 @@ import {
 } from '@/common/loadFailureAssertions'
 import { ExerciseLibraryPage } from './ExerciseLibraryPage'
 import type { ExerciseListItem } from './types'
+import { expectSkeleton } from '@/common/loadingAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -64,7 +65,7 @@ describe('ExerciseLibraryPage', () => {
   it('shows a loading state before exercises resolve', () => {
     fetchMock.mockReturnValue(new Promise(() => {})) // never resolves
     renderPage()
-    expect(screen.getByText('Loading exercises…')).toBeInTheDocument()
+    expectSkeleton('Loading exercises…')
   })
 
   it('renders the Add New Exercise card first, followed by the fetched exercises', async () => {

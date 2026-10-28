@@ -11,6 +11,7 @@ import {
   retryThenExpectFocusOn,
 } from '@/common/loadFailureAssertions'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
+import { expectLoading } from '@/common/loadingAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -185,7 +186,7 @@ describe('ProgramExercisePage', () => {
   it('shows a loading state before the template resolves', () => {
     fetchMock.mockReturnValue(new Promise(() => {}))
     renderAt('/practitioner/programs/templates/1/exercises/50')
-    expect(screen.getByText('Loading…')).toBeInTheDocument()
+    expectLoading('Loading…')
   })
 
   it("the template's read fails otherwise: the load error; a retry that works focuses the title", async () => {

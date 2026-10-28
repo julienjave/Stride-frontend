@@ -5,6 +5,7 @@ import type { Clinic } from '@/clinics/types'
 import { useClinic } from '@/clinics/useClinic'
 import type { ClinicRef } from '@/patients/types'
 import { websiteHref } from './teamRules'
+import { Loading } from '@/common/Loading'
 
 // One clinic of "Where they see you": its name, then how to reach it —
 // address, phone, email, website. The CLINIC's details (public to any
@@ -26,7 +27,7 @@ export function ClinicContact({ clinic }: { clinic: ClinicRef }) {
       <h3 ref={heading} tabIndex={-1} className="font-medium outline-none">
         {clinic.name}
       </h3>
-      {details.isPending && <p className="text-sm text-muted-foreground">Loading the clinic's details…</p>}
+      {details.isPending && <Loading label={`Loading ${what}…`} />}
       {details.isError && <LoadError what={what} queries={[details]} />}
       {details.data && <ContactLines clinic={details.data} />}
     </li>

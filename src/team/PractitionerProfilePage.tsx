@@ -14,6 +14,7 @@ import { viewedPractitionerState } from './teamReturn'
 import { findTeamMember, programsFrom } from './teamRules'
 import type { MyCareTeamEntry } from './types'
 import { useMyCareTeam } from './useMyCareTeam'
+import { ListSkeleton, Loading } from '@/common/Loading'
 
 // One member of the patient's care team — `/patient/team/:practitionerId`
 // (Phase 4, "My Team", agreed 2026-10-18): who they are (photo, name,
@@ -45,7 +46,7 @@ export function PractitionerProfilePage() {
   if (!team.isSuccess) {
     return (
       <ProfilePage>
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <Loading />
       </ProfilePage>
     )
   }
@@ -164,7 +165,7 @@ function ProgramsFrom({ practitionerId, firstName }: { practitionerId: number; f
       <h2 ref={heading} tabIndex={-1} id="profile-programs" className="text-lg font-semibold outline-none">
         Programs from them
       </h2>
-      {list.isPending && <p className="text-sm text-muted-foreground">Loading your programs…</p>}
+      {list.isPending && <ListSkeleton label="Loading your programs…" rows={2} layout="cards" />}
       {list.isError && <LoadError what="your programs" queries={[list]} />}
       {list.data && <ProgramList programs={list.data} practitionerId={practitionerId} firstName={firstName} />}
     </section>

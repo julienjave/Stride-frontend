@@ -21,6 +21,7 @@ import type { SetupStatus } from './types'
 import { registerClinicSchema, type RegisterClinicFormValues } from './schemas'
 import { ApiError } from '@/api/client'
 import { failureText } from '@/api/apiErrors'
+import { Loading } from '@/common/Loading'
 
 export function RegisterClinicPage() {
   const queryClient = useQueryClient()
@@ -98,11 +99,7 @@ export function RegisterClinicPage() {
   // through to the form below — the backend still refuses a second setup
   // with a 403, which the onError above turns into the notice above.
   if (setupStatus.isPending) {
-    return (
-      <p role="status" className="mx-auto mt-24 max-w-sm px-4 text-sm text-muted-foreground">
-        Loading…
-      </p>
-    )
+    return <Loading className="mx-auto mt-24 max-w-sm px-4" />
   }
 
   return (

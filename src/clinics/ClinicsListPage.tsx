@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { LoadError } from '@/common/LoadError'
 import { useRetryFocus } from '@/common/useRetryFocus'
 import { useClinics } from './useClinics'
+import { ListSkeleton } from '@/common/Loading'
 
 // URL scheme for this feature: /admin/clinics (this page), /admin/clinics
 // /new (create), /admin/clinics/:id (the per-field edit view). Bare
@@ -43,7 +44,7 @@ export function ClinicsListPage() {
         Show deactivated clinics
       </label>
 
-      {isLoading && <p className="text-sm text-muted-foreground">Loading clinics…</p>}
+      {isLoading && <ListSkeleton label="Loading the clinics…" />}
 
       {isError && <LoadError what="the clinics" queries={[clinicsQuery]} />}
 

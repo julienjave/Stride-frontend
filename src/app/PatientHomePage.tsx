@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { MyProgramsSection, TodayAndUpcomingCard } from '@/app/home/patient/PatientHomeSections'
 import { useActiveProgramSummaries } from '@/assigned-programs/useActiveProgramSummaries'
 import { HomeGreeting } from './home/HomeGreeting'
+import { LinesSkeleton } from '@/common/Loading'
 
 // The patient's home (Phase 4, decisions §2) — the same structure as the
 // other homes: greeting + avatar, a summary card (here Today and Upcoming,
@@ -60,7 +61,11 @@ export function PatientHomePage() {
       )}
 
       {list.isPending ? (
-        <Notice>Loading your programs…</Notice>
+        <Card>
+          <CardContent>
+            <LinesSkeleton label="Loading your programs…" lines={3} />
+          </CardContent>
+        </Card>
       ) : list.isError ? (
         <Card>
           <CardContent>

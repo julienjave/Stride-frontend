@@ -234,7 +234,7 @@ describe('ProfilePage — what it shows', () => {
   it('shows the notice another page handed over, and none otherwise', async () => {
     fakeBackend(patientUser)
     renderProfile(patientUser, 'patient', { notice: 'Your password is changed.' })
-    expect(await screen.findByRole('status')).toHaveTextContent('Your password is changed.')
+    expect(await screen.findByText('Your password is changed.', { selector: '[role="status"]' })).toBeInTheDocument()
   })
 
   it('shows no notice when none was handed over', async () => {

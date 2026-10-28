@@ -142,3 +142,10 @@ export function charactersLeftText(length: number): string | null {
   if (left < 0) return `${-left} characters over the limit`
   return left === 1 ? '1 character left' : `${left} characters left`
 }
+
+// A conversation that couldn't be started because no answer came (the
+// network): "Message" on a profile and "New message" (Phase 6, the loading
+// / error pass, pass 2 — before, they showed the error's own text, which for a
+// dropped network is the browser's "Failed to fetch"). A refusal shows its
+// words, a 5xx the shared sentence (`failureText`).
+export const START_CONVERSATION_FAILED_TEXT = "Couldn't start the conversation. Check your connection and try again."

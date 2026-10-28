@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, useLocation, useNavigate } from 'react-router'
 import { UsersListPage } from './UsersListPage'
 import { expectLoadError, retryThenExpectFocusOn } from '@/common/loadFailureAssertions'
+import { expectSkeleton } from '@/common/loadingAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -71,7 +72,7 @@ describe('UsersListPage', () => {
   it('shows a loading state before the users resolve', () => {
     fetchMock.mockReturnValue(new Promise(() => {})) // never resolves
     renderUsersListPage()
-    expect(screen.getByText('Loading users…')).toBeInTheDocument()
+    expectSkeleton('Loading the users…')
   })
 
   it('renders each user with a link to their edit view, plus roles and clinics', async () => {

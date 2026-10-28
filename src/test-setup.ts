@@ -140,3 +140,17 @@ window.matchMedia = (query: string) =>
     removeListener: () => {},
     dispatchEvent: () => false,
   }) as MediaQueryList
+
+// The loading states' 200 ms delay (common/useDelayedShow.ts — Phase 6, the
+// loading / error pass, pass 2): OFF in every test but its own. With it, a
+// page test whose answer comes back in a few milliseconds would never see
+// "Loading…" — and its "nothing is said while it loads" and "no loading
+// state when the data is cached" assertions would pass for nothing (an
+// absence is always true before 200 ms). Shown at once, the loading state
+// is there to be found or missed, as before the delay existed. The delay
+// itself is tested once, for real, in common/Loading.test.tsx, which
+// unmocks this module.
+vi.mock('@/common/useDelayedShow', () => ({
+  LOADING_DELAY_MS: 200,
+  useDelayedShow: () => true,
+}))

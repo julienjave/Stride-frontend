@@ -11,6 +11,7 @@ import { queryClient } from '@/api/queryClient'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import { rememberSignOutReason } from '@/auth/currentPassword'
 import { RouteErrorPage } from './RouteErrorPage'
+import { Loading } from '@/common/Loading'
 
 // CODE SPLITTING (2026-10-15). Every PAGE is loaded on demand: its route
 // says `lazy: page(() => import('…'), (module) => module.SomePage)`
@@ -71,9 +72,7 @@ export const router = createBrowserRouter([
     //   - errorElement: shown when a route fails — above all a page file
     //     that can't be downloaded (offline, or a deploy replaced it: see
     //     staleChunkReload.ts) — instead of React Router's developer page.
-    hydrateFallbackElement: (
-      <p className="p-4 text-sm text-muted-foreground">Loading…</p>
-    ),
+    hydrateFallbackElement: <Loading className="p-4" />,
     errorElement: <RouteErrorPage />,
     children: [
       // Under NO guard. Not RequireGuest: a signed-in visitor (a shared

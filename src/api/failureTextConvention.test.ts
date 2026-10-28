@@ -20,20 +20,33 @@ const sources = import.meta.glob<string>('/src/**/*.{ts,tsx}', {
 // The one file allowed to read an error's messages.
 const RULE_FILE = '/src/api/apiErrors.ts'
 
+// The socket's refusals (`MessageRefusedError`: sending and deleting a
+// message) aren't ApiErrors, and api/ mustn't import messages/ — these two
+// word them themselves, with the same rule for a 5xx (decisions §23).
+const SOCKET_REFUSAL_FILES = ['/src/messages/ConversationPage.tsx', '/src/messages/DeleteMessageButton.tsx']
+
 // `error.messages`, `mutation.error.messages`, `apiError.messages`… — a name
-// ending in "error" or "Error", then `.messages`. Not `page.messages` (a page
-// of a conversation's messages, src/messages/). A differently named variable
-// (`e.messages`) would slip past: the review is the net for that.
-const READS_ERROR_MESSAGES = /\w*[eE]rror\.messages\b/
+// ending in "error" or "Error", then `.messages` — or `.message` (an Error's
+// own text: for an ApiError the server's words, 5xx included; for a dropped
+// network the browser's "Failed to fetch". Widened 2026-10-28, the loading /
+// error pass, pass 2: four actions read it). Not `page.messages` (a page of a
+// conversation's messages, src/messages/), not `errors.title.message` (a
+// form field's problem). A differently named variable (`e.messages`) would
+// slip past: the review is the net for that.
+const READS_ERROR_MESSAGES = /\w*[eE]rror\.messages?\b/
 
 function isApplicationCode(path: string): boolean {
   return !path.endsWith('.test.ts') && !path.endsWith('.test.tsx')
 }
 
+// The files the rule is checked in.
+const checked = Object.entries(sources).filter(
+  ([path]) => isApplicationCode(path) && path !== RULE_FILE && !SOCKET_REFUSAL_FILES.includes(path),
+)
+
 describe('the words of a failure', () => {
   it('are read from an error only in api/apiErrors.ts', () => {
-    const readers = Object.entries(sources)
-      .filter(([path]) => isApplicationCode(path) && path !== RULE_FILE)
+    const readers = checked
       .filter(([, text]) => READS_ERROR_MESSAGES.test(text))
       .map(([path]) => path)
 
@@ -47,5 +60,13 @@ describe('the words of a failure', () => {
     expect(Object.keys(sources)).toContain('/src/auth/LoginPage.tsx')
     expect('{mutation.error.messages.join(", ")}').toMatch(READS_ERROR_MESSAGES)
     expect('page.messages.map((m) => m)').not.toMatch(READS_ERROR_MESSAGES)
+    expect('{start.error.message}').toMatch(READS_ERROR_MESSAGES)
+    expect('{errors.title.message}').not.toMatch(READS_ERROR_MESSAGES)
+    for (const path of SOCKET_REFUSAL_FILES) expect(Object.keys(sources)).toContain(path)
+    // …and the filter keeps the application's components (one that dropped
+    // every file would pass the test above too).
+    const checkedPaths = checked.map(([path]) => path)
+    expect(checkedPaths).toContain('/src/auth/LoginPage.tsx')
+    expect(checkedPaths).toContain('/src/messages/MessageButton.tsx')
   })
 })

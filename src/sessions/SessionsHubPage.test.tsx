@@ -10,6 +10,7 @@ import { expectLoadError, retryThenExpectFocusOn } from '@/common/loadFailureAss
 import type { AssignedProgramListItem, ScheduleVersion } from '@/assigned-programs/types'
 import { SessionsHubPage } from './SessionsHubPage'
 import { A, B, PAT, TODAY, json, scheduledDay, summary, urlOf } from './testData'
+import { expectSkeleton } from '@/common/loadingAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -430,7 +431,7 @@ describe('SessionsHubPage — nothing, or not yet', () => {
     const good = list
     list = () => json({ statusCode: 500, message: ['Boom'] }, 500)
     renderPage()
-    expect(screen.getByText('Loading your programs…')).toBeInTheDocument()
+    expectSkeleton('Loading your programs…')
     await expectLoadError('your programs')
     expect(screen.queryByText('Loading your programs…')).not.toBeInTheDocument()
     list = good

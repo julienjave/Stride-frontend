@@ -14,6 +14,7 @@ import { acceptInvitation, lookupInvitation } from './api'
 import { formatExpiry } from './formatExpiry'
 import { acceptInvitationSchema, type AcceptInvitationFormValues } from './schemas'
 import type { UnusableReason } from './types'
+import { Loading } from '@/common/Loading'
 
 // The page an invitation email links to: /accept-invitation?token=…
 // The person has no password yet, so no session — this page is public,
@@ -168,11 +169,7 @@ export function AcceptInvitationPage() {
   }
 
   if (lookup.isPending) {
-    return (
-      <p role="status" className="mx-auto mt-24 max-w-sm px-4 text-sm text-muted-foreground">
-        Loading…
-      </p>
-    )
+    return <Loading className="mx-auto mt-24 max-w-sm px-4" />
   }
 
   // Any other failure (network down, server error, too many attempts):

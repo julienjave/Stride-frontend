@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useParams, Link } from 'react-router'
-import { ApiError } from '@/api/client'
+import { failureText } from '@/api/apiErrors'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { workoutNames } from '@/assigned-programs/programSchedule'
 import { useAssignedProgram } from '@/assigned-programs/useAssignedProgram'
@@ -18,6 +18,7 @@ import { endNoteLabel, reviewLine, scoreText } from './sessionReviewText'
 import type { StaffSession } from './types'
 import { useReviewSession } from './useReviewSession'
 import { useStaffSession } from './useStaffSession'
+import { Loading } from '@/common/Loading'
 
 // One session as the care team reads it — `/practitioner/sessions/:id`
 // (2026-10-19, decisions §3, "The practitioner's For review list"). Before it, a
@@ -62,7 +63,7 @@ function ReviewView({ sessionId }: { sessionId: number }) {
   if (session.isPending) {
     return (
       <Page>
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <Loading label="Loading the session…" />
       </Page>
     )
   }
@@ -256,9 +257,7 @@ function Reviews({ session, myId }: { session: StaffSession; myId: number }) {
             </p>
             {review.isError && (
               <p role="alert" className="text-sm text-destructive">
-                {review.error instanceof ApiError
-                  ? review.error.message
-                  : "Couldn't save. Try again."}
+                {failureText(review.error, "Couldn't save. Try again.")}
               </p>
             )}
           </div>

@@ -8,6 +8,7 @@ import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import { formatEntryMoment } from '@/audit-log/auditWording'
 import type { AdminMetrics } from './home/admin/api'
 import type { AuditLogEntry, AuditLogPage } from '@/audit-log/types'
+import { expectSkeleton } from '@/common/loadingAssertions'
 
 const PHOTO_URL = 'https://storage.example.com/signed/avatars/1/me.jpg'
 
@@ -213,9 +214,9 @@ describe('AdminHomePage', () => {
   describe('Metrics', () => {
     it('says it is loading until the numbers arrive', async () => {
       renderWithUser()
-      expect(within(metricsSection()).getByText('Loading metrics…')).toBeInTheDocument()
+      expectSkeleton('Loading the metrics…', metricsSection())
       await within(metricsSection()).findByText('Needs attention')
-      expect(within(metricsSection()).queryByText('Loading metrics…')).not.toBeInTheDocument()
+      expect(within(metricsSection()).queryByText('Loading the metrics…')).not.toBeInTheDocument()
     })
 
     it('shows each number with its label, in order', async () => {
@@ -435,7 +436,7 @@ describe('AdminHomePage', () => {
 
     it('says it is loading until the changes arrive', async () => {
       renderWithUser()
-      expect(within(activitySection()).getByText('Loading recent activity…')).toBeInTheDocument()
+      expectSkeleton('Loading recent activity…', activitySection())
       await within(activitySection()).findByText('No changes recorded yet.')
     })
 

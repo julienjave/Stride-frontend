@@ -6,6 +6,7 @@ import { json, urlOf } from '@/medical-files/testData'
 import { formatLinkMoment } from './recordsExportRules'
 import { RecordsExportLinksSection } from './RecordsExportLinksSection'
 import type { RecordsExportLinkSummary } from './types'
+import { expectSkeleton } from '@/common/loadingAssertions'
 
 // The admin's "Email a download link" on a patient's user page (decisions
 // §20, pass 3). The links' wording is recordsExportRules.test.ts's; here,
@@ -136,7 +137,7 @@ describe('RecordsExportLinksSection — the links sent', () => {
 
   it('shows it is loading, without saying there are none', async () => {
     renderSection()
-    expect(within(region()).getByText('Loading the links sent…')).toBeInTheDocument()
+    expectSkeleton('Loading the links sent…', region())
     expect(within(region()).queryByText('No link has been sent yet.')).not.toBeInTheDocument()
     await linkItems()
     expect(within(region()).queryByText('No link has been sent yet.')).not.toBeInTheDocument()

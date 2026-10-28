@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { InvitationStatus } from './InvitationStatus'
 import type { InvitationSummary } from './types'
 import { adminMetricsQueryKey } from '@/app/home/admin/api'
+import { expectLoading } from '@/common/loadingAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -223,7 +224,7 @@ describe('InvitationStatus', () => {
       )
       renderStatus()
 
-      expect(screen.getByText('Loading invitation…')).toBeInTheDocument()
+      expectLoading('Loading the invitation…')
       const section = within(await screen.findByRole('region', { name: 'Invitation' }))
       expect(section.getByRole('alert')).toHaveTextContent(
         /^Couldn't load the invitation\. Something went wrong on our side\. Try again in a moment\.$/,

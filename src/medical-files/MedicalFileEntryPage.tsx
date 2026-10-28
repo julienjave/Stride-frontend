@@ -24,6 +24,7 @@ import {
 import { ENTRY_TYPE_LABELS, SECTION_HINTS, SECTION_LABELS, entryHeading } from './medicalFileText'
 import { ENTRY_TYPES, SECTIONS, type EntryType, type MedicalFileEntry } from './types'
 import { useAddMedicalFileEntry, useMedicalFileEntry } from './useMedicalFile'
+import { Loading } from '@/common/Loading'
 
 // Writing in the medical file — `/practitioner/patients/:id/medical-file/new`
 // (Phase 6, decisions §8): its own page, so the four sections get room even
@@ -96,7 +97,7 @@ function AmendView({ patientId, amendsId }: { patientId: number; amendsId: numbe
   if (!entry.isSuccess) {
     return (
       <Page>
-        <p className="text-sm text-muted-foreground">Loading the entry…</p>
+        <Loading label="Loading the entry…" />
       </Page>
     )
   }

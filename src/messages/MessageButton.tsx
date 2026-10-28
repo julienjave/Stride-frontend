@@ -1,7 +1,8 @@
 import { MessageSquare } from 'lucide-react'
+import { failureText } from '@/api/apiErrors'
 import { Button } from '@/components/ui/button'
 import type { MessagingRole } from './messagesPath'
-import { personName } from './messageText'
+import { personName, START_CONVERSATION_FAILED_TEXT } from './messageText'
 import { useStartConversation } from './useStartConversation'
 
 interface MessageButtonProps {
@@ -35,7 +36,7 @@ export function MessageButton({ role, person }: MessageButtonProps) {
       </Button>
       {start.isError && (
         <p role="alert" className="text-sm text-destructive">
-          {start.error.message}
+          {failureText(start.error, START_CONVERSATION_FAILED_TEXT)}
         </p>
       )}
     </div>

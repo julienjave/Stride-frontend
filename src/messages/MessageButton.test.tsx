@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { SERVER_PROBLEM_TEXT } from '@/api/apiErrors'
 import { apiError, json } from '@/sessions/testData'
 import { MessageButton } from './MessageButton'
 import { MessagesSlot } from './MessagesSlot'
 import { fakeApi, fetchMock, renderMessages } from './renderMessages'
+import { START_CONVERSATION_FAILED_TEXT } from './messageText'
 import { message, PAT_PERSON, summary } from './testData'
 
 vi.stubGlobal('fetch', fetchMock)
@@ -43,6 +45,26 @@ describe('MessageButton', () => {
     renderMessages('/practitioner/patients/6', { extraRoutes: [profile] })
     await userEvent.click(screen.getByRole('button', { name: 'Message Pat Lee' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('You can only message someone on a care team with you')
+  })
+
+  // Through the shared rule (failureText, since 2026-10-28): before, the
+  // button showed the error's own text — the server's "Internal server
+  // error", or the browser's "Failed to fetch".
+  it("a server failure: the shared sentence, not the server's words", async () => {
+    started = apiError(500, 'Internal server error')
+    renderMessages('/practitioner/patients/6', { extraRoutes: [profile] })
+    await userEvent.click(screen.getByRole('button', { name: 'Message Pat Lee' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(new RegExp(`^${SERVER_PROBLEM_TEXT}$`))
+  })
+
+  it('no answer: says the conversation couldn\'t be started, and to check the connection', async () => {
+    const answered = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation((input, init) =>
+      init?.method === 'POST' ? Promise.reject(new TypeError('Failed to fetch')) : answered(input, init),
+    )
+    renderMessages('/practitioner/patients/6', { extraRoutes: [profile] })
+    await userEvent.click(screen.getByRole('button', { name: 'Message Pat Lee' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(new RegExp(`^${START_CONVERSATION_FAILED_TEXT}$`))
   })
 })
 

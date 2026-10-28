@@ -11,6 +11,7 @@ import { EditableTemplateDescription } from './EditableTemplateDescription'
 import { TemplateExerciseList } from './TemplateExerciseList'
 import { DuplicateTemplateButton } from './DuplicateTemplateButton'
 import { ArchiveTemplateButton } from './ArchiveTemplateButton'
+import { Loading } from '@/common/Loading'
 
 // The ONE place a program template is viewed and managed: its title and
 // description (inline-editable), its ordered exercise list (reorder,
@@ -52,11 +53,7 @@ function TemplateDetailView({ templateId }: { templateId: number }) {
   const { data: currentUser } = useCurrentUser()
 
   if (isLoading) {
-    return (
-      <p className="mx-auto mt-12 max-w-2xl px-4 text-sm text-muted-foreground">
-        Loading…
-      </p>
-    )
+    return <Loading className="mx-auto mt-12 max-w-2xl px-4" />
   }
 
   // A 404: "Template not found" (an ARCHIVED template still loads — the

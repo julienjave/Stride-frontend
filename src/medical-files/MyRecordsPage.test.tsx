@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { formatMomentDate } from '@/common/formatMomentDate'
 import { renderMedicalFile, requests } from './renderMedicalFile'
 import { chainedFile, json } from './testData'
+import { expectSkeleton } from '@/common/loadingAssertions'
 
 const PATH = '/profile/records'
 
@@ -59,7 +60,7 @@ describe('MyRecordsPage', () => {
 
   it("doesn't say the file is empty while it loads", async () => {
     renderMedicalFile([PATH], answers(), 'patient')
-    expect(screen.getByText('Loading your records…')).toBeInTheDocument()
+    expectSkeleton('Loading your records…')
     expect(screen.queryByText(/haven't written anything/)).not.toBeInTheDocument()
     await screen.findByRole('list', { name: 'Entries' })
     expect(screen.queryByText(/haven't written anything/)).not.toBeInTheDocument()

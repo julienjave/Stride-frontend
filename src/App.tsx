@@ -1,6 +1,7 @@
 import { RouterProvider } from 'react-router'
 import { router } from '@/app/routes'
 import { useCurrentUser } from '@/auth/useCurrentUser'
+import { Loading } from '@/common/Loading'
 
 function App() {
   // Runs once, high in the tree, so by the time anything below this needs
@@ -16,7 +17,7 @@ function App() {
   // the router before this resolves would risk a flash of the wrong
   // screen. A brief loading state here is the correct, deliberate cost.
   if (isLoading) {
-    return <div>Loading…</div>
+    return <Loading className="p-4" />
   }
 
   return <RouterProvider router={router} />

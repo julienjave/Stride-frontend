@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { type FailedQuery, LoadFailure } from '@/common/LoadError'
+import { Loading as SharedLoading } from '@/common/Loading'
 import { NotAvailable as NotAvailablePage } from '@/common/NotAvailable'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -59,8 +60,10 @@ export function LoadFailed({
   )
 }
 
+// The session pages' loading state: the shared one (`common/Loading.tsx` —
+// nothing for 200 ms, then "Loading…" in a status region).
 export function Loading() {
-  return <p className="text-sm text-muted-foreground">Loading…</p>
+  return <SharedLoading />
 }
 
 // The optional note beside a reason (≤ 500 — the column is varchar(500)).

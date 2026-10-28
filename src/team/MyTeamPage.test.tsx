@@ -10,6 +10,7 @@ import { MyTeamPage } from './MyTeamPage'
 import { PractitionerProfilePage } from './PractitionerProfilePage'
 import { viewedPractitionerState } from './teamReturn'
 import { ALEX, AVERY, BLAKE, HARBOUR, PAT, RIVERSIDE, SAM, json, member, urlOf } from './testData'
+import { expectSkeleton } from '@/common/loadingAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -179,7 +180,7 @@ describe('MyTeamPage', () => {
     team = () => json([member(ALEX), member(SAM, { startedAt: '2031-04-10T10:00:00.000Z' })])
     renderPage({ pathname: '/patient/team', state: viewedPractitionerState(SAM.id) })
 
-    expect(screen.getByText('Loading your care team…')).toBeInTheDocument()
+    expectSkeleton('Loading your care team…')
     const samLink = await screen.findByRole('link', { name: 'Sam Okafor' })
     await vi.waitFor(() => expect(samLink).toHaveFocus())
   })

@@ -11,6 +11,7 @@ import {
 } from '@/common/loadFailureAssertions'
 import { ExercisePhotosPage } from './ExercisePhotosPage'
 import type { ExerciseDetail } from './types'
+import { expectLoading } from '@/common/loadingAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -86,7 +87,7 @@ describe('ExercisePhotosPage', () => {
   it('shows a loading state before the exercise resolves', () => {
     fetchMock.mockReturnValue(new Promise(() => {}))
     renderAt('/practitioner/library/42/photos')
-    expect(screen.getByText('Loading…')).toBeInTheDocument()
+    expectLoading('Loading…')
   })
 
   it('any other failure: the load error with its reason; a retry that works focuses the heading', async () => {

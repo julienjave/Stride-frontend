@@ -17,6 +17,7 @@ import { useUsers } from '@/users/useUsers'
 import { PatientIdentity } from './PatientIdentity'
 import { ALL_CLINICS, filterByClinic, splitByAccount } from './roster'
 import type { User } from '@/users/types'
+import { ListSkeleton } from '@/common/Loading'
 
 // "My patients" (/practitioner/patients) — the patients whose care team I'm
 // on (decisions §3: the roster IS my care-team links, nothing separate).
@@ -117,7 +118,7 @@ export function PatientsListPage() {
         </div>
       )}
 
-      {isLoading && <p className="text-sm text-muted-foreground">Loading your patients…</p>}
+      {isLoading && <ListSkeleton label="Loading your patients…" avatar />}
 
       {isError && <LoadError what="your patients" queries={[patientsQuery]} />}
 

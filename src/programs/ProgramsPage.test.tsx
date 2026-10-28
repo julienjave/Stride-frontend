@@ -8,6 +8,7 @@ import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import type { ProgramTemplate } from './types'
 import type { AssignedProgram } from '@/assigned-programs/types'
 import { errorResponse, expectLoadError, retryThenExpectFocusOn } from '@/common/loadFailureAssertions'
+import { expectSkeleton } from '@/common/loadingAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -346,5 +347,16 @@ describe('ProgramsPage', () => {
     const user = userEvent.setup()
     await user.click(screen.getByRole('link', { name: 'Back' }))
     expect(await screen.findByText('Dashboard page')).toBeInTheDocument()
+  })
+})
+
+// Lists load behind a skeleton (the loading / error pass, pass 2).
+describe('ProgramsPage — while it loads', () => {
+  it('a skeleton of the templates, then of the assigned programs', async () => {
+    fetchMock.mockImplementation(() => new Promise<Response>(() => {}))
+    renderAt()
+    expectSkeleton('Loading the templates…')
+    await userEvent.click(screen.getByRole('button', { name: 'Assigned' }))
+    expectSkeleton('Loading your assigned programs…')
   })
 })

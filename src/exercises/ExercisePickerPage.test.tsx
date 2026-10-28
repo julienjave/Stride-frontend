@@ -9,6 +9,7 @@ import {
   retryThenExpectFocusOn,
 } from '@/common/loadFailureAssertions'
 import { ExercisePickerPage } from './ExercisePickerPage'
+import { expectSkeleton } from '@/common/loadingAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -158,5 +159,14 @@ describe('ExercisePickerPage', () => {
     expect(
       screen.queryByRole('link', { name: 'Add New Exercise' }),
     ).not.toBeInTheDocument()
+  })
+})
+
+// The library's grid loads behind a skeleton of cards (pass 2).
+describe('ExercisePickerPage — while it loads', () => {
+  it('a skeleton of the exercise cards', () => {
+    fetchMock.mockImplementation(() => new Promise<Response>(() => {}))
+    renderAt(`/practitioner/library/pick?returnTo=${encodeURIComponent('/somewhere')}`)
+    expectSkeleton('Loading exercises…')
   })
 })

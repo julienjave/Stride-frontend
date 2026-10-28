@@ -11,6 +11,7 @@ import { todayRow, workoutLabel, type TodayRow } from '@/sessions/todayRow'
 import { TodayRowView } from '@/sessions/TodayRowView'
 import { upcomingItems, type ProgramWithSummary } from './patientHomeRules'
 import { longDate, upcomingText } from './patientHomeText'
+import { LinesSkeleton } from '@/common/Loading'
 
 // The patient home's three sections (decisions §2): Today and Upcoming in
 // one card, then "My programs". They only DRAW: what each program asks is
@@ -47,8 +48,9 @@ export function TodayAndUpcomingCard({ entries, today }: { entries: HomeEntry[];
 // place a failed summary is reported — Upcoming leaves the program out, and
 // the program's card under My programs shows no progress).
 type HomeTodayRow =
-  | { program: AssignedProgramListItem; row: TodayRow; failed?: undefined }
-  | { program: AssignedProgramListItem; failed: UseQueryResult<ScheduleSummary> }
+  | { program: AssignedProgramListItem; row: TodayRow; failed?: undefined; loading?: undefined }
+  | { program: AssignedProgramListItem; failed: UseQueryResult<ScheduleSummary>; loading?: undefined }
+  | { program: AssignedProgramListItem; loading: true; failed?: undefined }
 
 // The load error's words — one for every program's row: each row sits under
 // its program's title, and only the row that was retried can take a retry's
@@ -60,7 +62,7 @@ function TodaySection({ entries, today }: { entries: HomeEntry[]; today: string 
   // or a status. A program with nothing today gets no row: three programs
   // each saying "Nothing today" would bury the one that has something.
   const rows = entries.flatMap(({ program, summary }): HomeTodayRow[] => {
-    if (summary.isPending) return [{ program, row: plainRow('Loading…') }]
+    if (summary.isPending) return [{ program, loading: true }]
     if (summary.isError) return [{ program, failed: summary }]
     const row = todayRow(program, summary.data, today)
     return row ? [{ program, row }] : []
@@ -93,7 +95,14 @@ function TodaySection({ entries, today }: { entries: HomeEntry[]; today: string 
         <ul className="space-y-4">
           {rows.map((entry) => (
             <li key={entry.program.id}>
-              {entry.failed ? (
+              {entry.loading ? (
+                // The program's title is known (the list came first); its
+                // plan for today is on the way.
+                <div className="space-y-1.5">
+                  <p className="text-sm text-muted-foreground">{entry.program.title}</p>
+                  <LinesSkeleton label={`Loading today's plan for ${entry.program.title}…`} lines={1} />
+                </div>
+              ) : entry.failed ? (
                 <div className="space-y-0.5">
                   <p className="text-sm text-muted-foreground">{entry.program.title}</p>
                   <LoadError what={TODAY_WHAT} queries={[entry.failed]} />
@@ -111,11 +120,6 @@ function TodaySection({ entries, today }: { entries: HomeEntry[]; today: string 
       )}
     </section>
   )
-}
-
-// A row with one line and nothing to offer: while loading.
-function plainRow(line: string): TodayRow {
-  return { text: { line, detail: null }, notes: [], action: null, secondary: null }
 }
 
 function UpcomingSection({ entries, today }: { entries: HomeEntry[]; today: string }) {
@@ -136,7 +140,7 @@ function UpcomingSection({ entries, today }: { entries: HomeEntry[]; today: stri
         Upcoming
       </h2>
       {loading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <LinesSkeleton label="Loading what's coming up…" lines={3} />
       ) : items.length === 0 ? (
         <p className="text-sm text-muted-foreground">Nothing planned in the next two weeks.</p>
       ) : (
@@ -200,7 +204,7 @@ export function MyProgramsSection({ entries }: { entries: HomeEntry[] }) {
                 </p>
               )}
             </div>
-            {summary.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
+            {summary.isPending && <LinesSkeleton label={`Loading the progress of ${program.title}…`} lines={1} />}
             {/* A failed summary says so once, with "Try again", in its Today
                 row above (2026-10-28) — not twice on one screen. */}
             {summary.data && <ProgramProgressBar title={program.title} summary={summary.data} />}

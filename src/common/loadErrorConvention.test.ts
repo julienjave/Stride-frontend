@@ -35,10 +35,12 @@ function isApplicationCode(path: string): boolean {
   return !path.endsWith('.test.ts') && !path.endsWith('.test.tsx') && !path.endsWith('Assertions.ts')
 }
 
+// The files the rule is checked in: every application file but the rule's.
+const checked = Object.entries(sources).filter(([path]) => isApplicationCode(path) && path !== RULE_FILE)
+
 describe('the words of a failed load', () => {
   it('are written only in common/loadErrorText.ts', () => {
-    const writers = Object.entries(sources)
-      .filter(([path]) => isApplicationCode(path) && path !== RULE_FILE)
+    const writers = checked
       .filter(([, text]) => OWN_LOAD_ERROR.test(withoutComments(text)))
       .map(([path]) => path)
 
@@ -51,6 +53,11 @@ describe('the words of a failed load', () => {
   it('sees the source files, and the pattern finds what it looks for', () => {
     expect(OWN_LOAD_ERROR.test(withoutComments(sources[RULE_FILE]))).toBe(true)
     expect(Object.keys(sources)).toContain('/src/common/LoadError.tsx')
+    // …and the filter keeps the application's pages (one that dropped every
+    // file would pass the test above too — found by mutation, pass 2).
+    const checkedPaths = checked.map(([path]) => path)
+    expect(checkedPaths).toContain('/src/common/LoadError.tsx')
+    expect(checkedPaths).toContain('/src/patients/PatientsListPage.tsx')
     expect(withoutComments('<p>Couldn’t load the audit log. Try refreshing.</p>')).toMatch(OWN_LOAD_ERROR)
     expect(withoutComments('// "Couldn\'t load this exercise. Try refreshing."')).not.toMatch(OWN_LOAD_ERROR)
     expect(withoutComments('{/* Try refreshing the page */}')).not.toMatch(OWN_LOAD_ERROR)

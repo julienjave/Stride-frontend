@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { SquarePen } from 'lucide-react'
+import { failureText } from '@/api/apiErrors'
 import { UserAvatar } from '@/common/UserAvatar'
 import { Button } from '@/components/ui/button'
 import {
@@ -13,11 +14,12 @@ import {
 import { Input } from '@/components/ui/input'
 import { filterCandidates } from '@/patients/patientPageRules'
 import type { MessagingRole } from './messagesPath'
-import { personName } from './messageText'
+import { personName, START_CONVERSATION_FAILED_TEXT } from './messageText'
 import { LoadError } from '@/common/LoadError'
 import { useRetryFocus } from '@/common/useRetryFocus'
 import { useRecipients } from './recipients'
 import { useStartConversation } from './useStartConversation'
+import { ListSkeleton } from '@/common/Loading'
 
 // New message: pick who to write to, and the conversation opens (an
 // existing one if there is one — the backend's "start or get"). Only people
@@ -88,7 +90,7 @@ export function NewMessageDialog({ role }: { role: MessagingRole }) {
         />
 
         {isError && <LoadError what={what} queries={[query]} />}
-        {!isError && !recipients && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {!isError && !recipients && <ListSkeleton label={`Loading ${what}…`} rows={2} avatar />}
         {recipients && recipients.length === 0 && (
           <p className="text-sm text-muted-foreground">
             {role === 'practitioner'
@@ -133,7 +135,7 @@ export function NewMessageDialog({ role }: { role: MessagingRole }) {
 
         {start.isError && (
           <p role="alert" className="text-sm text-destructive">
-            {start.error.message}
+            {failureText(start.error, START_CONVERSATION_FAILED_TEXT)}
           </p>
         )}
       </DialogContent>

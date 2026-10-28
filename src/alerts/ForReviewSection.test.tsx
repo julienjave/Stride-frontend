@@ -9,6 +9,7 @@ import { PractitionerHomePage } from '@/app/PractitionerHomePage'
 import { json, urlOf } from '@/sessions/testData'
 import { attendanceAlert, sessionAlert } from './testData'
 import type { Alert } from './types'
+import { expectSkeleton } from '@/common/loadingAssertions'
 
 // The "For review" list on the practitioner home (2026-10-19): the card's count and
 // the list under it, through the real page — the two share one query, and
@@ -105,7 +106,7 @@ describe('the For review list on the practitioner home', () => {
   it('shows loading words in the list while it waits, and no count yet', () => {
     fetchMock.mockImplementation(() => new Promise(() => {}))
     renderHome()
-    expect(screen.getByText('Loading what\'s for review…')).toBeInTheDocument()
+    expectSkeleton('Loading what\'s for review…')
     expect(screen.queryByRole('link', { name: /to look at/ })).not.toBeInTheDocument()
     expect(screen.queryByText(/caught up/)).not.toBeInTheDocument()
     expect(screen.queryByText('Unavailable')).not.toBeInTheDocument()

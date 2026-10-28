@@ -15,6 +15,7 @@ import {
   clinicPhoneSchema,
   clinicWebsiteSchema,
 } from './schemas'
+import { Loading } from '@/common/Loading'
 
 export function ClinicEditPage() {
   const { id } = useParams<{ id: string }>()
@@ -53,7 +54,7 @@ function ClinicEditView({ clinicId }: { clinicId: number }) {
   const saveClinic = useSaveClinic(clinicId)
 
   if (isLoading) {
-    return <p className="mx-auto mt-12 max-w-sm px-4 text-sm text-muted-foreground">Loading clinic…</p>
+    return <Loading label="Loading the clinic…" className="mx-auto mt-12 max-w-sm px-4" />
   }
 
   // A 404: "Clinic not found" (clinics are deactivated, never deleted — so a

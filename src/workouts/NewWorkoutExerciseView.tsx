@@ -19,6 +19,7 @@ import {
 } from '@/programs/schemas'
 import { ExercisePhotoCarousel } from '@/programs/ExercisePhotoCarousel'
 import type { WorkoutLike } from './workoutGroups'
+import { Loading } from '@/common/Loading'
 
 // The add-an-exercise form, for whatever has workouts — a template or an
 // assigned program. Built for templates (NewProgramExercisePage, 3a-w) and
@@ -202,7 +203,7 @@ export function NewWorkoutExerciseView({
           </Button>
         </div>
       ) : isLoadingExercise ? (
-        <p className="text-sm text-muted-foreground">Loading exercise…</p>
+        <Loading label="Loading the exercise…" />
       ) : exerciseQuery.isError || !exercise ? (
         // A 404 too (an exercise deleted from the library meanwhile, or a
         // made-up id): choosing another one is the way out, under the button.

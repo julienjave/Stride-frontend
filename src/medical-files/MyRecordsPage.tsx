@@ -5,6 +5,7 @@ import { useRetryFocus } from '@/common/useRetryFocus'
 import { DownloadMyRecords } from '@/records-export/DownloadMyRecords'
 import { MedicalFileEntryList } from './MedicalFileEntryList'
 import { useMyMedicalFile } from './useMedicalFile'
+import { ListSkeleton } from '@/common/Loading'
 
 // The patient's own medical file, read-only — "My records", `/profile/records`
 // (Phase 6, decisions §2 and §8): in the profile area, not a tab — the
@@ -28,7 +29,7 @@ export function MyRecordsPage() {
       {file.isError ? (
         <LoadError what="your records" queries={[file]} />
       ) : !file.isSuccess ? (
-        <p className="text-sm text-muted-foreground">Loading your records…</p>
+        <ListSkeleton label="Loading your records…" rows={2} layout="cards" />
       ) : file.data.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Your practitioners haven't written anything in your file yet.

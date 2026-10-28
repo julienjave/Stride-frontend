@@ -11,6 +11,7 @@ import { splitTeam } from './teamRules'
 import { addedByText, endedByText, memberPeriodText, specialtiesText } from './teamText'
 import type { MyCareTeamEntry } from './types'
 import { useMyCareTeam } from './useMyCareTeam'
+import { ListSkeleton } from '@/common/Loading'
 
 // The patient's Team tab — `/patient/team` (Phase 4, "My Team", agreed
 // 2026-10-18). Who looks after me: one card per CURRENT care-team member —
@@ -62,7 +63,7 @@ export function MyTeamPage() {
   if (!team.isSuccess) {
     return (
       <TeamPage heading={heading}>
-        <p className="text-sm text-muted-foreground">Loading your care team…</p>
+        <ListSkeleton label="Loading your care team…" rows={2} avatar layout="cards" />
       </TeamPage>
     )
   }

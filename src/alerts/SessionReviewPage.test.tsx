@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router'
+import { SERVER_PROBLEM_TEXT } from '@/api/apiErrors'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import { formatMomentDate } from '@/common/formatMomentDate'
 import { formatShortDate } from '@/common/calendarDate'
@@ -254,6 +255,18 @@ describe('SessionReviewPage', () => {
       "This session is still in progress, so it can't be reviewed yet",
     )
     expect(screen.getByRole('button', { name: 'Mark as reviewed' })).toBeEnabled()
+  })
+
+  // Through the shared rule (failureText, since 2026-10-28): before, a 5xx
+  // showed the server's own words.
+  it.each([
+    ['a server failure', () => Promise.resolve(apiError(500, 'Internal server error')), SERVER_PROBLEM_TEXT],
+    ['no answer', () => Promise.reject(new TypeError('Failed to fetch')), "Couldn't save. Try again."],
+  ])('%s when marking as reviewed: plain words', async (_, answer: () => Promise<Response>, words) => {
+    reviewAnswer = answer
+    renderPage()
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Mark as reviewed' }))
+    expect((await screen.findByRole('alert')).textContent).toBe(words)
   })
 
   it('links to the program and home', async () => {

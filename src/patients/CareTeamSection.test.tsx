@@ -8,6 +8,7 @@ import { localDateString } from '@/common/calendarDate'
 import { errorResponse, expectLoadError, retryThenExpectFocusOn } from '@/common/loadFailureAssertions'
 import { endOfLocalDay } from './patientPageRules'
 import type { CareTeamCandidate, CareTeamEntry } from './types'
+import { expectSkeleton, holdRequests } from '@/common/loadingAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -480,5 +481,23 @@ describe('CareTeamSection — what each viewer may do', () => {
     expect(
       await screen.findByText("No practitioner is on Robin's care team."),
     ).toBeInTheDocument()
+  })
+})
+
+// The care team and the colleagues to add load behind skeletons (pass 2).
+describe('CareTeamSection — while it loads', () => {
+  it('a skeleton of the care team', () => {
+    fetchMock.mockImplementation(() => new Promise<Response>(() => {}))
+    renderSection()
+    expectSkeleton('Loading the care team…')
+  })
+
+  it('a skeleton of the practitioners in the add dialog', async () => {
+    holdRequests(fetchMock, (url) => url.endsWith('/care-team/candidates'))
+    const user = userEvent.setup()
+    renderSection()
+    await screen.findByText('Blake Martin')
+    await user.click(screen.getByRole('button', { name: 'Add a colleague' }))
+    expectSkeleton('Loading the practitioners…', await screen.findByRole('dialog'))
   })
 })

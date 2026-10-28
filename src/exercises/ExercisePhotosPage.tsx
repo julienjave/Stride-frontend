@@ -32,6 +32,7 @@ import { IMAGE_FILE_ACCEPT } from '@/common/imageFile'
 import { SortableExerciseImage } from './SortableExerciseImage'
 import { computeReorderedKeys } from './exerciseImageReorder'
 import type { ExerciseDetail } from './types'
+import { Loading } from '@/common/Loading'
 
 export function ExercisePhotosPage() {
   const { id } = useParams<{ id: string }>()
@@ -188,11 +189,7 @@ function ExercisePhotosView({ exerciseId }: { exerciseId: number }) {
   }
 
   if (isLoading) {
-    return (
-      <p className="mx-auto mt-12 max-w-2xl px-4 text-sm text-muted-foreground">
-        Loading…
-      </p>
-    )
+    return <Loading className="mx-auto mt-12 max-w-2xl px-4" />
   }
 
   // A 404: "Exercise not found"; anything else: the load error, its reason

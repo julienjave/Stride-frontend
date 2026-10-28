@@ -18,6 +18,7 @@ import { currentAndPlanned, workoutNames } from './programSchedule'
 import { useAssignedProgram } from './useAssignedProgram'
 import { useAssignedProgramSummary } from './useAssignedProgramSummary'
 import { usePatientAssignedPrograms } from './usePatientAssignedPrograms'
+import { Loading } from '@/common/Loading'
 
 // The program page (/practitioner/programs/assigned/:id) — step 3a-2,
 // built 2026-10-12/13 (decisions §5). Top to bottom: who and what (header,
@@ -71,9 +72,7 @@ function ProgramView({ programId }: { programId: number }) {
   const heading = useRetryFocus<HTMLHeadingElement>('this program', programQuery.isSuccess)
 
   if (isLoading) {
-    return (
-      <p className="mx-auto mt-8 max-w-2xl px-4 text-sm text-muted-foreground">Loading program…</p>
-    )
+    return <Loading label="Loading the program…" className="mx-auto mt-8 max-w-2xl px-4" />
   }
 
   if (error) return <ProgramLoadFailed query={programQuery} what="this program" />
