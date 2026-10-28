@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { json, urlOf } from '@/medical-files/testData'
@@ -146,13 +146,18 @@ describe('RecordsExportLinksSection — the links sent', () => {
     const user = userEvent.setup()
     list = () => json({ statusCode: 500, message: ['Boom'], error: 'Error' }, 500)
     renderSection()
-    expect(await within(region()).findByRole('alert')).toHaveTextContent(/^Couldn't load the links sent\.$/)
+    expect(await within(region()).findByRole('alert')).toHaveTextContent(
+      /^Couldn't load the links sent\. Something went wrong on our side\. Try again in a moment\.$/,
+    )
     // Sending still works without the list.
     expect(within(region()).getByRole('button', { name: 'Email a download link' })).toBeEnabled()
 
     list = () => json([])
     await user.click(within(region()).getByRole('button', { name: 'Try again' }))
     expect(await within(region()).findByText('No link has been sent yet.')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(within(region()).getByRole('heading', { name: 'Health record copy' })).toHaveFocus(),
+    )
   })
 })
 

@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { formatShortDate } from '@/common/calendarDate'
+import { expectLoadError, retryThenExpectFocusOn } from '@/common/loadFailureAssertions'
 import { A, B, KNEE, TODAY, apiError, json, session, urlOf } from '@/sessions/testData'
 import type { ProgramSession } from './api'
 import { PainAndMobility } from './PainAndMobility'
@@ -103,12 +104,14 @@ describe('PainAndMobility', () => {
     expect(screen.getByRole('heading', { level: 4, name: 'Mobility' })).toBeVisible()
   })
 
-  it('says so when the scores can’t be loaded', async () => {
+  it('says so when the scores can’t be loaded, and why; a retry that works focuses the heading', async () => {
+    const user = userEvent.setup()
+    const good = answer
     answer = () => apiError(500, 'Boom')
     renderSection()
-    expect(
-      await screen.findByText("Couldn't load the pain and mobility scores. Try refreshing."),
-    ).toBeInTheDocument()
+    await expectLoadError('the pain and mobility scores')
+    answer = good
+    await retryThenExpectFocusOn(user, { level: 3, name: 'Pain and mobility' })
   })
 
   describe('with nothing to draw', () => {

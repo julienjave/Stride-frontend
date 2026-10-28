@@ -6,6 +6,11 @@ import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
 import { ProfilePage } from './ProfilePage'
 import { UserMenu } from '@/app/layout/UserMenu'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
+import {
+  errorResponse,
+  expectLoadError,
+  retryThenExpectFocusOn,
+} from '@/common/loadFailureAssertions'
 import type { User } from './types'
 
 // The avatar upload now goes through a crop dialog. jsdom can't run the
@@ -209,6 +214,23 @@ describe('ProfilePage — what it shows', () => {
   })
 
   // Handed over by /profile/password after a change.
+  it("a failed load: the load error with its reason; a retry that works focuses the page's heading", async () => {
+    const user = userEvent.setup()
+    fakeBackend(patientUser)
+    const backend = fetchMock.getMockImplementation()
+    let failures = 1
+    fetchMock.mockImplementation((input, init) => {
+      if (urlOf(input).endsWith('/users/3') && failures > 0) {
+        failures -= 1
+        return Promise.resolve(errorResponse(500))
+      }
+      return backend!(input, init)
+    })
+    renderProfile(patientUser, 'patient')
+    await expectLoadError('your profile')
+    await retryThenExpectFocusOn(user, { level: 1, name: 'My profile' })
+  })
+
   it('shows the notice another page handed over, and none otherwise', async () => {
     fakeBackend(patientUser)
     renderProfile(patientUser, 'patient', { notice: 'Your password is changed.' })

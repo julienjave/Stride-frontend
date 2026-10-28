@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
+import { LoadError } from '@/common/LoadError'
 import { ShowHiddenToggle } from '@/common/ShowHiddenToggle'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { UserAvatar } from '@/common/UserAvatar'
 import { cn } from '@/lib/utils'
 import { conversationPath, type MessagingRole } from './messagesPath'
@@ -29,19 +31,23 @@ export function ConversationList({ role, myId, selectedId }: ConversationListPro
   // pure function of its inputs: calling new Date() during render would
   // give a different answer on every re-render.
   const [now] = useState(() => new Date())
+  // After a "Try again" that worked, focus goes to the list's heading.
+  const heading = useRetryFocus<HTMLHeadingElement>('your conversations', conversations.isSuccess)
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
-        <h1 className="text-xl font-semibold">Messages</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+          Messages
+        </h1>
         <NewMessageDialog role={role} />
       </div>
       <div className="flex-1 overflow-y-auto">
         {conversations.isPending && <p className="p-4 text-sm text-muted-foreground">Loading conversations…</p>}
         {conversations.isError && (
-          <p role="alert" className="p-4 text-sm text-destructive">
-            Couldn't load your conversations. Try refreshing the page.
-          </p>
+          <div className="p-4">
+            <LoadError what="your conversations" queries={[conversations]} />
+          </div>
         )}
         {conversations.isSuccess && (
           <Lists

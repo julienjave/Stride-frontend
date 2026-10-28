@@ -3,6 +3,11 @@ import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
+import {
+  errorResponse,
+  expectLoadError,
+  retryThenExpectFocusOn,
+} from '@/common/loadFailureAssertions'
 import { ExerciseLibraryPage } from './ExerciseLibraryPage'
 import type { ExerciseListItem } from './types'
 
@@ -91,17 +96,37 @@ describe('ExerciseLibraryPage', () => {
     ).toBeInTheDocument()
   })
 
-  it('shows an error state when the fetch fails', async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse(
-        { statusCode: 500, message: ['Internal server error'] },
-        500,
-      ),
-    )
+  it('a failed load: the load error with its reason; a retry that works focuses the heading', async () => {
+    const user = userEvent.setup()
+    fetchMock
+      .mockResolvedValueOnce(errorResponse(500))
+      .mockResolvedValueOnce(jsonResponse(pageOf([makeExercise()])))
     renderPage()
-    expect(
-      await screen.findByText("Couldn't load exercises. Try refreshing."),
-    ).toBeInTheDocument()
+    await expectLoadError('the exercises')
+    await retryThenExpectFocusOn(user, { level: 1, name: 'Exercise Library' })
+    expect(screen.getByText('Wall Slide')).toBeInTheDocument()
+  })
+
+  // While a retry runs, the PREVIOUS results stay on screen (placeholder
+  // data) — which TanStack reports as success. The heading must not take
+  // the retry for a success then: if the answer is a failure, the new error
+  // block has to say "Still couldn't" and take focus.
+  it('a retry shown over the previous results that fails again: "Still couldn\'t", focus on Try again', async () => {
+    const user = userEvent.setup()
+    let release: (response: Response) => void = () => {}
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(pageOf([makeExercise()])))
+      .mockResolvedValueOnce(errorResponse(500))
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => (release = resolve)))
+    renderPage()
+    expect(await screen.findByText('Wall Slide')).toBeInTheDocument()
+    await user.click(screen.getByRole('checkbox', { name: 'Only my exercises' }))
+    await expectLoadError('the exercises')
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3))
+    release(errorResponse(500))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Still couldn't load the exercises\./)
+    expect(screen.getByRole('button', { name: 'Try again' })).toHaveFocus()
   })
 
   it('debounces the search input, only firing a request 300ms after typing stops', async () => {

@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import { formatCalendarDate } from '@/common/formatCalendarDate'
 import { PatientsListPage } from './PatientsListPage'
+import { errorResponse, expectLoadError, retryThenExpectFocusOn } from '@/common/loadFailureAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -272,14 +273,15 @@ describe('PatientsListPage', () => {
     }
   })
 
-  it('says when the list could not be loaded', async () => {
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ statusCode: 500, message: ['Boom'] }), { status: 500 }),
-    )
+  it('says when the list could not be loaded, and why; a retry that works focuses the heading', async () => {
+    const user = userEvent.setup()
+    fetchMock
+      .mockResolvedValueOnce(errorResponse(500))
+      .mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200 }))
     renderRoster()
-    expect(
-      await screen.findByText("Couldn't load your patients. Try refreshing."),
-    ).toBeInTheDocument()
+    await expectLoadError('your patients')
+    await retryThenExpectFocusOn(user, { level: 1, name: 'My patients' })
+    expect(await screen.findByText('No patients yet')).toBeInTheDocument()
   })
 
   // Handed over by the patient page after "Leave care team".

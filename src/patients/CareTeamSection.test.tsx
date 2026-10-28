@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
 import { CareTeamSection } from './CareTeamSection'
 import { localDateString } from '@/common/calendarDate'
+import { errorResponse, expectLoadError, retryThenExpectFocusOn } from '@/common/loadFailureAssertions'
 import { endOfLocalDay } from './patientPageRules'
 import type { CareTeamCandidate, CareTeamEntry } from './types'
 
@@ -142,6 +143,48 @@ async function openAddDialog(user: ReturnType<typeof userEvent.setup>, label: st
   await within(dialog).findByText('Alex Chen')
   return dialog
 }
+
+// The first request whose URL `matches` fails (a 500); every other request
+// is answered by the usual fake backend (beforeEach).
+function failOnce(matches: (url: string) => boolean) {
+  const backend = fetchMock.getMockImplementation()!
+  let failures = 1
+  fetchMock.mockImplementation((input, init) => {
+    if (failures > 0 && matches(urlOf(input)) && (init?.method ?? 'GET') === 'GET') {
+      failures -= 1
+      return Promise.resolve(errorResponse(500))
+    }
+    return backend(input, init)
+  })
+}
+
+describe('CareTeamSection — when a list fails to load', () => {
+  it('the care team: its load error with the reason; a retry that works focuses the heading', async () => {
+    const user = userEvent.setup()
+    failOnce((url) => url.endsWith('/users/8/care-team'))
+    renderSection()
+    await expectLoadError('the care team')
+    await retryThenExpectFocusOn(user, { level: 2, name: 'Care team' })
+    expect(screen.getByText('Blake Martin')).toBeInTheDocument()
+  })
+
+  it("the dialog's practitioners: the load error inside it; a retry that works focuses its title", async () => {
+    const user = userEvent.setup()
+    failOnce((url) => url.endsWith('/care-team/candidates'))
+    renderSection()
+    await screen.findByText('Blake Martin')
+    await user.click(screen.getByRole('button', { name: 'Add a colleague' }))
+    const dialog = within(await screen.findByRole('dialog', { hidden: true }))
+    expect(await dialog.findByRole('alert', { hidden: true })).toHaveTextContent(
+      /^Couldn't load the practitioners\. Something went wrong on our side\. Try again in a moment\.$/,
+    )
+    await user.click(dialog.getByRole('button', { name: 'Try again', hidden: true }))
+    expect(await dialog.findByText('Alex Chen')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(dialog.getByRole('heading', { name: /care team$/, hidden: true })).toHaveFocus(),
+    )
+  })
+})
 
 describe('CareTeamSection — adding a practitioner', () => {
   it('asks for the candidates only once the dialog is open', async () => {

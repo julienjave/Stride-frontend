@@ -18,6 +18,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { failureText } from '@/api/apiErrors'
+import { RecordLoadFailed, RecordNotFound } from '@/common/RecordNotFound'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { useExercise } from './useExercise'
 import {
   exerciseQueryKey,
@@ -40,16 +42,25 @@ export function ExercisePhotosPage() {
   // than calling useExercise(NaN) and letting it fail confusingly later.
   // Splitting into a separate inner component keeps that guard clause
   // and the actual fetch-and-render logic as two distinct concerns.
+  // (An id that isn't a number can't be an exercise: the 404's page.)
   if (!id || Number.isNaN(exerciseId)) {
-    return <p className="text-sm text-destructive">Invalid exercise.</p>
+    return <RecordNotFound noun="exercise" links={WAYS_OUT} />
   }
 
   return <ExercisePhotosView exerciseId={exerciseId} />
 }
 
+// Where to go when this page can't show its exercise (RecordNotFound).
+const WAYS_OUT: [{ to: string; label: string }] = [
+  { to: '/practitioner/library', label: 'Exercise Library' },
+]
+
 function ExercisePhotosView({ exerciseId }: { exerciseId: number }) {
   const queryClient = useQueryClient()
-  const { data: exercise, isLoading, isError } = useExercise(exerciseId)
+  const exerciseQuery = useExercise(exerciseId)
+  const { data: exercise, isLoading } = exerciseQuery
+  // After a "Try again" that worked, focus goes to the page's heading.
+  const heading = useRetryFocus<HTMLHeadingElement>('this exercise', exerciseQuery.isSuccess)
 
   const [validationError, setValidationError] = useState<string | null>(null)
   const [isDraggingFileOver, setIsDraggingFileOver] = useState(false)
@@ -184,18 +195,20 @@ function ExercisePhotosView({ exerciseId }: { exerciseId: number }) {
     )
   }
 
-  if (isError || !exercise) {
+  // A 404: "Exercise not found"; anything else: the load error, its reason
+  // and "Try again".
+  if (exerciseQuery.isError || !exercise) {
     return (
-      <p className="mx-auto mt-12 max-w-2xl px-4 text-sm text-destructive">
-        Couldn't load this exercise. Try refreshing.
-      </p>
+      <RecordLoadFailed queries={[exerciseQuery]} what="this exercise" noun="exercise" links={WAYS_OUT} />
     )
   }
 
   return (
     <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4">
       <div>
-        <h1 className="text-xl font-semibold">Manage Photos</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+          Manage Photos
+        </h1>
         <p className="text-sm text-muted-foreground">{exercise.name}</p>
       </div>
 

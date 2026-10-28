@@ -159,7 +159,7 @@ describe('DownloadMyRecords', () => {
   it('is offered whether the notes failed to load, or there are none', async () => {
     const user = userEvent.setup()
     renderMedicalFile([PATH], answers(() => pdf(), () => refusal(500, 'Boom')), 'patient')
-    await screen.findByText("Couldn't load your records.")
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Couldn't load your records\./)
     await user.click(within(await section()).getByRole('button', { name: 'Download my records' }))
     expect(await screen.findByRole('status')).toHaveTextContent(/^Downloaded as /)
   })

@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
+import { errorResponse, expectLoadError, retryThenExpectFocusOn } from '@/common/loadFailureAssertions'
 import { AddPatientPage } from './AddPatientPage'
 import type { DirectoryPatient } from './types'
 
@@ -83,6 +84,53 @@ function directoryRequests() {
 }
 
 describe('AddPatientPage — searching', () => {
+  // While a retry runs, the PREVIOUS results stay on screen (placeholder
+  // data) — which TanStack reports as success. The heading must not take
+  // the retry for a success then: a failure again says "Still couldn't".
+  it('a retry over the previous results that fails again: "Still couldn\'t", focus on Try again', async () => {
+    const user = userEvent.setup()
+    directoryRows = [directoryPatient(6, 'Pat', 'Lee')]
+    const backend = fetchMock.getMockImplementation()!
+    let release: (response: Response) => void = () => {}
+    let searches = 0
+    fetchMock.mockImplementation((input, init) => {
+      if (urlOf(input).includes('/directory/patients?search=')) {
+        searches += 1
+        // The search's first answer fails; the retry's is held.
+        if (searches === 1) return Promise.resolve(errorResponse(500))
+        return new Promise<Response>((resolve) => (release = resolve))
+      }
+      return backend(input, init)
+    })
+    renderAddPatientPage()
+    expect(await screen.findByText('Pat Lee')).toBeInTheDocument()
+    await user.type(screen.getByRole('searchbox', { name: 'Search patients by name' }), 'Pa')
+    await expectLoadError('the search results')
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(searches).toBe(2))
+    release(errorResponse(500))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Still couldn't load the search results\./)
+    expect(screen.getByRole('button', { name: 'Try again' })).toHaveFocus()
+  })
+
+  it('the directory fails to load: the load error with its reason; a retry that works focuses the heading', async () => {
+    const user = userEvent.setup()
+    directoryRows = [directoryPatient(6, 'Pat', 'Lee')]
+    const backend = fetchMock.getMockImplementation()!
+    let failures = 1
+    fetchMock.mockImplementation((input, init) => {
+      if (failures > 0 && urlOf(input).includes('/directory/patients')) {
+        failures -= 1
+        return Promise.resolve(errorResponse(500))
+      }
+      return backend(input, init)
+    })
+    renderAddPatientPage()
+    await expectLoadError('the search results')
+    await retryThenExpectFocusOn(user, { level: 1, name: 'Add a patient' })
+    expect(screen.getByText('Pat Lee')).toBeInTheDocument()
+  })
+
   it('lists the clinic directory straight away, with no search', async () => {
     directoryRows = [directoryPatient(6, 'Pat', 'Lee')]
     renderAddPatientPage()

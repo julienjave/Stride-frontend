@@ -7,6 +7,7 @@ import { ProgramsPage } from './ProgramsPage'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import type { ProgramTemplate } from './types'
 import type { AssignedProgram } from '@/assigned-programs/types'
+import { errorResponse, expectLoadError, retryThenExpectFocusOn } from '@/common/loadFailureAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -22,20 +23,28 @@ function jsonResponse(body: unknown, status = 200) {
 function setupFetchMock(config: {
   templates?: ProgramTemplate[]
   assignedPrograms?: AssignedProgram[]
-  templatesError?: boolean
+  // The list's FIRST read fails (a 500); later reads work.
+  templatesFailOnce?: boolean
+  assignedFailOnce?: boolean
 }) {
+  let templateFailures = config.templatesFailOnce ? 1 : 0
+  let assignedFailures = config.assignedFailOnce ? 1 : 0
   fetchMock.mockImplementation((input, init) => {
     const url = input as string
     const method = init?.method ?? 'GET'
 
     if (method === 'GET' && url.endsWith('/programs')) {
-      return config.templatesError
-        ? Promise.resolve(
-            jsonResponse({ statusCode: 500, message: ['Internal error'] }, 500),
-          )
-        : Promise.resolve(jsonResponse(config.templates ?? []))
+      if (templateFailures > 0) {
+        templateFailures -= 1
+        return Promise.resolve(errorResponse(500))
+      }
+      return Promise.resolve(jsonResponse(config.templates ?? []))
     }
     if (method === 'GET' && url.endsWith('/assigned-programs')) {
+      if (assignedFailures > 0) {
+        assignedFailures -= 1
+        return Promise.resolve(errorResponse(500))
+      }
       return Promise.resolve(jsonResponse(config.assignedPrograms ?? []))
     }
     return Promise.reject(new Error(`Unhandled fetch in test: ${url}`))
@@ -308,12 +317,27 @@ describe('ProgramsPage', () => {
     expect(screen.getByText('+ Add New Template')).toBeInTheDocument()
   })
 
-  it('shows an error message when templates fail to load', async () => {
-    setupFetchMock({ templatesError: true })
+  it('templates fail to load: the load error; a retry that works focuses the heading', async () => {
+    const user = userEvent.setup()
+    setupFetchMock({ templatesFailOnce: true })
     renderAt()
-    expect(
-      await screen.findByText("Couldn't load templates. Try refreshing."),
-    ).toBeInTheDocument()
+    await expectLoadError('the templates')
+    await retryThenExpectFocusOn(user, { level: 1, name: 'My Programs' })
+    expect(await screen.findByText('No templates yet.')).toBeInTheDocument()
+  })
+
+  it("the Assigned tab's own failure, and its Try again asks only that list again", async () => {
+    const user = userEvent.setup()
+    setupFetchMock({ assignedFailOnce: true })
+    renderAt()
+    await user.click(screen.getByRole('button', { name: 'Assigned' }))
+    await expectLoadError('your assigned programs')
+    const asked = (path: string) =>
+      fetchMock.mock.calls.filter(([input]) => (input as string).endsWith(path)).length
+    const templatesBefore = asked('/programs')
+    await retryThenExpectFocusOn(user, { level: 1, name: 'My Programs' })
+    expect(asked('/assigned-programs')).toBe(2)
+    expect(asked('/programs')).toBe(templatesBefore)
   })
 
   it('the Back button links to the practitioner dashboard', async () => {

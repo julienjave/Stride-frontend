@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { formatShortDate } from '@/common/calendarDate'
+import { LoadError } from '@/common/LoadError'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { UserAvatar } from '@/common/UserAvatar'
 import { sessionStatusText } from '@/sessions/sessionText'
 import { alertLinkLabel, attendanceLines, sessionReasonsText } from './alertText'
@@ -25,13 +27,15 @@ export const FOR_REVIEW_FIRST_ROWS = 5
 export function ForReviewSection({ today }: { today: string }) {
   const alerts = useAlerts(today)
   const [showAll, setShowAll] = useState(false)
+  // After a "Try again" that worked, focus goes to the section's heading.
+  const heading = useRetryFocus<HTMLHeadingElement>("what's for review", alerts.isSuccess)
 
   return (
     // id="review": the target of the card slot's "#review" link. scroll-mt
     // keeps the heading clear of the sticky top bar after the jump.
     <section id="review" aria-labelledby="review-heading" className="scroll-mt-20 space-y-3">
       <div className="space-y-1">
-        <h2 id="review-heading" className="text-lg font-semibold">
+        <h2 ref={heading} tabIndex={-1} id="review-heading" className="text-lg font-semibold outline-none">
           For review
         </h2>
         <p className="text-sm text-muted-foreground">
@@ -39,11 +43,7 @@ export function ForReviewSection({ today }: { today: string }) {
         </p>
       </div>
       {alerts.isPending && <p className="text-sm text-muted-foreground">Loading what's for review…</p>}
-      {alerts.isError && (
-        <p role="alert" className="text-sm text-destructive">
-          Couldn't load what's for review. Try refreshing the page.
-        </p>
-      )}
+      {alerts.isError && <LoadError what="what's for review" queries={[alerts]} />}
       {alerts.isSuccess && alerts.data.length === 0 && (
         <p className="text-sm">You're all caught up.</p>
       )}

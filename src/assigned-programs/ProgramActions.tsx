@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { failureText } from '@/api/apiErrors'
+import { LoadError } from '@/common/LoadError'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -31,6 +33,11 @@ const GENERIC_TITLE = {
   complete: 'Complete this program?',
   cancel: 'Cancel this program?',
 } as const
+// The preview's load error: "Couldn't load what cancelling it would change."
+const PREVIEW_WHAT = {
+  complete: 'what completing it would change',
+  cancel: 'what cancelling it would change',
+} as const
 
 // One button and its confirmation. The dialog says exactly what will happen
 // — "deletes it" or "it will end on Sun 11 Oct" — from the backend's answer
@@ -55,6 +62,9 @@ function CloseProgramButton({
   const text = preview.data
     ? closingText(action, preview.data[action], preview.data.openSessions, today)
     : null
+  // After a "Try again" of the preview that worked, focus goes to the
+  // dialog's title (which then says what closing does).
+  const title = useRetryFocus<HTMLHeadingElement>(PREVIEW_WHAT[action], preview.isSuccess)
 
   // Closing the dialog (Keep it, Escape, outside click) clears an old error,
   // so it never reopens showing the previous attempt's failure.
@@ -72,13 +82,21 @@ function CloseProgramButton({
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{text?.title ?? GENERIC_TITLE[action]}</DialogTitle>
-          <DialogDescription>
-            {text?.description ??
-              (preview.isError
-                ? "Couldn't check what this would do. Close this and try again."
-                : 'Checking what this would do…')}
-          </DialogDescription>
+          <DialogTitle ref={title} tabIndex={-1} className="outline-none">
+            {text?.title ?? GENERIC_TITLE[action]}
+          </DialogTitle>
+          {/* A failed preview: the load error, with "Try again" right here
+              (before, "Close this and try again") — as the dialog's
+              description (asChild: a <div>, since it holds a button). */}
+          {preview.isError ? (
+            <DialogDescription asChild>
+              <div>
+                <LoadError what={PREVIEW_WHAT[action]} queries={[preview]} />
+              </div>
+            </DialogDescription>
+          ) : (
+            <DialogDescription>{text?.description ?? 'Checking what this would do…'}</DialogDescription>
+          )}
         </DialogHeader>
 
         {closeMutation.isError && (

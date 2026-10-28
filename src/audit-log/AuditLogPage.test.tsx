@@ -385,10 +385,43 @@ describe('AuditLogPage', () => {
     expect(screen.queryByText(/There are no entries on page/)).not.toBeInTheDocument()
   })
 
-  it('says so when it can’t load', async () => {
-    renderAuditLog('/admin/audit-log', () => json({ statusCode: 500, message: ['boom'] }, 500))
-    expect(await screen.findByText('Couldn’t load the audit log. Try refreshing.')).toBeInTheDocument()
+  // While a retry runs, the PREVIOUS page stays on screen (placeholder data)
+  // — which TanStack reports as success. The heading must not take the retry
+  // for a success then: a failure again says "Still couldn't".
+  it('a retry over the previous page that fails again: "Still couldn\'t", focus on Try again', async () => {
+    const user = userEvent.setup()
+    let release: (response: Response) => void = () => {}
+    let secondPage = 0
+    renderAuditLog('/admin/audit-log', (path) => {
+      if (!path.includes('page=2')) return json(page([entry(1)], { total: 40, totalPages: 2 }))
+      secondPage += 1
+      if (secondPage === 1) return json({ statusCode: 500, message: ['boom'] }, 500)
+      return new Promise<Response>((resolve) => (release = resolve))
+    })
+    await screen.findByRole('article')
+    await user.click(screen.getByRole('button', { name: 'Next' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Couldn't load the audit log\./)
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(secondPage).toBe(2))
+    release(json({ statusCode: 500, message: ['boom'] }, 500))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Still couldn't load the audit log\./)
+    expect(screen.getByRole('button', { name: 'Try again' })).toHaveFocus()
+  })
+
+  it('says so when it can’t load, and why; a retry that works focuses the heading', async () => {
+    const user = userEvent.setup()
+    let fail = true
+    renderAuditLog('/admin/audit-log', () =>
+      fail ? json({ statusCode: 500, message: ['boom'] }, 500) : json(page([entry(1)])),
+    )
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /^Couldn't load the audit log\. Something went wrong on our side\. Try again in a moment\.$/,
+    )
     expect(screen.queryByText('Loading the audit log…')).not.toBeInTheDocument()
+    fail = false
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByRole('article')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Audit log' })).toHaveFocus())
   })
 
   it('says it is loading until the first answer', async () => {

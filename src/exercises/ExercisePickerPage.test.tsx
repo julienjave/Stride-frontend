@@ -2,6 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router'
+import userEvent from '@testing-library/user-event'
+import {
+  errorResponse,
+  expectLoadError,
+  retryThenExpectFocusOn,
+} from '@/common/loadFailureAssertions'
 import { ExercisePickerPage } from './ExercisePickerPage'
 
 const fetchMock = vi.fn<typeof fetch>()
@@ -41,6 +47,18 @@ describe('ExercisePickerPage', () => {
       screen.getByText('No return destination specified.'),
     ).toBeInTheDocument()
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('a failed load: the load error with its reason; a retry that works focuses the heading', async () => {
+    const user = userEvent.setup()
+    fetchMock
+      .mockResolvedValueOnce(errorResponse(500))
+      .mockResolvedValueOnce(
+        jsonResponse({ data: [], meta: { total: 0, page: 1, limit: 20, totalPages: 0 } }),
+      )
+    renderAt(`/practitioner/library/pick?returnTo=${encodeURIComponent('/somewhere')}`)
+    await expectLoadError('the exercises')
+    await retryThenExpectFocusOn(user, { level: 1, name: 'Select an Exercise' })
   })
 
   it('renders exercise cards linking to returnTo with the picked exerciseId appended', async () => {

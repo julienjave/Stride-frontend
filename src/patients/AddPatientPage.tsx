@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
+import { LoadError } from '@/common/LoadError'
 import { useDebouncedValue } from '@/common/useDebouncedValue'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { cn } from '@/lib/utils'
 import { AddToMyPatientsDialog } from './AddToMyPatientsDialog'
 import { DIRECTORY_RESULT_LIMIT, MIN_SEARCH_LENGTH } from './api'
@@ -32,8 +34,16 @@ export function AddPatientPage() {
   // What's actually sent: '' (the default list) until 2 characters.
   const search = directorySearchTerm(debouncedInput)
 
-  const { data: patients, isLoading, isError, isPlaceholderData } =
-    useDirectoryPatients(search)
+  const directory = useDirectoryPatients(search)
+  const { data: patients, isLoading, isError, isPlaceholderData } = directory
+  // After a "Try again" that worked, focus goes to the page's heading. Not
+  // `isSuccess` alone: during a retry the previous results stay on screen as
+  // placeholder data, which TanStack reports as success (see
+  // useDirectoryPatients) — the answer isn't in yet.
+  const heading = useRetryFocus<HTMLHeadingElement>(
+    'the search results',
+    directory.isSuccess && !isPlaceholderData,
+  )
 
   // The name of the patient just added, for the confirmation line. Kept
   // until the next addition replaces it.
@@ -51,7 +61,9 @@ export function AddPatientPage() {
         <Link to="/practitioner/patients" className="text-sm text-muted-foreground hover:underline">
           ← My patients
         </Link>
-        <h1 className="text-xl font-semibold">Add a patient</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+          Add a patient
+        </h1>
         <p className="text-sm text-muted-foreground">
           First, check whether they're already in Stride: search the patients of your clinics by
           name.
@@ -96,9 +108,7 @@ export function AddPatientPage() {
 
       {isLoading && <p className="text-sm text-muted-foreground">Loading patients…</p>}
 
-      {isError && (
-        <p className="text-sm text-destructive">Couldn't search the directory. Try again.</p>
-      )}
+      {isError && <LoadError what="the search results" queries={[directory]} />}
 
       {patients && patients.length === 0 && (
         <p className="text-sm text-muted-foreground">

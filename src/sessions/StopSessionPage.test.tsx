@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
@@ -187,6 +187,17 @@ describe('StopSessionPage', () => {
     sessionAnswer = () => apiError(500, 'Internal server error')
     renderPage()
     await expectLoadError('session')
+  })
+
+  it('a "Try again" that works shows the form, with focus on its heading', async () => {
+    const user = userEvent.setup()
+    sessionAnswer = () => apiError(500, 'Internal server error')
+    renderPage()
+    await expectLoadError('session')
+    sessionAnswer = () => json(session())
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    const heading = await screen.findByRole('heading', { level: 1, name: 'Stop your session' })
+    await waitFor(() => expect(heading).toHaveFocus())
   })
 
   it('refuses an address that names no session, asking nothing', async () => {

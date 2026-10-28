@@ -1,4 +1,7 @@
+import { useRef } from 'react'
 import type { UseQueryResult } from '@tanstack/react-query'
+import { LoadError } from '@/common/LoadError'
+import { RetryFocus } from '@/common/RetryFocus'
 import { ViewProgramLink } from '@/sessions/ViewProgramLink'
 import { Card, CardContent } from '@/components/ui/card'
 import { ProgramProgressBar } from '@/assigned-programs/ProgramProgressBar'
@@ -40,28 +43,44 @@ export function TodayAndUpcomingCard({ entries, today }: { entries: HomeEntry[];
 // The rows' content — what each says and offers — is todayRow's decision
 // (src/sessions/, shared with the Sessions hub since 2026-10-17); this
 // section only lists one per program, with its program's title above it.
-interface HomeTodayRow {
-  program: AssignedProgramListItem
-  row: TodayRow
-}
+// A failed summary is a row too: its load error, with "Try again" (the one
+// place a failed summary is reported — Upcoming leaves the program out, and
+// the program's card under My programs shows no progress).
+type HomeTodayRow =
+  | { program: AssignedProgramListItem; row: TodayRow; failed?: undefined }
+  | { program: AssignedProgramListItem; failed: UseQueryResult<ScheduleSummary> }
+
+// The load error's words — one for every program's row: each row sits under
+// its program's title, and only the row that was retried can take a retry's
+// memory (its RetryFocus watches ITS summary).
+const TODAY_WHAT = "today's plan"
 
 function TodaySection({ entries, today }: { entries: HomeEntry[]; today: string }) {
   // One row per program that has something to say today — loading, failed,
   // or a status. A program with nothing today gets no row: three programs
   // each saying "Nothing today" would bury the one that has something.
-  const rows: HomeTodayRow[] = entries.flatMap(({ program, summary }) => {
+  const rows = entries.flatMap(({ program, summary }): HomeTodayRow[] => {
     if (summary.isPending) return [{ program, row: plainRow('Loading…') }]
-    if (summary.isError) {
-      return [{ program, row: plainRow("Couldn't load today's plan. Try refreshing.") }]
-    }
+    if (summary.isError) return [{ program, failed: summary }]
     const row = todayRow(program, summary.data, today)
     return row ? [{ program, row }] : []
   })
+  // After a "Try again" that worked, focus goes to this section's heading:
+  // the row that came back may have nothing to say today, and vanish.
+  const heading = useRef<HTMLHeadingElement>(null)
 
   return (
     <section aria-labelledby="home-today" className="space-y-3">
+      {entries.map(({ program, summary }) => (
+        <RetryFocus key={program.id} target={heading} what={TODAY_WHAT} shown={summary.isSuccess} />
+      ))}
       <div>
-        <h2 id="home-today" className="text-sm font-semibold uppercase text-muted-foreground">
+        <h2
+          ref={heading}
+          tabIndex={-1}
+          id="home-today"
+          className="text-sm font-semibold uppercase text-muted-foreground outline-none"
+        >
           Today
         </h2>
         <p className="font-medium">{longDate(today)}</p>
@@ -72,9 +91,20 @@ function TodaySection({ entries, today }: { entries: HomeEntry[]; today: string 
         // A list: a screen reader says how many items, and each program is
         // one stop.
         <ul className="space-y-4">
-          {rows.map(({ program, row }) => (
-            <li key={program.id}>
-              <TodayRowView eyebrow={program.title} programTitle={program.title} row={row} />
+          {rows.map((entry) => (
+            <li key={entry.program.id}>
+              {entry.failed ? (
+                <div className="space-y-0.5">
+                  <p className="text-sm text-muted-foreground">{entry.program.title}</p>
+                  <LoadError what={TODAY_WHAT} queries={[entry.failed]} />
+                </div>
+              ) : (
+                <TodayRowView
+                  eyebrow={entry.program.title}
+                  programTitle={entry.program.title}
+                  row={entry.row}
+                />
+              )}
             </li>
           ))}
         </ul>
@@ -83,7 +113,7 @@ function TodaySection({ entries, today }: { entries: HomeEntry[]; today: string 
   )
 }
 
-// A row with one line and nothing to offer: while loading, or failed.
+// A row with one line and nothing to offer: while loading.
 function plainRow(line: string): TodayRow {
   return { text: { line, detail: null }, notes: [], action: null, secondary: null }
 }
@@ -171,9 +201,8 @@ export function MyProgramsSection({ entries }: { entries: HomeEntry[] }) {
               )}
             </div>
             {summary.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
-            {summary.isError && (
-              <p className="text-sm text-destructive">Couldn't load the progress. Try refreshing.</p>
-            )}
+            {/* A failed summary says so once, with "Try again", in its Today
+                row above (2026-10-28) — not twice on one screen. */}
             {summary.data && <ProgramProgressBar title={program.title} summary={summary.data} />}
             {/* How the pain has gone lately (2026-10-18, with the progress
                 page; decisions §2) — quiet until there's something to say. */}

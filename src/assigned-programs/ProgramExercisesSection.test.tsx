@@ -484,10 +484,23 @@ describe('ProgramExercisesSection — removing an exercise', () => {
     const { user } = renderSection()
     await user.click(screen.getByRole('button', { name: 'Remove Glute Bridge from workout B · Strength' }))
     const dialog = await screen.findByRole('dialog')
-    expect(
-      await within(dialog).findByText("Couldn't check what this would do. Close this and try again."),
-    ).toBeInTheDocument()
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      /^Couldn't load what removing it would change\. Something went wrong on our side\. Try again in a moment\.$/,
+    )
     expect(within(dialog).getByRole('button', { name: 'Remove' })).toBeDisabled()
+  })
+
+  it('"Try again" in the dialog asks again; once it works, Remove is offered, focus on the title', async () => {
+    const good = answer
+    answer = () => apiError(500, 'Internal server error')
+    const { user } = renderSection()
+    await user.click(screen.getByRole('button', { name: 'Remove Glute Bridge from workout B · Strength' }))
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByRole('alert')
+    answer = good
+    await user.click(within(dialog).getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Remove' })).toBeEnabled())
+    await waitFor(() => expect(within(dialog).getByRole('heading')).toHaveFocus())
   })
 
   it("shows a refusal in the dialog, and forgets it once the dialog is closed", async () => {

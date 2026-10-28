@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { ApiError } from '@/api/client'
 import { useCurrentUser } from '@/auth/useCurrentUser'
+import { RecordLoadFailed, RecordNotFound } from '@/common/RecordNotFound'
 import { UserAvatar } from '@/common/UserAvatar'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { formatCalendarDate } from '@/common/formatCalendarDate'
 import { InvitationStatus } from '@/invitations/InvitationStatus'
 import { MedicalFileLinkCard } from '@/medical-files/MedicalFileLinkCard'
@@ -26,8 +28,11 @@ export function PatientPage() {
   const { id } = useParams<{ id: string }>()
   const patientId = Number(id)
 
+  // An address whose id isn't a patient id can't be anyone's record: "Patient
+  // not found", without asking. (A real id of someone I may not see is the
+  // backend's 403 — "You're not on this patient's care team", below.)
   if (!id || !Number.isInteger(patientId) || patientId < 1) {
-    return <p className="mx-auto mt-8 max-w-2xl px-4 text-sm text-destructive">Invalid patient.</p>
+    return <RecordNotFound noun="patient" links={WAYS_OUT} />
   }
 
   // key={patientId}: going from one patient's page to another's (same
@@ -37,6 +42,10 @@ export function PatientPage() {
   return <PatientView key={patientId} patientId={patientId} />
 }
 
+const WAYS_OUT: [{ to: string; label: string }] = [
+  { to: '/practitioner/patients', label: 'My patients' },
+]
+
 function PatientView({ patientId }: { patientId: number }) {
   const navigate = useNavigate()
   const { data: currentUser } = useCurrentUser()
@@ -45,7 +54,10 @@ function PatientView({ patientId }: { patientId: number }) {
   // so the page can't refetch it (and get a 403) on its way out — see
   // useLeaveCareTeam for the order of events.
   const [hasLeft, setHasLeft] = useState(false)
-  const { data: patient, isLoading, error } = useUser(patientId, { enabled: !hasLeft })
+  const patientQuery = useUser(patientId, { enabled: !hasLeft })
+  const { data: patient, isLoading, error } = patientQuery
+  // After a "Try again" that worked, focus goes to the patient's name.
+  const heading = useRetryFocus<HTMLHeadingElement>('this patient', patientQuery.isSuccess)
 
   if (hasLeft) return null
 
@@ -59,9 +71,7 @@ function PatientView({ patientId }: { patientId: number }) {
     return error instanceof ApiError && error.statusCode === 403 ? (
       <NotOnCareTeam />
     ) : (
-      <p className="mx-auto mt-8 max-w-2xl px-4 text-sm text-destructive">
-        Couldn't load this patient. Try refreshing.
-      </p>
+      <RecordLoadFailed queries={[patientQuery]} what="this patient" noun="patient" links={WAYS_OUT} />
     )
   }
 
@@ -97,7 +107,9 @@ function PatientView({ patientId }: { patientId: number }) {
             className="size-16 text-lg"
           />
           <div className="min-w-0 space-y-1">
-            <h1 className="text-xl font-semibold">{fullName}</h1>
+            <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+              {fullName}
+            </h1>
             {patient.patientProfile && (
               <p className="text-sm text-muted-foreground">
                 Born {formatCalendarDate(patient.patientProfile.dateOfBirth)}

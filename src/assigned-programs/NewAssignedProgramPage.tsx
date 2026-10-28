@@ -1,7 +1,10 @@
+import { useRef } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
-import { failureText } from '@/api/apiErrors'
+import { failureText, isNotFound } from '@/api/apiErrors'
+import { LoadError } from '@/common/LoadError'
+import { useFocusAfterRetry, useRetryFocus } from '@/common/useRetryFocus'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -91,16 +94,23 @@ function AssignFromTemplatePage({
   // colleagues' — a colleague's template is a fine starting point (it's
   // copied, so assigning never changes their template).
   const templatesQuery = usePrograms()
+  // After a "Try again" that worked, focus goes to the page's heading, with
+  // the form right under it.
+  const heading = useRetryFocus<HTMLHeadingElement>(
+    'your patients and templates',
+    patientsQuery.isSuccess && templatesQuery.isSuccess,
+  )
 
   return (
     <div className="mx-auto mt-8 max-w-xl space-y-6 px-4 pb-12">
-      <h1 className="text-xl font-semibold">Assign a program</h1>
+      <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+        Assign a program
+      </h1>
       {patientsQuery.isLoading || templatesQuery.isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : patientsQuery.isError || templatesQuery.isError ? (
-        <p className="text-sm text-destructive">
-          Couldn't load your patients and templates. Try refreshing.
-        </p>
+        // "Try again" asks again only the list(s) that failed.
+        <LoadError what="your patients and templates" queries={[patientsQuery, templatesQuery]} />
       ) : (
         // The form is created only once both lists are here, because
         // react-hook-form reads its defaultValues ONCE, at creation: a
@@ -134,6 +144,16 @@ function AssignAgainPage({ continuedId }: { continuedId: string }) {
   const sourceQuery = useAssignedProgram(id, { enabled: isValidId })
   const source = sourceQuery.data
   const sourcePatient = source && patientsQuery.data?.find((p) => p.id === source.patientId)
+  // A failed read that ISN'T "not found" (a 5xx, no answer): the load error
+  // and "Try again" — not "can't be found" (said for any failure before,
+  // 2026-10-28). One sentence for either list: "Try again" asks again only
+  // what failed.
+  const loadFailed = (sourceQuery.isError && !isNotFound(sourceQuery.error)) || patientsQuery.isError
+  // After a "Try again" that worked, focus goes to the page's heading.
+  const heading = useRetryFocus<HTMLHeadingElement>(
+    'the program and your patients',
+    sourceQuery.isSuccess && patientsQuery.isSuccess,
+  )
 
   // Why it can't be assigned again, or null. Only a COMPLETED or CANCELLED
   // program may be continued (an active one is still running — the backend
@@ -141,7 +161,7 @@ function AssignAgainPage({ continuedId }: { continuedId: string }) {
   // its own patient, who must be one of mine (the form can't change them).
   let refusal: string | null = null
   if (!isValidId) refusal = "That link doesn't name a program."
-  else if (sourceQuery.isError) {
+  else if (sourceQuery.isError && isNotFound(sourceQuery.error)) {
     refusal =
       "That program can't be found — it doesn't exist, or it belongs to a patient whose care team you're not on."
   } else if (source?.isArchived) {
@@ -157,7 +177,9 @@ function AssignAgainPage({ continuedId }: { continuedId: string }) {
 
   return (
     <div className="mx-auto mt-8 max-w-xl space-y-6 px-4 pb-12">
-      <h1 className="text-xl font-semibold">Assign again</h1>
+      <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+        Assign again
+      </h1>
       {refusal ? (
         <div className="space-y-2">
           <p className="text-sm text-destructive">{refusal}</p>
@@ -167,10 +189,10 @@ function AssignAgainPage({ continuedId }: { continuedId: string }) {
             </Link>
           )}
         </div>
+      ) : loadFailed ? (
+        <LoadError what="the program and your patients" queries={[sourceQuery, patientsQuery]} />
       ) : patientsQuery.isLoading || !source ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
-      ) : patientsQuery.isError ? (
-        <p className="text-sm text-destructive">Couldn't load your patients. Try refreshing.</p>
       ) : (
         // As for templates: the form only once its data is here (its
         // defaultValues are read once — the title and schedule come from
@@ -263,6 +285,10 @@ function AssignProgramForm({
   // (Never when continuing a program: its template field stays empty.)
   const templateQuery = useProgram(Number(templateId), { enabled: templateId !== '' })
   const template = templateQuery.data
+  // After a "Try again" of the template that worked, focus goes back to the
+  // Template field (what the retry was about — this part has no heading).
+  const templateSelect = useRef<HTMLSelectElement>(null)
+  useFocusAfterRetry(templateSelect, 'this template', templateQuery.isSuccess)
   // The source the new program is copied from: the continued program, or
   // the chosen template. Both carry `workouts` and `exercises` in the same
   // shape, which is all the rest of the form reads.
@@ -408,6 +434,7 @@ function AssignProgramForm({
             name="templateId"
             render={({ field }) => (
               <NativeSelect
+                ref={templateSelect}
                 id="templateId"
                 aria-invalid={!!errors.templateId || !!problem}
                 value={field.value}
@@ -446,9 +473,7 @@ function AssignProgramForm({
           {templateQuery.isLoading && (
             <p className="text-sm text-muted-foreground">Loading the template…</p>
           )}
-          {templateQuery.isError && (
-            <p className="text-sm text-destructive">Couldn't load this template. Try again.</p>
-          )}
+          {templateQuery.isError && <LoadError what="this template" queries={[templateQuery]} />}
           {problem && <p className="text-sm text-destructive">{problem}</p>}
           {template && !problem && workoutOptions.length > 1 && (
             <p className="text-sm text-muted-foreground">

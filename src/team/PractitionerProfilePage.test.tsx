@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import { formatCalendarDate } from '@/common/formatCalendarDate'
+import { expectLoadError, retryThenExpectFocusOn } from '@/common/loadFailureAssertions'
 import { PractitionerProfilePage } from './PractitionerProfilePage'
 import { ALEX, HARBOUR, PAT, RIVERSIDE, SAM, clinic, json, member, program, urlOf } from './testData'
 
@@ -139,12 +141,22 @@ describe('PractitionerProfilePage', () => {
     expect(within(clinicsSection).queryByRole('link', { name: 'javascript:alert(1)' })).not.toBeInTheDocument()
   })
 
-  it("keeps the clinic's name when its details fail to load", async () => {
+  it("keeps the clinic's name when its details fail to load; a retry that works focuses that name", async () => {
+    const user = userEvent.setup()
     clinics[2] = () => json({ statusCode: 500, message: ['Boom'] }, 500)
     renderAt('/patient/team/3')
     const clinicsSection = await section('Where they see you')
-    const harbour = within(clinicsSection).getByRole('heading', { name: 'Harbour Sports Clinic' }).closest('li')!
-    expect(await within(harbour).findByText("Couldn't load this clinic's contact details.")).toBeInTheDocument()
+    const name = within(clinicsSection).getByRole('heading', { name: 'Harbour Sports Clinic' })
+    const harbour = within(name.closest('li')!)
+    expect(await harbour.findByRole('alert')).toHaveTextContent(
+      /^Couldn't load Harbour Sports Clinic's contact details\. Something went wrong on our side\. Try again in a moment\.$/,
+    )
+    // Only that clinic failed: the other's details are there.
+    expect(within(clinicsSection).getAllByRole('alert')).toHaveLength(1)
+    clinics[2] = () => json(clinic(HARBOUR))
+    await user.click(harbour.getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(harbour.queryByRole('alert')).not.toBeInTheDocument())
+    await waitFor(() => expect(name).toHaveFocus())
   })
 
   it('lists the programs they assigned — current, then past — each linking to its page', async () => {
@@ -189,14 +201,47 @@ describe('PractitionerProfilePage', () => {
     expect(paths().filter((path) => path !== '/users/6/care-team')).toEqual([])
   })
 
-  it('reports a failed load of the team', async () => {
+  it('reports a failed load of the team, with its reason', async () => {
     team = () => json({ statusCode: 500, message: ['Boom'] }, 500)
     renderAt('/patient/team/3')
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      "Couldn't load your care team. Try refreshing the page.",
-    )
+    await expectLoadError('your care team')
     expect(screen.queryByRole('heading', { name: 'Not on your care team' })).not.toBeInTheDocument()
     // The way back is there in every state of the page.
     expect(screen.getByRole('link', { name: 'Back to My team' })).toHaveAttribute('href', '/patient/team')
+  })
+
+  it('a retry of the team that works: focus goes to the practitioner\'s name', async () => {
+    const user = userEvent.setup()
+    const good = team
+    team = () => json({ statusCode: 500, message: ['Boom'] }, 500)
+    renderAt('/patient/team/3')
+    await expectLoadError('your care team')
+    team = good
+    await retryThenExpectFocusOn(user, { level: 1, name: 'Alex Chen' })
+  })
+
+  it('…or to "Not on your care team", when that is what came back', async () => {
+    const user = userEvent.setup()
+    const good = team
+    team = () => json({ statusCode: 500, message: ['Boom'] }, 500)
+    renderAt('/patient/team/99')
+    await expectLoadError('your care team')
+    team = good
+    await retryThenExpectFocusOn(user, { level: 1, name: 'Not on your care team' })
+  })
+
+  it('a failed load of their programs: its own error, the rest of the profile shown; a retry focuses the section', async () => {
+    const user = userEvent.setup()
+    const good = programs
+    programs = () => json({ statusCode: 500, message: ['Boom'] }, 500)
+    renderAt('/patient/team/3')
+    const programsSection = await section('Programs from them')
+    expect(await within(programsSection).findByRole('alert')).toHaveTextContent(
+      /^Couldn't load your programs\. Something went wrong on our side\. Try again in a moment\.$/,
+    )
+    expect(screen.getByRole('heading', { level: 1, name: 'Alex Chen' })).toBeInTheDocument()
+    programs = good
+    await retryThenExpectFocusOn(user, { level: 2, name: 'Programs from them' })
+    expect(await within(programsSection).findByRole('link', { name: 'Knee Rehab' })).toBeInTheDocument()
   })
 })

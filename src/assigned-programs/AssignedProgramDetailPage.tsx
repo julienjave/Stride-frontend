@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useParams } from 'react-router'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { localDateString } from '@/common/calendarDate'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { ProgramAlertBanner } from '@/alerts/ProgramAlertBanner'
 import { PainAndMobility } from '@/progress/PainAndMobility'
 import { useUser } from '@/users/useUser'
@@ -66,6 +67,8 @@ function ProgramView({ programId }: { programId: number }) {
   const patientId = program?.patientId ?? 0
   const { data: patient } = useUser(patientId, { enabled: !!program })
   const { data: patientPrograms } = usePatientAssignedPrograms(patientId, { enabled: !!program })
+  // After a "Try again" of the program that worked, focus goes to its title.
+  const heading = useRetryFocus<HTMLHeadingElement>('this program', programQuery.isSuccess)
 
   if (isLoading) {
     return (
@@ -106,6 +109,7 @@ function ProgramView({ programId }: { programId: number }) {
         }
         patientPrograms={patientPrograms}
         myId={currentUser.id}
+        headingRef={heading}
       />
       {/* "For review" (2026-10-19): this program's attendance alert, if
           the practitioner's list has one, with "Mark as reviewed". Only an
@@ -123,7 +127,7 @@ function ProgramView({ programId }: { programId: number }) {
         names={names}
         summary={summary.data}
         summaryLoading={summary.isLoading}
-        summaryFailed={summary.isError}
+        summaryFailure={summary.isError ? summary : null}
       />
       {/* The patient's scores over time (2026-10-18) — the same charts as
           on the patient's own page. Not for a program deleted before any

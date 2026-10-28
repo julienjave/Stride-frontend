@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
 import { ClinicsListPage } from './ClinicsListPage'
+import { errorResponse, expectLoadError, retryThenExpectFocusOn } from '@/common/loadFailureAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -64,15 +65,15 @@ describe('ClinicsListPage', () => {
     expect(await screen.findByText('No clinics yet.')).toBeInTheDocument()
   })
 
-  it('shows an error state when the fetch fails', async () => {
-    fetchMock.mockResolvedValue(
-      new Response(
-        JSON.stringify({ statusCode: 500, message: ['Internal server error'] }),
-        { status: 500 },
-      ),
-    )
+  it('a failed load: the load error with its reason; a retry that works focuses the heading', async () => {
+    const user = userEvent.setup()
+    fetchMock
+      .mockResolvedValueOnce(errorResponse(500))
+      .mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200 }))
     renderClinicsListPage()
-    expect(await screen.findByText("Couldn't load clinics. Try refreshing.")).toBeInTheDocument()
+    await expectLoadError('the clinics')
+    await retryThenExpectFocusOn(user, { level: 1, name: 'Clinics' })
+    expect(await screen.findByText('No clinics yet.')).toBeInTheDocument()
   })
 
   it('has an "Add clinic" link pointing to the create route', async () => {

@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { type Ref, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { localDateString } from '@/common/calendarDate'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { PrescriptionSummary } from '@/common/PrescriptionSummary'
 import { workoutNames } from '@/assigned-programs/programSchedule'
 import { useAssignedProgram } from '@/assigned-programs/useAssignedProgram'
@@ -54,6 +55,8 @@ function SessionView({ sessionId }: { sessionId: number }) {
   // says which program (a dependent query: `enabled` waits for the id).
   const programId = session.data?.assignedProgramId ?? 0
   const program = useAssignedProgram(programId, { enabled: session.isSuccess })
+  // After a "Try again" that worked, focus goes to the session's title.
+  const heading = useRetryFocus<HTMLHeadingElement>('this session', session.isSuccess)
 
   if (session.isPending) {
     return (
@@ -78,7 +81,13 @@ function SessionView({ sessionId }: { sessionId: number }) {
 
   return (
     <Page>
-      <SessionHeader session={session.data} title={title} workoutLabel={workoutLabel} today={today} />
+      <SessionHeader
+        session={session.data}
+        title={title}
+        workoutLabel={workoutLabel}
+        today={today}
+        headingRef={heading}
+      />
       {isRunnable(session.data, today) && session.data.exercises.length > 0 ? (
         <SessionPlayer session={session.data} program={program.data} />
       ) : (
@@ -94,11 +103,13 @@ function SessionHeader({
   title,
   workoutLabel,
   today,
+  headingRef,
 }: {
   session: Session
   title: string
   workoutLabel: string | null
   today: string
+  headingRef: Ref<HTMLHeadingElement>
 }) {
   const started = startedText(session, today)
   // A late make-up (or any session counting for another day) says which.
@@ -110,7 +121,9 @@ function SessionHeader({
 
   return (
     <div className="space-y-1">
-      <h1 className="text-xl font-semibold">{title}</h1>
+      <h1 ref={headingRef} tabIndex={-1} className="text-xl font-semibold outline-none">
+        {title}
+      </h1>
       {workoutLabel && <p className="font-medium">{workoutLabel}</p>}
       <p className="text-sm text-muted-foreground">
         {[sessionStatusText(session), started].filter((part) => part !== null).join(' · ')}

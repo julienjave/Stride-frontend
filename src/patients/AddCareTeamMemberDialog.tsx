@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { failureText } from '@/api/apiErrors'
+import { LoadError } from '@/common/LoadError'
 import { UserAvatar } from '@/common/UserAvatar'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -61,6 +63,9 @@ export function AddCareTeamMemberDialog({
 
   // Fetched only while the dialog is open.
   const candidates = useCareTeamCandidates(patientId, isOpen)
+  // After a "Try again" of the list that worked, focus goes to the dialog's
+  // title (the list itself has no heading; focus stays inside the dialog).
+  const title = useRetryFocus<HTMLHeadingElement>('the practitioners', candidates.isSuccess)
   // On success: close and clear — but NOT reset the mutation, which is
   // still finishing at that point (it would be resetting itself mid-way).
   // Its state is "success" afterwards, so reopening shows no old error.
@@ -96,7 +101,7 @@ export function AddCareTeamMemberDialog({
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle ref={title} tabIndex={-1} className="outline-none">
             {label} to {patientFirstName}'s care team
           </DialogTitle>
           <DialogDescription>
@@ -119,9 +124,7 @@ export function AddCareTeamMemberDialog({
           {candidates.isLoading && (
             <p className="text-sm text-muted-foreground">Loading practitioners…</p>
           )}
-          {candidates.isError && (
-            <p className="text-sm text-destructive">Couldn't load the practitioners. Try again.</p>
-          )}
+          {candidates.isError && <LoadError what="the practitioners" queries={[candidates]} />}
           {candidates.data && candidates.data.length === 0 && (
             <p className="text-sm text-muted-foreground">
               No practitioner works at {patientFirstName}'s clinics.

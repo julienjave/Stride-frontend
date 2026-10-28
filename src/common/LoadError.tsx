@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { isNotFound } from '@/api/apiErrors'
 import { Button } from '@/components/ui/button'
+import { loadErrorText } from './loadErrorText'
+import { forgetRetry, isFailedRetry, rememberRetry, retryAnswered } from './retryMemory'
 
 // The minimum of a query a page needs to report its failure — what TanStack
 // Query's result has. A structural type, so every query's result fits it,
@@ -67,7 +69,7 @@ export function LoadFailure({
 //   (query-core's `fetchState`: no data → `status: 'pending', error: null`).
 //   The page shows its "Loading…" again, and THIS component unmounts. If
 //   the retry fails, a NEW LoadError appears. So the press is remembered
-//   OUTSIDE the component (`lastRetry`, below): the new one says "Still
+//   OUTSIDE the component (`retryMemory.ts`): the new one says "Still
 //   couldn't …" and puts keyboard focus back on its button — the button the
 //   user pressed is gone, and focus with it, to the top of the page.
 // - Succeeded before (the data is on screen, a later refetch failed): the
@@ -78,18 +80,15 @@ export function LoadFailure({
 // "Still couldn't …": a live region only speaks when its content CHANGES (or
 // appears), so the same sentence again would leave a screen-reader user
 // unsure whether anything happened.
-
-// The last "Try again" press, kept at module level because the component
-// that was pressed is usually gone by the time the answer comes back (see
-// above). Matched by `what` and forgotten after 30 seconds, so it can only
-// ever reach the block that replaces the one pressed — never an unrelated
-// page later.
-let lastRetry: { what: string; at: number } | null = null
-const RETRY_MEMORY_MS = 30_000
-
-function justRetried(what: string): boolean {
-  return lastRetry !== null && lastRetry.what === what && Date.now() - lastRetry.at < RETRY_MEMORY_MS
-}
+//
+// THE PRESS ITSELF is remembered in `retryMemory.ts` (outside any component,
+// for the reason above) — and since 2026-10-28 it serves the other outcome
+// too: when the retry WORKS, the content's heading takes focus
+// (`useRetryFocus`), instead of focus falling to the top of the page.
+//
+// THE WORDS say why, too (since 2026-10-28): "Couldn't load this program."
+// followed by the shared rule's reason — "Something went wrong on our side…",
+// a 429's wait, or "Check your connection…" (`loadErrorText.ts`).
 
 export function LoadError({
   what,
@@ -110,19 +109,20 @@ export function LoadError({
   // back (the click handler outlives it).
   const shown = useRef(false)
 
-  // Read ONCE, at mount: am I the block that replaces one just pressed?
-  // (A pure read — the initialiser may run twice under StrictMode.)
-  const [afterRetry] = useState(() => justRetried(what))
+  // Read ONCE, at mount: am I the block that replaces one whose retry
+  // failed? (A pure read — the initialiser may run twice under StrictMode;
+  // the memory is spent in the effect.)
+  const [afterRetry] = useState(() => isFailedRetry(what))
   useEffect(() => {
     shown.current = true
     if (afterRetry) {
-      lastRetry = null
+      forgetRetry(what)
       button.current?.focus()
     }
     return () => {
       shown.current = false
     }
-  }, [afterRetry])
+  }, [afterRetry, what])
 
   // How many retries came back still failing. At mount: one, if this block
   // replaces one that was pressed. In place: counted by watching `retrying`
@@ -139,19 +139,25 @@ export function LoadError({
 
   function retry() {
     if (retrying) return
-    lastRetry = { what, at: Date.now() }
+    const press = rememberRetry(what)
     void Promise.all(failed.map((query) => query.refetch())).then((results) => {
-      // Nobody will come back for the memory if the retry worked (the page
-      // shows its data) or if this block is still shown (it failed in place
-      // and has already said so).
-      if (shown.current || results.every((result) => !result.isError)) lastRetry = null
+      // Recorded for whatever comes next (retryMemory.ts says who takes it):
+      // worked → the content's heading; failed → the block that replaces
+      // this one — unless this one is still shown, and has said so in place.
+      retryAnswered(
+        press,
+        results.every((result) => !result.isError),
+        shown.current,
+      )
     })
   }
 
   return (
     <div className="space-y-3">
       <p role="alert" className="text-sm text-destructive">
-        {failedRetries === 0 ? `Couldn't load ${what}.` : `Still couldn't load ${what}.`}
+        {/* The FIRST failed request's reason: when two failed, they almost
+            always failed for the same one (the network, the server). */}
+        {loadErrorText(what, failed[0]?.error, failedRetries > 0)}
       </p>
       {/* A line of its own: the ways out below are often inline links, which
           would otherwise sit right against the button (seen at 375 px). */}

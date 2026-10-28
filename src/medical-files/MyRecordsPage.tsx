@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react'
+import type { ReactNode, Ref } from 'react'
 import { Link } from 'react-router'
 import { LoadError } from '@/common/LoadError'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { DownloadMyRecords } from '@/records-export/DownloadMyRecords'
 import { MedicalFileEntryList } from './MedicalFileEntryList'
 import { useMyMedicalFile } from './useMedicalFile'
@@ -19,9 +20,11 @@ import { useMyMedicalFile } from './useMedicalFile'
 // record as a PDF — the notes, the programs and the sessions.
 export function MyRecordsPage() {
   const file = useMyMedicalFile()
+  // After a "Try again" that worked, focus goes to the page's heading.
+  const heading = useRetryFocus<HTMLHeadingElement>('your records', file.isSuccess)
 
   return (
-    <Page>
+    <Page heading={heading}>
       {file.isError ? (
         <LoadError what="your records" queries={[file]} />
       ) : !file.isSuccess ? (
@@ -37,14 +40,16 @@ export function MyRecordsPage() {
   )
 }
 
-function Page({ children }: { children: ReactNode }) {
+function Page({ children, heading }: { children: ReactNode; heading: Ref<HTMLHeadingElement> }) {
   return (
     <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4 pb-8">
       <div className="space-y-3">
         <Link to="/profile" className="text-sm text-muted-foreground hover:underline">
           ← My profile
         </Link>
-        <h1 className="text-2xl font-semibold">My records</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-2xl font-semibold outline-none">
+          My records
+        </h1>
         <p className="text-sm text-muted-foreground">
           The notes your practitioners write about your care: assessments, progress notes and
           summaries. A note is never changed afterwards — a correction is added as a new

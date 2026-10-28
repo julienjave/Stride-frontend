@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { failureText } from '@/api/apiErrors'
 import { LoadError } from '@/common/LoadError'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { cn } from '@/lib/utils'
 import { listRecordsExportLinks, recordsExportLinksQueryKey, sendRecordsExportLink } from './api'
 import {
@@ -60,6 +61,8 @@ export function RecordsExportLinksSection({
     queryKey: recordsExportLinksQueryKey(patientId),
     queryFn: () => listRecordsExportLinks(patientId),
   })
+  // After a "Try again" that worked, focus goes to the section's heading.
+  const heading = useRetryFocus<HTMLHeadingElement>('the links sent', links.isSuccess)
 
   // Sending changes more than the row it returns (the open link, if any, is
   // closed as "replaced"), so the list is fetched again rather than patched
@@ -86,7 +89,7 @@ export function RecordsExportLinksSection({
       aria-labelledby="records-export-heading"
       className="space-y-3 rounded-lg border px-4 py-3"
     >
-      <h2 id="records-export-heading" className="text-sm font-medium">
+      <h2 ref={heading} tabIndex={-1} id="records-export-heading" className="text-sm font-medium outline-none">
         Health record copy
       </h2>
       <p className="text-sm text-muted-foreground">

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { type Ref, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Check, Pencil, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -28,6 +28,11 @@ interface EditableExerciseTitleProps {
   // has the PROGRAM as its title, the exercise below it (h2). Headings say
   // how a page is organised — screen reader users jump between them.
   headingLevel?: 1 | 2
+  // The page's focus target after a "Try again" that worked
+  // (`useRetryFocus`) — the heading IS this component's, so the page hands
+  // its ref down. Given → the heading is also focusable by code
+  // (tabIndex -1, kept out of the Tab order).
+  headingRef?: Ref<HTMLHeadingElement>
 }
 
 // The two looks, one per level: a page title, or a section heading.
@@ -46,6 +51,7 @@ export function EditableExerciseTitle({
   save,
   canEdit,
   headingLevel = 1,
+  headingRef,
 }: EditableExerciseTitleProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState(name)
@@ -97,7 +103,13 @@ export function EditableExerciseTitle({
   if (!isEditing) {
     return (
       <div className="flex items-start gap-2">
-        <Heading className={HEADING_STYLE[headingLevel]}>{name}</Heading>
+        <Heading
+          ref={headingRef}
+          tabIndex={headingRef ? -1 : undefined}
+          className={`${HEADING_STYLE[headingLevel]} outline-none`}
+        >
+          {name}
+        </Heading>
         {canEdit && (
           <Button
             type="button"

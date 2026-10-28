@@ -4,6 +4,12 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router'
 import { ProgramExercisePage } from './ProgramExercisePage'
+import {
+  errorResponse,
+  expectLoadError,
+  expectRecordNotFound,
+  retryThenExpectFocusOn,
+} from '@/common/loadFailureAssertions'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 
 const fetchMock = vi.fn<typeof fetch>()
@@ -58,21 +64,31 @@ const fullExercise = {
 
 function setupFetchMock(config: {
   templateOverride?: unknown
-  templateError?: boolean
+  // The template's FIRST read fails with this status; later reads work
+  // (so a "Try again" can succeed).
+  templateFailsOnceWith?: number
+  // The library exercise's first read fails (a 500); later reads work.
+  exerciseFailsOnce?: boolean
   removeResponse?: Response
 }) {
+  let templateFailures = config.templateFailsOnceWith ? 1 : 0
+  let exerciseFailures = config.exerciseFailsOnce ? 1 : 0
   fetchMock.mockImplementation((input, init) => {
     const url = input as string
     const method = init?.method ?? 'GET'
 
     if (method === 'GET' && /\/programs\/\d+$/.test(url)) {
-      return config.templateError
-        ? Promise.resolve(
-            jsonResponse({ statusCode: 500, message: ['Internal error'] }, 500),
-          )
-        : Promise.resolve(jsonResponse(config.templateOverride ?? template))
+      if (templateFailures > 0) {
+        templateFailures -= 1
+        return Promise.resolve(errorResponse(config.templateFailsOnceWith ?? 500))
+      }
+      return Promise.resolve(jsonResponse(config.templateOverride ?? template))
     }
     if (method === 'GET' && /\/exercises\/\d+$/.test(url)) {
+      if (exerciseFailures > 0) {
+        exerciseFailures -= 1
+        return Promise.resolve(errorResponse(500))
+      }
       return Promise.resolve(jsonResponse(fullExercise))
     }
     // Saving a field (step 3b-1b: the page's own `save`): the template as
@@ -136,14 +152,34 @@ function renderAt(
 }
 
 describe('ProgramExercisePage', () => {
-  it('shows an invalid-exercise message for a non-numeric template id', () => {
+  it('a template id that is not a number: "Template not found", without fetching', async () => {
     renderAt('/practitioner/programs/templates/not-a-number/exercises/50')
-    expect(screen.getByText('Invalid exercise.')).toBeInTheDocument()
+    await expectRecordNotFound('template', [['Programs', '/practitioner/programs']])
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('shows an invalid-exercise message for a non-numeric row id', () => {
+  it('an exercise id that is not a number: "Exercise not found", back to the template', async () => {
     renderAt('/practitioner/programs/templates/1/exercises/not-a-number')
-    expect(screen.getByText('Invalid exercise.')).toBeInTheDocument()
+    await expectRecordNotFound('exercise', [
+      ['Back to the template', '/practitioner/programs/templates/1'],
+      ['Programs', '/practitioner/programs'],
+    ])
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('the template answers 404: "Template not found"', async () => {
+    setupFetchMock({ templateFailsOnceWith: 404 })
+    renderAt('/practitioner/programs/templates/1/exercises/50')
+    await expectRecordNotFound('template', [['Programs', '/practitioner/programs']])
+  })
+
+  it('the template has no such exercise (removed since): "Exercise not found", back to the template', async () => {
+    setupFetchMock({})
+    renderAt('/practitioner/programs/templates/1/exercises/51')
+    await expectRecordNotFound('exercise', [
+      ['Back to the template', '/practitioner/programs/templates/1'],
+      ['Programs', '/practitioner/programs'],
+    ])
   })
 
   it('shows a loading state before the template resolves', () => {
@@ -152,12 +188,22 @@ describe('ProgramExercisePage', () => {
     expect(screen.getByText('Loading…')).toBeInTheDocument()
   })
 
-  it('shows an error state when the template fetch fails', async () => {
-    setupFetchMock({ templateError: true })
+  it("the template's read fails otherwise: the load error; a retry that works focuses the title", async () => {
+    const user = userEvent.setup()
+    setupFetchMock({ templateFailsOnceWith: 500 })
     renderAt('/practitioner/programs/templates/1/exercises/50')
-    expect(
-      await screen.findByText("Couldn't load this exercise. Try refreshing."),
-    ).toBeInTheDocument()
+    await expectLoadError('this exercise')
+    await retryThenExpectFocusOn(user, { level: 1, name: 'Shoulder Rehab' })
+  })
+
+  it("the library exercise's details fail: their own load error under the title; a retry focuses the name", async () => {
+    const user = userEvent.setup()
+    setupFetchMock({ exerciseFailsOnce: true })
+    renderAt('/practitioner/programs/templates/1/exercises/50')
+    await expectLoadError("this exercise's details")
+    // The rest of the page is there: the title and the prescription.
+    expect(screen.getByRole('heading', { level: 1, name: 'Shoulder Rehab' })).toBeInTheDocument()
+    await retryThenExpectFocusOn(user, { level: 2, name: 'Squat' })
   })
 
   it('shows the template title, subtitle, exercise name, and read-only details', async () => {

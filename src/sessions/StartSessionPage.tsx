@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { type Ref, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { localDateString } from '@/common/calendarDate'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { PrescriptionSummary } from '@/common/PrescriptionSummary'
 import { workoutNames } from '@/assigned-programs/programSchedule'
 import { useAssignedProgram } from '@/assigned-programs/useAssignedProgram'
@@ -65,6 +66,11 @@ function StartSessionView({ programId }: { programId: number }) {
     enabled: program.isSuccess,
     fresh: true,
   })
+  // After a "Try again" that worked, focus goes to the heading of whatever
+  // the page then shows (one of three — each takes this ref). It fires when
+  // the page is READY: the same condition as the loading state below.
+  const ready = program.isSuccess && summary.isSuccess && summary.isFetchedAfterMount
+  const heading = useRetryFocus<HTMLHeadingElement>('this program', ready)
 
   // Errors first (either request), then "still loading" until BOTH have
   // answered — checked as `isSuccess` on each, which is also what lets
@@ -99,7 +105,9 @@ function StartSessionView({ programId }: { programId: number }) {
   if (choice.kind === 'unavailable') {
     return (
       <Page>
-        <h1 className="text-xl font-semibold">{program.data.title}</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+          {program.data.title}
+        </h1>
         <p>
           {choice.reason === 'not_offered'
             ? NOT_OFFERED_TEXT
@@ -112,7 +120,9 @@ function StartSessionView({ programId }: { programId: number }) {
   if (choice.kind === 'none') {
     return (
       <Page>
-        <h1 className="text-xl font-semibold">{program.data.title}</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+          {program.data.title}
+        </h1>
         <p>{nothingToStartText(choice.status)}</p>
         <HomeLink />
       </Page>
@@ -125,6 +135,7 @@ function StartSessionView({ programId }: { programId: number }) {
       status={choice.status}
       today={today}
       fromHub={forDay !== null}
+      heading={heading}
     />
   )
 }
@@ -135,6 +146,7 @@ function StartForm({
   status,
   today,
   fromHub,
+  heading,
 }: {
   program: AssignedProgramDetail
   workoutId: number
@@ -142,6 +154,7 @@ function StartForm({
   today: string
   // Reached from the Sessions hub (`?for=`): the way back is the hub.
   fromHub: boolean
+  heading: Ref<HTMLHeadingElement>
 }) {
   const navigate = useNavigate()
   const [painBefore, setPainBefore] = useState<number | null>(null)
@@ -171,7 +184,9 @@ function StartForm({
   return (
     <Page>
       <div className="space-y-1">
-        <h1 className="text-xl font-semibold">Start your session</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+          Start your session
+        </h1>
         <p className="font-medium">
           {program.title}
           {/* The workout only when there are several to tell apart. */}

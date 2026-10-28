@@ -1,8 +1,9 @@
-import { useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { type Ref, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { LoadFailure } from '@/common/LoadError'
 import { NativeSelect } from '@/common/NativeSelect'
 import { NotAvailable } from '@/common/NotAvailable'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -64,6 +65,9 @@ export function MedicalFileEntryPage() {
 // itself an audited read — the practitioner is about to rewrite it).
 function AmendView({ patientId, amendsId }: { patientId: number; amendsId: number }) {
   const entry = useMedicalFileEntry(patientId, amendsId)
+  // After a "Try again" that worked, focus goes to the heading of what the
+  // page then shows: the form, or "amended since" (each takes this ref).
+  const heading = useRetryFocus<HTMLHeadingElement>('the entry', entry.isSuccess)
 
   // A 404 (hidden or missing — the backend doesn't say which), or an entry
   // of ANOTHER patient under this patient's address: neither is amended
@@ -101,7 +105,9 @@ function AmendView({ patientId, amendsId }: { patientId: number; amendsId: numbe
     // the newer version instead — a chain, never a branch.
     return (
       <Page>
-        <h1 className="text-xl font-semibold">This entry has been amended since</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+          This entry has been amended since
+        </h1>
         <p className="text-sm">
           A newer version replaces it. Amend that version instead, so the corrections stay in
           order.
@@ -118,15 +124,18 @@ function AmendView({ patientId, amendsId }: { patientId: number; amendsId: numbe
       </Page>
     )
   }
-  return <EntryForm patientId={patientId} original={entry.data} />
+  return <EntryForm patientId={patientId} original={entry.data} headingRef={heading} />
 }
 
 function EntryForm({
   patientId,
   original,
+  headingRef,
 }: {
   patientId: number
   original?: MedicalFileEntry
+  // An amendment's form: the focus target after a "Try again" that worked.
+  headingRef?: Ref<HTMLHeadingElement>
 }) {
   const navigate = useNavigate()
   const patient = useUser(patientId)
@@ -178,7 +187,13 @@ function EntryForm({
   return (
     <Page>
       <div className="space-y-1">
-        <h1 className="text-xl font-semibold">{original ? 'Amend an entry' : 'New entry'}</h1>
+        <h1
+          ref={headingRef}
+          tabIndex={headingRef ? -1 : undefined}
+          className="text-xl font-semibold outline-none"
+        >
+          {original ? 'Amend an entry' : 'New entry'}
+        </h1>
         {name && <p className="text-sm text-muted-foreground">{name}</p>}
       </div>
 

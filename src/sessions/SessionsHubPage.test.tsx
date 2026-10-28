@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import { formatCalendarDate } from '@/common/formatCalendarDate'
 import { formatShortDate } from '@/common/calendarDate'
+import { expectLoadError, retryThenExpectFocusOn } from '@/common/loadFailureAssertions'
 import type { AssignedProgramListItem, ScheduleVersion } from '@/assigned-programs/types'
 import { SessionsHubPage } from './SessionsHubPage'
 import { A, B, PAT, TODAY, json, scheduledDay, summary, urlOf } from './testData'
@@ -193,7 +194,7 @@ describe('SessionsHubPage — the programs', () => {
     summaries[12] = () => json({ statusCode: 500, message: ['Boom'] }, 500)
     renderPage()
     const knee = within(await card('Knee Rehab'))
-    await knee.findByText("Couldn't load this program's sessions. Try refreshing.")
+    await knee.findByRole('alert')
     expect(knee.getByRole('link', { name: 'View program: Knee Rehab' })).toBeInTheDocument()
   })
 
@@ -222,15 +223,27 @@ describe('SessionsHubPage — the programs', () => {
     expect(knee.queryByRole('link', { name: /^Start/ })).not.toBeInTheDocument()
   })
 
-  it('says when one summary could not be loaded, keeping the others', async () => {
+  it('says when one summary could not be loaded, with its reason, keeping the others', async () => {
     summaries[12] = () => json({ statusCode: 500, message: ['Boom'] }, 500)
     renderPage()
-    expect(
-      await within(await card('Knee Rehab')).findByText(
-        "Couldn't load this program's sessions. Try refreshing.",
-      ),
-    ).toBeInTheDocument()
+    expect(await within(await card('Knee Rehab')).findByRole('alert')).toHaveTextContent(
+      /^Couldn't load this program's sessions\. Something went wrong on our side\. Try again in a moment\.$/,
+    )
     expect(await within(await card('Lower Back')).findByText("Today's session")).toBeInTheDocument()
+  })
+
+  it("a retry of that card's summary that works: focus goes to the card's title", async () => {
+    const user = userEvent.setup()
+    const good = summaries[12]
+    summaries[12] = () => json({ statusCode: 500, message: ['Boom'] }, 500)
+    renderPage()
+    const knee = within(await card('Knee Rehab'))
+    await knee.findByRole('alert')
+    summaries[12] = good
+    await user.click(knee.getByRole('button', { name: 'Try again' }))
+    const title = knee.getByRole('heading', { name: 'Knee Rehab' })
+    await waitFor(() => expect(title).toHaveFocus())
+    expect(knee.queryByRole('alert')).not.toBeInTheDocument()
   })
 })
 
@@ -412,13 +425,16 @@ describe('SessionsHubPage — nothing, or not yet', () => {
     expect(screen.queryByRole('heading', { name: 'Current programs' })).not.toBeInTheDocument()
   })
 
-  it('says it is loading, then that the list failed', async () => {
+  it('says it is loading, then that the list failed; a retry that works focuses the heading', async () => {
+    const user = userEvent.setup()
+    const good = list
     list = () => json({ statusCode: 500, message: ['Boom'] }, 500)
     renderPage()
     expect(screen.getByText('Loading your programs…')).toBeInTheDocument()
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      "Couldn't load your programs. Try refreshing the page.",
-    )
+    await expectLoadError('your programs')
     expect(screen.queryByText('Loading your programs…')).not.toBeInTheDocument()
+    list = good
+    await retryThenExpectFocusOn(user, { level: 1, name: 'Sessions' })
+    expect(await screen.findByRole('heading', { name: 'Current programs' })).toBeInTheDocument()
   })
 })

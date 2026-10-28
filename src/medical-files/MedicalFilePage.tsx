@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Link, useLocation, useParams } from 'react-router'
 import { ApiError } from '@/api/client'
 import { LoadError } from '@/common/LoadError'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { readNotice } from '@/common/readNotice'
 import { Button } from '@/components/ui/button'
 import { useUser } from '@/users/useUser'
@@ -38,6 +39,8 @@ function MedicalFileView({ patientId }: { patientId: number }) {
   // the patient page, usually cached by the time this page opens.
   const patient = useUser(patientId)
   const file = useMedicalFile(patientId)
+  // After a "Try again" that worked, focus goes to the page's heading.
+  const heading = useRetryFocus<HTMLHeadingElement>('the medical file', file.isSuccess)
   const name = patient.data ? `${patient.data.firstName} ${patient.data.lastName}` : null
 
   // Off the care team: the backend's 403 (the list's own check) — a page
@@ -64,7 +67,9 @@ function MedicalFileView({ patientId }: { patientId: number }) {
         </Link>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-1">
-            <h1 className="text-xl font-semibold">Medical file</h1>
+            <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+              Medical file
+            </h1>
             {name && <p className="text-sm text-muted-foreground">{name}</p>}
           </div>
           <Button asChild>

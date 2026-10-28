@@ -1,6 +1,8 @@
-import { useState, type ReactNode } from 'react'
+import { type Ref, useState, type ReactNode } from 'react'
 import type { UseQueryResult } from '@tanstack/react-query'
 import { localDateString } from '@/common/calendarDate'
+import { LoadError } from '@/common/LoadError'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { ShowHiddenToggle } from '@/common/ShowHiddenToggle'
 import { Card, CardContent } from '@/components/ui/card'
 import { ProgramProgressBar } from '@/assigned-programs/ProgramProgressBar'
@@ -35,20 +37,21 @@ export function SessionsHubPage() {
   // Off on every visit (plain state, the patient page's rule): past
   // programs are history, not what the patient came for.
   const [showPast, setShowPast] = useState(false)
+  // After a "Try again" of the list that worked, focus goes to the page's
+  // heading — the frame's, on screen in every state.
+  const heading = useRetryFocus<HTMLHeadingElement>('your programs', list.isSuccess)
 
   if (list.isPending) {
     return (
-      <HubPage>
+      <HubPage heading={heading}>
         <p className="text-sm text-muted-foreground">Loading your programs…</p>
       </HubPage>
     )
   }
   if (list.isError) {
     return (
-      <HubPage>
-        <p role="alert" className="text-sm text-destructive">
-          Couldn't load your programs. Try refreshing the page.
-        </p>
+      <HubPage heading={heading}>
+        <LoadError what="your programs" queries={[list]} />
       </HubPage>
     )
   }
@@ -59,7 +62,7 @@ export function SessionsHubPage() {
   const { past } = splitProgramsForPatientPage(list.data)
   if (programs.length === 0 && past.length === 0) {
     return (
-      <HubPage>
+      <HubPage heading={heading}>
         <p className="text-sm text-muted-foreground">
           You don't have a program yet. When your practitioner assigns you one, it will show here.
         </p>
@@ -68,7 +71,7 @@ export function SessionsHubPage() {
   }
 
   return (
-    <HubPage>
+    <HubPage heading={heading}>
       <section aria-labelledby="hub-current" className="space-y-3">
         <h2 id="hub-current" className="text-lg font-semibold">
           Current programs
@@ -119,10 +122,12 @@ export function SessionsHubPage() {
   )
 }
 
-function HubPage({ children }: { children: ReactNode }) {
+function HubPage({ children, heading }: { children: ReactNode; heading: Ref<HTMLHeadingElement> }) {
   return (
     <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4 pb-8">
-      <h1 className="text-2xl font-semibold">Sessions</h1>
+      <h1 ref={heading} tabIndex={-1} className="text-2xl font-semibold outline-none">
+        Sessions
+      </h1>
       {children}
     </div>
   )
@@ -142,11 +147,17 @@ function ProgramCard({
   // The schedule in force today ("Mon A · Wed B · Fri A") — the program
   // page's words for it (describeVersion). Before the start, the first one.
   const { current } = currentAndPlanned(program.schedules, today)
+  // After a "Try again" of THIS card's summary that worked, focus goes to
+  // its title (every card says "this program's sessions"; only the card
+  // whose summary was asked again sees it come back).
+  const heading = useRetryFocus<HTMLHeadingElement>("this program's sessions", summary.isSuccess)
   return (
     <Card>
       <CardContent className="space-y-4">
         <div className="space-y-0.5">
-          <h3 className="font-semibold">{program.title}</h3>
+          <h3 ref={heading} tabIndex={-1} className="font-semibold outline-none">
+            {program.title}
+          </h3>
           {program.assigner && (
             <p className="text-sm text-muted-foreground">
               From {program.assigner.firstName} {program.assigner.lastName}
@@ -159,9 +170,7 @@ function ProgramCard({
           )}
         </div>
         {summary.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
-        {summary.isError && (
-          <p className="text-sm text-destructive">Couldn't load this program's sessions. Try refreshing.</p>
-        )}
+        {summary.isError && <LoadError what="this program's sessions" queries={[summary]} />}
         {summary.data && (
           <>
             <ProgramProgressBar title={program.title} summary={summary.data} />

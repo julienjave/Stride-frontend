@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { type Ref, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router'
 import { ChevronRight } from 'lucide-react'
+import { LoadError } from '@/common/LoadError'
 import { ShowHiddenToggle } from '@/common/ShowHiddenToggle'
 import { UserAvatar } from '@/common/UserAvatar'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { practitionerProfilePath } from './practitionerProfilePath'
 import { readViewedPractitioner } from './teamReturn'
 import { splitTeam } from './teamRules'
@@ -46,18 +48,20 @@ export function MyTeamPage() {
     listRef.current?.querySelector<HTMLElement>(`[data-practitioner-link="${viewedId}"]`)?.focus()
   }, [viewedId, loaded])
 
+  // After a "Try again" that worked, focus goes to the page's heading — on
+  // screen in every state (the frame's), so `loaded` says when it fires.
+  const heading = useRetryFocus<HTMLHeadingElement>('your care team', loaded)
+
   if (team.isError) {
     return (
-      <TeamPage>
-        <p role="alert" className="text-sm text-destructive">
-          Couldn't load your care team. Try refreshing the page.
-        </p>
+      <TeamPage heading={heading}>
+        <LoadError what="your care team" queries={[team]} />
       </TeamPage>
     )
   }
   if (!team.isSuccess) {
     return (
-      <TeamPage>
+      <TeamPage heading={heading}>
         <p className="text-sm text-muted-foreground">Loading your care team…</p>
       </TeamPage>
     )
@@ -65,7 +69,7 @@ export function MyTeamPage() {
 
   const { current, past } = splitTeam(team.data)
   return (
-    <TeamPage>
+    <TeamPage heading={heading}>
       {current.length === 0 ? (
         // Possible: a practitioner left the clinic, or ended their link, and
         // nobody has joined since. Who will look after them is the clinic's
@@ -104,10 +108,12 @@ export function MyTeamPage() {
   )
 }
 
-function TeamPage({ children }: { children: ReactNode }) {
+function TeamPage({ children, heading }: { children: ReactNode; heading: Ref<HTMLHeadingElement> }) {
   return (
     <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4 pb-8">
-      <h1 className="text-2xl font-semibold">My team</h1>
+      <h1 ref={heading} tabIndex={-1} className="text-2xl font-semibold outline-none">
+        My team
+      </h1>
       {children}
     </div>
   )

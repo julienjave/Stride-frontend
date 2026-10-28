@@ -5,7 +5,9 @@ import { useUser } from './useUser'
 import { ProfileFields } from './ProfileFields'
 import { AvatarUpload } from './AvatarUpload'
 import { Link, useLocation } from 'react-router'
+import { LoadError } from '@/common/LoadError'
 import { readNotice } from '@/common/readNotice'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { MY_RECORDS_PATH } from '@/medical-files/medicalFilePaths'
 
 // /profile — the logged-in user's own profile, for every role (design
@@ -29,7 +31,10 @@ function ProfileView({ userId, activeRole }: { userId: number; activeRole: strin
   // One shape, one cache entry per user, one save path (useSaveUser)
   // whichever page the edit came from. The cost is one extra request when
   // the page opens.
-  const { data: user, isLoading, isError } = useUser(userId)
+  const userQuery = useUser(userId)
+  const { data: user, isLoading } = userQuery
+  // After a "Try again" that worked, focus goes to the page's heading.
+  const heading = useRetryFocus<HTMLHeadingElement>('your profile', userQuery.isSuccess)
   // A one-line confirmation another page hands over ("Your password is
   // changed…", from /profile/password) — read defensively (readNotice).
   const notice = readNotice(useLocation().state)
@@ -38,11 +43,13 @@ function ProfileView({ userId, activeRole }: { userId: number; activeRole: strin
     return <p className="mx-auto mt-12 max-w-lg px-4 text-sm text-muted-foreground">Loading profile…</p>
   }
 
-  if (isError || !user) {
+  // No "not found" here: it's the signed-in person's own account. Any
+  // failure is a load error, with its reason and "Try again".
+  if (userQuery.isError || !user) {
     return (
-      <p className="mx-auto mt-12 max-w-lg px-4 text-sm text-destructive">
-        Couldn't load your profile.
-      </p>
+      <div className="mx-auto mt-12 max-w-lg px-4">
+        <LoadError what="your profile" queries={[userQuery]} />
+      </div>
     )
   }
 
@@ -56,7 +63,9 @@ function ProfileView({ userId, activeRole }: { userId: number; activeRole: strin
   return (
     <div className="mx-auto mt-8 max-w-lg space-y-6 px-4 pb-8">
       <div>
-        <h1 className="text-xl font-semibold">My profile</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+          My profile
+        </h1>
         <p className="text-sm text-muted-foreground">{roleNames}</p>
       </div>
 

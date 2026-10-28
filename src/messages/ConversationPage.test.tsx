@@ -154,23 +154,31 @@ describe('a conversation', () => {
     const user = userEvent.setup()
     conversation = apiError(500, 'boom')
     renderMessages('/practitioner/messages/12')
-    expect(await screen.findByRole('alert')).toHaveTextContent(/^Couldn't load this conversation\.$/)
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /^Couldn't load this conversation\. Something went wrong on our side\. Try again in a moment\.$/,
+    )
     expect(screen.queryByText('Conversation not available')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Back to messages' })).toHaveAttribute('href', '/practitioner/messages')
     conversation = summary({ lastMessage: message(2), unreadCount: 0 })
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await log()).toBeInTheDocument()
+    // Focus on the conversation's heading, not lost at the top.
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Pat Lee' })).toHaveFocus())
   })
 
   it('when only the messages fail, "Try again" asks for them again', async () => {
     const user = userEvent.setup()
     threadFails = true
     renderMessages('/practitioner/messages/12')
-    expect(await screen.findByRole('alert')).toHaveTextContent(/^Couldn't load the messages\.$/)
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /^Couldn't load the messages\. Something went wrong on our side\. Try again in a moment\.$/,
+    )
     threadFails = false
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText(/Message 2/)).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    // The thread has no heading of its own: focus on the conversation's.
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Pat Lee' })).toHaveFocus())
   })
 
   it('offers no box in a read-only conversation, and says why', async () => {

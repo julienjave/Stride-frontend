@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
+import { LoadError } from '@/common/LoadError'
 import { useDebouncedValue } from '@/common/useDebouncedValue'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { useExercises } from './useExercises'
 import { ExerciseCard } from './ExerciseCard'
 import { localPath, pickerReturnHref } from './pickerReturnHref'
@@ -33,13 +35,23 @@ export function ExercisePickerPage() {
   const [mine, setMine] = useState(false)
   const [page, setPage] = useState(1)
 
-  const { data, isLoading, isError, isPlaceholderData } = useExercises(
+  const exercises = useExercises(
     {
       page,
       search: debouncedSearch,
       mine,
     },
     returnTo != null,
+  )
+  const { data, isLoading, isError, isPlaceholderData } = exercises
+  // After a "Try again" that worked, focus goes to the page's heading (the
+  // list has none of its own). NOT `isSuccess` alone: during a retry the
+  // previous results stay on screen as placeholder data (useExercises'
+  // keepPreviousData), and TanStack reports that as success — the answer
+  // isn't in yet.
+  const heading = useRetryFocus<HTMLHeadingElement>(
+    'the exercises',
+    exercises.isSuccess && !isPlaceholderData,
   )
 
   function updateSearch(value: string) {
@@ -66,7 +78,9 @@ export function ExercisePickerPage() {
   return (
     <div className="mx-auto mt-8 max-w-3xl space-y-6 px-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Select an Exercise</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+          Select an Exercise
+        </h1>
         <Link to={localPath(returnTo)} className="text-sm text-muted-foreground underline">
           Cancel
         </Link>
@@ -95,11 +109,7 @@ export function ExercisePickerPage() {
         <p className="text-sm text-muted-foreground">Loading exercises…</p>
       )}
 
-      {isError && (
-        <p className="text-sm text-destructive">
-          Couldn't load exercises. Try refreshing.
-        </p>
-      )}
+      {isError && <LoadError what="the exercises" queries={[exercises]} />}
 
       {data && (
         <div

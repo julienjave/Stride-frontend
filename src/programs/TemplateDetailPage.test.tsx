@@ -5,6 +5,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router'
 import { TemplateDetailPage } from './TemplateDetailPage'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
+import {
+  errorResponse,
+  expectLoadError,
+  expectRecordNotFound,
+  retryThenExpectFocusOn,
+} from '@/common/loadFailureAssertions'
 import type { ProgramTemplateDetail, TemplateExercise } from './types'
 
 const fetchMock = vi.fn<typeof fetch>()
@@ -121,10 +127,16 @@ function expectNoEditControls() {
 }
 
 describe('TemplateDetailPage — loading and errors', () => {
-  it('shows an invalid-template message for a non-numeric id, without fetching', () => {
+  it('an id that is not a number: "Template not found", without fetching', async () => {
     renderAt('/practitioner/programs/templates/not-a-number')
-    expect(screen.getByText('Invalid template.')).toBeInTheDocument()
+    await expectRecordNotFound('template', [['Programs', '/practitioner/programs']])
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('a 404: "Template not found", and no Try again', async () => {
+    fetchMock.mockResolvedValue(errorResponse(404, ['Program template 1 not found']))
+    renderAt('/practitioner/programs/templates/1')
+    await expectRecordNotFound('template', [['Programs', '/practitioner/programs']])
   })
 
   it('shows a loading state before the template resolves', () => {
@@ -133,14 +145,14 @@ describe('TemplateDetailPage — loading and errors', () => {
     expect(screen.getByText('Loading…')).toBeInTheDocument()
   })
 
-  it('shows an error state when the fetch fails', async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse({ statusCode: 500, message: ['Internal error'] }, 500),
-    )
+  it('any other failure: the load error with its reason; a retry that works focuses the title', async () => {
+    const user = userEvent.setup()
+    fetchMock
+      .mockResolvedValueOnce(errorResponse(500))
+      .mockResolvedValueOnce(jsonResponse(makeTemplate()))
     renderAt('/practitioner/programs/templates/1')
-    expect(
-      await screen.findByText("Couldn't load this template. Try refreshing."),
-    ).toBeInTheDocument()
+    await expectLoadError('this template')
+    await retryThenExpectFocusOn(user, { level: 1, name: 'Shoulder Rehab' })
   })
 })
 

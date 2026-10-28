@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { apiError, json } from '@/sessions/testData'
+import { expectLoadError, retryThenExpectFocusOn } from '@/common/loadFailureAssertions'
 import { fakeApi, fetchMock, renderMessages } from './renderMessages'
 import { ALEX_ID, message, PAT_PERSON, summary } from './testData'
 import type { ConversationSummary } from './types'
@@ -97,10 +98,17 @@ describe('the conversation list', () => {
     expect(screen.getByText('Choose a conversation, or start one with New message.')).toBeInTheDocument()
   })
 
-  it('says it could not load', async () => {
-    fakeApi(() => apiError(500, 'boom'))
+  it('says it could not load, and why; a retry that works focuses the heading', async () => {
+    const user = userEvent.setup()
+    let fail = true
+    fakeApi(({ method, path }) =>
+      method === 'GET' && path === '/conversations' ? (fail ? apiError(500, 'boom') : json([])) : undefined,
+    )
     renderMessages('/practitioner/messages')
-    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't load your conversations.")
+    await expectLoadError('your conversations')
+    fail = false
+    await retryThenExpectFocusOn(user, { level: 1, name: 'Messages' })
+    expect(await screen.findByText('No messages yet. Start a conversation with New message.')).toBeInTheDocument()
   })
 
   it('updates live: a new message becomes the preview, counts as unread, and moves its row to the top', async () => {

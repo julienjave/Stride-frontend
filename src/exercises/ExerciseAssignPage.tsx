@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router'
 import { useMutation } from '@tanstack/react-query'
 import { useCurrentUser } from '@/auth/useCurrentUser'
+import { LoadError } from '@/common/LoadError'
+import { RecordNotFound } from '@/common/RecordNotFound'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -31,8 +34,12 @@ export function ExerciseAssignPage() {
   const { id } = useParams<{ id: string }>()
   const exerciseId = Number(id)
 
+  // (An id that isn't a number can't be an exercise: the 404's page of the
+  // other exercise pages.)
   if (!id || Number.isNaN(exerciseId)) {
-    return <p className="text-sm text-destructive">Invalid exercise.</p>
+    return (
+      <RecordNotFound noun="exercise" links={[{ to: '/practitioner/library', label: 'Exercise Library' }]} />
+    )
   }
 
   return <ExerciseAssignView exerciseId={exerciseId} />
@@ -46,13 +53,10 @@ function ExerciseAssignView({ exerciseId }: { exerciseId: number }) {
     null,
   )
 
-  const { data: templates, isLoading: isLoadingTemplates, isError: isTemplatesError } =
-    usePrograms()
-  const {
-    data: assignedPrograms,
-    isLoading: isLoadingAssigned,
-    isError: isAssignedError,
-  } = useAssignedPrograms()
+  const templatesQuery = usePrograms()
+  const assignedQuery = useAssignedPrograms()
+  const { data: templates } = templatesQuery
+  const { data: assignedPrograms } = assignedQuery
 
   // Templates aren't scoped server-side (GET /programs returns every
   // non-archived one system-wide) — filtered here to only the ones this
@@ -79,9 +83,13 @@ function ExerciseAssignView({ exerciseId }: { exerciseId: number }) {
     },
   })
 
-  const isLoading =
-    target === 'template' ? isLoadingTemplates : isLoadingAssigned
-  const isError = target === 'template' ? isTemplatesError : isAssignedError
+  // The list on screen is the chosen one's: its loading state, its failure
+  // (and "Try again" asks only it again), and — after a retry that worked —
+  // focus on the page's heading.
+  const shownQuery = target === 'template' ? templatesQuery : assignedQuery
+  const { isLoading, isError } = shownQuery
+  const what = target === 'template' ? 'the templates' : 'the assigned programs'
+  const heading = useRetryFocus<HTMLHeadingElement>(what, shownQuery.isSuccess)
   const items =
     target === 'template'
       ? ownTemplates.map((t) => ({ id: t.id, title: t.title }))
@@ -89,7 +97,9 @@ function ExerciseAssignView({ exerciseId }: { exerciseId: number }) {
 
   return (
     <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4">
-      <h1 className="text-xl font-semibold">Assign Exercise to</h1>
+      <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+        Assign Exercise to
+      </h1>
 
       {/* Two mutually-exclusive buttons rather than a single toggle
           switch — clearer at a glance which of the two modes is active,
@@ -117,11 +127,7 @@ function ExerciseAssignView({ exerciseId }: { exerciseId: number }) {
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : isError ? (
-        <p className="text-sm text-destructive">
-          {target === 'template'
-            ? "Couldn't load templates. Try refreshing."
-            : "Couldn't load assigned programs. Try refreshing."}
-        </p>
+        <LoadError what={what} queries={[shownQuery]} />
       ) : items.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {target === 'template'

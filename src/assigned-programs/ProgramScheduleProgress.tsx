@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { formatShortDate } from '@/common/calendarDate'
+import { type FailedQuery, LoadError } from '@/common/LoadError'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { ProgramPageSection } from './ProgramPageSection'
 import { LateMakeUpsSetting } from './LateMakeUpsSetting'
 import { RearrangeWeekSwitch } from './RearrangeWeekSwitch'
@@ -25,7 +27,9 @@ interface ProgramScheduleProgressProps {
   // page owns the requests (it decides when the summary may be asked for).
   summary: ScheduleSummary | undefined
   summaryLoading: boolean
-  summaryFailed: boolean
+  // The summary's request when it FAILED (null otherwise): the section shows
+  // its load error, whose "Try again" asks it again.
+  summaryFailure: FailedQuery | null
 }
 
 // "Schedule & progress" — the schedule as it stands, what changes later,
@@ -40,8 +44,11 @@ export function ProgramScheduleProgress({
   names,
   summary,
   summaryLoading,
-  summaryFailed,
+  summaryFailure,
 }: ProgramScheduleProgressProps) {
+  // After a "Try again" that worked, focus goes to this section's heading:
+  // the progress comes back inside it, under the schedule's lines.
+  const heading = useRetryFocus<HTMLHeadingElement>('the progress', summary !== undefined)
   const { current, planned } = currentAndPlanned(program.schedules, today)
   const isPaused = isPausedOn(program.schedules, today)
   // "since Mon 5 Oct" only when the schedule CHANGED: the first version
@@ -50,7 +57,7 @@ export function ProgramScheduleProgress({
     current && current !== program.schedules[0] ? formatShortDate(current.effectiveFrom) : null
 
   return (
-    <ProgramPageSection title="Schedule & progress">
+    <ProgramPageSection title="Schedule & progress" headingRef={heading}>
       {current && (
         <p className="text-sm">
           <span className="font-medium">Schedule: </span>
@@ -89,9 +96,7 @@ export function ProgramScheduleProgress({
         </p>
       )}
       {summaryLoading && <p className="text-sm text-muted-foreground">Loading progress…</p>}
-      {summaryFailed && (
-        <p className="text-sm text-destructive">Couldn't load the progress. Try refreshing.</p>
-      )}
+      {summaryFailure && <LoadError what="the progress" queries={[summaryFailure]} />}
       {summary && (
         <>
           {/* "Up next" only while the program can still be followed: a closed

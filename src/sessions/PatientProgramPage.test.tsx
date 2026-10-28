@@ -385,16 +385,34 @@ describe('PatientProgramPage — not available', () => {
     await expectLoadError('program')
     fail = false
     await user.click(screen.getByRole('button', { name: 'Try again' }))
-    expect(await screen.findByRole('heading', { name: 'Knee Rehab', level: 1 })).toBeInTheDocument()
+    const title = await screen.findByRole('heading', { name: 'Knee Rehab', level: 1 })
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    // …and focus is on its title, not lost at the top of the page.
+    await waitFor(() => expect(title).toHaveFocus())
   })
 
   it("keeps the program and its exercises when only the progress fails", async () => {
     summaryAnswer = () => apiError(500, 'Boom')
     renderPage()
-    expect(await screen.findByText("Couldn't load the progress. Try refreshing.")).toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /^Couldn't load the progress\. Something went wrong on our side\. Try again in a moment\.$/,
+    )
     expect(screen.getByRole('heading', { name: 'Exercises' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Progress' })).not.toBeInTheDocument()
+  })
+
+  it('"Try again" on the progress: once it works, the progress shows and focus is on the title', async () => {
+    const user = userEvent.setup()
+    const good = summaryAnswer
+    summaryAnswer = () => apiError(500, 'Boom')
+    renderPage()
+    await screen.findByRole('alert')
+    summaryAnswer = good
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByRole('heading', { name: 'Progress' })).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Knee Rehab', level: 1 })).toHaveFocus(),
+    )
   })
 })
 

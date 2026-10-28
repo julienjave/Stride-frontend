@@ -5,7 +5,9 @@ import { isOwnAssignedProgram } from '@/assigned-programs/permissions'
 import { usePatientAssignedPrograms } from '@/assigned-programs/usePatientAssignedPrograms'
 import type { AssignedProgramListItem } from '@/assigned-programs/types'
 import { Button } from '@/components/ui/button'
+import { LoadError } from '@/common/LoadError'
 import { ShowHiddenToggle } from '@/common/ShowHiddenToggle'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { YoursBadge } from '@/common/YoursBadge'
 import { programRowSummary, splitProgramsForPatientPage } from './patientPageRules'
 import { PatientPageSection } from './PatientPageSection'
@@ -39,12 +41,16 @@ export function PatientProgramsSection({
   patientActive: boolean
 }) {
   const [showPast, setShowPast] = useState(false)
-  const { data: programs, isLoading, isError } = usePatientAssignedPrograms(patientId)
+  const programsQuery = usePatientAssignedPrograms(patientId)
+  const { data: programs, isLoading, isError } = programsQuery
+  // After a "Try again" that worked, focus goes to the section's heading.
+  const heading = useRetryFocus<HTMLHeadingElement>('the programs', programsQuery.isSuccess)
   const { current, past } = splitProgramsForPatientPage(programs ?? [])
 
   return (
     <PatientPageSection
       title="Programs"
+      headingRef={heading}
       action={
         patientActive && (
           <Button asChild size="sm">
@@ -59,9 +65,7 @@ export function PatientProgramsSection({
         <p className="text-sm text-muted-foreground">{DEACTIVATED_NO_NEW_PROGRAM_TEXT}</p>
       )}
       {isLoading && <p className="text-sm text-muted-foreground">Loading programs…</p>}
-      {isError && (
-        <p className="text-sm text-destructive">Couldn't load the programs. Try refreshing.</p>
-      )}
+      {isError && <LoadError what="the programs" queries={[programsQuery]} />}
       {/* Two different empty states: never had a program, or none NOW —
           "No programs assigned yet" would be untrue for the second, and
           the checkbox right under it says how many past ones there are. */}

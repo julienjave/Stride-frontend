@@ -1,5 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'react-router'
+import { RecordLoadFailed, RecordNotFound } from '@/common/RecordNotFound'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { NewWorkoutExerciseView } from '@/workouts/NewWorkoutExerciseView'
 import { useProgram } from './useProgram'
 import { addTemplateExercise, programQueryKey } from './api'
@@ -18,16 +20,25 @@ export function NewProgramExercisePage() {
   const { id } = useParams<{ id: string }>()
   const templateId = Number(id)
 
+  // (An id that isn't a number can't be a template: the 404's page.)
   if (!id || Number.isNaN(templateId)) {
-    return <p className="text-sm text-destructive">Invalid template.</p>
+    return <RecordNotFound noun="template" links={WAYS_OUT} />
   }
 
   return <NewTemplateExercise templateId={templateId} />
 }
 
+// Where to go when this page can't show its template (RecordNotFound).
+const WAYS_OUT: [{ to: string; label: string }] = [
+  { to: '/practitioner/programs', label: 'Programs' },
+]
+
 function NewTemplateExercise({ templateId }: { templateId: number }) {
   const queryClient = useQueryClient()
-  const { data: template } = useProgram(templateId)
+  const templateQuery = useProgram(templateId)
+  const { data: template } = templateQuery
+  // After a "Try again" that worked, focus goes to the template's title.
+  const heading = useRetryFocus<HTMLHeadingElement>('this template', templateQuery.isSuccess)
 
   // The request, then the answer — the whole template — into its cache
   // entry, so the template page shows the new card at once.
@@ -40,12 +51,21 @@ function NewTemplateExercise({ templateId }: { templateId: number }) {
     queryClient.setQueryData(programQueryKey(templateId), updated)
   }
 
+  // The template's read failed (2026-10-28 — before, the page waited on
+  // "…" for ever): a 404 → "Template not found", else the load error.
+  if (templateQuery.isError) {
+    return (
+      <RecordLoadFailed queries={[templateQuery]} what="this template" noun="template" links={WAYS_OUT} />
+    )
+  }
+
   return (
     <NewWorkoutExerciseView
       noun="template"
       resource={template}
       resourcePath={`/practitioner/programs/templates/${templateId}`}
       add={add}
+      headingRef={heading}
     />
   )
 }

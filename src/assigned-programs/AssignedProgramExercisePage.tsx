@@ -21,6 +21,7 @@ import { ProgramLoadFailed, ProgramNotAvailable } from './ProgramNotAvailable'
 import { noPhotosText, photoSourceText } from './programPhotos'
 import { useAssignedProgram } from './useAssignedProgram'
 import type { AssignedProgramExercise } from './types'
+import { useRetryFocus } from '@/common/useRetryFocus'
 
 // One exercise of a patient's program — its description (step D-3) and its
 // prescription (step 3b-1b), editable while the program is open:
@@ -78,6 +79,9 @@ function ProgramExerciseView({
 
   const programQuery = useAssignedProgram(programId)
   const { data: program, isLoading, error } = programQuery
+  // After a "Try again" that worked, focus goes to the program's title (on
+  // the page, or above "isn't part of the program").
+  const heading = useRetryFocus<HTMLHeadingElement>('this exercise', programQuery.isSuccess)
   // Called here, before any early return: hooks run in the same order on
   // every render. null while the program loads; 'closed' or
   // 'patient_deactivated' once it can't change (programLock.ts).
@@ -108,7 +112,9 @@ function ProgramExerciseView({
     const removed = program.retiredExercises.some((row) => row.id === exerciseRowId)
     return (
       <div className="mx-auto mt-8 max-w-2xl space-y-3 px-4">
-        <h1 className="text-xl font-semibold">{program.title}</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+          {program.title}
+        </h1>
         <p role="alert" className="text-sm text-muted-foreground">
           {removed
             ? 'This exercise was removed from the program. It stays in the records of the sessions that used it.'
@@ -129,7 +135,9 @@ function ProgramExerciseView({
   return (
     <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4 pb-8">
       <div>
-        <h1 className="text-xl font-semibold">{program.title}</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+          {program.title}
+        </h1>
         <p className="text-sm text-muted-foreground">
           {canEdit ? '- Edit Exercise -' : '- View Exercise -'}
         </p>

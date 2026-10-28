@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
+import { LoadError } from '@/common/LoadError'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { useClinics } from './useClinics'
 
 // URL scheme for this feature: /admin/clinics (this page), /admin/clinics
@@ -12,12 +14,17 @@ export function ClinicsListPage() {
   // defaults to false server-side too), so an admin's normal browsing
   // view is unchanged from before this feature existed.
   const [includeInactive, setIncludeInactive] = useState(false)
-  const { data: clinics, isLoading, isError } = useClinics(includeInactive)
+  const clinicsQuery = useClinics(includeInactive)
+  const { data: clinics, isLoading, isError } = clinicsQuery
+  // After a "Try again" that worked, focus goes to the page's heading.
+  const heading = useRetryFocus<HTMLHeadingElement>('the clinics', clinicsQuery.isSuccess)
 
   return (
     <div className="mx-auto mt-12 max-w-2xl space-y-4 px-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Clinics</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+          Clinics
+        </h1>
         <Button asChild>
           <Link to="/admin/clinics/new">Add clinic</Link>
         </Button>
@@ -38,9 +45,7 @@ export function ClinicsListPage() {
 
       {isLoading && <p className="text-sm text-muted-foreground">Loading clinics…</p>}
 
-      {isError && (
-        <p className="text-sm text-destructive">Couldn't load clinics. Try refreshing.</p>
-      )}
+      {isError && <LoadError what="the clinics" queries={[clinicsQuery]} />}
 
       {clinics && clinics.length === 0 && (
         <p className="text-sm text-muted-foreground">No clinics yet.</p>

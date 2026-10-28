@@ -4,6 +4,12 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router'
 import { ExerciseAssignPage } from './ExerciseAssignPage'
+import {
+  errorResponse,
+  expectLoadError,
+  expectRecordNotFound,
+  retryThenExpectFocusOn,
+} from '@/common/loadFailureAssertions'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import type { ProgramTemplate, ProgramTemplateDetail } from '@/programs/types'
 import type {
@@ -35,7 +41,12 @@ function setupFetchMock(config: {
   templateDetail?: ProgramTemplateDetail
   assignedDetail?: AssignedProgramDetail
   addExerciseResponse?: Response
+  // The list's FIRST read fails (a 500); later reads work.
+  templatesFailOnce?: boolean
+  assignedFailOnce?: boolean
 }) {
+  let templateFailures = config.templatesFailOnce ? 1 : 0
+  let assignedFailures = config.assignedFailOnce ? 1 : 0
   fetchMock.mockImplementation((input, init) => {
     // apiRequest (api/client.ts) always calls fetch with a plain
     // template-string URL, never a URL or Request object — an assertion
@@ -48,9 +59,17 @@ function setupFetchMock(config: {
     const method = init?.method ?? 'GET'
 
     if (method === 'GET' && url.endsWith('/programs')) {
+      if (templateFailures > 0) {
+        templateFailures -= 1
+        return Promise.resolve(errorResponse(500))
+      }
       return Promise.resolve(jsonResponse(config.templates ?? []))
     }
     if (method === 'GET' && url.endsWith('/assigned-programs')) {
+      if (assignedFailures > 0) {
+        assignedFailures -= 1
+        return Promise.resolve(errorResponse(500))
+      }
       return Promise.resolve(jsonResponse(config.assignedPrograms ?? []))
     }
     if (method === 'GET' && /\/programs\/\d+$/.test(url)) {
@@ -102,10 +121,29 @@ function renderAt(
 }
 
 describe('ExerciseAssignPage', () => {
-  it('shows an invalid-exercise message for a non-numeric id, without fetching', () => {
+  it('a non-numeric id: "Exercise not found", without fetching', async () => {
     renderAt('/practitioner/library/not-a-number/assign')
-    expect(screen.getByText('Invalid exercise.')).toBeInTheDocument()
+    await expectRecordNotFound('exercise', [['Exercise Library', '/practitioner/library']])
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('the templates fail to load: the load error; a retry that works focuses the heading', async () => {
+    const user = userEvent.setup()
+    setupFetchMock({ templatesFailOnce: true })
+    renderAt('/practitioner/library/5/assign')
+    await expectLoadError('the templates')
+    await retryThenExpectFocusOn(user, { level: 1, name: 'Assign Exercise to' })
+    expect(await screen.findByText('No templates available yet.')).toBeInTheDocument()
+  })
+
+  it('the assigned programs fail: their own error, under their own tab', async () => {
+    const user = userEvent.setup()
+    setupFetchMock({ assignedFailOnce: true })
+    renderAt('/practitioner/library/5/assign')
+    await user.click(screen.getByRole('button', { name: 'Assigned Program' }))
+    await expectLoadError('the assigned programs')
+    await retryThenExpectFocusOn(user, { level: 1, name: 'Assign Exercise to' })
+    expect(await screen.findByText('No assigned programs available yet.')).toBeInTheDocument()
   })
 
   it('shows the title and both toggle buttons, Template active by default', async () => {

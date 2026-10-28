@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes, useNavigate } from 'react-router'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import { formatCalendarDate } from '@/common/formatCalendarDate'
 import { formatShortDate } from '@/common/calendarDate'
+import { expectLoadError, retryThenExpectFocusOn } from '@/common/loadFailureAssertions'
 import { assignedProgramQueryKey, assignedProgramsListQueryKey } from './api'
 import { NewAssignedProgramPage } from './NewAssignedProgramPage'
 
@@ -278,6 +279,60 @@ function postedBodies(): unknown[] {
 function optionTexts(select: HTMLElement) {
   return within(select).getAllByRole('option').map((option) => option.textContent)
 }
+
+// The first GET whose URL `matches` fails (a 500); every other request is
+// answered by the fake backend above.
+function failOnce(matches: (url: string) => boolean) {
+  const backend = fetchMock.getMockImplementation()!
+  let failures = 1
+  fetchMock.mockImplementation((input, init) => {
+    if (failures > 0 && init?.method === 'GET' && matches(urlOf(input))) {
+      failures -= 1
+      return Promise.resolve(json({ statusCode: 500, message: ['Boom'] }, 500))
+    }
+    return backend(input, init)
+  })
+}
+
+describe('NewAssignedProgramPage — when something fails to load', () => {
+  it('the lists: one load error with its reason; a retry that works focuses the heading', async () => {
+    const user = userEvent.setup()
+    failOnce((url) => url.endsWith('/users'))
+    renderPage()
+    await expectLoadError('your patients and templates')
+    await retryThenExpectFocusOn(user, { level: 1, name: 'Assign a program' })
+    expect(await screen.findByLabelText('Template')).toBeInTheDocument()
+    // Only the list that failed was asked again.
+    expect(requests((url) => url.endsWith('/programs'))).toHaveLength(1)
+  })
+
+  it("a template's details: the load error at the field; a retry that works focuses the field", async () => {
+    const user = userEvent.setup()
+    failOnce((url) => url.endsWith('/programs/1'))
+    renderPage()
+    await user.selectOptions(await screen.findByLabelText('Template'), '1')
+    await expectLoadError('this template')
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(screen.getByLabelText('Template')).toHaveFocus())
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it("assigning again: a failure that isn't a 404 is a load error — never \"can't be found\"", async () => {
+    const user = userEvent.setup()
+    failOnce((url) => url.endsWith('/assigned-programs/9'))
+    renderPage('?basedOnProgramId=9')
+    await expectLoadError('the program and your patients')
+    expect(screen.queryByText(/can't be found/)).not.toBeInTheDocument()
+    await retryThenExpectFocusOn(user, { level: 1, name: 'Assign again' })
+    expect(await screen.findByText('Continues')).toBeInTheDocument()
+  })
+
+  it('assigning again: the patients failing is the same load error', async () => {
+    failOnce((url) => url.endsWith('/users?includeInactive=true'))
+    renderPage('?basedOnProgramId=9')
+    await expectLoadError('the program and your patients')
+  })
+})
 
 describe('NewAssignedProgramPage — choosing who and what', () => {
   it('lists my patients by name with their date of birth, and every template, mine marked', async () => {

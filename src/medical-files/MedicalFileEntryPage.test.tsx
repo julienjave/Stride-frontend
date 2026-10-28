@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { formatMomentDate } from '@/common/formatMomentDate'
 import { PAT_USER, renderMedicalFile, requests, type SentRequest } from './renderMedicalFile'
@@ -314,11 +314,15 @@ describe('MedicalFileEntryPage — an amendment', () => {
         ? json({ statusCode: 500, message: ['Boom'], error: 'Error' }, 500)
         : answers()(request),
     )
-    expect(await screen.findByRole('alert')).toHaveTextContent(/^Couldn't load the entry\.$/)
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Couldn't load the entry\. Something went wrong on our side\. Try again in a moment\.$/)
     expect(screen.getByRole('link', { name: 'Back to the medical file' })).toHaveAttribute('href', FILE_PATH)
     fail = false
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByRole('button', { name: 'Save the amendment' })).toBeInTheDocument()
+    // Focus on the form's heading, not lost at the top.
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 1, name: 'Amend an entry' })).toHaveFocus(),
+    )
   })
 
   it('shows a loading line while the version is read', () => {

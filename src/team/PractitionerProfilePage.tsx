@@ -1,7 +1,9 @@
-import type { ReactNode } from 'react'
+import type { ReactNode, Ref } from 'react'
 import { Link, useParams } from 'react-router'
 import { ChevronLeft } from 'lucide-react'
+import { LoadError } from '@/common/LoadError'
 import { UserAvatar } from '@/common/UserAvatar'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { MessageButton } from '@/messages/MessageButton'
 import { useAssignedPrograms } from '@/assigned-programs/useAssignedPrograms'
 import type { AssignedProgramListItem } from '@/assigned-programs/types'
@@ -29,13 +31,14 @@ export function PractitionerProfilePage() {
   // id that isn't on the team.
   const practitionerId = Number(param)
   const team = useMyCareTeam()
+  // After a "Try again" that worked, focus goes to the heading of what came
+  // back: the practitioner's name, or "Not on your care team".
+  const heading = useRetryFocus<HTMLHeadingElement>('your care team', team.isSuccess)
 
   if (team.isError) {
     return (
       <ProfilePage>
-        <p role="alert" className="text-sm text-destructive">
-          Couldn't load your care team. Try refreshing the page.
-        </p>
+        <LoadError what="your care team" queries={[team]} />
       </ProfilePage>
     )
   }
@@ -47,8 +50,8 @@ export function PractitionerProfilePage() {
     )
   }
   const member = findTeamMember(team.data, practitionerId)
-  if (!member) return <NotOnTeam />
-  return <Profile entry={member} />
+  if (!member) return <NotOnTeam heading={heading} />
+  return <Profile entry={member} heading={heading} />
 }
 
 // Every state of the page — loading, error, not on the team, the profile —
@@ -81,16 +84,18 @@ function ProfilePage({ children, viewedId }: { children: ReactNode; viewedId?: n
   )
 }
 
-function NotOnTeam() {
+function NotOnTeam({ heading }: { heading: Ref<HTMLHeadingElement> }) {
   return (
     <ProfilePage>
-      <h1 className="text-2xl font-semibold">Not on your care team</h1>
+      <h1 ref={heading} tabIndex={-1} className="text-2xl font-semibold outline-none">
+        Not on your care team
+      </h1>
       <p className="text-sm text-muted-foreground">This practitioner isn't on your care team.</p>
     </ProfilePage>
   )
 }
 
-function Profile({ entry }: { entry: MyCareTeamEntry }) {
+function Profile({ entry, heading }: { entry: MyCareTeamEntry; heading: Ref<HTMLHeadingElement> }) {
   const { practitioner } = entry
   return (
     <ProfilePage viewedId={practitioner.id}>
@@ -103,7 +108,7 @@ function Profile({ entry }: { entry: MyCareTeamEntry }) {
           className="size-24 text-2xl"
         />
         <div className="min-w-0 space-y-3">
-          <h1 className="text-2xl font-semibold">
+          <h1 ref={heading} tabIndex={-1} className="text-2xl font-semibold outline-none">
             {practitioner.firstName} {practitioner.lastName}
           </h1>
           {practitioner.specialties.length > 0 && (
@@ -151,15 +156,16 @@ function Profile({ entry }: { entry: MyCareTeamEntry }) {
 // then past, each leading to the program's own page.
 function ProgramsFrom({ practitionerId, firstName }: { practitionerId: number; firstName: string }) {
   const list = useAssignedPrograms()
+  // The section's heading is always shown: focus goes there once a retry
+  // brought the list back.
+  const heading = useRetryFocus<HTMLHeadingElement>('your programs', list.isSuccess)
   return (
     <section aria-labelledby="profile-programs" className="space-y-3">
-      <h2 id="profile-programs" className="text-lg font-semibold">
+      <h2 ref={heading} tabIndex={-1} id="profile-programs" className="text-lg font-semibold outline-none">
         Programs from them
       </h2>
       {list.isPending && <p className="text-sm text-muted-foreground">Loading your programs…</p>}
-      {list.isError && (
-        <p className="text-sm text-destructive">Couldn't load your programs. Try refreshing.</p>
-      )}
+      {list.isError && <LoadError what="your programs" queries={[list]} />}
       {list.data && <ProgramList programs={list.data} practitionerId={practitionerId} firstName={firstName} />}
     </section>
   )

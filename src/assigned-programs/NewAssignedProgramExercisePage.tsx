@@ -7,6 +7,7 @@ import { addProgramExercise, assignedProgramQueryKey } from './api'
 import { DEACTIVATED_ADD_EXERCISE_TEXT } from './programLock'
 import { useProgramLock } from './useProgramLock'
 import { useAssignedProgram } from './useAssignedProgram'
+import { useRetryFocus } from '@/common/useRetryFocus'
 
 // Adding an exercise to a patient's program (step 3b-1b):
 // `/practitioner/programs/assigned/:id/exercises/new`, reached from a
@@ -35,6 +36,8 @@ function NewProgramExercise({ programId }: { programId: number }) {
   // Usually already cached: the practitioner comes from the program page.
   const programQuery = useAssignedProgram(programId)
   const { data: program, error } = programQuery
+  // After a "Try again" that worked, focus goes to the program's title.
+  const heading = useRetryFocus<HTMLHeadingElement>('this program', programQuery.isSuccess)
   const lock = useProgramLock(program)
   const programPath = `/practitioner/programs/assigned/${programId}`
 
@@ -63,7 +66,9 @@ function NewProgramExercise({ programId }: { programId: number }) {
   if (program && lock !== null) {
     return (
       <div className="mx-auto mt-8 max-w-2xl space-y-3 px-4">
-        <h1 className="text-xl font-semibold">{program.title}</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+          {program.title}
+        </h1>
         <p role="alert" className="text-sm text-muted-foreground">
           {lock === 'patient_deactivated'
             ? DEACTIVATED_ADD_EXERCISE_TEXT
@@ -82,6 +87,7 @@ function NewProgramExercise({ programId }: { programId: number }) {
       resource={program}
       resourcePath={programPath}
       add={add}
+      headingRef={heading}
     />
   )
 }

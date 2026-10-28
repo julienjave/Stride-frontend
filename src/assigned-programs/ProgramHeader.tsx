@@ -1,3 +1,4 @@
+import type { Ref } from 'react'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { YoursBadge } from '@/common/YoursBadge'
@@ -23,6 +24,8 @@ interface ProgramHeaderProps {
   // already cached — the practitioner usually comes from the patient page.
   patientPrograms: readonly AssignedProgramListItem[] | undefined
   myId: number
+  // The page's focus target after a "Try again" that worked (useRetryFocus).
+  headingRef: Ref<HTMLHeadingElement>
 }
 
 // The program's state in one word: a deleted (archived) program first —
@@ -48,6 +51,7 @@ export function ProgramHeader({
   patient,
   patientPrograms,
   myId,
+  headingRef,
 }: ProgramHeaderProps) {
   const patientPath = `/practitioner/patients/${program.patientId}`
   const badge = stateBadge(program, isPaused)
@@ -72,7 +76,9 @@ export function ProgramHeader({
 
       <div className="space-y-1">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="min-w-0 text-xl font-semibold">{program.title}</h1>
+          <h1 ref={headingRef} tabIndex={-1} className="min-w-0 text-xl font-semibold outline-none">
+            {program.title}
+          </h1>
           {isMine && <YoursBadge />}
           <StateBadge {...badge} />
         </div>

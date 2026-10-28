@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import { formatMomentDate } from '@/common/formatMomentDate'
+import { expectLoadError, retryThenExpectFocusOn } from '@/common/loadFailureAssertions'
 import { MyTeamPage } from './MyTeamPage'
 import { PractitionerProfilePage } from './PractitionerProfilePage'
 import { viewedPractitionerState } from './teamReturn'
@@ -192,12 +193,14 @@ describe('MyTeamPage', () => {
     expect(document.body).toHaveFocus()
   })
 
-  it('reports a failed load', async () => {
+  it('reports a failed load with its reason; a retry that works focuses the heading', async () => {
+    const user = userEvent.setup()
     team = () => json({ statusCode: 500, message: ['Boom'] }, 500)
     renderPage()
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      "Couldn't load your care team. Try refreshing the page.",
-    )
+    await expectLoadError('your care team')
     expect(screen.queryByText(EMPTY_TEXT)).not.toBeInTheDocument()
+    team = () => json([member(ALEX)])
+    await retryThenExpectFocusOn(user, { level: 1, name: 'My team' })
+    expect(screen.getByRole('link', { name: 'Alex Chen' })).toBeInTheDocument()
   })
 })

@@ -8,6 +8,7 @@ import { formatShortDate } from '@/common/calendarDate'
 import { LoadFailure } from '@/common/LoadError'
 import { NotAvailable } from '@/common/NotAvailable'
 import { PrescriptionSummary } from '@/common/PrescriptionSummary'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { wasAsked, type ScoreKey } from '@/progress/scoreRules'
@@ -55,6 +56,8 @@ function ReviewView({ sessionId }: { sessionId: number }) {
   const program = useAssignedProgram(session.data?.assignedProgramId ?? 0, { enabled: loaded })
   const patient = useUser(session.data?.patientId ?? 0, { enabled: loaded })
   const { data: me } = useCurrentUser()
+  // After a "Try again" that worked, focus goes to the page's title.
+  const heading = useRetryFocus<HTMLHeadingElement>('this session', loaded)
 
   if (session.isPending) {
     return (
@@ -79,7 +82,9 @@ function ReviewView({ sessionId }: { sessionId: number }) {
     <Page>
       <header className="space-y-1">
         {/* The title waits for the program; the session shows meanwhile. */}
-        <h1 className="text-xl font-semibold">{program.data?.title ?? 'Session'}</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+          {program.data?.title ?? 'Session'}
+        </h1>
         {patient.data && (
           <p>
             <Link

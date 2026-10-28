@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { formatMomentDate } from '@/common/formatMomentDate'
 import { PAT_USER, renderMedicalFile, requests } from './renderMedicalFile'
@@ -150,11 +150,14 @@ describe('MedicalFilePage', () => {
     const user = userEvent.setup()
     let status = 500
     renderMedicalFile([FILE_PATH], (request) => answers([], status)(request))
-    expect(await screen.findByRole('alert')).toHaveTextContent(/^Couldn't load the medical file\.$/)
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Couldn't load the medical file\. Something went wrong on our side\. Try again in a moment\.$/)
     expect(screen.queryByText(/^No entries yet/)).not.toBeInTheDocument()
     status = 200
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText(/^No entries yet/)).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 1, name: 'Medical file' })).toHaveFocus(),
+    )
   })
 
   it('shows the notice an entry page leaves for it', async () => {

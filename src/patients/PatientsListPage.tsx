@@ -9,8 +9,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useCurrentUser } from '@/auth/useCurrentUser'
+import { LoadError } from '@/common/LoadError'
 import { readNotice } from '@/common/readNotice'
 import { ShowHiddenToggle } from '@/common/ShowHiddenToggle'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { useUsers } from '@/users/useUsers'
 import { PatientIdentity } from './PatientIdentity'
 import { ALL_CLINICS, filterByClinic, splitByAccount } from './roster'
@@ -36,7 +38,10 @@ import type { User } from '@/users/types'
 // app (ShowHiddenToggle), and marked on their rows.
 export function PatientsListPage() {
   const { data: currentUser } = useCurrentUser()
-  const { data: patients, isLoading, isError } = useUsers(true)
+  const patientsQuery = useUsers(true)
+  const { data: patients, isLoading, isError } = patientsQuery
+  // After a "Try again" that worked, focus goes to the page's heading.
+  const heading = useRetryFocus<HTMLHeadingElement>('your patients', patientsQuery.isSuccess)
   const [clinicFilter, setClinicFilter] = useState(ALL_CLINICS)
   const [showDeactivated, setShowDeactivated] = useState(false)
 
@@ -71,7 +76,9 @@ export function PatientsListPage() {
   return (
     <div className="mx-auto mt-8 max-w-2xl space-y-4 px-4">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">My patients</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+          My patients
+        </h1>
         <Button asChild>
           <Link to="/practitioner/patients/add">Add patient</Link>
         </Button>
@@ -112,9 +119,7 @@ export function PatientsListPage() {
 
       {isLoading && <p className="text-sm text-muted-foreground">Loading your patients…</p>}
 
-      {isError && (
-        <p className="text-sm text-destructive">Couldn't load your patients. Try refreshing.</p>
-      )}
+      {isError && <LoadError what="your patients" queries={[patientsQuery]} />}
 
       {/* Two different empty states, because they mean different things:
           no patients AT ALL (say what the list is and how to fill it), or

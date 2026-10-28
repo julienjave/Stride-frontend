@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react'
+import { type Ref, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { localDateString } from '@/common/calendarDate'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { workoutNames } from '@/assigned-programs/programSchedule'
 import { useAssignedProgram } from '@/assigned-programs/useAssignedProgram'
 import { useAssignedProgramSummary } from '@/assigned-programs/useAssignedProgramSummary'
@@ -47,6 +48,10 @@ function SkipView({ programId }: { programId: number }) {
     enabled: program.isSuccess,
     fresh: true,
   })
+  // After a "Try again" that worked, focus goes to the heading the page then
+  // shows (either takes this ref) — once READY, as the loading state says.
+  const ready = program.isSuccess && summary.isSuccess && summary.isFetchedAfterMount
+  const heading = useRetryFocus<HTMLHeadingElement>('this program', ready)
 
   if (program.isError || summary.isError) {
     return (
@@ -73,23 +78,27 @@ function SkipView({ programId }: { programId: number }) {
   if (workoutId === null) {
     return (
       <Page>
-        <h1 className="text-xl font-semibold">{program.data.title}</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+          {program.data.title}
+        </h1>
         <p>There is no scheduled session to skip today.</p>
         <HomeLink />
       </Page>
     )
   }
-  return <SkipForm program={program.data} workoutId={workoutId} today={today} />
+  return <SkipForm program={program.data} workoutId={workoutId} today={today} heading={heading} />
 }
 
 function SkipForm({
   program,
   workoutId,
   today,
+  heading,
 }: {
   program: AssignedProgramDetail
   workoutId: number
   today: string
+  heading: Ref<HTMLHeadingElement>
 }) {
   const navigate = useNavigate()
   const [reason, setReason] = useState<PatientEndReason | null>(null)
@@ -114,7 +123,9 @@ function SkipForm({
   return (
     <Page>
       <div className="space-y-1">
-        <h1 className="text-xl font-semibold">Skip today's session</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+          Skip today's session
+        </h1>
         <p className="font-medium">
           {program.title}
           {names.several && `: ${names.labelOf(workoutId)}`}

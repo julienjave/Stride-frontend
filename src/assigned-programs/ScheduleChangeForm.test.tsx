@@ -118,7 +118,7 @@ function Section({ isOpen }: { isOpen: boolean }) {
       names={workoutNames(program.workouts)}
       summary={undefined}
       summaryLoading={false}
-      summaryFailed={false}
+      summaryFailure={null}
     />
   )
 }

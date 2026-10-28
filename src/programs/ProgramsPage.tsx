@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { useCurrentUser } from '@/auth/useCurrentUser'
+import { LoadError } from '@/common/LoadError'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { Button } from '@/components/ui/button'
 import { usePrograms } from './usePrograms'
 import { isOwnTemplate } from './permissions'
@@ -18,16 +20,10 @@ export function ProgramsPage() {
   const [kind, setKind] = useState<ProgramKind>('template')
   const [ownOnly, setOwnOnly] = useState(false)
 
-  const {
-    data: templates,
-    isLoading: isLoadingTemplates,
-    isError: isTemplatesError,
-  } = usePrograms()
-  const {
-    data: assignedPrograms,
-    isLoading: isLoadingAssigned,
-    isError: isAssignedError,
-  } = useAssignedPrograms()
+  const templatesQuery = usePrograms()
+  const assignedQuery = useAssignedPrograms()
+  const { data: templates } = templatesQuery
+  const { data: assignedPrograms } = assignedQuery
 
   // Templates default to showing EVERYONE's, not just the practitioner's
   // own — per the design discussion, a template is something they need
@@ -64,8 +60,13 @@ export function ProgramsPage() {
         .map((program) => ({ id: program.id, title: program.title, isOwn: false }))
     : []
 
-  const isLoading = kind === 'template' ? isLoadingTemplates : isLoadingAssigned
-  const isError = kind === 'template' ? isTemplatesError : isAssignedError
+  // The list on screen is the chosen tab's: its loading state, its failure
+  // ("Try again" asks only it again) and — after a retry that worked —
+  // focus on the page's heading.
+  const shownQuery = kind === 'template' ? templatesQuery : assignedQuery
+  const { isLoading, isError } = shownQuery
+  const what = kind === 'template' ? 'the templates' : 'your assigned programs'
+  const heading = useRetryFocus<HTMLHeadingElement>(what, shownQuery.isSuccess)
   const items = kind === 'template' ? templateItems : assignedItems
 
   const addHref =
@@ -83,7 +84,9 @@ export function ProgramsPage() {
 
   return (
     <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4">
-      <h1 className="text-xl font-semibold">My Programs</h1>
+      <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+        My Programs
+      </h1>
 
       <div className="flex gap-2">
         <Button
@@ -121,11 +124,7 @@ export function ProgramsPage() {
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : isError ? (
-        <p className="text-sm text-destructive">
-          {kind === 'template'
-            ? "Couldn't load templates. Try refreshing."
-            : "Couldn't load assigned programs. Try refreshing."}
-        </p>
+        <LoadError what={what} queries={[shownQuery]} />
       ) : (
         <div className="space-y-2">
           {items.length === 0 && (

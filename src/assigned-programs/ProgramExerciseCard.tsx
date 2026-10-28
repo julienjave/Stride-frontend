@@ -15,7 +15,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { LoadError } from '@/common/LoadError'
 import { PrescriptionSummary } from '@/common/PrescriptionSummary'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { describeFailure } from '@/workouts/useWorkoutEditing'
 import { removalText } from './programExerciseRules'
 import { useProgramWorkoutEditing, useRemovalPreview } from './useProgramWorkoutEditing'
@@ -149,6 +151,10 @@ export function SortableProgramExerciseCard({
 // Nothing closes the dialog by hand on success: the exercise leaves the
 // program, so its card — and the dialog inside it — unmounts. The editor's
 // live region then says what really happened (removedNotice).
+// The removal preview's load error: "Couldn't load what removing it would
+// change."
+const REMOVAL_PREVIEW_WHAT = 'what removing it would change'
+
 function RemoveExerciseButton({
   programId,
   exercise,
@@ -160,6 +166,9 @@ function RemoveExerciseButton({
   const [isOpen, setIsOpen] = useState(false)
   const preview = useRemovalPreview(programId, exercise.id, { enabled: isOpen })
   const text = preview.data ? removalText(preview.data, exercise.name, emptied) : null
+  // After a "Try again" of the preview that worked, focus goes to the
+  // dialog's title (which then says what removing does).
+  const title = useRetryFocus<HTMLHeadingElement>(REMOVAL_PREVIEW_WHAT, preview.isSuccess)
   // The editor has ONE removal mutation for every card, and its state is
   // read here as this card's without checking which card it names: the
   // dialog is modal, so only one removal dialog is ever open, and closing it
@@ -206,13 +215,23 @@ function RemoveExerciseButton({
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{text?.title ?? `Remove ${exercise.name}?`}</DialogTitle>
-          <DialogDescription>
-            {text?.description ??
-              (preview.isError
-                ? "Couldn't check what this would do. Close this and try again."
-                : 'Checking what this would do…')}
-          </DialogDescription>
+          <DialogTitle ref={title} tabIndex={-1} className="outline-none">
+            {text?.title ?? `Remove ${exercise.name}?`}
+          </DialogTitle>
+          {/* A failed preview: the load error, with "Try again" right here —
+              before (2026-10-28), "Close this and try again". It IS the
+              dialog's description (asChild: Radix points aria-describedby at
+              this block, so it's read when the dialog opens), a <div>
+              because the load error holds a button. */}
+          {preview.isError ? (
+            <DialogDescription asChild>
+              <div>
+                <LoadError what={REMOVAL_PREVIEW_WHAT} queries={[preview]} />
+              </div>
+            </DialogDescription>
+          ) : (
+            <DialogDescription>{text?.description ?? 'Checking what this would do…'}</DialogDescription>
+          )}
         </DialogHeader>
 
         {text?.warning && (

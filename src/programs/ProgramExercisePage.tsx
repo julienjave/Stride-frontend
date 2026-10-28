@@ -2,6 +2,9 @@ import { Link, useLocation, useParams, useSearchParams, useNavigate } from 'reac
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { useCurrentUser } from '@/auth/useCurrentUser'
+import { LoadError } from '@/common/LoadError'
+import { RecordLoadFailed, RecordNotFound } from '@/common/RecordNotFound'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { useExercise } from '@/exercises/useExercise'
 import { localPath } from '@/exercises/pickerReturnHref'
 import type { PrescriptionChanges } from '@/common/PrescriptionSummary'
@@ -36,11 +39,29 @@ export function ProgramExercisePage() {
   const templateId = Number(id)
   const rowId = Number(templateExerciseId)
 
-  if (!id || Number.isNaN(templateId) || !templateExerciseId || Number.isNaN(rowId)) {
-    return <p className="text-sm text-destructive">Invalid exercise.</p>
+  // Ids that aren't numbers can't name a template, or an exercise in one:
+  // the same pages as a 404 (RecordNotFound), without asking the server.
+  if (!id || Number.isNaN(templateId)) {
+    return <RecordNotFound noun="template" links={PROGRAMS_LINK} />
+  }
+  if (!templateExerciseId || Number.isNaN(rowId)) {
+    return <RecordNotFound noun="exercise" links={exerciseWaysOut(templateId)} />
   }
 
   return <ProgramExerciseView templateId={templateId} rowId={rowId} />
+}
+
+// Where to go when this page can't show its exercise: the template's page
+// (when there is a template), and the Programs hub.
+const PROGRAMS_LINK: [{ to: string; label: string }] = [
+  { to: '/practitioner/programs', label: 'Programs' },
+]
+
+function exerciseWaysOut(templateId: number): [{ to: string; label: string }, { to: string; label: string }] {
+  return [
+    { to: `/practitioner/programs/templates/${templateId}`, label: 'Back to the template' },
+    ...PROGRAMS_LINK,
+  ]
 }
 
 function ProgramExerciseView({
@@ -69,17 +90,24 @@ function ProgramExerciseView({
     searchParams.get('returnTo') ?? `/practitioner/programs/templates/${templateId}`,
   )
 
-  const { data: template, isLoading, isError } = useProgram(templateId)
+  const templateQuery = useProgram(templateId)
+  const { data: template, isLoading } = templateQuery
   const { data: currentUser } = useCurrentUser()
   const row = template?.exercises.find((exercise) => exercise.id === rowId)
 
   // Only fetch once the row (and therefore its exerciseId) is known —
   // same enabled pattern as NewProgramExercisePage.
-  const {
-    data: exercise,
-    isLoading: isLoadingExercise,
-    isError: isExerciseError,
-  } = useExercise(row?.exerciseId ?? -1, row != null)
+  const exerciseQuery = useExercise(row?.exerciseId ?? -1, row != null)
+  const { data: exercise, isLoading: isLoadingExercise } = exerciseQuery
+
+  // After a "Try again" that worked, focus goes to the heading of what came
+  // back: the page's title (the template), or — when only the library
+  // exercise's details had failed — the exercise's name above them.
+  const heading = useRetryFocus<HTMLHeadingElement>('this exercise', templateQuery.isSuccess)
+  const detailsHeading = useRetryFocus<HTMLHeadingElement>(
+    "this exercise's details",
+    exerciseQuery.isSuccess,
+  )
 
   // What saving one prescription field means HERE: PATCH the template's row,
   // then put the template the server answers with into its cache entry —
@@ -109,12 +137,18 @@ function ProgramExerciseView({
     )
   }
 
-  if (isError || !template || !row) {
+  // The template's read failed: a 404 → "Template not found"; anything
+  // else → the load error and "Try again".
+  if (templateQuery.isError || !template) {
     return (
-      <p className="mx-auto mt-12 max-w-2xl px-4 text-sm text-destructive">
-        Couldn't load this exercise. Try refreshing.
-      </p>
+      <RecordLoadFailed queries={[templateQuery]} what="this exercise" noun="template" links={PROGRAMS_LINK} />
     )
+  }
+
+  // The template is there, but this exercise isn't in it (removed since the
+  // link was made, or an id from elsewhere): asking again can't bring it back.
+  if (!row) {
+    return <RecordNotFound noun="exercise" links={exerciseWaysOut(templateId)} />
   }
 
   const canEdit = canEditTemplate(template, currentUser)
@@ -126,7 +160,9 @@ function ProgramExerciseView({
   return (
     <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4">
       <div>
-        <h1 className="text-xl font-semibold">{template.title}</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+          {template.title}
+        </h1>
         <p className="text-sm text-muted-foreground">
           {canEdit ? '- Edit Exercise -' : '- View Exercise -'}
         </p>
@@ -134,14 +170,14 @@ function ProgramExerciseView({
 
       {isLoadingExercise ? (
         <p className="text-sm text-muted-foreground">Loading exercise…</p>
-      ) : isExerciseError || !exercise ? (
-        <p className="text-sm text-destructive">
-          Couldn't load this exercise's details.
-        </p>
+      ) : exerciseQuery.isError || !exercise ? (
+        <LoadError what="this exercise's details" queries={[exerciseQuery]} />
       ) : (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium">{exercise.name}</h2>
+            <h2 ref={detailsHeading} tabIndex={-1} className="text-lg font-medium outline-none">
+              {exercise.name}
+            </h2>
             <Button asChild variant="outline" size="sm">
               <Link to={libraryHref}>Find it in Library</Link>
             </Button>

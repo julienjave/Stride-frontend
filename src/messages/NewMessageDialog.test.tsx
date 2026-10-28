@@ -53,6 +53,27 @@ async function open() {
 }
 
 describe('New message', () => {
+  it('the list fails to load: the load error inside the dialog; a retry that works focuses its title', async () => {
+    const user = userEvent.setup()
+    const backend = fetchMock.getMockImplementation()!
+    let failures = 1
+    fetchMock.mockImplementation((input, init) => {
+      if (failures > 0 && new URL(input as string).pathname === '/users') {
+        failures -= 1
+        return Promise.resolve(apiError(500, 'boom'))
+      }
+      return backend(input, init)
+    })
+    renderMessages('/practitioner/messages')
+    const dialog = within(await open())
+    expect(await dialog.findByRole('alert')).toHaveTextContent(
+      /^Couldn't load your patients\. Something went wrong on our side\. Try again in a moment\.$/,
+    )
+    await user.click(dialog.getByRole('button', { name: 'Try again' }))
+    expect(await dialog.findByRole('list', { name: 'Your patients' })).toBeInTheDocument()
+    await waitFor(() => expect(dialog.getByRole('heading', { name: 'New message' })).toHaveFocus())
+  })
+
   it("offers a practitioner their patients, by name — and asks for them only once it's open", async () => {
     renderMessages('/practitioner/messages')
     await screen.findByRole('button', { name: 'New message' })

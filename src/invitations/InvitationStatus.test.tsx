@@ -224,9 +224,28 @@ describe('InvitationStatus', () => {
       renderStatus()
 
       expect(screen.getByText('Loading invitation…')).toBeInTheDocument()
-      expect(
-        await screen.findByText("Couldn't load the invitation: Something went wrong on our side. Try again in a moment."),
-      ).toBeInTheDocument()
+      const section = within(await screen.findByRole('region', { name: 'Invitation' }))
+      expect(section.getByRole('alert')).toHaveTextContent(
+        /^Couldn't load the invitation\. Something went wrong on our side\. Try again in a moment\.$/,
+      )
+    })
+
+    it('"Try again" that works: the invitation, with focus on the section\'s heading', async () => {
+      const user = userEvent.setup()
+      let fail = true
+      fetchMock.mockImplementation(() =>
+        fail
+          ? jsonResponse({ statusCode: 500, message: ['Internal server error'] }, 500)
+          : jsonResponse([invitation()]),
+      )
+      renderStatus()
+      await screen.findByRole('alert')
+      fail = false
+      await user.click(screen.getByRole('button', { name: 'Try again' }))
+      expect(await screen.findByText('Pending')).toBeInTheDocument()
+      await waitFor(() =>
+        expect(screen.getByRole('heading', { name: 'Invitation' })).toHaveFocus(),
+      )
     })
   })
 

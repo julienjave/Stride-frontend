@@ -3,6 +3,8 @@ import { ChevronRight } from 'lucide-react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { addDays, localDateString } from '@/common/calendarDate'
+import { LoadError } from '@/common/LoadError'
+import { useFocusAfterRetry, useRetryFocus } from '@/common/useRetryFocus'
 import { PrescriptionSummary } from '@/common/PrescriptionSummary'
 import { ProgramTotals, ProgramWeeks, type SessionLinkKind } from '@/assigned-programs/ProgramWeeks'
 import { currentAndPlanned, describeVersion, workoutNames } from '@/assigned-programs/programSchedule'
@@ -59,6 +61,11 @@ function ProgramView({ programId }: { programId: number }) {
     enabled: program.isSuccess,
     through: addDays(today, SUMMARY_HORIZON_DAYS),
   })
+  // After a "Try again" that worked, focus goes to the program's title: when
+  // the program itself came back, and when only the progress did — what
+  // returns then (the make-ups, the weeks) starts right under it.
+  const heading = useRetryFocus<HTMLHeadingElement>('this program', program.isSuccess)
+  useFocusAfterRetry(heading, 'the progress', summary.isSuccess)
 
   // The session flow's own container (not ProgramPage, whose "Back to
   // Sessions" would repeat the links these states carry).
@@ -90,7 +97,9 @@ function ProgramView({ programId }: { programId: number }) {
   return (
     <ProgramPage>
       <div className="space-y-1">
-        <h1 className="text-2xl font-semibold">{data.title}</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-2xl font-semibold outline-none">
+          {data.title}
+        </h1>
         {/* The practitioner page's row words: "June 2, 2031 – June 29,
             2031 · Active", "Cancelled · ended October 3 · ran from …". */}
         <p className="text-sm text-muted-foreground">{programRowSummary(data)}</p>
@@ -102,9 +111,7 @@ function ProgramView({ programId }: { programId: number }) {
       </div>
 
       {summary.isPending && <p className="text-sm text-muted-foreground">Loading progress…</p>}
-      {summary.isError && (
-        <p className="text-sm text-destructive">Couldn't load the progress. Try refreshing.</p>
-      )}
+      {summary.isError && <LoadError what="the progress" queries={[summary]} />}
       {summary.data && (
         <>
           {isOpen && (

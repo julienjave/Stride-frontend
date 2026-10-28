@@ -1,6 +1,8 @@
 import { useParams, useSearchParams, Link } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCurrentUser } from '@/auth/useCurrentUser'
+import { RecordLoadFailed, RecordNotFound } from '@/common/RecordNotFound'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { Button } from '@/components/ui/button'
 import { exerciseQueryKey, updateExercise } from './api'
 import type { UpdateExercisePayload } from './api'
@@ -13,21 +15,31 @@ import { EditableExerciseListField } from './EditableExerciseListField'
 import { ArchiveExerciseButton } from './ArchiveExerciseButton'
 import type { ExerciseDetail } from './types'
 
+// Where to go when this page can't show its exercise (RecordNotFound).
+const WAYS_OUT: [{ to: string; label: string }] = [
+  { to: '/practitioner/library', label: 'Exercise Library' },
+]
+
 export function ExerciseDetailPage() {
   const { id } = useParams<{ id: string }>()
   const exerciseId = Number(id)
 
   // Same split-component convention as ClinicEditPage/ExercisePhotosPage
   // — validate the URL param before any hook that needs a real id runs.
+  // An id that isn't a number can't be an exercise: the same page as a 404.
   if (!id || Number.isNaN(exerciseId)) {
-    return <p className="text-sm text-destructive">Invalid exercise.</p>
+    return <RecordNotFound noun="exercise" links={WAYS_OUT} />
   }
 
   return <ExerciseDetailView exerciseId={exerciseId} />
 }
 
 function ExerciseDetailView({ exerciseId }: { exerciseId: number }) {
-  const { data: exercise, isLoading, isError } = useExercise(exerciseId)
+  const exerciseQuery = useExercise(exerciseId)
+  const { data: exercise, isLoading } = exerciseQuery
+  // After a "Try again" that worked, focus goes to the exercise's name —
+  // the page's heading (useRetryFocus; matched by the load error's words).
+  const heading = useRetryFocus<HTMLHeadingElement>('this exercise', exerciseQuery.isSuccess)
   // RequireAuth already guarantees a real session by the time this
   // renders, so data here should never actually be undefined — but see
   // RequireRole's own identical defensive reasoning for why checking
@@ -66,11 +78,11 @@ function ExerciseDetailView({ exerciseId }: { exerciseId: number }) {
     )
   }
 
-  if (isError || !exercise) {
+  // A 404: no such exercise ("Exercise not found", no Try again). Anything
+  // else: the load error with its reason and "Try again".
+  if (exerciseQuery.isError || !exercise) {
     return (
-      <p className="mx-auto mt-12 max-w-2xl px-4 text-sm text-destructive">
-        Couldn't load this exercise. Try refreshing.
-      </p>
+      <RecordLoadFailed queries={[exerciseQuery]} what="this exercise" noun="exercise" links={WAYS_OUT} />
     )
   }
 
@@ -82,6 +94,7 @@ function ExerciseDetailView({ exerciseId }: { exerciseId: number }) {
         save={save}
         name={exercise.name}
         canEdit={canEdit}
+        headingRef={heading}
       />
 
       {/* Omitted entirely (not "by —") for the shared api-sourced

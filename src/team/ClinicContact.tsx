@@ -1,4 +1,6 @@
 import { formatAddressLines } from '@/common/address/format'
+import { LoadError } from '@/common/LoadError'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import type { Clinic } from '@/clinics/types'
 import { useClinic } from '@/clinics/useClinic'
 import type { ClinicRef } from '@/patients/types'
@@ -13,13 +15,19 @@ import { websiteHref } from './teamRules'
 // makes twice (a handful at most — no list endpoint needed).
 export function ClinicContact({ clinic }: { clinic: ClinicRef }) {
   const details = useClinic(clinic.id)
+  // Named after the clinic: a practitioner seen at two clinics shows two of
+  // these, and the sentence should say WHICH failed (a screen reader hears
+  // the alert on its own, away from the clinic's heading). The same words
+  // match the press to this heading (useRetryFocus).
+  const what = `${clinic.name}'s contact details`
+  const heading = useRetryFocus<HTMLHeadingElement>(what, details.isSuccess)
   return (
     <li className="space-y-1 rounded-lg border p-4">
-      <h3 className="font-medium">{clinic.name}</h3>
+      <h3 ref={heading} tabIndex={-1} className="font-medium outline-none">
+        {clinic.name}
+      </h3>
       {details.isPending && <p className="text-sm text-muted-foreground">Loading the clinic's details…</p>}
-      {details.isError && (
-        <p className="text-sm text-muted-foreground">Couldn't load this clinic's contact details.</p>
-      )}
+      {details.isError && <LoadError what={what} queries={[details]} />}
       {details.data && <ContactLines clinic={details.data} />}
     </li>
   )

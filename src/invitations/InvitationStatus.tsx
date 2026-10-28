@@ -12,6 +12,8 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { failureText } from '@/api/apiErrors'
+import { LoadError } from '@/common/LoadError'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { invitationsQueryKey, listInvitations, revokeInvitation, sendInvitation } from './api'
 import { formatExpiry } from './formatExpiry'
 import type { InvitationSummary } from './types'
@@ -85,6 +87,8 @@ export function InvitationStatus({ userId, userName, email, isActive }: Invitati
     queryKey: invitationsQueryKey(userId),
     queryFn: () => listInvitations(userId),
   })
+  // After a "Try again" that worked, focus goes to the section's heading.
+  const heading = useRetryFocus<HTMLHeadingElement>('the invitation', invitations.isSuccess)
 
   // Both actions change more than the one row they return (a resend also
   // closes the previous invitation), so the history is fetched again
@@ -120,11 +124,16 @@ export function InvitationStatus({ userId, userName, email, isActive }: Invitati
     return <p className="text-sm text-muted-foreground">Loading invitation…</p>
   }
 
+  // Inside the section it would have been (2026-10-28 — before, a bare line
+  // with the server's words): its heading, then the load error.
   if (invitations.isError) {
     return (
-      <p className="text-sm text-destructive">
-        Couldn't load the invitation: {errorText(invitations.error)}
-      </p>
+      <section aria-labelledby="invitation-heading" className="space-y-3 rounded-lg border px-4 py-3">
+        <h2 id="invitation-heading" className="text-sm font-medium">
+          Invitation
+        </h2>
+        <LoadError what="the invitation" queries={[invitations]} />
+      </section>
     )
   }
 
@@ -147,7 +156,7 @@ export function InvitationStatus({ userId, userName, email, isActive }: Invitati
   return (
     <section aria-labelledby="invitation-heading" className="space-y-3 rounded-lg border px-4 py-3">
       <div className="flex items-center justify-between gap-2">
-        <h2 id="invitation-heading" className="text-sm font-medium">
+        <h2 ref={heading} tabIndex={-1} id="invitation-heading" className="text-sm font-medium outline-none">
           Invitation
         </h2>
         <span className="rounded-full bg-muted px-2 py-0.5 text-xs">

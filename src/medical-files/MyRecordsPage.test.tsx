@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { formatMomentDate } from '@/common/formatMomentDate'
 import { renderMedicalFile, requests } from './renderMedicalFile'
@@ -69,10 +69,13 @@ describe('MyRecordsPage', () => {
     const user = userEvent.setup()
     let status = 500
     renderMedicalFile([PATH], (request) => answers([], status)(request), 'patient')
-    expect(await screen.findByRole('alert')).toHaveTextContent(/^Couldn't load your records\.$/)
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Couldn't load your records\. Something went wrong on our side\. Try again in a moment\.$/)
     expect(screen.queryByText(/haven't written anything/)).not.toBeInTheDocument()
     status = 200
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText(/haven't written anything/)).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 1, name: 'My records' })).toHaveFocus(),
+    )
   })
 })

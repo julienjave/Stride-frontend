@@ -1,6 +1,8 @@
 import { Link, useParams } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { useCurrentUser } from '@/auth/useCurrentUser'
+import { RecordLoadFailed, RecordNotFound } from '@/common/RecordNotFound'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { useProgram } from './useProgram'
 import { canEditTemplate, isOwnTemplate } from './permissions'
 import { YoursBadge } from '@/common/YoursBadge'
@@ -29,15 +31,24 @@ export function TemplateDetailPage() {
   // makes that possible without breaking the rules of hooks: this outer
   // component calls no data hooks at all, so returning early here is
   // fine, and the inner view always receives a real number.
+  // (An id that isn't a number can't be a template: the 404's page.)
   if (!id || Number.isNaN(templateId)) {
-    return <p className="text-sm text-destructive">Invalid template.</p>
+    return <RecordNotFound noun="template" links={WAYS_OUT} />
   }
 
   return <TemplateDetailView templateId={templateId} />
 }
 
+// Where to go when this page can't show its template (RecordNotFound).
+const WAYS_OUT: [{ to: string; label: string }] = [
+  { to: '/practitioner/programs', label: 'Programs' },
+]
+
 function TemplateDetailView({ templateId }: { templateId: number }) {
-  const { data: template, isLoading, isError } = useProgram(templateId)
+  const templateQuery = useProgram(templateId)
+  const { data: template, isLoading } = templateQuery
+  // After a "Try again" that worked, focus goes to the template's title.
+  const heading = useRetryFocus<HTMLHeadingElement>('this template', templateQuery.isSuccess)
   const { data: currentUser } = useCurrentUser()
 
   if (isLoading) {
@@ -48,11 +59,11 @@ function TemplateDetailView({ templateId }: { templateId: number }) {
     )
   }
 
-  if (isError || !template) {
+  // A 404: "Template not found" (an ARCHIVED template still loads — the
+  // notice below); anything else: the load error and "Try again".
+  if (templateQuery.isError || !template) {
     return (
-      <p className="mx-auto mt-12 max-w-2xl px-4 text-sm text-destructive">
-        Couldn't load this template. Try refreshing.
-      </p>
+      <RecordLoadFailed queries={[templateQuery]} what="this template" noun="template" links={WAYS_OUT} />
     )
   }
 
@@ -82,6 +93,7 @@ function TemplateDetailView({ templateId }: { templateId: number }) {
           templateId={templateId}
           title={template.title}
           canEdit={canEdit}
+          headingRef={heading}
           // Ownership, NOT canEdit: an archived template you created is
           // still yours, even though it's no longer editable. The badge
           // states a fact about who made it; canEdit is about what you

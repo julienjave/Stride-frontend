@@ -50,13 +50,40 @@ describe('LoadError', () => {
         <a href="/patient">Back to home</a>
       </LoadError>,
     )
-    expect(screen.getByRole('alert')).toHaveTextContent(/^Couldn't load this program\.$/)
+    expect(screen.getByRole('alert')).toHaveTextContent(/^Couldn't load this program\. Check your connection and try again\.$/)
     expect(screen.getByRole('link', { name: 'Back to home' })).toBeInTheDocument()
     const button = screen.getByRole('button', { name: 'Try again' })
     expect(button).toHaveAttribute('aria-disabled', 'false')
     await user.click(button)
     expect(failed.refetch).toHaveBeenCalledTimes(1)
     expect(fine.refetch).not.toHaveBeenCalled()
+  })
+
+  it("says WHY, by the shared rule — the server's side, or a refusal's own words", () => {
+    const { rerender } = render(
+      <LoadError what="this program" queries={[query({ isError: true, error: apiError(500) })]} />,
+    )
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /^Couldn't load this program\. Something went wrong on our side\. Try again in a moment\.$/,
+    )
+    rerender(<LoadError what="this program" queries={[query({ isError: true, error: apiError(429) })]} />)
+    expect(screen.getByRole('alert')).toHaveTextContent(/^Couldn't load this program\. x$/)
+  })
+
+  it("gives the reason of the FIRST request that failed — not one that didn't", () => {
+    render(
+      <LoadError
+        what="this program"
+        queries={[
+          query({ error: apiError(429) }),
+          query({ isError: true, error: apiError(500) }),
+          failedQuery(),
+        ]}
+      />,
+    )
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /^Couldn't load this program\. Something went wrong on our side\. Try again in a moment\.$/,
+    )
   })
 
   it('asks again EVERY request that failed', async () => {
@@ -106,7 +133,7 @@ describe('LoadError', () => {
     retry.fails()
     await settle()
     render(<LoadError what={what} queries={[failedQuery()]} />)
-    expect(screen.getByRole('alert')).toHaveTextContent(/^Still couldn't load the retried page\.$/)
+    expect(screen.getByRole('alert')).toHaveTextContent(/^Still couldn't load the retried page\. Check your connection and try again\.$/)
     expect(screen.getByRole('button', { name: 'Try again' })).toHaveFocus()
   })
 
@@ -120,13 +147,13 @@ describe('LoadError', () => {
     await settle()
     // Another page's error: not "Still", focus left alone…
     const other = render(<LoadError what="page B" queries={[failedQuery()]} />)
-    expect(screen.getByRole('alert')).toHaveTextContent(/^Couldn't load page B\.$/)
+    expect(screen.getByRole('alert')).toHaveTextContent(/^Couldn't load page B\. Check your connection and try again\.$/)
     expect(screen.getByRole('button', { name: 'Try again' })).not.toHaveFocus()
     other.unmount()
     // …and the memory is spent once used.
     render(<LoadError what="page A" queries={[failedQuery()]} />).unmount()
     render(<LoadError what="page A" queries={[failedQuery()]} />)
-    expect(screen.getByRole('alert')).toHaveTextContent(/^Couldn't load page A\.$/)
+    expect(screen.getByRole('alert')).toHaveTextContent(/^Couldn't load page A\. Check your connection and try again\.$/)
   })
 
   it('a retry that worked leaves nothing behind for a later error', async () => {
@@ -139,7 +166,7 @@ describe('LoadError', () => {
     retry.works()
     await settle()
     render(<LoadError what={what} queries={[failedQuery()]} />)
-    expect(screen.getByRole('alert')).toHaveTextContent(/^Couldn't load the page that came back\.$/)
+    expect(screen.getByRole('alert')).toHaveTextContent(/^Couldn't load the page that came back\. Check your connection and try again\.$/)
     expect(screen.getByRole('button', { name: 'Try again' })).not.toHaveFocus()
   })
 
@@ -155,10 +182,10 @@ describe('LoadError', () => {
     retry.fails()
     await settle()
     rerender(<LoadError what={what} queries={[failedQuery()]} />)
-    expect(screen.getByRole('alert')).toHaveTextContent(/^Still couldn't load the page that stayed\.$/)
+    expect(screen.getByRole('alert')).toHaveTextContent(/^Still couldn't load the page that stayed\. Check your connection and try again\.$/)
     unmount()
     render(<LoadError what={what} queries={[failedQuery()]} />)
-    expect(screen.getByRole('alert')).toHaveTextContent(/^Couldn't load the page that stayed\.$/)
+    expect(screen.getByRole('alert')).toHaveTextContent(/^Couldn't load the page that stayed\. Check your connection and try again\.$/)
   })
 
   it('forgets a press after 30 seconds', async () => {
@@ -174,7 +201,7 @@ describe('LoadError', () => {
     const clock = vi.spyOn(Date, 'now').mockReturnValue(now + 30_000)
     try {
       render(<LoadError what={what} queries={[failedQuery()]} />)
-      expect(screen.getByRole('alert')).toHaveTextContent(/^Couldn't load the page left alone\.$/)
+      expect(screen.getByRole('alert')).toHaveTextContent(/^Couldn't load the page left alone\. Check your connection and try again\.$/)
     } finally {
       clock.mockRestore()
     }
@@ -186,9 +213,9 @@ describe('LoadError', () => {
     const { rerender } = render(<LoadError what="this program" queries={[failedQuery()]} />)
     rerender(<LoadError what="this program" queries={[failedQuery({ isFetching: true })]} />)
     // Still the first words while the request is under way.
-    expect(screen.getByRole('alert')).toHaveTextContent(/^Couldn't load this program\.$/)
+    expect(screen.getByRole('alert')).toHaveTextContent(/^Couldn't load this program\. Check your connection and try again\.$/)
     rerender(<LoadError what="this program" queries={[failedQuery()]} />)
-    expect(screen.getByRole('alert')).toHaveTextContent(/^Still couldn't load this program\.$/)
+    expect(screen.getByRole('alert')).toHaveTextContent(/^Still couldn't load this program\. Check your connection and try again\.$/)
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
   })
 })
@@ -229,7 +256,7 @@ describe('LoadFailure', () => {
     )
     // By default a 403 is a failure to load…
     expect(screen.queryByText('Not available here')).not.toBeInTheDocument()
-    expect(screen.getByRole('alert')).toHaveTextContent("Couldn't load this conversation.")
+    expect(screen.getByRole('alert')).toHaveTextContent(/^Couldn't load this conversation\. x$/)
     // …unless the resource counts it as "not available".
     rerender(
       <LoadFailure
@@ -250,7 +277,7 @@ describe('LoadFailure', () => {
         <a href="/patient">Back to home</a>
       </LoadFailure>,
     )
-    expect(screen.getByRole('alert')).toHaveTextContent(/^Couldn't load this program\.$/)
+    expect(screen.getByRole('alert')).toHaveTextContent(/^Couldn't load this program\. Check your connection and try again\.$/)
     expect(screen.getByRole('link', { name: 'Back to home' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(failed.refetch).toHaveBeenCalledTimes(1)

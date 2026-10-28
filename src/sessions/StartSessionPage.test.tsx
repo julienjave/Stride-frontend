@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes, useNavigate, useParams } from 'react-router'
@@ -420,6 +420,10 @@ describe('StartSessionPage — nothing to start', () => {
     fail = false
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await startForm()).toBeInTheDocument()
+    // Focus is on the page's heading, not lost at the top.
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 1, name: 'Start your session' })).toHaveFocus(),
+    )
     expect(requests().map((request) => request.path)).toStrictEqual([
       '/assigned-programs/12',
       `/assigned-programs/12/summary?today=${TODAY}`,

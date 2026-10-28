@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router'
@@ -947,9 +947,24 @@ describe('AssignedProgramDetailPage — progress', () => {
   it("says so when the progress can't be loaded, and still shows the rest", async () => {
     summaries[12] = () => apiError(500, 'Internal server error')
     renderPage()
-    expect(await screen.findByText("Couldn't load the progress. Try refreshing.")).toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /^Couldn't load the progress\. Something went wrong on our side\. Try again in a moment\.$/,
+    )
     expect(screen.getByText('Schedule:')).toBeInTheDocument()
     expect(screen.getByText('Heel Slides')).toBeInTheDocument()
+  })
+
+  it('"Try again" on the progress: once it works, the weeks show and focus is on the section', async () => {
+    const user = userEvent.setup()
+    const good = summaries[12]
+    summaries[12] = () => apiError(500, 'Internal server error')
+    renderPage()
+    await screen.findByRole('alert')
+    summaries[12] = good
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    const heading = screen.getByRole('heading', { level: 2, name: 'Schedule & progress' })
+    await waitFor(() => expect(heading).toHaveFocus())
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })
 
@@ -1018,7 +1033,9 @@ describe('AssignedProgramDetailPage — when it can’t be shown', () => {
     await expectProgramLoadError('this program')
     fail = false
     await user.click(screen.getByRole('button', { name: 'Try again' }))
-    expect(await screen.findByRole('heading', { level: 1, name: 'Knee Rehab — Pat' })).toBeInTheDocument()
+    const title = await screen.findByRole('heading', { level: 1, name: 'Knee Rehab — Pat' })
+    // Focus on the title, not lost at the top of the page.
+    await waitFor(() => expect(title).toHaveFocus())
   })
 
   it('says an id that is not a program id is not available — asking nothing', async () => {
@@ -1260,10 +1277,24 @@ describe('AssignedProgramDetailPage — closing the program', () => {
     renderPage()
     await user.click(await screen.findByRole('button', { name: 'Cancel program' }))
     const dialog = await screen.findByRole('dialog', { name: 'Cancel this program?' })
-    expect(
-      await within(dialog).findByText("Couldn't check what this would do. Close this and try again."),
-    ).toBeInTheDocument()
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      /^Couldn't load what cancelling it would change\. Something went wrong on our side\. Try again in a moment\.$/,
+    )
     expect(within(dialog).getByRole('button', { name: 'Cancel program' })).toBeDisabled()
+  })
+
+  it('"Try again" in the dialog asks again; once it works, the dialog says what closing does, focus on its title', async () => {
+    const user = userEvent.setup()
+    const good = closingPreview
+    closingPreview = () => apiError(500, 'Internal server error')
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Cancel program' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Cancel this program?' })
+    await within(dialog).findByRole('alert')
+    closingPreview = good
+    await user.click(within(dialog).getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Cancel program' })).toBeEnabled())
+    await waitFor(() => expect(within(dialog).getByRole('heading')).toHaveFocus())
   })
 
   it('waits for the answer before allowing to confirm', async () => {

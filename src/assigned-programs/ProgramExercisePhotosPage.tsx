@@ -25,6 +25,7 @@ import { libraryCopyProblem, photoCountText, photoRoom, uploadProblem } from './
 import { useAssignedProgram } from './useAssignedProgram'
 import { useOwnPhotoEditing } from './useOwnPhotoEditing'
 import type { AssignedProgramDetail, AssignedProgramExercise } from './types'
+import { useRetryFocus } from '@/common/useRetryFocus'
 
 // A program exercise's OWN photos (program-specific photos, 2026-10-17):
 // `/practitioner/programs/assigned/:id/exercises/:rowId/photos`, from the
@@ -72,6 +73,8 @@ function PhotosView({ programId, exerciseRowId }: { programId: number; exerciseR
   const returnTo = localPath(searchParams.get('returnTo') ?? exercisePath)
   const programQuery = useAssignedProgram(programId)
   const { data: program, isLoading, error } = programQuery
+  // After a "Try again" that worked, focus goes to the page's heading.
+  const heading = useRetryFocus<HTMLHeadingElement>('these photos', programQuery.isSuccess)
   // Before the early returns (the rules of hooks); see programLock.ts.
   const lock = useProgramLock(program)
 
@@ -85,7 +88,9 @@ function PhotosView({ programId, exerciseRowId }: { programId: number; exerciseR
     const removed = program.retiredExercises.some((row) => row.id === exerciseRowId)
     return (
       <div className="mx-auto mt-8 max-w-2xl space-y-3 px-4">
-        <h1 className="text-xl font-semibold">{program.title}</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+          {program.title}
+        </h1>
         <p role="alert" className="text-sm text-muted-foreground">
           {removed
             ? 'This exercise was removed from the program: its photos can no longer change.'
@@ -101,7 +106,9 @@ function PhotosView({ programId, exerciseRowId }: { programId: number; exerciseR
   return (
     <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4 pb-8">
       <div>
-        <h1 className="text-xl font-semibold">This patient's photos</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+          This patient's photos
+        </h1>
         <p className="text-sm text-muted-foreground">
           {exercise.name} · {program.title}
         </p>

@@ -5,6 +5,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router'
 import { ExerciseDetailPage } from './ExerciseDetailPage'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
+import {
+  errorResponse,
+  expectLoadError,
+  expectRecordNotFound,
+  retryThenExpectFocusOn,
+} from '@/common/loadFailureAssertions'
 import { exercisesListQueryKey } from './api'
 import type { ExerciseDetail } from './types'
 
@@ -68,10 +74,16 @@ function renderAt(
 }
 
 describe('ExerciseDetailPage', () => {
-  it('shows an invalid-exercise message for a non-numeric id', () => {
+  it('an id that is not a number: "Exercise not found", without asking the server', async () => {
     renderAt('/practitioner/library/not-a-number')
-    expect(screen.getByText('Invalid exercise.')).toBeInTheDocument()
+    await expectRecordNotFound('exercise', [['Exercise Library', '/practitioner/library']])
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('a 404: "Exercise not found", with the way back to the library and no Try again', async () => {
+    fetchMock.mockResolvedValue(errorResponse(404, ['Exercise 1 not found']))
+    renderAt('/practitioner/library/1')
+    await expectRecordNotFound('exercise', [['Exercise Library', '/practitioner/library']])
   })
 
   it('shows a loading state before the exercise resolves', () => {
@@ -80,14 +92,18 @@ describe('ExerciseDetailPage', () => {
     expect(screen.getByText('Loading…')).toBeInTheDocument()
   })
 
-  it('shows an error state when the fetch fails', async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse({ statusCode: 500, message: ['Internal error'] }, 500),
-    )
+  it('any other failure: the load error with its reason; a retry that works puts focus on the name', async () => {
+    const user = userEvent.setup()
+    fetchMock
+      .mockResolvedValueOnce(errorResponse(500))
+      .mockResolvedValueOnce(jsonResponse(makeExercise()))
     renderAt('/practitioner/library/1')
-    expect(
-      await screen.findByText("Couldn't load this exercise. Try refreshing."),
-    ).toBeInTheDocument()
+    await expectLoadError('this exercise')
+    expect(screen.getByRole('link', { name: 'Exercise Library' })).toHaveAttribute(
+      'href',
+      '/practitioner/library',
+    )
+    await retryThenExpectFocusOn(user, { level: 1, name: 'Wall Slide' })
   })
 
   it("renders the name as a heading and the author's name below it", async () => {

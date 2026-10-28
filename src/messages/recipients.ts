@@ -68,5 +68,7 @@ export function useRecipients(role: MessagingRole, enabled: boolean) {
     role === 'practitioner'
       ? patients.data && recipientsFromPatients(patients.data)
       : team.data && recipientsFromTeam(team.data)
-  return { recipients, isError: source.isError }
+  // `query`: the request that runs, for the dialog's "Try again" (and its
+  // success, for where focus goes afterwards).
+  return { recipients, isError: source.isError, query: source }
 }

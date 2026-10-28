@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { type Ref, useState, type ReactNode } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Check, Pencil, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -18,6 +18,9 @@ interface EditableTemplateTitleProps {
   // than an `isOwn` prop, so this editor stays about editing a title and
   // doesn't need to know what ownership is or how it's decided.
   adornment?: ReactNode
+  // The page's focus target after a "Try again" that worked
+  // (`useRetryFocus`) — the same prop as EditableExerciseTitle's.
+  headingRef?: Ref<HTMLHeadingElement>
 }
 
 // A close mirror of EditableExerciseTitle on the Library's detail page:
@@ -34,6 +37,7 @@ export function EditableTemplateTitle({
   title,
   canEdit,
   adornment,
+  headingRef,
 }: EditableTemplateTitleProps) {
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
@@ -92,7 +96,13 @@ export function EditableTemplateTitle({
   if (!isEditing) {
     return (
       <div className="flex items-center gap-2">
-        <h1 className="text-2xl font-semibold">{title}</h1>
+        <h1
+          ref={headingRef}
+          tabIndex={headingRef ? -1 : undefined}
+          className="text-2xl font-semibold outline-none"
+        >
+          {title}
+        </h1>
         {adornment}
         {canEdit && (
           <Button

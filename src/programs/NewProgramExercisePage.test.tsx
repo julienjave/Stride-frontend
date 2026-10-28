@@ -5,6 +5,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import type { WeightUnit } from '@/common/weight'
+import {
+  errorResponse,
+  expectLoadError,
+  expectRecordNotFound,
+  retryThenExpectFocusOn,
+} from '@/common/loadFailureAssertions'
 import { NewProgramExercisePage } from './NewProgramExercisePage'
 
 const fetchMock = vi.fn<typeof fetch>()
@@ -68,17 +74,31 @@ const pickedExercise = {
 function setupFetchMock(config: {
   templateOverride?: unknown
   addExerciseResponse?: Response
+  // The template's FIRST read fails with this status (later reads work).
+  templateFailsOnceWith?: number
+  // The picked exercise's first read fails with this status.
+  exerciseFailsOnceWith?: number
 }) {
+  let templateFailures = config.templateFailsOnceWith ? 1 : 0
+  let exerciseFailures = config.exerciseFailsOnceWith ? 1 : 0
   fetchMock.mockImplementation((input, init) => {
     const url = input as string
     const method = init?.method ?? 'GET'
 
     if (method === 'GET' && /\/programs\/\d+$/.test(url)) {
+      if (templateFailures > 0) {
+        templateFailures -= 1
+        return Promise.resolve(errorResponse(config.templateFailsOnceWith ?? 500))
+      }
       return Promise.resolve(
         jsonResponse(config.templateOverride ?? template),
       )
     }
     if (method === 'GET' && /\/exercises\/\d+$/.test(url)) {
+      if (exerciseFailures > 0) {
+        exerciseFailures -= 1
+        return Promise.resolve(errorResponse(config.exerciseFailsOnceWith ?? 500))
+      }
       return Promise.resolve(jsonResponse(pickedExercise))
     }
     if (method === 'POST' && /\/programs\/\d+\/exercises$/.test(url)) {
@@ -116,9 +136,39 @@ function renderAt(path: string, preferredWeightUnit: WeightUnit = 'kg') {
 }
 
 describe('NewProgramExercisePage', () => {
-  it('shows an invalid-template message for a non-numeric id', () => {
+  it('a non-numeric id: "Template not found", without fetching', async () => {
     renderAt('/practitioner/programs/templates/not-a-number/exercises/new')
-    expect(screen.getByText('Invalid template.')).toBeInTheDocument()
+    await expectRecordNotFound('template', [['Programs', '/practitioner/programs']])
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('the template answers 404: "Template not found"', async () => {
+    setupFetchMock({ templateFailsOnceWith: 404 })
+    renderAt('/practitioner/programs/templates/1/exercises/new')
+    await expectRecordNotFound('template', [['Programs', '/practitioner/programs']])
+  })
+
+  it("the template's read fails otherwise: the load error; a retry that works focuses the title", async () => {
+    const user = userEvent.setup()
+    setupFetchMock({ templateFailsOnceWith: 500 })
+    renderAt('/practitioner/programs/templates/1/exercises/new')
+    await expectLoadError('this template')
+    await retryThenExpectFocusOn(user, { level: 1, name: 'Shoulder Rehab' })
+  })
+
+  it('the picked exercise fails to load: its load error, a way to choose another; a retry focuses its name', async () => {
+    const user = userEvent.setup()
+    setupFetchMock({ exerciseFailsOnceWith: 500 })
+    renderAt('/practitioner/programs/templates/1/exercises/new?exerciseId=5')
+    await expectLoadError('the chosen exercise')
+    expect(screen.getByRole('link', { name: 'Choose another exercise' })).toHaveAttribute(
+      'href',
+      '/practitioner/library/pick?returnTo=' +
+        // (The picker adds the new choice itself: the address it returns to
+        // carries no exerciseId.)
+        encodeURIComponent('/practitioner/programs/templates/1/exercises/new'),
+    )
+    await retryThenExpectFocusOn(user, { level: 2, name: 'Squat' })
   })
 
   it('shows the template title, subtitle, and a Select from Library link with the correct returnTo when nothing is picked', async () => {

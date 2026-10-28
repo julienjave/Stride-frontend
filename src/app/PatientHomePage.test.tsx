@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import { formatShortDate } from '@/common/calendarDate'
+import { expectLoadError, retryThenExpectFocusOn } from '@/common/loadFailureAssertions'
 import type { AssignedProgramListItem, ScheduleSummary, ScheduledDay } from '@/assigned-programs/types'
 import { PatientHomePage } from './PatientHomePage'
 
@@ -276,8 +278,30 @@ describe('PatientHomePage — Today', () => {
     renderPage()
     await loaded()
     const rows = within(section('Today')).getAllByRole('listitem')
-    expect(rows[0]).toHaveTextContent("Knee RehabCouldn't load today's plan. Try refreshing.")
+    expect(rows[0]).toHaveTextContent(/^Knee Rehab/)
+    expect(within(rows[0]).getByRole('alert')).toHaveTextContent(
+      /^Couldn't load today's plan\. Something went wrong on our side\. Try again in a moment\.$/,
+    )
     expect(rows[1]).toHaveTextContent('Lower Back1 of 3 done this week')
+  })
+
+  it('"Try again" on that row asks for ITS summary only; once it works, focus goes to Today', async () => {
+    const user = userEvent.setup()
+    const good = summaries[12]
+    summaries[12] = () => json({ statusCode: 500, message: ['boom'] }, 500)
+    renderPage()
+    await loaded()
+    const failedRow = within(section('Today')).getAllByRole('listitem')[0]
+    await within(failedRow).findByRole('alert')
+    const asked = () => requested().filter((url) => url.includes('/summary?'))
+    const before = asked()
+    summaries[12] = good
+    await user.click(within(failedRow).getByRole('button', { name: 'Try again' }))
+    const heading = within(section('Today')).getByRole('heading', { name: 'Today' })
+    await waitFor(() => expect(heading).toHaveFocus())
+    expect(within(section('Today')).queryByRole('alert')).not.toBeInTheDocument()
+    // One more request: the failed program's summary, not the other's.
+    expect(asked().slice(before.length)).toStrictEqual([before.find((url) => url.includes('/12/'))])
   })
 })
 
@@ -529,12 +553,14 @@ describe('PatientHomePage — My programs', () => {
     expect(cards[1]).not.toHaveTextContent('Pain after sessions')
   })
 
-  it("says so when a program's progress can't be loaded", async () => {
+  it("a program whose summary failed: its card shows no progress — Today says it failed, once", async () => {
     summaries[14] = () => json({ statusCode: 500, message: ['boom'] }, 500)
     renderPage()
     await loaded()
     const cards = within(section('My programs')).getAllByRole('listitem')
-    expect(cards[1]).toHaveTextContent("Couldn't load the progress. Try refreshing.")
+    expect(within(cards[1]).queryByRole('alert')).not.toBeInTheDocument()
+    expect(cards[1]).not.toHaveTextContent(/sessions? done/)
+    expect(within(section('Today')).getAllByRole('alert')).toHaveLength(1)
   })
 })
 
@@ -557,12 +583,15 @@ describe('PatientHomePage — no program', () => {
     expect(await screen.findByText(/You don't have a program yet/)).toBeInTheDocument()
   })
 
-  it("says so when the programs can't be loaded", async () => {
+  it("says so when the programs can't be loaded; a retry that works focuses the greeting", async () => {
+    const user = userEvent.setup()
+    const good = list
     list = () => json({ statusCode: 500, message: ['boom'] }, 500)
     renderPage()
-    expect(
-      await screen.findByText("Couldn't load your programs. Try refreshing the page."),
-    ).toBeInTheDocument()
+    await expectLoadError('your programs')
+    list = good
+    await retryThenExpectFocusOn(user, { level: 1, name: 'Hello Pat,' })
+    await loaded()
   })
 
   it('says it is loading meanwhile', () => {

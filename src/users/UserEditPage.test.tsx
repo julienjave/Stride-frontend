@@ -5,6 +5,12 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router'
 import { UserEditPage } from './UserEditPage'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
+import {
+  errorResponse,
+  expectLoadError,
+  expectRecordNotFound,
+  retryThenExpectFocusOn,
+} from '@/common/loadFailureAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -76,9 +82,9 @@ const practitionerUser = {
 }
 
 describe('UserEditPage — invalid route param', () => {
-  it('shows an error for a non-numeric id, without ever calling the API', () => {
+  it('a non-numeric id: "User not found", without ever calling the API', async () => {
     renderAt('/admin/users/not-a-number')
-    expect(screen.getByText('Invalid user.')).toBeInTheDocument()
+    await expectRecordNotFound('user', [['Users', '/admin/users']])
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })
@@ -90,14 +96,36 @@ describe('UserEditPage — loading and error states', () => {
     expect(screen.getByText('Loading user…')).toBeInTheDocument()
   })
 
-  it('shows an error state when the fetch fails', async () => {
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ statusCode: 404, message: ['User 1 not found'] }), {
-        status: 404,
-      }),
-    )
+  it('a 404: "User not found", and no Try again', async () => {
+    fetchMock.mockResolvedValue(errorResponse(404, ['User 1 not found']))
     renderAt('/admin/users/1')
-    expect(await screen.findByText("Couldn't load this user.")).toBeInTheDocument()
+    await expectRecordNotFound('user', [['Users', '/admin/users']])
+  })
+
+  it('any other failure: the load error with its reason; a retry that works focuses the name', async () => {
+    const user = userEvent.setup()
+    let userFailures = 1
+    fetchMock.mockImplementation((input) => {
+      const url = urlOf(input)
+      if (url.endsWith('/records-export-links')) {
+        return Promise.resolve(new Response('[]', { status: 200 }))
+      }
+      if (url.endsWith('/users/1') && userFailures > 0) {
+        userFailures -= 1
+        return Promise.resolve(errorResponse(500))
+      }
+      if (url.includes('/users/1')) {
+        return Promise.resolve(new Response(JSON.stringify(fullUser), { status: 200 }))
+      }
+      if (url.includes('/clinics')) {
+        return Promise.resolve(new Response('[]', { status: 200 }))
+      }
+      throw new Error(`Unexpected fetch to ${url}`)
+    })
+    renderAt('/admin/users/1')
+    await expectLoadError('this user')
+    expect(screen.getByRole('link', { name: 'Users' })).toHaveAttribute('href', '/admin/users')
+    await retryThenExpectFocusOn(user, { level: 1, name: 'Jamie Doe' })
   })
 })
 

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, useLocation, useNavigate } from 'react-router'
 import { UsersListPage } from './UsersListPage'
+import { expectLoadError, retryThenExpectFocusOn } from '@/common/loadFailureAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -126,10 +127,10 @@ describe('UsersListPage', () => {
     const user = userEvent.setup()
     fetchMock.mockResolvedValue(json({ statusCode: 500, message: ['Internal server error'] }, 500))
     renderUsersListPage()
-    expect(await screen.findByText("Couldn't load the users.")).toBeInTheDocument()
+    await expectLoadError('the users')
 
     fetchMock.mockResolvedValue(json([dana]))
-    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    await retryThenExpectFocusOn(user, { level: 1, name: 'Users' })
     expect(await screen.findByText('Dana Ortiz')).toBeInTheDocument()
   })
 

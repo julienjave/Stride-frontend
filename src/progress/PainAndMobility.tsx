@@ -1,5 +1,7 @@
 import { useId, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { LoadError } from '@/common/LoadError'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import type { AssignedProgramDetail } from '@/assigned-programs/types'
 import { workoutLabel } from '@/sessions/todayRow'
 import type { ProgramSession } from './api'
@@ -57,6 +59,11 @@ export function PainAndMobility({
   headingLevel: 2 | 3
 }) {
   const sessions = useProgramSessions(program.id)
+  // After a "Try again" that worked, focus goes to this section's heading.
+  const heading = useRetryFocus<HTMLHeadingElement>(
+    'the pain and mobility scores',
+    sessions.isSuccess,
+  )
   const [showAll, setShowAll] = useState(false)
   const headingId = useId()
   const painSummaryId = useId()
@@ -69,11 +76,7 @@ export function PainAndMobility({
       return <p className="text-sm text-muted-foreground">Loading pain and mobility…</p>
     }
     if (sessions.isError) {
-      return (
-        <p className="text-sm text-destructive">
-          Couldn't load the pain and mobility scores. Try refreshing.
-        </p>
-      )
+      return <LoadError what="the pain and mobility scores" queries={[sessions]} />
     }
     const all = oldestFirst(sessions.data)
     const span = chartRange(program, today, all, showAll)
@@ -171,8 +174,10 @@ export function PainAndMobility({
   return (
     <section aria-labelledby={headingId} className="space-y-4">
       <Heading
+        ref={heading}
+        tabIndex={-1}
         id={headingId}
-        className={headingLevel === 2 ? 'text-base font-semibold' : 'font-semibold'}
+        className={`${headingLevel === 2 ? 'text-base font-semibold' : 'font-semibold'} outline-none`}
       >
         Pain and mobility
       </Heading>

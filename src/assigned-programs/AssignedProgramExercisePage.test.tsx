@@ -440,6 +440,17 @@ describe('AssignedProgramExercisePage — reading', () => {
     renderAt(PAGE)
     await expectProgramLoadError('this exercise')
   })
+
+  it('a "Try again" that works: the page, with focus on its heading', async () => {
+    const user = userEvent.setup()
+    program = () => apiError(500, 'Internal server error')
+    renderAt(PAGE)
+    await expectProgramLoadError('this exercise')
+    program = () => json(PROGRAM)
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    const heading = await screen.findByRole('heading', { level: 1, name: 'Knee Rehab — Pat' })
+    await waitFor(() => expect(heading).toHaveFocus())
+  })
 })
 
 describe('AssignedProgramExercisePage — the way back', () => {

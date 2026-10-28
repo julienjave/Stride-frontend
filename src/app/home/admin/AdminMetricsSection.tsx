@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { LoadError } from '@/common/LoadError'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { adminMetricsQueryKey, fetchAdminMetrics, type AttentionList } from './api'
 import { moreLine, nothingNeedsAttention, notCountedLine } from './adminHomeText'
 import { ATTENTION_GROUPS, attentionHref, type AttentionKind } from '@/users/attention'
@@ -16,11 +17,13 @@ import { ATTENTION_GROUPS, attentionHref, type AttentionKind } from '@/users/att
 // third of a 375 px screen.
 export function AdminMetricsSection() {
   const metrics = useQuery({ queryKey: adminMetricsQueryKey, queryFn: fetchAdminMetrics })
+  // After a "Try again" that worked, focus goes to the section's heading.
+  const heading = useRetryFocus<HTMLHeadingElement>('the metrics', metrics.isSuccess)
 
   return (
     <section aria-labelledby="metrics-heading" className="space-y-3">
       <div className="space-y-1">
-        <h2 id="metrics-heading" className="text-lg font-semibold">
+        <h2 ref={heading} tabIndex={-1} id="metrics-heading" className="text-lg font-semibold outline-none">
           Metrics
         </h2>
         <p className="text-sm text-muted-foreground">

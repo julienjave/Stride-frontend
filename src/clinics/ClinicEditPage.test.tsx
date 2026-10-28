@@ -4,6 +4,12 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router'
 import { ClinicEditPage } from './ClinicEditPage'
+import {
+  errorResponse,
+  expectLoadError,
+  expectRecordNotFound,
+  retryThenExpectFocusOn,
+} from '@/common/loadFailureAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -42,9 +48,9 @@ const fullClinic = {
 }
 
 describe('ClinicEditPage — invalid route param', () => {
-  it('shows an error for a non-numeric id, without ever calling the API', () => {
+  it('a non-numeric id: "Clinic not found", without ever calling the API', async () => {
     renderAt('/admin/clinics/not-a-number')
-    expect(screen.getByText('Invalid clinic.')).toBeInTheDocument()
+    await expectRecordNotFound('clinic', [['Clinics', '/admin/clinics']])
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })
@@ -56,14 +62,20 @@ describe('ClinicEditPage — loading and error states', () => {
     expect(screen.getByText('Loading clinic…')).toBeInTheDocument()
   })
 
-  it('shows an error state when the fetch fails', async () => {
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ statusCode: 404, message: ['Clinic 1 not found'] }), {
-        status: 404,
-      }),
-    )
+  it('a 404: "Clinic not found", and no Try again', async () => {
+    fetchMock.mockResolvedValue(errorResponse(404, ['Clinic 1 not found']))
     renderAt('/admin/clinics/1')
-    expect(await screen.findByText("Couldn't load this clinic.")).toBeInTheDocument()
+    await expectRecordNotFound('clinic', [['Clinics', '/admin/clinics']])
+  })
+
+  it('any other failure: the load error with its reason; a retry that works focuses the name', async () => {
+    const user = userEvent.setup()
+    fetchMock
+      .mockResolvedValueOnce(errorResponse(500))
+      .mockResolvedValueOnce(new Response(JSON.stringify(fullClinic), { status: 200 }))
+    renderAt('/admin/clinics/1')
+    await expectLoadError('this clinic')
+    await retryThenExpectFocusOn(user, { level: 1, name: 'Acme Clinic' })
   })
 })
 

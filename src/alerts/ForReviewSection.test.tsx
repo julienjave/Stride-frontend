@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
@@ -82,9 +82,24 @@ describe('the For review list on the practitioner home', () => {
   it('says it could not load — in the card and the list — without claiming nothing to do', async () => {
     alerts = () => json({ statusCode: 500, message: ['boom'], error: 'Error', timestamp: '', path: '' }, 500)
     renderHome()
-    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't load what's for review. Try refreshing the page.")
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /^Couldn't load what's for review\. Something went wrong on our side\. Try again in a moment\.$/,
+    )
     expect(screen.getByText('Unavailable')).toBeInTheDocument()
     expect(screen.queryByText(/caught up/)).not.toBeInTheDocument()
+  })
+
+  it('"Try again" that works: the list, and focus on its heading', async () => {
+    const user = userEvent.setup()
+    const good = alerts
+    alerts = () => json({ statusCode: 500, message: ['boom'], error: 'Error', timestamp: '', path: '' }, 500)
+    renderHome()
+    await screen.findByRole('alert')
+    alerts = good
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    const heading = screen.getByRole('heading', { level: 2, name: 'For review' })
+    await waitFor(() => expect(heading).toHaveFocus())
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('shows loading words in the list while it waits, and no count yet', () => {

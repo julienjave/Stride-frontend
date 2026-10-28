@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
+import { type RefObject, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router'
 import { ChevronLeft } from 'lucide-react'
 import { ApiError } from '@/api/client'
@@ -6,6 +6,7 @@ import { SERVER_PROBLEM_TEXT } from '@/api/apiErrors'
 import { LoadError, LoadFailure } from '@/common/LoadError'
 import { NotAvailable } from '@/common/NotAvailable'
 import { UserAvatar } from '@/common/UserAvatar'
+import { useFocusAfterRetry, useRetryFocus } from '@/common/useRetryFocus'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
@@ -72,6 +73,9 @@ function Conversation({
   role: MessagingRole
 }) {
   const conversation = useConversation(conversationId)
+  // After a "Try again" that worked — of the conversation, or of its
+  // messages (Thread) — focus goes to its heading: the other person's name.
+  const heading = useRetryFocus<HTMLHeadingElement>('this conversation', conversation.isSuccess)
 
   if (conversation.isError) {
     // 404: no such conversation, or one I'm not in (row security hides it);
@@ -96,8 +100,8 @@ function Conversation({
   const summary = conversation.data
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <Header summary={summary} role={role} />
-      <Thread summary={summary} myId={myId} />
+      <Header summary={summary} role={role} heading={heading} />
+      <Thread summary={summary} myId={myId} heading={heading} />
       {summary.canSend ? (
         <Composer conversationId={conversationId} />
       ) : (
@@ -113,7 +117,15 @@ function Conversation({
   )
 }
 
-function Header({ summary, role }: { summary: ConversationSummary; role: MessagingRole }) {
+function Header({
+  summary,
+  role,
+  heading,
+}: {
+  summary: ConversationSummary
+  role: MessagingRole
+  heading: RefObject<HTMLHeadingElement | null>
+}) {
   const other = summary.otherParticipant
   return (
     // flex-wrap: an archive error takes a line of its own under the row.
@@ -136,14 +148,27 @@ function Header({ summary, role }: { summary: ConversationSummary; role: Messagi
       />
       {/* flex-1 + min-w-0: the name takes the room left and is cut with
           "…" rather than pushing the button onto a new line. */}
-      <h2 className="min-w-0 flex-1 truncate text-lg font-semibold">{personName(other)}</h2>
+      <h2 ref={heading} tabIndex={-1} className="min-w-0 flex-1 truncate text-lg font-semibold outline-none">
+        {personName(other)}
+      </h2>
       <ArchiveConversationButton summary={summary} role={role} />
     </div>
   )
 }
 
-function Thread({ summary, myId }: { summary: ConversationSummary; myId: number }) {
+function Thread({
+  summary,
+  myId,
+  heading,
+}: {
+  summary: ConversationSummary
+  myId: number
+  heading: RefObject<HTMLHeadingElement | null>
+}) {
   const thread = useConversationMessages(summary.id)
+  // A retry of the messages that worked: focus on the conversation's heading
+  // (the thread has none of its own; the newest messages follow it).
+  useFocusAfterRetry(heading, 'the messages', thread.isSuccess)
   const messages = thread.data ? threadMessages(thread.data.pages) : []
   const scroller = useRef<HTMLDivElement>(null)
   const newest = messages.at(-1)

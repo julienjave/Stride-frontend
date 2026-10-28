@@ -14,6 +14,8 @@ import { Input } from '@/components/ui/input'
 import { filterCandidates } from '@/patients/patientPageRules'
 import type { MessagingRole } from './messagesPath'
 import { personName } from './messageText'
+import { LoadError } from '@/common/LoadError'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { useRecipients } from './recipients'
 import { useStartConversation } from './useStartConversation'
 
@@ -30,7 +32,7 @@ export function NewMessageDialog({ role }: { role: MessagingRole }) {
   const [isOpen, setIsOpen] = useState(false)
   const [filter, setFilter] = useState('')
   // Fetched only while the dialog is open.
-  const { recipients, isError } = useRecipients(role, isOpen)
+  const { recipients, isError, query } = useRecipients(role, isOpen)
   const start = useStartConversation(role)
 
   // Escape, a click outside, and success all go through here: the dialog
@@ -51,6 +53,11 @@ export function NewMessageDialog({ role }: { role: MessagingRole }) {
 
   const visible = recipients ? filterCandidates(recipients, filter) : []
   const who = role === 'practitioner' ? 'patients' : 'care team'
+  // The load error's words: "Couldn't load your patients."
+  const what = `your ${who}`
+  // After a "Try again" of the list that worked, focus goes to the dialog's
+  // title (the list has no heading; focus stays inside the dialog).
+  const title = useRetryFocus<HTMLHeadingElement>(what, query.isSuccess)
 
   return (
     <Dialog open={isOpen} onOpenChange={changeOpen}>
@@ -62,7 +69,9 @@ export function NewMessageDialog({ role }: { role: MessagingRole }) {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>New message</DialogTitle>
+          <DialogTitle ref={title} tabIndex={-1} className="outline-none">
+            New message
+          </DialogTitle>
           <DialogDescription>
             {role === 'practitioner'
               ? 'Write to one of your patients.'
@@ -78,7 +87,7 @@ export function NewMessageDialog({ role }: { role: MessagingRole }) {
           aria-label={role === 'practitioner' ? 'Filter by name' : 'Filter by name or specialty'}
         />
 
-        {isError && <p className="text-sm text-destructive">Couldn't load your {who}. Try again.</p>}
+        {isError && <LoadError what={what} queries={[query]} />}
         {!isError && !recipients && <p className="text-sm text-muted-foreground">Loading…</p>}
         {recipients && recipients.length === 0 && (
           <p className="text-sm text-muted-foreground">

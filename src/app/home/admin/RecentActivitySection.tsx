@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { LoadError } from '@/common/LoadError'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { auditLogQueryKey, fetchAuditLog } from '@/audit-log/api'
 import { NO_FILTERS, writeFilters, type AuditLogQuery } from '@/audit-log/auditFilters'
 import { actionLabel, formatEntryMoment } from '@/audit-log/auditWording'
@@ -36,11 +37,13 @@ export function RecentActivitySection() {
     queryKey: auditLogQueryKey(RECENT_CHANGES_QUERY),
     queryFn: () => fetchAuditLog(RECENT_CHANGES_QUERY),
   })
+  // After a "Try again" that worked, focus goes to the section's heading.
+  const heading = useRetryFocus<HTMLHeadingElement>('recent activity', changes.isSuccess)
 
   return (
     <section aria-labelledby="activity-heading" className="space-y-3">
       <div className="space-y-1">
-        <h2 id="activity-heading" className="text-lg font-semibold">
+        <h2 ref={heading} tabIndex={-1} id="activity-heading" className="text-lg font-semibold outline-none">
           Recent activity
         </h2>
         <p className="text-sm text-muted-foreground">

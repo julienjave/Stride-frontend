@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { LoadError } from '@/common/LoadError'
 import { NativeSelect } from '@/common/NativeSelect'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { useUsers, useUsersNeedingAttention } from './useUsers'
 import { ATTENTION_GROUPS, ATTENTION_KINDS, readAttention } from './attention'
 
@@ -29,6 +30,8 @@ export function UsersListPage() {
   const everyone = useUsers(includeInactive, attention === null)
   const group = useUsersNeedingAttention(attention)
   const shown = attention === null ? everyone : group
+  // After a "Try again" that worked, focus goes to the page's heading.
+  const heading = useRetryFocus<HTMLHeadingElement>('the users', shown.isSuccess)
   const users = shown.data
 
   function show(value: string) {
@@ -41,7 +44,9 @@ export function UsersListPage() {
   return (
     <div className="mx-auto mt-12 max-w-2xl space-y-4 px-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Users</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+          Users
+        </h1>
         <Button asChild>
           <Link to="/admin/users/new">Add user</Link>
         </Button>

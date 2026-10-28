@@ -1,4 +1,6 @@
 import { Button } from '@/components/ui/button'
+import { LoadError } from '@/common/LoadError'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { useUsers } from '@/users/useUsers'
 import { AuditEntryItem } from './AuditEntryItem'
 import { AuditLogFiltersPanel } from './AuditLogFiltersPanel'
@@ -20,11 +22,20 @@ export function AuditLogPage() {
   const people = useUsers(true)
 
   const data = log.data
+  // After a "Try again" that worked, focus goes to the page's heading. Not
+  // `isSuccess` alone: during a retry the previous results stay on screen as
+  // placeholder data (useAuditLog), which TanStack reports as success.
+  const heading = useRetryFocus<HTMLHeadingElement>(
+    'the audit log',
+    log.isSuccess && !log.isPlaceholderData,
+  )
 
   return (
     <div className="mx-auto mt-12 max-w-3xl space-y-4 px-4 pb-12">
       <div className="space-y-1">
-        <h1 className="text-xl font-semibold">Audit log</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+          Audit log
+        </h1>
         <p className="text-sm text-muted-foreground">
           Every change, sign-in, and view of a patient’s clinical data, newest first. Entries can’t
           be edited or deleted.
@@ -43,7 +54,7 @@ export function AuditLogPage() {
           {problem}
         </p>
       ) : log.isError ? (
-        <p className="text-sm text-destructive">Couldn’t load the audit log. Try refreshing.</p>
+        <LoadError what="the audit log" queries={[log]} />
       ) : !data ? (
         <p className="text-sm text-muted-foreground">Loading the audit log…</p>
       ) : (

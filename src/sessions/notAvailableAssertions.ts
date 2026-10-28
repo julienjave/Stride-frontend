@@ -1,5 +1,6 @@
 import { expect } from 'vitest'
 import { screen } from '@testing-library/react'
+import { SERVER_PROBLEM_TEXT } from '@/api/apiErrors'
 
 // What every patient page of a program or session shows when the backend
 // answers 404 (or the address names no id): the shared "not available" shape
@@ -15,9 +16,11 @@ export async function expectNotAvailable(what: 'program' | 'session') {
   expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
 }
 
-// The other failures: the load error, with "Try again" and the way home.
-export async function expectLoadError(what: 'program' | 'session') {
-  expect(await screen.findByRole('alert')).toHaveTextContent(new RegExp(`^Couldn't load this ${what}\\.$`))
+// The other failures: the load error — with its reason (since 2026-10-28; a
+// 5xx unless the test says otherwise) — "Try again" and the way home.
+export async function expectLoadError(what: 'program' | 'session', reason: string = SERVER_PROBLEM_TEXT) {
+  await screen.findByRole('alert')
+  expect(screen.getByRole('alert').textContent).toBe(`Couldn't load this ${what}. ${reason}`)
   expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Back to home' })).toHaveAttribute('href', '/patient')
 }

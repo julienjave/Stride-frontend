@@ -3,6 +3,12 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router'
+import {
+  errorResponse,
+  expectLoadError,
+  expectRecordNotFound,
+  retryThenExpectFocusOn,
+} from '@/common/loadFailureAssertions'
 import { ExercisePhotosPage } from './ExercisePhotosPage'
 import type { ExerciseDetail } from './types'
 
@@ -65,10 +71,16 @@ function pngFile(name: string, sizeBytes = 100) {
 }
 
 describe('ExercisePhotosPage', () => {
-  it('shows an invalid-exercise message for a non-numeric id, without ever fetching', () => {
+  it('an id that is not a number: "Exercise not found", without ever fetching', async () => {
     renderAt('/practitioner/library/not-a-number/photos')
-    expect(screen.getByText('Invalid exercise.')).toBeInTheDocument()
+    await expectRecordNotFound('exercise', [['Exercise Library', '/practitioner/library']])
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('a 404: "Exercise not found", and no Try again', async () => {
+    fetchMock.mockResolvedValue(errorResponse(404, ['Exercise 42 not found']))
+    renderAt('/practitioner/library/42/photos')
+    await expectRecordNotFound('exercise', [['Exercise Library', '/practitioner/library']])
   })
 
   it('shows a loading state before the exercise resolves', () => {
@@ -77,14 +89,14 @@ describe('ExercisePhotosPage', () => {
     expect(screen.getByText('Loading…')).toBeInTheDocument()
   })
 
-  it('shows an error state when the fetch fails', async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse({ statusCode: 500, message: ['Internal error'] }, 500),
-    )
+  it('any other failure: the load error with its reason; a retry that works focuses the heading', async () => {
+    const user = userEvent.setup()
+    fetchMock
+      .mockResolvedValueOnce(errorResponse(500))
+      .mockResolvedValueOnce(jsonResponse(makeExercise()))
     renderAt('/practitioner/library/42/photos')
-    expect(
-      await screen.findByText("Couldn't load this exercise. Try refreshing."),
-    ).toBeInTheDocument()
+    await expectLoadError('this exercise')
+    await retryThenExpectFocusOn(user, { level: 1, name: 'Manage Photos' })
   })
 
   it("shows the exercise's name and a 'no photos yet' message when its gallery is empty", async () => {

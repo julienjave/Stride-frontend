@@ -6,6 +6,11 @@ import { Link, MemoryRouter, Route, Routes, useNavigate } from 'react-router'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import { formatCalendarDate } from '@/common/formatCalendarDate'
 import { formatMomentDate } from '@/common/formatMomentDate'
+import {
+  expectLoadError,
+  expectRecordNotFound,
+  retryThenExpectFocusOn,
+} from '@/common/loadFailureAssertions'
 import { PatientPage } from './PatientPage'
 import { PatientsListPage } from './PatientsListPage'
 import type { CareTeamEntry } from './types'
@@ -298,22 +303,51 @@ describe('PatientPage — the patient', () => {
     expect(calls((url) => url.includes('/care-team') || url.includes('/assigned-programs'))).toEqual([])
   })
 
-  it('says the patient could not be loaded on any other error', async () => {
+  it('any other error: the load error with its reason; a retry that works focuses the name', async () => {
+    const user = userEvent.setup()
     patientResponse = { status: 500, body: { statusCode: 500, message: ['Boom'] } }
     renderPatientPage()
-    expect(
-      await screen.findByText("Couldn't load this patient. Try refreshing."),
-    ).toBeInTheDocument()
+    await expectLoadError('this patient')
+    patientResponse = { status: 200, body: pat }
+    await retryThenExpectFocusOn(user, { level: 1, name: 'Pat Lee' })
   })
 
-  it('refuses an address that is not a patient id', () => {
+  it('an address that is not a patient id: "Patient not found", without asking', async () => {
     renderPatientPage('/practitioner/patients/abc')
-    expect(screen.getByText('Invalid patient.')).toBeInTheDocument()
+    await expectRecordNotFound('patient', [['My patients', '/practitioner/patients']])
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('a 404 (which the backend gives no practitioner today) would say the same', async () => {
+    patientResponse = { status: 404, body: { statusCode: 404, message: ['User 6 not found'] } }
+    renderPatientPage()
+    await expectRecordNotFound('patient', [['My patients', '/practitioner/patients']])
   })
 })
 
 describe('PatientPage — programs', () => {
+  it("their list fails: its own load error, the rest of the page shown; a retry focuses the section", async () => {
+    const user = userEvent.setup()
+    const backend = fetchMock.getMockImplementation()!
+    let failures = 1
+    fetchMock.mockImplementation((input, init) => {
+      if (failures > 0 && urlOf(input).includes('/assigned-programs?patientId=6')) {
+        failures -= 1
+        return json(500, { statusCode: 500, message: ['Boom'] })
+      }
+      return backend(input, init)
+    })
+    renderPatientPage()
+    const programs = within(await screen.findByRole('region', { name: 'Programs' }))
+    expect(await programs.findByRole('alert')).toHaveTextContent(
+      /^Couldn't load the programs\. Something went wrong on our side\. Try again in a moment\.$/,
+    )
+    expect(screen.getByRole('heading', { level: 1, name: 'Pat Lee' })).toBeInTheDocument()
+    await user.click(programs.getByRole('button', { name: 'Try again' }))
+    expect(await programs.findByText('No programs assigned yet.')).toBeInTheDocument()
+    await waitFor(() => expect(programs.getByRole('heading', { name: 'Programs' })).toHaveFocus())
+  })
+
   it("lists the current programs, mine marked Yours, a colleague's with who assigned it", async () => {
     programs = [
       program(10, 'Shoulder — Sam', SAM),

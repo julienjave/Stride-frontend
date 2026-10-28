@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router'
@@ -300,11 +300,15 @@ describe('SessionReviewPage', () => {
     let fail = true
     sessionAnswer = () => (fail ? apiError(500, 'boom') : json(staffSession()))
     renderPage()
-    expect(await screen.findByRole('alert')).toHaveTextContent(/^Couldn't load this session\.$/)
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /^Couldn't load this session\. Something went wrong on our side\. Try again in a moment\.$/,
+    )
     expect(screen.getByRole('link', { name: 'Back to home' })).toHaveAttribute('href', '/practitioner')
     expect(screen.queryByText('Session not available')).not.toBeInTheDocument()
     fail = false
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByRole('button', { name: 'Mark as reviewed' })).toBeInTheDocument()
+    // Focus on the page's title, not lost at the top.
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveFocus())
   })
 })

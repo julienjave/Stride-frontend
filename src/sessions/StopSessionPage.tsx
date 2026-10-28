@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { Link, useNavigate, useParams } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { describeFailure } from '@/workouts/useWorkoutEditing'
@@ -78,6 +79,9 @@ function StopForm({ session }: { session: Session }) {
   // question (focus on its first choice).
   const [missingReason, setMissingReason] = useState(false)
   const reasonRef = useRef<HTMLDivElement>(null)
+  // After a "Try again" that worked, focus goes to this form's heading (the
+  // form mounts with the session: `shown` is true).
+  const heading = useRetryFocus<HTMLHeadingElement>('this session', true)
   const stop = useSessionWrite(
     (body: ReturnType<typeof stopBody>) => stopSession(session.id, body),
     () => void navigate('/patient', { replace: true, state: { notice: ENDING_NOTICE.stopped } }),
@@ -95,7 +99,9 @@ function StopForm({ session }: { session: Session }) {
   return (
     <Page>
       <div className="space-y-1">
-        <h1 className="text-xl font-semibold">Stop your session</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+          Stop your session
+        </h1>
         <p className="text-sm text-muted-foreground">{checklistProgressText(session.exercises)}</p>
         <p className="text-sm">
           The session will be kept as not finished, with what you did so far.

@@ -1,3 +1,4 @@
+import type { Ref } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -7,6 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { failureText } from '@/api/apiErrors'
+import { LoadError } from '@/common/LoadError'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { workoutLabel } from '@/common/workoutLabel'
 import { useExercise } from '@/exercises/useExercise'
 import { usePreferredWeightUnit } from '@/auth/usePreferredWeightUnit'
@@ -56,6 +59,9 @@ export interface NewWorkoutExerciseViewProps {
     values: AddTemplateExerciseFormValues,
     workoutId: number | null,
   ) => Promise<unknown>
+  // The page's focus target after a "Try again" of the template / program
+  // that worked (useRetryFocus): the title above "- Add Exercise -".
+  headingRef?: Ref<HTMLHeadingElement>
 }
 
 export function NewWorkoutExerciseView({
@@ -63,6 +69,7 @@ export function NewWorkoutExerciseView({
   resource,
   resourcePath,
   add,
+  headingRef,
 }: NewWorkoutExerciseViewProps) {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -96,11 +103,14 @@ export function NewWorkoutExerciseView({
   // enabled: only fetch once something's actually been picked — see
   // useExercise's own comment on why this couldn't just be a
   // conditional hook call.
-  const {
-    data: exercise,
-    isLoading: isLoadingExercise,
-    isError: isExerciseError,
-  } = useExercise(pickedExerciseId ?? -1, pickedExerciseId != null)
+  const exerciseQuery = useExercise(pickedExerciseId ?? -1, pickedExerciseId != null)
+  const { data: exercise, isLoading: isLoadingExercise } = exerciseQuery
+  // After a "Try again" of the chosen exercise that worked, focus goes to
+  // its name.
+  const exerciseHeading = useRetryFocus<HTMLHeadingElement>(
+    'the chosen exercise',
+    exerciseQuery.isSuccess,
+  )
 
   // z.preprocess (used for the NaN-from-empty-number-input handling —
   // see schemas.ts's own comment) makes this schema's INPUT type differ
@@ -158,7 +168,13 @@ export function NewWorkoutExerciseView({
   return (
     <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4">
       <div>
-        <h1 className="text-xl font-semibold">{resource?.title ?? '…'}</h1>
+        <h1
+          ref={headingRef}
+          tabIndex={headingRef ? -1 : undefined}
+          className="text-xl font-semibold outline-none"
+        >
+          {resource?.title ?? '…'}
+        </h1>
         <p className="text-sm text-muted-foreground">- Add Exercise -</p>
         {targetWorkoutLabel && (
           <p className="text-sm">
@@ -187,14 +203,24 @@ export function NewWorkoutExerciseView({
         </div>
       ) : isLoadingExercise ? (
         <p className="text-sm text-muted-foreground">Loading exercise…</p>
-      ) : isExerciseError || !exercise ? (
-        <p className="text-sm text-destructive">
-          Couldn't load that exercise. Try selecting again.
-        </p>
+      ) : exerciseQuery.isError || !exercise ? (
+        // A 404 too (an exercise deleted from the library meanwhile, or a
+        // made-up id): choosing another one is the way out, under the button.
+        <LoadError what="the chosen exercise" queries={[exerciseQuery]}>
+          <Link to={pickerHref} className="text-sm underline underline-offset-4">
+            Choose another exercise
+          </Link>
+        </LoadError>
       ) : (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium">{exercise.name}</h2>
+            <h2
+              ref={exerciseHeading}
+              tabIndex={-1}
+              className="text-lg font-medium outline-none"
+            >
+              {exercise.name}
+            </h2>
             <Button asChild variant="outline" size="sm">
               <Link to={pickerHref}>Change</Link>
             </Button>

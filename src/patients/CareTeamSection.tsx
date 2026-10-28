@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from 'react'
+import { LoadError } from '@/common/LoadError'
 import { UserAvatar } from '@/common/UserAvatar'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { formatMomentDate } from '@/common/formatMomentDate'
 import { cn } from '@/lib/utils'
 import { AddCareTeamMemberDialog } from './AddCareTeamMemberDialog'
@@ -52,7 +54,10 @@ export function CareTeamSection({
 }: CareTeamSectionProps) {
   const [showPast, setShowPast] = useState(false)
   // Two cache entries (with / without history); toggling back is instant.
-  const { data: entries, isLoading, isError } = useCareTeam(patientId, showPast)
+  const careTeam = useCareTeam(patientId, showPast)
+  const { data: entries, isLoading, isError } = careTeam
+  // After a "Try again" that worked, focus goes to the section's heading.
+  const heading = useRetryFocus<HTMLHeadingElement>('the care team', careTeam.isSuccess)
 
   const actions = (
     <div className="flex flex-wrap items-center gap-3">
@@ -103,7 +108,7 @@ export function CareTeamSection({
   }
 
   return (
-    <PatientPageSection title="Care team" action={actions}>
+    <PatientPageSection title="Care team" action={actions} headingRef={heading}>
       {/* Instead of the button, why there is none — for whoever would have
           had it. The admin can do something about it (reactivate, on the
           same page); a practitioner is told who can. */}
@@ -114,9 +119,7 @@ export function CareTeamSection({
         </p>
       )}
       {isLoading && <p className="text-sm text-muted-foreground">Loading the care team…</p>}
-      {isError && (
-        <p className="text-sm text-destructive">Couldn't load the care team. Try refreshing.</p>
-      )}
+      {isError && <LoadError what="the care team" queries={[careTeam]} />}
       {entries && entries.length === 0 && (
         // Possible for an admin: a patient whose last practitioner was
         // removed. (A practitioner on the page is on the team themselves.)

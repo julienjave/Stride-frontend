@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { localDateString } from '@/common/calendarDate'
+import { useRetryFocus } from '@/common/useRetryFocus'
 import { workoutNames } from '@/assigned-programs/programSchedule'
 import { useAssignedProgram } from '@/assigned-programs/useAssignedProgram'
 import { describeFailure } from '@/workouts/useWorkoutEditing'
@@ -108,11 +109,18 @@ function FinishForm({ session, subtitle }: { session: Session; subtitle: string 
   )
   const unticked = untickedText(session.exercises)
   const sessionPath = `/patient/sessions/${session.id}`
+  // After a "Try again" that worked, focus goes to this form's heading. (The
+  // form mounts only once the session is there, so `shown` is simply true.
+  // The page's other two states — finished already, or from another day —
+  // have no heading of their own; nothing is focused for them.)
+  const heading = useRetryFocus<HTMLHeadingElement>('this session', true)
 
   return (
     <Page>
       <div className="space-y-1">
-        <h1 className="text-xl font-semibold">Finish your session</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+          Finish your session
+        </h1>
         {subtitle && <p className="font-medium">{subtitle}</p>}
         <p className="text-sm text-muted-foreground">{checklistProgressText(session.exercises)}</p>
       </div>

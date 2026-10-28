@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
@@ -354,15 +354,19 @@ describe('AdminHomePage', () => {
       const user = userEvent.setup()
       answers.metrics = () => json({ statusCode: 500, message: ['Boom'] }, 500)
       renderWithUser()
-      expect(
-        await within(metricsSection()).findByText("Couldn't load the metrics."),
-      ).toBeInTheDocument()
+      expect(await within(metricsSection()).findByRole('alert')).toHaveTextContent(
+        /^Couldn't load the metrics\. Something went wrong on our side\. Try again in a moment\.$/,
+      )
       expect(within(metricsSection()).queryAllByRole('term')).toHaveLength(0)
 
       answers.metrics = () => json(METRICS)
       await user.click(within(metricsSection()).getByRole('button', { name: 'Try again' }))
       await within(metricsSection()).findByText('Needs attention')
       expect(tiles()).toHaveLength(5)
+      // Focus on the section's heading, where the numbers came back.
+      await waitFor(() =>
+        expect(within(metricsSection()).getByRole('heading', { name: 'Metrics' })).toHaveFocus(),
+      )
       // Only the failed request was asked again: the activity once, the
       // metrics twice.
       expect(requests().filter((r) => r === 'GET /admin/metrics')).toHaveLength(2)
@@ -438,13 +442,26 @@ describe('AdminHomePage', () => {
     it('links to the audit log filtered to changes — even when the summary failed', async () => {
       answers.activity = () => json({ statusCode: 500, message: ['Boom'] }, 500)
       renderWithUser()
-      expect(
-        await within(activitySection()).findByText("Couldn't load recent activity."),
-      ).toBeInTheDocument()
+      expect(await within(activitySection()).findByRole('alert')).toHaveTextContent(
+        /^Couldn't load recent activity\. Something went wrong on our side\. Try again in a moment\.$/,
+      )
       expect(within(activitySection()).getByRole('button', { name: 'Try again' })).toBeInTheDocument()
       expect(within(activitySection()).getByRole('link', { name: 'See all changes' })).toHaveAttribute(
         'href',
         '/admin/audit-log?kind=change',
+      )
+    })
+
+    it('a "Try again" of the activity that works: focus on its heading', async () => {
+      const user = userEvent.setup()
+      const good = answers.activity
+      answers.activity = () => json({ statusCode: 500, message: ['Boom'] }, 500)
+      renderWithUser()
+      await within(activitySection()).findByRole('alert')
+      answers.activity = good
+      await user.click(within(activitySection()).getByRole('button', { name: 'Try again' }))
+      await waitFor(() =>
+        expect(within(activitySection()).getByRole('heading', { name: 'Recent activity' })).toHaveFocus(),
       )
     })
   })
