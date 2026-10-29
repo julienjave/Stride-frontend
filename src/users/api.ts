@@ -64,7 +64,9 @@ function emptyToUndefined(value: string | undefined) {
   return value === '' ? undefined : value
 }
 
-export function createUser(values: CreateUserFormValues) {
+// `allowPossibleDuplicate`: the admin saw the possible-duplicate warning and
+// chose to go ahead (decisions §27) — sent only then, for both routes.
+export function createUser(values: CreateUserFormValues, allowPossibleDuplicate = false) {
   const {
     role,
     phone,
@@ -125,6 +127,7 @@ export function createUser(values: CreateUserFormValues) {
       // could coincidentally... it can't, ids start at 1, but relying on
       // that fact would be fragile — checking the string directly isn't).
       clinicId: clinicId ? Number(clinicId) : undefined,
+      ...(allowPossibleDuplicate && { allowPossibleDuplicate: true }),
     },
   })
 }
@@ -136,7 +139,11 @@ export function createUser(values: CreateUserFormValues) {
 // profile data, no clinics), so the caller is expected to invalidate
 // userQueryKey(userId) afterward instead, same reasoning as
 // addClinicMember/removeClinicMember in clinics/api.ts.
-export function grantRole(userId: number, values: GrantRoleFormValues) {
+export function grantRole(
+  userId: number,
+  values: GrantRoleFormValues,
+  allowPossibleDuplicate = false,
+) {
   const { role, licenseNumber, specialties, bio, dateOfBirth, position } = values
 
   return apiRequest<string[]>(`/users/${userId}/roles`, {
@@ -151,6 +158,7 @@ export function grantRole(userId: number, values: GrantRoleFormValues) {
       }),
       ...(role === 'patient' && { dateOfBirth }),
       ...(role === 'admin' && { position: emptyToUndefined(position) }),
+      ...(allowPossibleDuplicate && { allowPossibleDuplicate: true }),
     },
   })
 }

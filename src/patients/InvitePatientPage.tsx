@@ -20,6 +20,8 @@ import { ignoreEmptySelection } from '@/common/ignoreEmptySelection'
 import { InvitationSentNotice } from '@/invitations/InvitationSentNotice'
 import type { CreatedUser } from '@/users/types'
 import { invitePatient } from './api'
+import { PossibleDuplicateNotice } from './PossibleDuplicateNotice'
+import { practitionerDuplicateWarning } from '@/users/possibleDuplicate'
 import { invitePatientSchema, type InvitePatientFormValues } from './schemas'
 
 // "Invite a new patient" (/practitioner/patients/invite) — the second half
@@ -67,9 +69,13 @@ export function InvitePatientPage() {
   // form (the next step is going back to the roster, not a second
   // invitation — that's one click away, "Invite another patient").
   const [lastInvited, setLastInvited] = useState<CreatedUser | null>(null)
+  // A match from the possible-duplicate warning, added to my patients
+  // instead of being invited (decisions §27).
+  const [addedInstead, setAddedInstead] = useState<string | null>(null)
 
   const inviteMutation = useMutation({
-    mutationFn: invitePatient,
+    mutationFn: ({ values, allowPossibleDuplicate }: InviteRequest) =>
+      invitePatient(values, allowPossibleDuplicate),
     onSuccess: (patient) => {
       setLastInvited(patient)
       // Both lists now lack this patient (or, for the directory, would
@@ -88,6 +94,25 @@ export function InvitePatientPage() {
     // The names from the address bar are NOT reused: they belonged to the
     // previous patient.
     form.reset(emptyForm)
+  }
+
+  // Null unless the last answer was the possible-duplicate warning.
+  const duplicateWarning = practitionerDuplicateWarning(inviteMutation.error)
+  // The person the warning is about: the values that request sent.
+  const warnedAbout = inviteMutation.variables?.values
+
+  if (addedInstead) {
+    return (
+      <div className="mx-auto mt-8 max-w-sm space-y-4 px-4">
+        <h1 className="text-xl font-semibold">Invite a new patient</h1>
+        <p role="status" className="rounded-lg border border-green-600/30 bg-green-600/10 p-3 text-sm">
+          {addedInstead} is now in your patients — no new account was created.
+        </p>
+        <Button asChild>
+          <Link to="/practitioner/patients">Go to my patients</Link>
+        </Button>
+      </div>
+    )
   }
 
   if (lastInvited) {
@@ -142,7 +167,11 @@ export function InvitePatientPage() {
         </p>
       ) : (
         <form
-          onSubmit={(e) => void form.handleSubmit((values) => inviteMutation.mutate(values))(e)}
+          onSubmit={(e) =>
+            void form.handleSubmit((values) =>
+              inviteMutation.mutate({ values, allowPossibleDuplicate: false }),
+            )(e)
+          }
           className="space-y-4"
           noValidate
         >
@@ -241,8 +270,24 @@ export function InvitePatientPage() {
             </div>
           )}
 
-          {inviteMutation.isError && (
-            <p className="text-sm text-destructive">{inviteErrorMessage(inviteMutation.error)}</p>
+          {duplicateWarning && warnedAbout ? (
+            <PossibleDuplicateNotice
+              // A new warning (another submit) is a new notice: its heading
+              // takes focus again.
+              key={inviteMutation.submittedAt}
+              warning={duplicateWarning}
+              firstName={warnedAbout.firstName}
+              lastName={warnedAbout.lastName}
+              goingAhead={inviteMutation.isPending}
+              onGoAhead={() =>
+                inviteMutation.mutate({ values: warnedAbout, allowPossibleDuplicate: true })
+              }
+              onAdded={setAddedInstead}
+            />
+          ) : (
+            inviteMutation.isError && (
+              <p className="text-sm text-destructive">{inviteErrorMessage(inviteMutation.error)}</p>
+            )
           )}
 
           <Button type="submit" className="w-full" disabled={inviteMutation.isPending}>
@@ -265,6 +310,11 @@ export function InvitePatientPage() {
 // Not exported: a component file that also exports plain functions breaks
 // Vite's fast refresh (the react-refresh/only-export-components lint rule).
 // The tests reach it through the page, which is how it's used anyway.
+interface InviteRequest {
+  values: InvitePatientFormValues
+  allowPossibleDuplicate: boolean
+}
+
 function inviteErrorMessage(error: Error): string {
   if (error instanceof ApiError && error.statusCode === 409) {
     return (

@@ -4,9 +4,8 @@ import { LoadError } from '@/common/LoadError'
 import { useDebouncedValue } from '@/common/useDebouncedValue'
 import { useRetryFocus } from '@/common/useRetryFocus'
 import { cn } from '@/lib/utils'
-import { AddToMyPatientsDialog } from './AddToMyPatientsDialog'
 import { DIRECTORY_RESULT_LIMIT, MIN_SEARCH_LENGTH } from './api'
-import { PatientIdentity } from './PatientIdentity'
+import { DirectoryPatientRow } from './DirectoryPatientRow'
 import { directorySearchTerm, namesFromSearch } from './roster'
 import { useDirectoryPatients } from './useDirectoryPatients'
 import { ListSkeleton } from '@/common/Loading'
@@ -129,37 +128,11 @@ export function AddPatientPage() {
           )}
         >
           {patients.map((patient) => (
-            <li key={patient.id} className="flex items-center justify-between gap-3 px-4 py-3">
-              <PatientIdentity
-                firstName={patient.firstName}
-                lastName={patient.lastName}
-                avatarUrl={patient.avatarUrl}
-                dateOfBirth={patient.dateOfBirth}
-                clinics={patient.sharedClinics}
-              />
-              {patient.onMyCareTeam ? (
-                // Already mine: nothing to add — lead to them instead.
-                <div className="flex shrink-0 flex-col items-end gap-1 text-sm">
-                  <span className="text-muted-foreground">In your patients</span>
-                  <Link
-                    to={`/practitioner/patients/${patient.id}`}
-                    className="font-medium underline"
-                    aria-label={`Open ${patient.firstName} ${patient.lastName}`}
-                  >
-                    Open
-                  </Link>
-                </div>
-              ) : (
-                <div className="shrink-0">
-                  <AddToMyPatientsDialog
-                    patientId={patient.id}
-                    patientFirstName={patient.firstName}
-                    patientLastName={patient.lastName}
-                    onAdded={() => setLastAdded(`${patient.firstName} ${patient.lastName}`)}
-                  />
-                </div>
-              )}
-            </li>
+            <DirectoryPatientRow
+              key={patient.id}
+              patient={patient}
+              onAdded={() => setLastAdded(`${patient.firstName} ${patient.lastName}`)}
+            />
           ))}
         </ul>
       )}

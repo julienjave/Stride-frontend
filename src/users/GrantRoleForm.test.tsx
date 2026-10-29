@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router'
 import { GrantRoleForm } from './GrantRoleForm'
 import { userQueryKey } from './api'
 
@@ -18,7 +19,10 @@ function renderForm(
 ) {
   const utils = render(
     <QueryClientProvider client={queryClient}>
-      <GrantRoleForm userId={7} currentRoles={currentRoles} />
+      {/* A router: the possible-duplicate warning links to accounts. */}
+      <MemoryRouter>
+        <GrantRoleForm userId={7} currentRoles={currentRoles} />
+      </MemoryRouter>
     </QueryClientProvider>,
   )
   return { ...utils, queryClient }
@@ -201,5 +205,72 @@ describe('GrantRoleForm — successful submission', () => {
     await user.click(screen.getByRole('button', { name: 'Grant role' }))
 
     expect(await screen.findByText(/^Could not grant that role\.$/)).toBeInTheDocument()
+  })
+})
+
+// Granting the patient role makes a new patient record: the same
+// possible-duplicate warning as creating one (decisions §27, pass 2).
+describe('GrantRoleForm — a possible duplicate', () => {
+  const warning = {
+    statusCode: 409,
+    message: ['A patient with this name and date of birth may already be in Stride.'],
+    error: 'ConflictException',
+    timestamp: '2031-01-01T00:00:00.000Z',
+    path: '/users/7/roles',
+    reason: 'possible_duplicate',
+    matches: [{ id: 12, firstName: 'Sam', lastName: 'Okafor', isActive: true, clinics: [] }],
+  }
+
+  it('shows the matches, then grants anyway with the go-ahead', async () => {
+    fetchMock.mockImplementation((_input, init) =>
+      Promise.resolve(
+        typeof init?.body === 'string' && init.body.includes('allowPossibleDuplicate')
+          ? new Response(JSON.stringify(['admin', 'patient']), { status: 201 })
+          : new Response(JSON.stringify(warning), { status: 409 }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderForm(['admin'])
+    await user.type(screen.getByLabelText('Date of birth'), '1985-09-09')
+    await user.click(screen.getByRole('button', { name: 'Grant role' }))
+
+    const heading = await screen.findByRole('heading', {
+      name: 'This patient may already be in Stride',
+    })
+    expect(heading).toHaveFocus()
+    expect(
+      screen.getByRole('link', { name: 'Sam Okafor (opens in a new tab)' }),
+    ).toHaveAttribute('href', '/admin/users/12')
+
+    await user.click(screen.getByRole('button', { name: 'Grant the patient role anyway' }))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    expect(fetchMock.mock.calls.map(([, init]) => init?.body)).toEqual([
+      '{"role":"patient","dateOfBirth":"1985-09-09"}',
+      '{"role":"patient","dateOfBirth":"1985-09-09","allowPossibleDuplicate":true}',
+    ])
+  })
+
+  // Any other refusal keeps its plain words.
+  it('shows any other refusal as before', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          statusCode: 409,
+          message: ['User already has the patient role'],
+          error: 'ConflictException',
+          timestamp: '2031-01-01T00:00:00.000Z',
+          path: '/users/7/roles',
+        }),
+        { status: 409 },
+      ),
+    )
+    const user = userEvent.setup()
+    renderForm(['admin'])
+    await user.type(screen.getByLabelText('Date of birth'), '1985-09-09')
+    await user.click(screen.getByRole('button', { name: 'Grant role' }))
+
+    expect(await screen.findByText('User already has the patient role')).toBeInTheDocument()
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument()
   })
 })

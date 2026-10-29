@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
@@ -216,5 +216,193 @@ describe('InvitePatientPage — after inviting', () => {
     expect(
       await screen.findByText('You can only add patients to a clinic you belong to'),
     ).toBeInTheDocument()
+  })
+})
+// The possible-duplicate warning (decisions §27, pass 2): a 409 with
+// `reason: 'possible_duplicate'` is a question, not an error — shown with
+// what the practitioner may know, and a way to go ahead.
+describe('InvitePatientPage — a possible duplicate', () => {
+  const marieInMyClinic = {
+    id: 7,
+    firstName: 'Marie',
+    lastName: 'Martin',
+    avatarUrl: null,
+    dateOfBirth: '1985-04-12',
+    sharedClinics: [riverside],
+    onMyCareTeam: false,
+  }
+
+  function duplicateBody(inYourClinics: object[], elsewhere: boolean) {
+    return {
+      statusCode: 409,
+      message: ['A patient with this name and date of birth may already be in Stride.'],
+      error: 'ConflictException',
+      timestamp: '2031-01-01T00:00:00.000Z',
+      path: '/users',
+      reason: 'possible_duplicate',
+      inYourClinics,
+      elsewhere,
+    }
+  }
+
+  // The first invitation answers the warning; one sent with the go-ahead
+  // creates the patient; joining a care team answers 201.
+  function answerWithWarning(body: object) {
+    fetchMock.mockImplementation((input, init) => {
+      const url = urlOf(input)
+      if (url.includes('/care-team')) {
+        return Promise.resolve(new Response('{"id":1}', { status: 201 }))
+      }
+      const goAhead = typeof init?.body === 'string' && init.body.includes('allowPossibleDuplicate')
+      return Promise.resolve(
+        goAhead
+          ? new Response(JSON.stringify(invitedPatient), { status: 201 })
+          : new Response(JSON.stringify(body), { status: 409 }),
+      )
+    })
+  }
+
+  async function sendMarie(user: ReturnType<typeof userEvent.setup>) {
+    renderInvitePage({ url: '/practitioner/patients/invite?firstName=Marie&lastName=Martin' })
+    await fillTheRest(user)
+    await user.click(screen.getByRole('button', { name: 'Send invitation' }))
+    return screen.findByRole('heading', { name: 'This patient may already be in Stride' })
+  }
+
+  it('shows a match from my clinics as a directory row, focused, instead of an error', async () => {
+    const user = userEvent.setup()
+    answerWithWarning(duplicateBody([marieInMyClinic], false))
+
+    const heading = await sendMarie(user)
+
+    expect(heading).toHaveFocus()
+    const notice = screen.getByRole('region', { name: 'This patient may already be in Stride' })
+    expect(
+      within(notice).getByText(
+        'In your clinics — if this is them, add them to your patients instead of inviting:',
+      ),
+    ).toBeInTheDocument()
+    // The directory's row: who (with the clinic we share) and its action.
+    expect(within(notice).getByText('Marie Martin')).toBeInTheDocument()
+    expect(within(notice).getByText('Riverside Physio')).toBeInTheDocument()
+    expect(within(notice).getByRole('button', { name: 'Add to my patients' })).toBeInTheDocument()
+    // No "elsewhere" sentence, and not the email-taken explanation.
+    expect(within(notice).queryByText(/can't see/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/already belongs to a Stride account/)).not.toBeInTheDocument()
+  })
+
+  it('says only that a match exists when I can see none', async () => {
+    const user = userEvent.setup()
+    answerWithWarning(duplicateBody([], true))
+
+    await sendMarie(user)
+
+    expect(
+      screen.getByText(
+        "You can't see the existing account: it's at a clinic you don't work at, or it has been deactivated. Check with an admin before inviting — they can give you access to it, or reactivate it.",
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('list')).not.toBeInTheDocument()
+  })
+
+  it('says "also" when there are both kinds of match', async () => {
+    const user = userEvent.setup()
+    answerWithWarning(duplicateBody([marieInMyClinic], true))
+
+    await sendMarie(user)
+
+    expect(
+      screen.getByText(/^There is also a match you can't see: it's at a clinic/),
+    ).toBeInTheDocument()
+  })
+
+  it('invites anyway when asked — the same person, with the go-ahead', async () => {
+    const user = userEvent.setup()
+    answerWithWarning(duplicateBody([], true))
+    await sendMarie(user)
+
+    await user.click(screen.getByRole('button', { name: 'Invite Marie Martin anyway' }))
+
+    expect(await screen.findByText(/Invited Marie Martin/)).toBeInTheDocument()
+    expect(inviteCalls()).toHaveLength(2)
+    expect(inviteCalls()[1][1]?.body).toBe(
+      '{"role":"patient","firstName":"Marie","lastName":"Martin","email":"marie@example.com","dateOfBirth":"1985-04-12","clinicId":1,"allowPossibleDuplicate":true}',
+    )
+  })
+
+  // Edited after the warning: the button still names the person warned
+  // about, and sends THOSE values — a normal submit checks the new ones.
+  it('goes ahead with the person the warning was about, not later edits', async () => {
+    const user = userEvent.setup()
+    answerWithWarning(duplicateBody([], true))
+    await sendMarie(user)
+
+    await user.clear(screen.getByLabelText('First name'))
+    await user.type(screen.getByLabelText('First name'), 'Mara')
+    await user.click(screen.getByRole('button', { name: 'Invite Marie Martin anyway' }))
+
+    await waitFor(() => expect(inviteCalls()).toHaveLength(2))
+    expect(JSON.parse(inviteCalls()[1][1]?.body as string)).toMatchObject({
+      firstName: 'Marie',
+      allowPossibleDuplicate: true,
+    })
+  })
+
+  // A second warning (the names edited, sent again) is a new notice: its
+  // heading takes focus again — the person just pressed Send.
+  it('focuses the warning again when a new one comes', async () => {
+    const user = userEvent.setup()
+    answerWithWarning(duplicateBody([], true))
+    await sendMarie(user)
+
+    await user.type(screen.getByLabelText('Last name'), 'e')
+    await user.click(screen.getByRole('button', { name: 'Send invitation' }))
+
+    await waitFor(() => expect(inviteCalls()).toHaveLength(2))
+    expect(
+      await screen.findByRole('button', { name: 'Invite Marie Martine anyway' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'This patient may already be in Stride' }),
+    ).toHaveFocus()
+  })
+
+  it('adds the existing patient instead — and creates no account', async () => {
+    const user = userEvent.setup()
+    answerWithWarning(duplicateBody([marieInMyClinic], false))
+    await sendMarie(user)
+
+    const notice = screen.getByRole('region', { name: 'This patient may already be in Stride' })
+    await user.click(within(notice).getByRole('button', { name: 'Add to my patients' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Add to my patients' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Marie Martin is now in your patients — no new account was created.',
+    )
+    expect(inviteCalls().map(([input]) => urlOf(input))).toEqual([
+      'http://localhost:3000/users',
+      'http://localhost:3000/users/7/care-team',
+    ])
+  })
+
+  // The route's other 409 has no reason: its own words, no warning.
+  it('still explains an email that is already taken', async () => {
+    const user = userEvent.setup()
+    respondToInvite(409, {
+      statusCode: 409,
+      message: ['A user with this email already exists'],
+      error: 'ConflictException',
+      timestamp: '2031-01-01T00:00:00.000Z',
+      path: '/users',
+    })
+    renderInvitePage({ url: '/practitioner/patients/invite?firstName=Marie&lastName=Martin' })
+    await fillTheRest(user)
+    await user.click(screen.getByRole('button', { name: 'Send invitation' }))
+
+    expect(await screen.findByText(/already belongs to a Stride account/)).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'This patient may already be in Stride' }),
+    ).not.toBeInTheDocument()
   })
 })

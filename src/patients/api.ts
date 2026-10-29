@@ -98,7 +98,10 @@ export function joinCareTeam(patientId: number, reason: string) {
 //
 // clinicId arrives as a string, like every <select> value (see
 // users/schemas.ts) — converted to the number the backend expects.
-export function invitePatient(values: InvitePatientFormValues) {
+// `allowPossibleDuplicate`: the practitioner saw the possible-duplicate
+// warning and chose to invite anyway (decisions §27). Sent only then — an
+// ordinary invitation's body is unchanged.
+export function invitePatient(values: InvitePatientFormValues, allowPossibleDuplicate = false) {
   return apiRequest<CreatedUser>('/users', {
     method: 'POST',
     body: {
@@ -108,6 +111,7 @@ export function invitePatient(values: InvitePatientFormValues) {
       email: values.email,
       dateOfBirth: values.dateOfBirth,
       clinicId: Number(values.clinicId),
+      ...(allowPossibleDuplicate && { allowPossibleDuplicate: true }),
     },
   })
 }

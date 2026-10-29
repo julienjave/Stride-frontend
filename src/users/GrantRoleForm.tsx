@@ -12,6 +12,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { failureText } from '@/api/apiErrors'
+import { adminDuplicateMatches } from './possibleDuplicate'
+import { PossibleDuplicatesNotice } from './PossibleDuplicatesNotice'
 import { TagListField } from '@/common/TagListField'
 import { grantRole, userQueryKey } from './api'
 import {
@@ -82,15 +84,22 @@ function GrantRoleFormView({
   const role = useWatch({ control: form.control, name: 'role' })
 
   const grantRoleMutation = useMutation({
-    mutationFn: (values: GrantRoleFormValues) => grantRole(userId, values),
+    mutationFn: ({ values, allowPossibleDuplicate }: GrantRequest) =>
+      grantRole(userId, values, allowPossibleDuplicate),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: userQueryKey(userId), exact: true }),
   })
+  // Null unless the last answer was the possible-duplicate warning; then
+  // the values that request sent.
+  const duplicates = adminDuplicateMatches(grantRoleMutation.error)
+  const warnedAbout = grantRoleMutation.variables?.values
 
   return (
     <form
       onSubmit={(e) =>
-        void form.handleSubmit((values) => grantRoleMutation.mutate(values))(e)
+        void form.handleSubmit((values) =>
+          grantRoleMutation.mutate({ values, allowPossibleDuplicate: false }),
+        )(e)
       }
       className="space-y-3"
       noValidate
@@ -180,10 +189,24 @@ function GrantRoleFormView({
         </div>
       )}
 
-      {grantRoleMutation.isError && (
-        <p className="text-sm text-destructive">
-          {failureText(grantRoleMutation.error, 'Could not grant that role.')}
-        </p>
+      {duplicates && warnedAbout ? (
+        // Granting the patient role makes a new patient record: the same
+        // possible-duplicate warning as creating one (decisions §27).
+        <PossibleDuplicatesNotice
+          key={grantRoleMutation.submittedAt}
+          matches={duplicates}
+          goAheadLabel="Grant the patient role anyway"
+          goingAhead={grantRoleMutation.isPending}
+          onGoAhead={() =>
+            grantRoleMutation.mutate({ values: warnedAbout, allowPossibleDuplicate: true })
+          }
+        />
+      ) : (
+        grantRoleMutation.isError && (
+          <p className="text-sm text-destructive">
+            {failureText(grantRoleMutation.error, 'Could not grant that role.')}
+          </p>
+        )
       )}
 
       <Button type="submit" size="sm" disabled={grantRoleMutation.isPending}>
@@ -191,4 +214,9 @@ function GrantRoleFormView({
       </Button>
     </form>
   )
+}
+
+interface GrantRequest {
+  values: GrantRoleFormValues
+  allowPossibleDuplicate: boolean
 }

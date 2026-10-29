@@ -21,6 +21,8 @@ import { TagListField } from '@/common/TagListField'
 import { ignoreEmptySelection } from '@/common/ignoreEmptySelection'
 import { InvitationSentNotice } from '@/invitations/InvitationSentNotice'
 import { createUser } from './api'
+import { adminDuplicateMatches, goAheadLabel } from './possibleDuplicate'
+import { PossibleDuplicatesNotice } from './PossibleDuplicatesNotice'
 import {
   createUserSchema,
   SPECIALTY_RULES,
@@ -79,7 +81,8 @@ export function CreateUserPage() {
 
   const queryClient = useQueryClient()
   const createUserMutation = useMutation({
-    mutationFn: createUser,
+    mutationFn: ({ values, allowPossibleDuplicate }: CreateRequest) =>
+      createUser(values, allowPossibleDuplicate),
     onSuccess: (user) => {
       // A new account means a new InvitationSentNotice (it's keyed by the
       // account's id below), so nothing is left from resending the
@@ -107,6 +110,11 @@ export function CreateUserPage() {
     },
   })
 
+  // Null unless the last answer was the possible-duplicate warning
+  // (decisions §27); then the patient it was about — the values sent.
+  const duplicates = adminDuplicateMatches(createUserMutation.error)
+  const warnedAbout = createUserMutation.variables?.values
+
   return (
     <div className="mx-auto mt-12 max-w-sm space-y-4 px-4">
       <h1 className="text-xl font-semibold">Add a user</h1>
@@ -126,7 +134,9 @@ export function CreateUserPage() {
 
       <form
         onSubmit={(e) =>
-          void form.handleSubmit((values) => createUserMutation.mutate(values))(e)
+          void form.handleSubmit((values) =>
+            createUserMutation.mutate({ values, allowPossibleDuplicate: false }),
+          )(e)
         }
         className="space-y-4"
         noValidate
@@ -333,10 +343,22 @@ export function CreateUserPage() {
           </div>
         )}
 
-        {createUserMutation.isError && (
-          <p className="text-sm text-destructive">
-            {failureText(createUserMutation.error)}
-          </p>
+        {duplicates && warnedAbout ? (
+          <PossibleDuplicatesNotice
+            // A new warning (another submit) is a new notice: its heading
+            // takes focus again.
+            key={createUserMutation.submittedAt}
+            matches={duplicates}
+            goAheadLabel={goAheadLabel('Create', warnedAbout.firstName, warnedAbout.lastName)}
+            goingAhead={createUserMutation.isPending}
+            onGoAhead={() =>
+              createUserMutation.mutate({ values: warnedAbout, allowPossibleDuplicate: true })
+            }
+          />
+        ) : (
+          createUserMutation.isError && (
+            <p className="text-sm text-destructive">{failureText(createUserMutation.error)}</p>
+          )
         )}
 
         <Button type="submit" disabled={createUserMutation.isPending}>
@@ -351,4 +373,9 @@ export function CreateUserPage() {
       </p>
     </div>
   )
+}
+
+interface CreateRequest {
+  values: CreateUserFormValues
+  allowPossibleDuplicate: boolean
 }

@@ -158,6 +158,27 @@ describe('RECORDS_EXPORT_LINK_REFUSED', () => {
   })
 })
 
+// A patient created (or the patient role granted) after the
+// possible-duplicate warning (decisions §27): the matches by user id, after
+// the entry's other details.
+describe('USER_CREATED and USER_ROLE_GRANTED', () => {
+  it('names the possible duplicates by user id, after the other details', () => {
+    expect(
+      shown({ possibleDuplicateOf: [12, 15], invitationId: 9, careTeamLinkId: 4 }, 'USER_CREATED'),
+    ).toStrictEqual([
+      ['Care team link ID', '#4'],
+      ['Invitation ID', '#9'],
+      ['Possible duplicate of (user ids)', '12, 15'],
+    ])
+    expect(
+      shown({ possibleDuplicateOf: [12], role: 'patient' }, 'USER_ROLE_GRANTED'),
+    ).toStrictEqual([
+      ['Role', 'patient'],
+      ['Possible duplicate of (user ids)', '12'],
+    ])
+  })
+})
+
 describe('anything the table does not know', () => {
   it('shows a value it has no words for as stored', () => {
     expect(shown({ reason: 'something_new' }, 'STEP_UP_FAILED')).toStrictEqual([

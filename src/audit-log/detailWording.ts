@@ -173,6 +173,21 @@ const DETAIL_WORDING: Partial<Record<AuditAction, Record<string, DetailWording>>
   EMAIL_CHANGE_CANCELLED: {
     reason: { values: EMAIL_CHANGE_CANCEL_REASON },
   },
+  // A patient created (or the patient role granted) after the
+  // possible-duplicate warning (decisions §27): the accounts it may
+  // duplicate, by user id — what a merge would start from. The other keys
+  // are listed only to keep their place before it (no words of their own).
+  USER_CREATED: {
+    record: {},
+    careTeamLinkId: {},
+    invitationId: {},
+    possibleDuplicateOf: { label: 'Possible duplicate of (user ids)' },
+  },
+  USER_ROLE_GRANTED: {
+    role: {},
+    profile: {},
+    possibleDuplicateOf: { label: 'Possible duplicate of (user ids)' },
+  },
 }
 
 // --- Lookups ---------------------------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
@@ -663,5 +663,115 @@ describe('CreateUserPage — a failed submission', () => {
     expect(
       await screen.findByText('A user with this email already exists'),
     ).toBeInTheDocument()
+  })
+})
+// The possible-duplicate warning (decisions §27, pass 2): an admin sees
+// every match — name, deactivated or not, clinics — each opening its user
+// page in a new tab, and may go ahead.
+describe('CreateUserPage — a possible duplicate', () => {
+  const warning = {
+    statusCode: 409,
+    message: ['A patient with this name and date of birth may already be in Stride.'],
+    error: 'ConflictException',
+    timestamp: '2031-01-01T00:00:00.000Z',
+    path: '/users',
+    reason: 'possible_duplicate',
+    matches: [
+      { id: 12, firstName: 'Jamie', lastName: 'Doe', isActive: true, clinics: [mockClinics[0]] },
+      {
+        id: 31,
+        firstName: 'Jamie',
+        lastName: 'Doe-Smith',
+        isActive: false,
+        clinics: [],
+      },
+    ],
+  }
+
+  // The first POST answers the warning; one with the go-ahead creates.
+  function answerWithWarning() {
+    fetchMock.mockImplementation((input, init) => {
+      const url = urlOf(input)
+      if (url.includes('/clinics')) {
+        return Promise.resolve(new Response(JSON.stringify(mockClinics), { status: 200 }))
+      }
+      const goAhead = typeof init?.body === 'string' && init.body.includes('allowPossibleDuplicate')
+      return Promise.resolve(
+        goAhead
+          ? new Response(
+              JSON.stringify({
+                id: 42,
+                firstName: 'Jamie',
+                lastName: 'Doe',
+                email: 'new.user@example.com',
+                roles: ['patient'],
+                invitation: sentInvitation,
+              }),
+              { status: 201 },
+            )
+          : new Response(JSON.stringify(warning), { status: 409 }),
+      )
+    })
+  }
+
+  function postBodies() {
+    return fetchMock.mock.calls
+      .filter(([, init]) => init?.method === 'POST')
+      .map(([, init]) => init?.body)
+  }
+
+  async function submitJamie(user: ReturnType<typeof userEvent.setup>) {
+    renderCreateUserPage()
+    await fillCommonFields(user)
+    await user.type(screen.getByLabelText('Date of birth'), '2000-01-01')
+    await selectClinic(user, 'Second Clinic')
+    await user.click(screen.getByRole('button', { name: 'Create user' }))
+    return screen.findByRole('heading', { name: 'This patient may already be in Stride' })
+  }
+
+  it('lists every match with a link to its account, and focuses the warning', async () => {
+    answerWithWarning()
+    const user = userEvent.setup()
+
+    expect(await submitJamie(user)).toHaveFocus()
+
+    const notice = screen.getByRole('region', { name: 'This patient may already be in Stride' })
+    const [first, second] = within(notice).getAllByRole('listitem')
+    const firstLink = within(first).getByRole('link', { name: 'Jamie Doe (opens in a new tab)' })
+    expect(firstLink).toHaveAttribute('href', '/admin/users/12')
+    expect(firstLink).toHaveAttribute('target', '_blank')
+    expect(first).toHaveTextContent(/^Jamie DoeAcme Clinic$/)
+    const secondLink = within(second).getByRole('link', {
+      name: 'Jamie Doe-Smith (opens in a new tab)',
+    })
+    expect(secondLink).toHaveAttribute('href', '/admin/users/31')
+    // Only the deactivated one is marked; no clinic said in words.
+    expect(second).toHaveTextContent(/^Jamie Doe-Smith · DeactivatedNo clinic$/)
+    // Not shown as an error.
+    expect(
+      screen.queryByText('A patient with this name and date of birth may already be in Stride.'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('creates anyway when asked, with the go-ahead in the body', async () => {
+    answerWithWarning()
+    const user = userEvent.setup()
+    await submitJamie(user)
+
+    await user.click(screen.getByRole('button', { name: 'Create Jamie Doe anyway' }))
+
+    expect(await screen.findByText(/Created Jamie Doe/)).toBeInTheDocument()
+    expect(postBodies()).toHaveLength(2)
+    expect(JSON.parse(postBodies()[1] as string)).toEqual({
+      email: 'new.user@example.com',
+      firstName: 'Jamie',
+      lastName: 'Doe',
+      role: 'patient',
+      dateOfBirth: '2000-01-01',
+      clinicId: 2,
+      allowPossibleDuplicate: true,
+    })
+    // An ordinary creation never sends the flag.
+    expect(postBodies()[0]).not.toContain('allowPossibleDuplicate')
   })
 })
