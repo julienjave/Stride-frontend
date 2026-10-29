@@ -162,6 +162,13 @@ const WORDING: Record<AuditAction, string> = {
   // same moment — with the ids of what went in, withheld (clinical).
   LEGAL_DISCLOSURE_MADE: 'Disclosed a health record (legal requirement)',
   LEGAL_DISCLOSURE_NOTICE_REVIEWED: 'Marked a disclosure notice as reviewed',
+
+  // Merging two accounts of one patient (decisions §27): two entries for one
+  // merge — the admins' own act, and the list of records that moved (its
+  // ids clinical, withheld from admins) — and a practitioner's "seen".
+  PATIENT_MERGED: 'Merged two accounts of a patient',
+  PATIENT_MERGE_RECORDS_MOVED: "Moved a patient's records in a merge",
+  PATIENT_MERGE_NOTICE_REVIEWED: 'Marked a merge notice as reviewed',
 }
 
 // `Object.hasOwn`, not `in`: `'toString' in WORDING` is true (inherited).

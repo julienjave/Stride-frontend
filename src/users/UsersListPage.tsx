@@ -7,6 +7,7 @@ import { useRetryFocus } from '@/common/useRetryFocus'
 import { useUsers, useUsersNeedingAttention } from './useUsers'
 import { ATTENTION_GROUPS, ATTENTION_KINDS, readAttention } from './attention'
 import { ListSkeleton } from '@/common/Loading'
+import { usePatientMerges } from '@/patient-merges/usePatientMerges'
 
 // URL scheme for this feature, mirroring clinics exactly: /admin/users
 // (this page), /admin/users/new (create, already built), /admin/users/:id
@@ -34,6 +35,10 @@ export function UsersListPage() {
   // After a "Try again" that worked, focus goes to the page's heading.
   const heading = useRetryFocus<HTMLHeadingElement>('the users', shown.isSuccess)
   const users = shown.data
+  // Which accounts were merged away (decisions §27, pass 4) — for their
+  // "Merged" badge. A failure here costs only the badges: the list stays.
+  const merges = usePatientMerges()
+  const mergedAway = new Set((merges.data ?? []).map((merge) => merge.mergedId))
 
   function show(value: string) {
     const next = new URLSearchParams(searchParams)
@@ -117,6 +122,11 @@ export function UsersListPage() {
                   {user.firstName} {user.lastName}
                   {!user.isActive && (
                     <span className="ml-2 text-xs text-muted-foreground">(deactivated)</span>
+                  )}
+                  {mergedAway.has(user.id) && (
+                    <span className="ml-2 rounded border px-1.5 py-0.5 text-xs text-muted-foreground">
+                      Merged
+                    </span>
                   )}
                 </span>
                 <span className="text-sm text-muted-foreground">{user.email}</span>

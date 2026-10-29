@@ -258,6 +258,13 @@ export const router = createBrowserRouter([
                     ),
                   },
                   {
+                    path: '/admin/users/:id/merge',
+                    lazy: page(
+                      () => import('@/patient-merges/MergePatientPage'),
+                      (module) => module.MergePatientPage,
+                    ),
+                  },
+                  {
                     path: '/admin/audit-log',
                     lazy: page(
                       () => import('@/audit-log/AuditLogPage'),

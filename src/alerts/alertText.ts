@@ -4,6 +4,7 @@ import type {
   CareTeamJoinAlert,
   ComplaintReviewAlert,
   LegalDisclosureAlert,
+  PatientMergeAlert,
   Inactivity,
   MissedRun,
   PersonName,
@@ -212,4 +213,25 @@ export function legalDisclosureExplained(alert: LegalDisclosureAlert, now: Date)
 
 export function legalDisclosureReviewLabel(alert: LegalDisclosureAlert): string {
   return `Mark as reviewed: disclosure of ${fullName(alert.patient)}'s record`
+}
+
+// --- AN ADMIN MERGED TWO ACCOUNTS OF THE PATIENT (2026-10-29) -----------------------
+
+// What happened, naming who: "Avery Admin merged a second account of this
+// patient into this one" (the patient is the row's heading).
+export function patientMergeText(alert: PatientMergeAlert): string {
+  return `${fullName(alert.merge.mergedBy)} merged a second account of this patient into this one`
+}
+
+// When: the day it happened.
+export function patientMergePeriodText(alert: PatientMergeAlert, locale?: string): string {
+  return dayOf(alert.merge.mergedAt, locale)
+}
+
+// What it means for the reader: the record they treat changed shape.
+export const PATIENT_MERGE_EXPLAINED =
+  'Programs, sessions, notes and messages from the other account are now part of this record.'
+
+export function patientMergeReviewLabel(alert: PatientMergeAlert): string {
+  return `Mark as reviewed: accounts of ${fullName(alert.patient)} merged`
 }

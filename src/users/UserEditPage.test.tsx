@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router'
@@ -631,5 +631,88 @@ describe('UserEditPage — two-factor sign-in', () => {
     expect(
       screen.getByRole('button', { name: 'Reset two-factor sign-in' }),
     ).toBeInTheDocument()
+  })
+})
+
+// Merging duplicate patients (decisions §27, pass 4).
+describe('UserEditPage — merges', () => {
+  const merge = {
+    id: 3,
+    mergedId: 1,
+    survivorId: 2,
+    mergedAt: '2031-06-10T12:00:00.000Z',
+    mergedBy: { id: 9, firstName: 'Ada', lastName: 'Admin' },
+  }
+  const survivor = { ...fullUser, id: 2, email: 'jamie.kept@example.com' }
+
+  // The user, the merges and the full list; every other request (the
+  // page's many sections) answered "nothing" — what they show isn't the
+  // point here.
+  function serve(merges: unknown[], user: unknown = fullUser) {
+    fetchMock.mockImplementation((input) => {
+      const url = new URL(urlOf(input))
+      if (url.pathname === '/users/1') return Promise.resolve(Response.json(user))
+      if (url.pathname === '/patient-merges') return Promise.resolve(Response.json(merges))
+      if (url.pathname === '/users') return Promise.resolve(Response.json([survivor]))
+      return Promise.resolve(Response.json([]))
+    })
+  }
+
+  it("waits for the merges before showing a patient's page — a merged account never flashes its actions", async () => {
+    fetchMock.mockImplementation((input) => {
+      const url = new URL(urlOf(input))
+      if (url.pathname === '/users/1') return Promise.resolve(Response.json(fullUser))
+      if (url.pathname === '/patient-merges') return new Promise(() => {})
+      return Promise.resolve(Response.json([]))
+    })
+    renderAt('/admin/users/1')
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(([input]) => urlOf(input).includes('/patient-merges')),
+      ).toBe(true),
+    )
+    expectLoading('Loading the user…')
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull()
+  })
+
+  it("offers a patient's page the merge, linked to the merge page", async () => {
+    serve([])
+    renderAt('/admin/users/1')
+    expect(
+      await screen.findByRole('link', { name: 'Merge with another account…' }),
+    ).toHaveAttribute('href', '/admin/users/1/merge')
+  })
+
+  it('says a merged-away account was merged, with a link — and offers none of its actions', async () => {
+    serve([merge], { ...fullUser, isActive: false })
+    renderAt('/admin/users/1')
+    const notice = await screen.findByRole('region', { name: 'Merged into Jamie Doe' })
+    expect(notice).toHaveTextContent(
+      'Ada Admin merged this account into Jamie Doe (jamie.kept@example.com)',
+    )
+    expect(within(notice).getByRole('link', { name: 'Open Jamie Doe' })).toHaveAttribute(
+      'href',
+      '/admin/users/2',
+    )
+    expect(screen.queryByRole('button', { name: /Reactivate/ })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('link', { name: 'Merge with another account…' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it("doesn't ask for the merges on a non-patient's page", async () => {
+    fetchMock.mockImplementation((input) => {
+      const url = new URL(urlOf(input))
+      if (url.pathname === '/users/4') return Promise.resolve(Response.json(practitionerUser))
+      return Promise.resolve(Response.json([]))
+    })
+    renderAt('/admin/users/4')
+    await screen.findByRole('heading', { level: 1, name: 'Prac Titioner' })
+    expect(
+      fetchMock.mock.calls.some(([input]) => urlOf(input).includes('/patient-merges')),
+    ).toBe(false)
+    expect(
+      screen.queryByRole('link', { name: 'Merge with another account…' }),
+    ).not.toBeInTheDocument()
   })
 })

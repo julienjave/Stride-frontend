@@ -17,6 +17,10 @@ import {
   joinReviewLabel,
   joinText,
   missedRunText,
+  PATIENT_MERGE_EXPLAINED,
+  patientMergePeriodText,
+  patientMergeReviewLabel,
+  patientMergeText,
   sessionReasonsText,
 } from './alertText'
 import {
@@ -24,6 +28,7 @@ import {
   complaintReviewAlert,
   joinAlert,
   legalDisclosureAlert,
+  patientMergeAlert,
   sessionAlert,
 } from './testData'
 
@@ -265,6 +270,21 @@ describe('an admin who disclosed the record', () => {
   it('names its button in full, starting with the visible words', () => {
     expect(legalDisclosureReviewLabel(legalDisclosureAlert())).toBe(
       "Mark as reviewed: disclosure of Pat Lee's record",
+    )
+  })
+})
+
+describe('patient merge notice', () => {
+  it('names who merged, the day, what it means, and its button in full', () => {
+    expect(patientMergeText(patientMergeAlert())).toBe(
+      'Avery Admin merged a second account of this patient into this one',
+    )
+    expect(patientMergePeriodText(patientMergeAlert(), L)).toBe('Tue 10 Jun')
+    expect(PATIENT_MERGE_EXPLAINED).toBe(
+      'Programs, sessions, notes and messages from the other account are now part of this record.',
+    )
+    expect(patientMergeReviewLabel(patientMergeAlert())).toBe(
+      'Mark as reviewed: accounts of Pat Lee merged',
     )
   })
 })

@@ -12,6 +12,7 @@ import {
   complaintReviewAlert,
   joinAlert,
   legalDisclosureAlert,
+  patientMergeAlert,
   sessionAlert,
 } from './testData'
 import type { Alert } from './types'
@@ -29,6 +30,7 @@ let joinReview: () => Response | Promise<Response>
 // … and on a complaint review's notice (pass 2).
 let complaintReview: () => Response | Promise<Response>
 let disclosureReview: () => Response | Promise<Response>
+let mergeReview: () => Response | Promise<Response>
 
 beforeEach(() => {
   fetchMock.mockReset()
@@ -36,6 +38,7 @@ beforeEach(() => {
   joinReview = () => json({ reviewedAt: '2031-06-12T12:00:00.000Z' })
   complaintReview = () => json({ reviewedAt: '2031-06-12T12:00:00.000Z' })
   disclosureReview = () => json({ reviewedAt: '2031-06-12T12:00:00.000Z' })
+  mergeReview = () => json({ reviewedAt: '2031-06-12T12:00:00.000Z' })
   fetchMock.mockImplementation((input, init) => {
     const url = new URL(urlOf(input))
     if (init?.method === 'POST' && url.pathname.endsWith('/alerts/care-team-joins/41/review')) {
@@ -46,6 +49,9 @@ beforeEach(() => {
     }
     if (init?.method === 'POST' && url.pathname.endsWith('/alerts/legal-disclosures/21/review')) {
       return Promise.resolve(disclosureReview())
+    }
+    if (init?.method === 'POST' && url.pathname.endsWith('/alerts/patient-merges/31/review')) {
+      return Promise.resolve(mergeReview())
     }
     if (url.pathname.endsWith('/alerts')) return Promise.resolve(alerts())
     // The card's Messages slot (Phase 5) asks for the conversations.
@@ -242,7 +248,7 @@ describe('the For review list on the practitioner home', () => {
     renderHome()
     expect(
       await screen.findByText(
-        'Your patients who have stopped coming, sessions of the last 14 days to look at, colleagues who joined their care teams, complaint reviews of their records, and records disclosed outside the clinic.',
+        "Your patients who have stopped coming, sessions of the last 14 days to look at, colleagues who joined their care teams, complaint reviews of their records, records disclosed outside the clinic, and patients' second accounts merged into theirs.",
       ),
     ).toBeInTheDocument()
   })
@@ -444,6 +450,60 @@ describe('the For review list on the practitioner home', () => {
       }),
     ).toBeInTheDocument()
     expect(await screen.findByText("You're all caught up.")).toBeInTheDocument()
+  })
+
+  // --- An admin merged two accounts of the patient (2026-10-29) ---
+
+  it('gives a merge row who merged, when, what it means, and a link to the patient', async () => {
+    alerts = () => json([patientMergeAlert()])
+    renderHome()
+    const [row] = await rows()
+    expect(within(row).getByText('Pat Lee')).toBeInTheDocument()
+    expect(
+      within(row).getByText('Avery Admin merged a second account of this patient into this one'),
+    ).toBeInTheDocument()
+    expect(
+      within(row).getByText(
+        'Programs, sessions, notes and messages from the other account are now part of this record.',
+      ),
+    ).toBeInTheDocument()
+    expect(within(row).getByRole('link', { name: 'Open Pat Lee' })).toHaveAttribute(
+      'href',
+      '/practitioner/patients/6',
+    )
+  })
+
+  it('marks a merge seen: its own POST, focus to the heading, said', async () => {
+    let listed = [patientMergeAlert()]
+    alerts = () => json(listed)
+    const user = userEvent.setup()
+    renderHome()
+    const [row] = await rows()
+    listed = []
+    await user.click(
+      within(row).getByRole('button', { name: 'Mark as reviewed: accounts of Pat Lee merged' }),
+    )
+    expect(postRequests()).toEqual(['/alerts/patient-merges/31/review undefined'])
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 2, name: 'For review' })).toHaveFocus(),
+    )
+    expect(
+      await screen.findByText("Marked as reviewed: the merge of Pat Lee's accounts.", {
+        selector: '[role="status"]',
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('keys a merge apart from a disclosure of the same number', async () => {
+    const consoleError = vi.spyOn(console, 'error')
+    alerts = () =>
+      json([legalDisclosureAlert({ disclosure: { id: 31 } }), patientMergeAlert()])
+    renderHome()
+    expect(await rows()).toHaveLength(2)
+    expect(
+      consoleError.mock.calls.filter((call) => String(call[0]).includes('same key')),
+    ).toEqual([])
+    consoleError.mockRestore()
   })
 
   it('says a refused disclosure mark in the row', async () => {

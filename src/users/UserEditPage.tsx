@@ -18,6 +18,10 @@ import { RecordsExportLinksSection } from '@/records-export/RecordsExportLinksSe
 import { ComplaintReviewsSection } from '@/complaint-reviews/ComplaintReviewsSection'
 import { LegalDisclosuresSection } from '@/legal-disclosures/LegalDisclosuresSection'
 import { Loading } from '@/common/Loading'
+import { usePatientMerges } from '@/patient-merges/usePatientMerges'
+import { mergeOf } from '@/patient-merges/mergeRules'
+import { MergedAccountNotice } from '@/patient-merges/MergedAccountNotice'
+import { useUsers } from './useUsers'
 
 export function UserEditPage() {
   const { id } = useParams<{ id: string }>()
@@ -45,10 +49,28 @@ function UserEditView({ userId }: { userId: number }) {
   const userQuery = useUser(userId)
   const { data: user, isLoading } = userQuery
   const { data: me } = useCurrentUser()
+  // Merges (decisions §27, pass 4): whether THIS account was merged away —
+  // then the page says so instead of offering its actions. Only for a
+  // patient account (no other kind is ever merged), and only asked once the
+  // account is known.
+  const isPatient = user?.roles.includes('patient') === true
+  const merges = usePatientMerges(isPatient)
+  const merge = merges.data ? mergeOf(merges.data, userId) : undefined
+  // The survivor's name and email for the notice, from the full list —
+  // asked for only when there IS a merge to describe.
+  const everyone = useUsers(true, merge !== undefined)
   // After a "Try again" that worked, focus goes to the user's name.
-  const heading = useRetryFocus<HTMLHeadingElement>('this user', userQuery.isSuccess)
+  // (Shown means the page's heading is on screen — a patient's page also
+  // waits for the merges, below.)
+  const heading = useRetryFocus<HTMLHeadingElement>(
+    'this user',
+    userQuery.isSuccess && !(isPatient && merges.isPending),
+  )
 
-  if (isLoading) {
+  // A patient's page waits for the merges too: a merged-away account must
+  // never flash its actions first. (If the merges can't be read, the page
+  // shows as usual — the backend refuses what a merged account can't do.)
+  if (isLoading || (isPatient && merges.isPending)) {
     return <Loading label="Loading the user…" />
   }
 
@@ -64,6 +86,34 @@ function UserEditView({ userId }: { userId: number }) {
     .filter((role) => user.roles.includes(role))
     .map(roleLabel)
     .join(' · ')
+
+  // A merged-away account (decisions §27, pass 4): its name, the notice,
+  // and the way back — none of its actions. It is a deactivated shell whose
+  // records live on the survivor; editing it, adding it to a care team or
+  // reactivating it (refused by the backend) would only mislead.
+  if (merge) {
+    return (
+      <div className="mx-auto mt-12 max-w-lg space-y-6 px-4 pb-8">
+        <div>
+          <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+            {user.firstName} {user.lastName}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {roleNames} · {user.email}
+          </p>
+        </div>
+        <MergedAccountNotice
+          merge={merge}
+          survivor={everyone.data?.find((candidate) => candidate.id === merge.survivorId)}
+        />
+        <p className="text-sm text-muted-foreground">
+          <Link to="/admin/users" className="underline">
+            Back to users
+          </Link>
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="mx-auto mt-12 max-w-lg space-y-6 px-4 pb-8">
@@ -178,6 +228,22 @@ function UserEditView({ userId }: { userId: number }) {
       <div className="rounded-lg border px-4 py-3">
         <GrantRoleForm userId={userId} currentRoles={user.roles} />
       </div>
+
+      {/* One patient, two accounts (decisions §27, pass 4): the merge page,
+          which asks for the other account and which one to keep. */}
+      {isPatient && (
+        <section aria-labelledby="merge-title" className="space-y-1 rounded-lg border px-4 py-3">
+          <h2 id="merge-title" className="font-medium">
+            Duplicate account
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            If this patient has a second account, merge the two so their record is in one place.
+          </p>
+          <Link to={`/admin/users/${userId}/merge`} className="text-sm font-medium underline">
+            Merge with another account…
+          </Link>
+        </section>
+      )}
 
       {user.isActive ? (
         <DeactivateUserButton

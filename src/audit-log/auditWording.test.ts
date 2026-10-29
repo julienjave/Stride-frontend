@@ -52,6 +52,13 @@ describe('actionLabel', () => {
     )
   })
 
+  // A patient merge (decisions §27).
+  it('words the patient merge actions', () => {
+    expect(actionLabel('PATIENT_MERGED')).toBe('Merged two accounts of a patient')
+    expect(actionLabel('PATIENT_MERGE_RECORDS_MOVED')).toBe("Moved a patient's records in a merge")
+    expect(actionLabel('PATIENT_MERGE_NOTICE_REVIEWED')).toBe('Marked a merge notice as reviewed')
+  })
+
   // An action the table doesn't know is still readable.
   it('makes words from the name of an action it does not know', () => {
     expect(actionLabel('PROGRAM_PAUSED_BY_ROBOT')).toBe('Program paused by robot')

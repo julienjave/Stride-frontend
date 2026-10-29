@@ -131,12 +131,27 @@ export interface LegalDisclosureAlert {
   }
 }
 
+// An admin merged a second account of one of my patients into this one
+// (decisions §27, pass 4 — the backend's PatientMergeAlert): who merged, and
+// when. `patient` is the account the team goes on treating; what moved is in
+// the record itself. An instant (ISO).
+export interface PatientMergeAlert {
+  kind: 'patient_merge'
+  patient: AlertPatient
+  merge: {
+    id: number
+    mergedBy: PersonName
+    mergedAt: string
+  }
+}
+
 export type Alert =
   | AttendanceAlert
   | SessionAlert
   | CareTeamJoinAlert
   | ComplaintReviewAlert
   | LegalDisclosureAlert
+  | PatientMergeAlert
 
 // One review of a session: who on the care team looked at it, and when.
 export interface SessionReview {

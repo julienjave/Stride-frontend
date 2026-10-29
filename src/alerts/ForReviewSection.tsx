@@ -23,6 +23,10 @@ import {
   legalDisclosurePeriodText,
   legalDisclosureReviewLabel,
   legalDisclosureText,
+  PATIENT_MERGE_EXPLAINED,
+  patientMergePeriodText,
+  patientMergeReviewLabel,
+  patientMergeText,
   sessionReasonsText,
 } from './alertText'
 import type {
@@ -31,11 +35,13 @@ import type {
   CareTeamJoinAlert,
   ComplaintReviewAlert,
   LegalDisclosureAlert,
+  PatientMergeAlert,
 } from './types'
 import { useAlerts } from './useAlerts'
 import { useReviewCareTeamJoin } from './useReviewCareTeamJoin'
 import { useReviewComplaintReviewNotice } from './useReviewComplaintReviewNotice'
 import { useReviewLegalDisclosureNotice } from './useReviewLegalDisclosureNotice'
+import { useReviewPatientMergeNotice } from './useReviewPatientMergeNotice'
 import { ListSkeleton } from '@/common/Loading'
 
 // How many rows show before "Show all N" — a home page is a summary; a
@@ -81,8 +87,8 @@ export function ForReviewSection({ today }: { today: string }) {
         </h2>
         <p className="text-sm text-muted-foreground">
           Your patients who have stopped coming, sessions of the last 14 days to look at,
-          colleagues who joined their care teams, complaint reviews of their records, and records
-          disclosed outside the clinic.
+          colleagues who joined their care teams, complaint reviews of their records, records
+          disclosed outside the clinic, and patients' second accounts merged into theirs.
         </p>
         <p role="status" className="sr-only">
           {reviewedNote}
@@ -140,6 +146,8 @@ function rowKey(alert: Alert): string {
       return `complaint-review-${alert.review.id}`
     case 'legal_disclosure':
       return `legal-disclosure-${alert.disclosure.id}`
+    case 'patient_merge':
+      return `patient-merge-${alert.merge.id}`
   }
 }
 
@@ -160,6 +168,9 @@ function ReviewRow({
   }
   if (alert.kind === 'legal_disclosure') {
     return <LegalDisclosureRow alert={alert} heading={heading} onReviewed={onReviewed} />
+  }
+  if (alert.kind === 'patient_merge') {
+    return <PatientMergeRow alert={alert} heading={heading} onReviewed={onReviewed} />
   }
   const name = `${alert.patient.firstName} ${alert.patient.lastName}`
   const lines =
@@ -278,6 +289,30 @@ function LegalDisclosureRow({
       review={review}
       reviewLabel={legalDisclosureReviewLabel(alert)}
       doneNote={`Marked as reviewed: the disclosure of ${name}'s record.`}
+    />
+  )
+}
+
+// Two accounts of the patient were merged (decisions §27, pass 4) — with a
+// link to the patient, whose record now holds what moved.
+function PatientMergeRow({ alert, ...shared }: NoticeRowShared & { alert: PatientMergeAlert }) {
+  const review = useReviewPatientMergeNotice(alert.merge.id)
+  const name = `${alert.patient.firstName} ${alert.patient.lastName}`
+  return (
+    <NoticeRow
+      {...shared}
+      patient={alert.patient}
+      lines={[patientMergeText(alert)]}
+      period={patientMergePeriodText(alert)}
+      explained={PATIENT_MERGE_EXPLAINED}
+      review={review}
+      reviewLabel={patientMergeReviewLabel(alert)}
+      doneNote={`Marked as reviewed: the merge of ${name}'s accounts.`}
+      link={{
+        to: `/practitioner/patients/${alert.patient.id}`,
+        label: `Open ${name}`,
+        text: 'Open patient',
+      }}
     />
   )
 }

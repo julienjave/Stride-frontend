@@ -48,6 +48,7 @@ describe('STEP_UP_FAILED', () => {
         'mfa_disable',
         'recovery_codes',
         'mfa_reset',
+        'patient_merge',
       ].map(words),
     ).toStrictEqual([
       'Changing the email address',
@@ -56,6 +57,7 @@ describe('STEP_UP_FAILED', () => {
       'Turning off two-factor sign-in',
       'Getting new recovery codes',
       "Resetting someone's two-factor sign-in",
+      'Merging two patient accounts',
     ])
   })
 
@@ -345,3 +347,38 @@ describe('LEGAL_DISCLOSURE_MADE', () => {
     ])
   })
 })
+
+// A patient merge (decisions §27, pass 3): the admins' half, in the order an
+// admin checks it, its words for the filled fields and the merged account.
+describe('PATIENT_MERGED', () => {
+  it('says which account went into which, then what else was involved', () => {
+    expect(
+      shown(
+        {
+          closedExportLinkIds: [],
+          filledFields: ['phone', 'avatar'],
+          survivorId: 1,
+          mergedId: 2,
+          wasActive: false,
+          signedOutSessions: 0,
+        },
+        'PATIENT_MERGED',
+      ),
+    ).toStrictEqual([
+      ['Merged away (user)', '#2'],
+      ['Kept (user)', '#1'],
+      ['The merged account was', 'Already deactivated'],
+      ['Its sessions signed out', '0'],
+      ['Filled on the account kept', 'Phone, Photo'],
+      ['Download links closed (ids)', 'none'],
+    ])
+  })
+
+  it('words its notice being reviewed', () => {
+    expect(shown({ mergedBy: 9, mergeId: 3 }, 'PATIENT_MERGE_NOTICE_REVIEWED')).toStrictEqual([
+      ['Merge', '#3'],
+      ['Merged by (user id)', '9'],
+    ])
+  })
+})
+

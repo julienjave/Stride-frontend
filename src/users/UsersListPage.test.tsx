@@ -17,13 +17,17 @@ beforeEach(() => {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 
-// Every request as "path?search", in order — literal strings to compare.
-// `input as string`: apiRequest always calls fetch with a string address.
+// Every request for USERS as "path?search", in order — literal strings to
+// compare. `input as string`: apiRequest always calls fetch with a string
+// address. The merges (for the "Merged" badge, decisions §27) are asked for
+// beside the list, whatever is shown — left out here, tested on their own.
 function requests() {
-  return fetchMock.mock.calls.map(([input]) => {
-    const url = new URL(input as string)
-    return `${url.pathname}${url.search}`
-  })
+  return fetchMock.mock.calls
+    .map(([input]) => {
+      const url = new URL(input as string)
+      return `${url.pathname}${url.search}`
+    })
+    .filter((request) => request !== '/patient-merges')
 }
 
 // The address the page is at — the filter lives there — and the browser's
@@ -145,14 +149,39 @@ describe('UsersListPage', () => {
     )
   })
 
+  it('marks an account merged into another with a "Merged" badge', async () => {
+    fetchMock.mockImplementation((input) => {
+      const url = new URL(input as string)
+      if (url.pathname === '/patient-merges') {
+        return Promise.resolve(
+          json([
+            {
+              id: 1,
+              mergedId: 44,
+              survivorId: 43,
+              mergedAt: '2031-06-10T12:00:00.000Z',
+              mergedBy: { id: 1, firstName: 'Avery', lastName: 'Admin' },
+            },
+          ]),
+        )
+      }
+      return Promise.resolve(
+        json([dana, { ...dana, id: 44, email: 'dana.other@example.com', isActive: false }]),
+      )
+    })
+    renderUsersListPage()
+    const links = await screen.findAllByRole('link', { name: /Dana Ortiz/ })
+    await waitFor(() => expect(links[1]).toHaveTextContent('Merged'))
+    expect(links[0]).not.toHaveTextContent('Merged')
+  })
+
   it('refetches with includeInactive=true when the toggle is checked', async () => {
     fetchMock.mockResolvedValue(json([]))
     const user = userEvent.setup()
     renderUsersListPage()
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
     // Off by default — the very first fetch should NOT already include
     // the flag, or this test couldn't tell the toggle from a no-op.
-    expect(requests()).toEqual(['/users'])
+    await waitFor(() => expect(requests()).toEqual(['/users']))
 
     await user.click(screen.getByRole('checkbox', { name: 'Show deactivated users' }))
 

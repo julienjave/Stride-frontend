@@ -58,6 +58,14 @@ export function reviewLegalDisclosureNotice(disclosureId: number) {
   })
 }
 
+// "Mark as reviewed" on a patient merge's notice (decisions §27, pass 4) —
+// no body: a merge happens at an instant.
+export function reviewPatientMergeNotice(mergeId: number) {
+  return apiRequest<{ reviewedAt: string }>(`/alerts/patient-merges/${mergeId}/review`, {
+    method: 'POST',
+  })
+}
+
 // "Mark as reviewed" for a program's attendance alert (2026-10-19). Only
 // `today` is sent — the day the alert is judged on; the server works out
 // the facts being reviewed itself, so they're never the client's word.

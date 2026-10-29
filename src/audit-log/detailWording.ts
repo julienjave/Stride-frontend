@@ -27,6 +27,7 @@ type StepUpPurpose =
   | 'mfa_disable'
   | 'recovery_codes'
   | 'mfa_reset'
+  | 'patient_merge'
 
 // src/mfa/totp.ts and second-factor.ts — why a second factor was refused.
 type SecondFactorRefusal = 'wrong_code' | 'code_already_used' | 'wrong_recovery_code'
@@ -69,6 +70,7 @@ const STEP_UP_PURPOSE = {
   mfa_disable: 'Turning off two-factor sign-in',
   recovery_codes: 'Getting new recovery codes',
   mfa_reset: "Resetting someone's two-factor sign-in",
+  patient_merge: 'Merging two patient accounts',
 } satisfies Record<StepUpPurpose, string>
 
 const STEP_UP_REASON = {
@@ -94,6 +96,16 @@ const DISCLOSURE_PART = {
   sessions: 'Sessions',
   messages: 'Messages',
 } satisfies Record<DisclosurePart, string>
+
+// src/patient-merges (merge_patients()) — the profile fields a merge filled
+// on the account kept, from the other one.
+type FilledField = 'phone' | 'address' | 'avatar'
+
+const FILLED_FIELD = {
+  phone: 'Phone',
+  address: 'Address',
+  avatar: 'Photo',
+} satisfies Record<FilledField, string>
 
 const EMAIL_CHANGE_CANCEL_REASON = {
   cancelled_in_app: 'Cancelled in the app',
@@ -160,6 +172,33 @@ const DETAIL_WORDING: Partial<Record<AuditAction, Record<string, DetailWording>>
   LEGAL_DISCLOSURE_NOTICE_REVIEWED: {
     disclosureId: { label: 'Disclosure' },
     madeBy: { label: 'Made by (user id)' },
+  },
+  // A patient merge (decisions §27, pass 3): which account went into which,
+  // and everything involved that isn't clinical — in the order an admin would
+  // check them. Ids are user, link, clinic, review… ids, as stored.
+  PATIENT_MERGED: {
+    mergedId: { label: 'Merged away (user)' },
+    survivorId: { label: 'Kept (user)' },
+    mergeId: { label: 'Merge' },
+    wasActive: {
+      label: 'The merged account was',
+      values: { true: 'Active', false: 'Already deactivated' },
+    },
+    signedOutSessions: { label: 'Its sessions signed out' },
+    filledFields: { label: 'Filled on the account kept', values: FILLED_FIELD },
+    addedClinicIds: { label: 'Clinics added (ids)' },
+    movedCareTeamLinkIds: { label: 'Care-team links moved (ids)' },
+    newCareTeamLinkIds: { label: 'Care-team links added (ids)' },
+    endedCareTeamLinkIds: { label: 'Care-team links ended (ids)' },
+    complaintReviewIds: { label: 'Complaint reviews moved (ids)' },
+    endedComplaintReviewIds: { label: 'Complaint reviews ended first (ids)' },
+    legalDisclosureIds: { label: 'Legal disclosures moved (ids)' },
+    revokedInvitationIds: { label: 'Invitations revoked (ids)' },
+    closedExportLinkIds: { label: 'Download links closed (ids)' },
+  },
+  PATIENT_MERGE_NOTICE_REVIEWED: {
+    mergeId: { label: 'Merge' },
+    mergedBy: { label: 'Merged by (user id)' },
   },
   STEP_UP_FAILED: {
     purpose: { label: 'For', values: STEP_UP_PURPOSE },

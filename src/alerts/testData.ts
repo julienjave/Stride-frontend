@@ -3,6 +3,7 @@ import type {
   CareTeamJoinAlert,
   ComplaintReviewAlert,
   LegalDisclosureAlert,
+  PatientMergeAlert,
   SessionAlert,
   StaffSession,
 } from './types'
@@ -129,6 +130,27 @@ export function legalDisclosureAlert(
       recipientOrganisation: 'Montreal Police',
       withheldUntil: null,
       ...disclosure,
+    },
+  }
+}
+
+// Avery Admin merged a second account of Pat into Pat's on 10 June 2031 at
+// noon UTC.
+export function patientMergeAlert(
+  fields: Partial<Omit<PatientMergeAlert, 'merge'>> & {
+    merge?: Partial<PatientMergeAlert['merge']>
+  } = {},
+): PatientMergeAlert {
+  const { merge, ...rest } = fields
+  return {
+    kind: 'patient_merge',
+    patient: PAT_ALERT,
+    ...rest,
+    merge: {
+      id: 31,
+      mergedBy: { id: 1, firstName: 'Avery', lastName: 'Admin' },
+      mergedAt: '2031-06-10T12:00:00.000Z',
+      ...merge,
     },
   }
 }

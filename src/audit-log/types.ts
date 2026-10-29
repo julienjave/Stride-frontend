@@ -128,6 +128,9 @@ export type AuditAction =
   | 'COMPLAINT_REVIEW_ENDED'
   | 'LEGAL_DISCLOSURE_MADE'
   | 'LEGAL_DISCLOSURE_NOTICE_REVIEWED'
+  | 'PATIENT_MERGED'
+  | 'PATIENT_MERGE_RECORDS_MOVED'
+  | 'PATIENT_MERGE_NOTICE_REVIEWED'
 
 export interface AuditPerson {
   id: number
