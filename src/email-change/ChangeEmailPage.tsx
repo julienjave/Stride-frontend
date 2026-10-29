@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useCurrentUser } from '@/auth/useCurrentUser'
+import { useRefreshedCurrentUser } from '@/auth/useRefreshedCurrentUser'
 import { SecondFactorField } from '@/two-factor/SecondFactorField'
 import { codeRefusal } from '@/two-factor/twoFactorRules'
 import { requestEmailChange } from './api'
@@ -29,7 +30,10 @@ export function ChangeEmailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { data: me } = useCurrentUser()
-  // Two-factor sign-in on: the step-up asks a code as well (decisions §14).
+  // Two-factor sign-in on: the step-up asks a code as well (decisions §14) —
+  // read AGAIN as the page opens: it may have been turned off on another
+  // device since (useRefreshedCurrentUser).
+  useRefreshedCurrentUser()
   const withCode = me?.mfaEnabled ?? false
   const form = useForm<ChangeEmailFormValues>({
     // One of two schemas, cast to the common shape (as in StepUpForm).

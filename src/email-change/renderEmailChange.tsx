@@ -28,6 +28,13 @@ export function requests() {
   return sent
 }
 
+// How many times the page re-read the signed-in account and the harness
+// answered it (see renderEmailChange below).
+let reReads = 0
+export function meReads() {
+  return reReads
+}
+
 export function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -59,6 +66,8 @@ export function renderEmailChange(
   signedIn: { email: string; mfaEnabled?: boolean } | null = ME,
 ) {
   sent = []
+  reReads = 0
+  const account = signedIn ? { ...ME, ...signedIn } : null
   fetchMock.mockReset()
   fetchMock.mockImplementation((input, init) => {
     const url = new URL(
@@ -69,8 +78,17 @@ export function renderEmailChange(
       path: url.pathname + url.search,
       body: typeof init?.body === 'string' ? init.body : null,
     }
-    sent.push(request)
     const response = answer(request)
+    // The page re-reading the signed-in account as it opens
+    // (useRefreshedCurrentUser), when the test doesn't answer it itself:
+    // answered with the account as cached, and counted apart (meReads) —
+    // so the request lists stay about the page's own requests. A test that
+    // answers /auth/me itself (another account state) sees it listed.
+    if (!response && request.method === 'GET' && request.path === '/auth/me' && account) {
+      reReads += 1
+      return Promise.resolve(json(account))
+    }
+    sent.push(request)
     if (!response) {
       return Promise.reject(new Error(`unexpected request: ${request.method} ${request.path}`))
     }

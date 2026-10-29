@@ -26,6 +26,13 @@ let sent: SentRequest[] = []
 export function requests() {
   return sent
 }
+
+// How many times the page re-read the signed-in account and the harness
+// answered it (see renderTwoFactor below).
+let reReads = 0
+export function meReads() {
+  return reReads
+}
 // The requests that change something (every test also may read the count).
 export function posts() {
   return sent.filter((request) => request.method === 'POST')
@@ -81,6 +88,8 @@ export function renderTwoFactor(
   { mfaEnabled = false }: { mfaEnabled?: boolean } = {},
 ) {
   sent = []
+  reReads = 0
+  const account = { ...ME, mfaEnabled }
   fetchMock.mockReset()
   fetchMock.mockImplementation((input, init) => {
     const url = new URL(
@@ -91,8 +100,17 @@ export function renderTwoFactor(
       path: url.pathname + url.search,
       body: typeof init?.body === 'string' ? init.body : null,
     }
-    sent.push(request)
     const response = answer(request)
+    // The page re-reading the signed-in account as it opens
+    // (useRefreshedCurrentUser), when the test doesn't answer it itself:
+    // answered with the account as cached, and counted apart (meReads) —
+    // so the request lists stay about the page's own requests. A test that
+    // answers /auth/me itself (another account state) sees it listed.
+    if (!response && request.method === 'GET' && request.path === '/auth/me' && account) {
+      reReads += 1
+      return Promise.resolve(json(account))
+    }
+    sent.push(request)
     if (!response) {
       return Promise.reject(new Error(`unexpected request: ${request.method} ${request.path}`))
     }

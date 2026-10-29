@@ -91,6 +91,14 @@ export const TWO_FACTOR_ON_NOTICE =
 export const TWO_FACTOR_OFF_NOTICE =
   'Two-factor sign-in is off. Signing in now asks for your password only.'
 
+// An authenticator app names the account by the label in the QR code it
+// scanned — the email at the time — and never reads it again: after an email
+// change it keeps showing the old one (decided with the person 2026-10-29:
+// say so, keep the email as the label). The backend's "email changed" notice
+// says the same in its own words (AUTHENTICATOR_LABEL_NOTE there).
+export const AUTHENTICATOR_LABEL_TEXT =
+  "Your authenticator app names this account by the email it had when you set it up. If you've changed your email since, the app still shows the old one — your codes keep working. To see the new address there, turn two-factor sign-in off and on again."
+
 // The secret for typing into an app by hand, in groups of 4 — easier to read
 // and to compare than 32 letters in a row. The app ignores the spaces.
 export function groupSecret(secret: string): string {

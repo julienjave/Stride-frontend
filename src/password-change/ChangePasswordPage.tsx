@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useCurrentUser } from '@/auth/useCurrentUser'
+import { useRefreshedCurrentUser } from '@/auth/useRefreshedCurrentUser'
 import { failureText, hasMessage } from '@/api/apiErrors'
 import { WRONG_PASSWORD_MESSAGE } from '@/auth/currentPassword'
 import {
@@ -35,7 +36,10 @@ export function ChangePasswordPage() {
   // person sends, not discovered afterwards.
   const pendingEmail = usePendingEmailChange().data ?? null
   // Two-factor sign-in on: the step-up asks a code as well (decisions §14).
-  // Read from the session's current user — RequireAuth waited for it.
+  // Read from the session's current user — RequireAuth waited for it — and
+  // read AGAIN as the page opens: it may have been turned off on another
+  // device since (useRefreshedCurrentUser).
+  useRefreshedCurrentUser()
   const withCode = me?.mfaEnabled ?? false
   const form = useForm<ChangePasswordFormValues>({
     // One of two schemas, cast to the common shape (as in StepUpForm):

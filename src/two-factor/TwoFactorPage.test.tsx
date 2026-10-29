@@ -12,6 +12,8 @@ import {
   apiError,
   CODES,
   json,
+  ME,
+  meReads,
   noContent,
   posts,
   renderTwoFactor,
@@ -19,7 +21,11 @@ import {
   SETUP,
   type SentRequest,
 } from './renderTwoFactor'
-import { TWO_FACTOR_OFF_NOTICE, TWO_FACTOR_ON_NOTICE } from './twoFactorRules'
+import {
+  AUTHENTICATOR_LABEL_TEXT,
+  TWO_FACTOR_OFF_NOTICE,
+  TWO_FACTOR_ON_NOTICE,
+} from './twoFactorRules'
 
 type Answer = (request: SentRequest) => Response | Promise<Response> | undefined
 
@@ -279,6 +285,8 @@ describe('TwoFactorPage — managing it', () => {
     expect(screen.getByText(/Two-factor sign-in is/)).toHaveTextContent(
       'Two-factor sign-in is on: signing in asks for a code from your authenticator app.',
     )
+    // The app keeps the email it was set up with as its label — said here.
+    expect(screen.getByText(AUTHENTICATOR_LABEL_TEXT)).toBeInTheDocument()
     expect(await screen.findByText('3 recovery codes left')).toBeInTheDocument()
     // Two step-ups, each with its own fields.
     expect(screen.getAllByLabelText('Current password')).toHaveLength(2)
@@ -375,5 +383,30 @@ describe('TwoFactorPage — managing it', () => {
     expect(queryClient.getQueryData(recoveryCodesLeftQueryKey)).toBeUndefined()
     expect(screen.getByRole('link', { name: 'Set up two-factor sign-in' })).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByText(/recovery code/)).not.toBeInTheDocument())
+  })
+})
+
+// The account is read AGAIN as the page opens (useRefreshedCurrentUser): it
+// decides which face the page shows.
+describe('TwoFactorPage — the account read again on opening', () => {
+  it('reads the account once as it opens', async () => {
+    renderTwoFactor('/profile/two-factor', routes({}))
+
+    await waitFor(() => expect(meReads()).toBe(1))
+  })
+
+  it('shows the set-up face when two-factor was turned off on another device', async () => {
+    renderTwoFactor(
+      '/profile/two-factor',
+      routes({
+        'GET /auth/me': () => json({ ...ME, mfaEnabled: false }),
+        'GET /auth/mfa/recovery-codes': LEFT(3),
+      }),
+      { mfaEnabled: true },
+    )
+
+    expect(await screen.findByRole('button', { name: 'Continue' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Turn off' })).not.toBeInTheDocument()
+    expect(screen.queryByText(AUTHENTICATOR_LABEL_TEXT)).not.toBeInTheDocument()
   })
 })

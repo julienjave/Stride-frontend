@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { address, apiError, json, renderEmailChange, requests } from './renderEmailChange'
+import {
+  address,
+  apiError,
+  json,
+  ME,
+  meReads,
+  renderEmailChange,
+  requests,
+} from './renderEmailChange'
 
 const PENDING = {
   newEmail: 'pat.new@example.com',
@@ -180,5 +188,38 @@ describe('ChangeEmailPage — with two-factor sign-in on', () => {
     expect(code).toHaveValue('')
     expect(code).toHaveFocus()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})
+
+// The account is read AGAIN as the page opens (useRefreshedCurrentUser):
+// two-factor may have been turned off on another device since.
+describe('ChangeEmailPage — the account read again on opening', () => {
+  it('reads the account once as it opens', async () => {
+    renderEmailChange('/profile/email', () => undefined)
+
+    await waitFor(() => expect(meReads()).toBe(1))
+  })
+
+  it('drops the code field when two-factor was turned off elsewhere, and sends no code', async () => {
+    renderEmailChange(
+      ['/profile', '/profile/email'],
+      ({ method, path }) => {
+        if (method === 'GET' && path === '/auth/me') return json({ ...ME, mfaEnabled: false })
+        return method === 'POST' ? json({ pending: PENDING }, 201) : undefined
+      },
+      { email: 'pat@example.com', mfaEnabled: true },
+    )
+
+    await waitFor(() =>
+      expect(screen.queryByLabelText('Two-factor code')).not.toBeInTheDocument(),
+    )
+    await fillAndSend('pat.new@example.com', 'secret pw')
+
+    await screen.findByText(/Waiting for confirmation of/)
+    expect(requests().find((r) => r.method === 'POST')).toEqual({
+      method: 'POST',
+      path: '/auth/email-change',
+      body: '{"newEmail":"pat.new@example.com","currentPassword":"secret pw"}',
+    })
   })
 })

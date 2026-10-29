@@ -6,6 +6,9 @@ import { pendingEmailChangeQueryKey } from '@/email-change/usePendingEmailChange
 import {
   address,
   apiError,
+  json,
+  ME,
+  meReads,
   noContent,
   pendingAnswer,
   PENDING_EMAIL,
@@ -309,5 +312,57 @@ describe('ChangePasswordPage — with two-factor sign-in on', () => {
       'currentPassword-error',
     )
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})
+
+// The account is read AGAIN as the page opens (useRefreshedCurrentUser):
+// two-factor may have been turned off on another device — which signs no
+// device out — and this tab's start-up copy would still ask for a code.
+describe('ChangePasswordPage — the account read again on opening', () => {
+  it('reads the account once as it opens', async () => {
+    renderPasswordChange('/profile/password', pendingAnswer(null))
+
+    await waitFor(() => expect(meReads()).toBe(1))
+  })
+
+  it('drops the code field when two-factor was turned off elsewhere, and sends no code', async () => {
+    renderPasswordChange(
+      ['/profile', '/profile/password'],
+      (request) =>
+        request.method === 'GET' && request.path === '/auth/me'
+          ? json({ ...ME, mfaEnabled: false })
+          : answers(null, () => noContent())(request),
+      { mfaEnabled: true },
+    )
+
+    await waitFor(() =>
+      expect(screen.queryByLabelText('Two-factor code')).not.toBeInTheDocument(),
+    )
+    const user = await fill('old secret', 'new secret 1')
+    await send(user)
+
+    await screen.findByText(PASSWORD_CHANGED_NOTICE)
+    expect(requests().find((r) => r.method === 'POST')).toEqual({
+      method: 'POST',
+      path: '/auth/password',
+      body: '{"currentPassword":"old secret","newPassword":"new secret 1"}',
+    })
+  })
+
+  // A failed read keeps what the tab had: the backend checks anyway.
+  it('keeps the code field when the read fails', async () => {
+    renderPasswordChange(
+      '/profile/password',
+      (request) =>
+        request.method === 'GET' && request.path === '/auth/me'
+          ? apiError(500, 'Internal server error')
+          : pendingAnswer(null)(request),
+      { mfaEnabled: true },
+    )
+
+    await waitFor(() =>
+      expect(requests()).toContainEqual({ method: 'GET', path: '/auth/me', body: null }),
+    )
+    expect(screen.getByLabelText('Two-factor code')).toBeInTheDocument()
   })
 })

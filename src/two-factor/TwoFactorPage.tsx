@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { failureText } from '@/api/apiErrors'
 import type { CurrentUser } from '@/auth/types'
 import { currentUserQueryKey, useCurrentUser } from '@/auth/useCurrentUser'
+import { useRefreshedCurrentUser } from '@/auth/useRefreshedCurrentUser'
 import { userQueryKey } from '@/users/api'
 import type { User } from '@/users/types'
 import {
@@ -24,6 +25,7 @@ import { StepUpForm } from './StepUpForm'
 import {
   codeRefusal,
   confirmSetupSchema,
+  AUTHENTICATOR_LABEL_TEXT,
   groupSecret,
   recoveryCodesLeftText,
   TWO_FACTOR_OFF_NOTICE,
@@ -43,6 +45,9 @@ import { useRecoveryCodesLeft } from './useRecoveryCodesLeft'
 // was never confirmed.
 export function TwoFactorPage() {
   const { data: me } = useCurrentUser()
+  // Which face: read AGAIN as the page opens — two-factor may have been
+  // turned off on another device since (useRefreshedCurrentUser).
+  useRefreshedCurrentUser()
   // Recovery codes just made (turning on, or new codes) — held HERE, above
   // both faces: turning on flips `mfaEnabled` in the cache, which swaps the
   // face, and the codes must stay on screen until the person says they're
@@ -240,6 +245,7 @@ function ManageTwoFactor({
         Two-factor sign-in is <strong>on</strong>: signing in asks for a code from your
         authenticator app.
       </p>
+      <p className="text-sm text-muted-foreground">{AUTHENTICATOR_LABEL_TEXT}</p>
 
       <section aria-labelledby="codes-title" className="space-y-3 rounded-lg border px-4 py-3">
         <h2 id="codes-title" className="font-medium">
