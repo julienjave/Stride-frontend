@@ -19,12 +19,23 @@ import {
   joinPeriodText,
   joinReviewLabel,
   joinText,
+  legalDisclosureExplained,
+  legalDisclosurePeriodText,
+  legalDisclosureReviewLabel,
+  legalDisclosureText,
   sessionReasonsText,
 } from './alertText'
-import type { Alert, AlertPatient, CareTeamJoinAlert, ComplaintReviewAlert } from './types'
+import type {
+  Alert,
+  AlertPatient,
+  CareTeamJoinAlert,
+  ComplaintReviewAlert,
+  LegalDisclosureAlert,
+} from './types'
 import { useAlerts } from './useAlerts'
 import { useReviewCareTeamJoin } from './useReviewCareTeamJoin'
 import { useReviewComplaintReviewNotice } from './useReviewComplaintReviewNotice'
+import { useReviewLegalDisclosureNotice } from './useReviewLegalDisclosureNotice'
 import { ListSkeleton } from '@/common/Loading'
 
 // How many rows show before "Show all N" — a home page is a summary; a
@@ -47,7 +58,9 @@ export const FOR_REVIEW_FIRST_ROWS = 5
 //     read), and a link to the patient's page, where the care team is;
 //   - an admin who opened a complaint review of a patient's record (the same
 //     day, pass 2) → "Mark as reviewed" in the row, and no link: there is
-//     nothing in the app to go and see (the reason stays with the admins).
+//     nothing in the app to go and see (the reason stays with the admins);
+//   - an admin who disclosed a patient's record because the law required it
+//     (pass 3) → the same: "Mark as reviewed", no link.
 export function ForReviewSection({ today }: { today: string }) {
   const alerts = useAlerts(today)
   const [showAll, setShowAll] = useState(false)
@@ -68,7 +81,8 @@ export function ForReviewSection({ today }: { today: string }) {
         </h2>
         <p className="text-sm text-muted-foreground">
           Your patients who have stopped coming, sessions of the last 14 days to look at,
-          colleagues who joined their care teams, and complaint reviews of their records.
+          colleagues who joined their care teams, complaint reviews of their records, and records
+          disclosed outside the clinic.
         </p>
         <p role="status" className="sr-only">
           {reviewedNote}
@@ -111,7 +125,8 @@ export function ForReviewSection({ today }: { today: string }) {
 
 // React's `key`: unique among the rows and stable across refetches. A
 // program has at most one attendance row, a session one review row, a link one
-// join row, a complaint review one notice — so kind + id is unique (a program
+// join row, a complaint review or a disclosure one notice — so kind + id is
+// unique (a program
 // and a session may share a number).
 function rowKey(alert: Alert): string {
   switch (alert.kind) {
@@ -123,6 +138,8 @@ function rowKey(alert: Alert): string {
       return `join-${alert.link.id}`
     case 'complaint_review':
       return `complaint-review-${alert.review.id}`
+    case 'legal_disclosure':
+      return `legal-disclosure-${alert.disclosure.id}`
   }
 }
 
@@ -140,6 +157,9 @@ function ReviewRow({
   }
   if (alert.kind === 'complaint_review') {
     return <ComplaintReviewRow alert={alert} heading={heading} onReviewed={onReviewed} />
+  }
+  if (alert.kind === 'legal_disclosure') {
+    return <LegalDisclosureRow alert={alert} heading={heading} onReviewed={onReviewed} />
   }
   const name = `${alert.patient.firstName} ${alert.patient.lastName}`
   const lines =
@@ -181,11 +201,12 @@ function ReviewRow({
     </li>
   )
 }
-// The two NOTICES — who else can see a patient's record (decisions §25): a
-// colleague joined the care team; an admin opened a complaint review. Each row
-// says what happened and when, with "Mark as reviewed" in place. JoinRow and
-// ComplaintReviewRow only choose the words and the hook (a hook must be called
-// in a component of its own); NoticeRow draws them both.
+// The three NOTICES — who else can see a patient's record (decisions §25): a
+// colleague joined the care team; an admin opened a complaint review; an
+// admin disclosed the record. Each row says what happened and when, with
+// "Mark as reviewed" in place. JoinRow, ComplaintReviewRow and
+// LegalDisclosureRow only choose the words and the hook (a hook must be
+// called in a component of its own); NoticeRow draws them all.
 
 interface NoticeRowShared {
   heading: RefObject<HTMLHeadingElement | null>
@@ -235,6 +256,28 @@ function ComplaintReviewRow({
       review={review}
       reviewLabel={complaintReviewReviewLabel(alert)}
       doneNote={`Marked as reviewed: the complaint review of ${name}'s record.`}
+    />
+  )
+}
+
+function LegalDisclosureRow({
+  alert,
+  ...shared
+}: NoticeRowShared & { alert: LegalDisclosureAlert }) {
+  const review = useReviewLegalDisclosureNotice(alert.disclosure.id)
+  const name = `${alert.patient.firstName} ${alert.patient.lastName}`
+  // Whether the agency's hold still runs: the same once-per-row clock.
+  const [now] = useState(() => new Date())
+  return (
+    <NoticeRow
+      {...shared}
+      patient={alert.patient}
+      lines={[legalDisclosureText(alert)]}
+      period={legalDisclosurePeriodText(alert, now)}
+      explained={legalDisclosureExplained(alert, now)}
+      review={review}
+      reviewLabel={legalDisclosureReviewLabel(alert)}
+      doneNote={`Marked as reviewed: the disclosure of ${name}'s record.`}
     />
   )
 }

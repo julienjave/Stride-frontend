@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { LoadError } from '@/common/LoadError'
 import { useRetryFocus } from '@/common/useRetryFocus'
 import { DownloadMyRecords } from '@/records-export/DownloadMyRecords'
+import { SharedRecordSection } from '@/legal-disclosures/SharedRecordSection'
 import { MedicalFileEntryList } from './MedicalFileEntryList'
 import { useMyMedicalFile } from './useMedicalFile'
 import { ListSkeleton } from '@/common/Loading'
@@ -18,7 +19,9 @@ import { ListSkeleton } from '@/common/Loading'
 // any read of the file — the patient's own included.
 //
 // Above the notes, "Download a copy" (decisions §20, pass 3): the whole
-// record as a PDF — the notes, the programs and the sessions.
+// record as a PDF — the notes, the programs and the sessions. Below them,
+// "When your record was shared" (decisions §25, pass 3): the patient's
+// accounting of disclosures.
 export function MyRecordsPage() {
   const file = useMyMedicalFile()
   // After a "Try again" that worked, focus goes to the page's heading.
@@ -59,6 +62,7 @@ function Page({ children, heading }: { children: ReactNode; heading: Ref<HTMLHea
       </div>
       <DownloadMyRecords />
       {children}
+      <SharedRecordSection />
     </div>
   )
 }

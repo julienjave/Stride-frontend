@@ -3,6 +3,7 @@ import type {
   AttendanceAlert,
   CareTeamJoinAlert,
   ComplaintReviewAlert,
+  LegalDisclosureAlert,
   Inactivity,
   MissedRun,
   PersonName,
@@ -170,4 +171,45 @@ export const COMPLAINT_REVIEW_EXPLAINED =
 
 export function complaintReviewReviewLabel(alert: ComplaintReviewAlert): string {
   return `Mark as reviewed: complaint review of ${fullName(alert.patient)}'s record`
+}
+
+// --- AN ADMIN DISCLOSED THE RECORD (2026-10-28) ------------------------------------
+
+// What happened, naming who did it and who received it: "Avery Admin
+// disclosed the record to Det. Jane Roe (Montreal Police)". Never under what
+// order — the alert has no basis or reference to say.
+export function legalDisclosureText(alert: LegalDisclosureAlert): string {
+  const { madeBy, recipientName, recipientOrganisation } = alert.disclosure
+  const recipient =
+    recipientOrganisation === null ? recipientName : `${recipientName} (${recipientOrganisation})`
+  return `${fullName(madeBy)} disclosed the record to ${recipient}`
+}
+
+// When: the day it was made, then — while an agency's hold still runs — the
+// day the patient will see it. Once that day has come, the hold is over and
+// says nothing more. `now` decides which, as for a join.
+//   "Wed 28 Oct"   "Wed 28 Oct · Pat sees it from Mon 30 Nov"
+export function legalDisclosurePeriodText(
+  alert: LegalDisclosureAlert,
+  now: Date,
+  locale?: string,
+): string {
+  const { madeAt, withheldUntil } = alert.disclosure
+  const made = dayOf(madeAt, locale)
+  if (withheldUntil === null || new Date(withheldUntil) <= now) return made
+  return `${made} · ${alert.patient.firstName} sees it from ${dayOf(withheldUntil, locale)}`
+}
+
+// What it means for the reader. While the hold runs, the one thing the care
+// team must not do is tell the patient first.
+export function legalDisclosureExplained(alert: LegalDisclosureAlert, now: Date): string {
+  const { withheldUntil } = alert.disclosure
+  const held = withheldUntil !== null && new Date(withheldUntil) > now
+  return held
+    ? `The law required the clinic to give them a copy. An agency asked that ${alert.patient.firstName} not be told until then — please don't mention it before.`
+    : "The law required the clinic to give them a copy. The order's details stay with the clinic's admins."
+}
+
+export function legalDisclosureReviewLabel(alert: LegalDisclosureAlert): string {
+  return `Mark as reviewed: disclosure of ${fullName(alert.patient)}'s record`
 }

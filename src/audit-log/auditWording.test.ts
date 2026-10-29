@@ -44,6 +44,14 @@ describe('actionLabel', () => {
     )
   })
 
+  // The legal disclosure (decisions §25, pass 3).
+  it('words the legal disclosure actions', () => {
+    expect(actionLabel('LEGAL_DISCLOSURE_MADE')).toBe('Disclosed a health record (legal requirement)')
+    expect(actionLabel('LEGAL_DISCLOSURE_NOTICE_REVIEWED')).toBe(
+      'Marked a disclosure notice as reviewed',
+    )
+  })
+
   // An action the table doesn't know is still readable.
   it('makes words from the name of an action it does not know', () => {
     expect(actionLabel('PROGRAM_PAUSED_BY_ROBOT')).toBe('Program paused by robot')

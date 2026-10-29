@@ -7,6 +7,10 @@ import {
   complaintReviewPeriodText,
   complaintReviewReviewLabel,
   complaintReviewText,
+  legalDisclosureExplained,
+  legalDisclosurePeriodText,
+  legalDisclosureReviewLabel,
+  legalDisclosureText,
   inactivityText,
   joinLinkLabel,
   joinPeriodText,
@@ -15,7 +19,13 @@ import {
   missedRunText,
   sessionReasonsText,
 } from './alertText'
-import { attendanceAlert, complaintReviewAlert, joinAlert, sessionAlert } from './testData'
+import {
+  attendanceAlert,
+  complaintReviewAlert,
+  joinAlert,
+  legalDisclosureAlert,
+  sessionAlert,
+} from './testData'
 
 // en-GB pins the date format ("Mon 26 May"); the sentences around it are
 // the point. (US formatting adds a comma — "Mon, May 26" — and nothing here
@@ -213,6 +223,48 @@ describe('an admin who opened a complaint review', () => {
   it('names its button in full, starting with the visible words', () => {
     expect(complaintReviewReviewLabel(complaintReviewAlert())).toBe(
       "Mark as reviewed: complaint review of Pat Lee's record",
+    )
+  })
+})
+
+describe('an admin who disclosed the record', () => {
+  // A hold until 30 June 2031 at noon UTC: the same day in Paris and Montreal.
+  const held = legalDisclosureAlert({ disclosure: { withheldUntil: '2031-06-30T12:00:00.000Z' } })
+  const during = new Date('2031-06-12T12:00:00.000Z')
+
+  it('says who made it and who received it — and nothing of the order', () => {
+    expect(legalDisclosureText(legalDisclosureAlert())).toBe(
+      'Avery Admin disclosed the record to Det. Jane Roe (Montreal Police)',
+    )
+    expect(
+      legalDisclosureText(legalDisclosureAlert({ disclosure: { recipientOrganisation: null } })),
+    ).toBe('Avery Admin disclosed the record to Det. Jane Roe')
+  })
+
+  it('says the day — and while a hold runs, when the patient will see it', () => {
+    expect(legalDisclosurePeriodText(legalDisclosureAlert(), during, L)).toBe('Tue 10 Jun')
+    expect(legalDisclosurePeriodText(held, during, L)).toBe('Tue 10 Jun · Pat sees it from Mon 30 Jun')
+    // Its moment come: the hold is over and says nothing more.
+    expect(legalDisclosurePeriodText(held, new Date('2031-06-30T12:00:00.000Z'), L)).toBe(
+      'Tue 10 Jun',
+    )
+  })
+
+  it('says what it means — and, while held, not to tell the patient first', () => {
+    expect(legalDisclosureExplained(legalDisclosureAlert(), during)).toBe(
+      "The law required the clinic to give them a copy. The order's details stay with the clinic's admins.",
+    )
+    expect(legalDisclosureExplained(held, during)).toBe(
+      "The law required the clinic to give them a copy. An agency asked that Pat not be told until then — please don't mention it before.",
+    )
+    expect(legalDisclosureExplained(held, new Date('2031-06-30T12:00:00.000Z'))).toBe(
+      legalDisclosureExplained(legalDisclosureAlert(), during),
+    )
+  })
+
+  it('names its button in full, starting with the visible words', () => {
+    expect(legalDisclosureReviewLabel(legalDisclosureAlert())).toBe(
+      "Mark as reviewed: disclosure of Pat Lee's record",
     )
   })
 })

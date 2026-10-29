@@ -108,7 +108,9 @@ describe('UserEditPage — loading and error states', () => {
     let userFailures = 1
     fetchMock.mockImplementation((input) => {
       const url = urlOf(input)
-      if (url.endsWith('/records-export-links') || url.endsWith('/complaint-reviews')) {
+      if (url.endsWith('/records-export-links') ||
+        url.endsWith('/complaint-reviews') ||
+        url.endsWith('/legal-disclosures')) {
         return Promise.resolve(new Response('[]', { status: 200 }))
       }
       if (url.endsWith('/users/1') && userFailures > 0) {
@@ -136,7 +138,9 @@ describe('UserEditPage — rendering a loaded user', () => {
       const url = urlOf(input)
       // Before '/users/1', which they contain: a patient's records links and
       // complaint reviews.
-      if (url.endsWith('/records-export-links') || url.endsWith('/complaint-reviews')) {
+      if (url.endsWith('/records-export-links') ||
+        url.endsWith('/complaint-reviews') ||
+        url.endsWith('/legal-disclosures')) {
         return Promise.resolve(new Response('[]', { status: 200 }))
       }
       if (url.includes('/users/1')) {
@@ -168,7 +172,9 @@ describe('UserEditPage — rendering a loaded user', () => {
       const url = urlOf(input)
       // Before '/users/1', which they contain: a patient's records links and
       // complaint reviews.
-      if (url.endsWith('/records-export-links') || url.endsWith('/complaint-reviews')) {
+      if (url.endsWith('/records-export-links') ||
+        url.endsWith('/complaint-reviews') ||
+        url.endsWith('/legal-disclosures')) {
         return Promise.resolve(new Response('[]', { status: 200 }))
       }
       if (url.includes('/users/1')) {
@@ -230,7 +236,9 @@ describe('UserEditPage — rendering a loaded user', () => {
       const url = urlOf(input)
       // Before '/users/1', which they contain: a patient's records links and
       // complaint reviews.
-      if (url.endsWith('/records-export-links') || url.endsWith('/complaint-reviews')) {
+      if (url.endsWith('/records-export-links') ||
+        url.endsWith('/complaint-reviews') ||
+        url.endsWith('/legal-disclosures')) {
         return Promise.resolve(new Response('[]', { status: 200 }))
       }
       if (url.includes('/users/1')) {
@@ -251,7 +259,9 @@ describe('UserEditPage — rendering a loaded user', () => {
       const url = urlOf(input)
       // Before '/users/1', which they contain: a patient's records links and
       // complaint reviews.
-      if (url.endsWith('/records-export-links') || url.endsWith('/complaint-reviews')) {
+      if (url.endsWith('/records-export-links') ||
+        url.endsWith('/complaint-reviews') ||
+        url.endsWith('/legal-disclosures')) {
         return Promise.resolve(new Response('[]', { status: 200 }))
       }
       if (url.includes('/users/1')) {
@@ -351,7 +361,9 @@ describe('UserEditPage — photo', () => {
       }
       // A patient's page also lists their records links and complaint
       // reviews — checked before '/users/1', which they contain.
-      if (url.endsWith('/users/1/records-export-links') || url.endsWith('/users/1/complaint-reviews')) {
+      if (url.endsWith('/users/1/records-export-links') ||
+        url.endsWith('/users/1/complaint-reviews') ||
+        url.endsWith('/users/1/legal-disclosures')) {
         return Promise.resolve(new Response('[]', { status: 200 }))
       }
       if (url.includes('/users/1')) {
@@ -537,6 +549,9 @@ describe('UserEditPage — health record copy', () => {
     // record to review.
     expect(screen.queryByRole('region', { name: 'Complaint reviews' })).not.toBeInTheDocument()
     expect(askedForReviews()).toBe(false)
+    // Nor a legal disclosure (pass 3).
+    expect(screen.queryByRole('region', { name: 'Legal disclosures' })).not.toBeInTheDocument()
+    expect(askedForDisclosures()).toBe(false)
   })
 
   // The complaint review (decisions §25, pass 2) — what the section does is
@@ -560,6 +575,22 @@ describe('UserEditPage — health record copy', () => {
     renderAt('/admin/users/1')
     await screen.findByText('This account is deactivated.')
     expect(await screen.findByRole('region', { name: 'Complaint reviews' })).toBeInTheDocument()
+  })
+
+  // The legal disclosure (decisions §25, pass 3) — what the section does is
+  // tested in src/legal-disclosures/LegalDisclosuresSection.test.tsx.
+  const askedForDisclosures = () =>
+    fetchMock.mock.calls.some(([input]) => urlOf(input).endsWith('/legal-disclosures'))
+
+  it("offers a legal disclosure of a patient's record — this patient's — active or not", async () => {
+    mockUser({ ...fullUser, isActive: false })
+    renderAt('/admin/users/1')
+    const region = await screen.findByRole('region', { name: 'Legal disclosures' })
+    expect(await within(region).findByText('No disclosure has been made.')).toBeInTheDocument()
+    expect(within(region).getByRole('button', { name: 'Record a disclosure' })).toBeInTheDocument()
+    expect(
+      fetchMock.mock.calls.some(([input]) => urlOf(input).endsWith('/users/1/legal-disclosures')),
+    ).toBe(true)
   })
 })
 

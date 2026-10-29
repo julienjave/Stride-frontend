@@ -39,6 +39,19 @@ type StepUpFailureReason = 'wrong_password' | SecondFactorRefusal
 // cancels too, but those are written in OTHER entries' details).
 type EmailChangeCancelReason = 'cancelled_in_app' | 'cancelled_by_email_link'
 
+// src/database/schema/legal-disclosures.schema.ts, LegalBasis.
+type LegalBasis =
+  | 'court_order'
+  | 'subpoena'
+  | 'required_by_law'
+  | 'law_enforcement'
+  | 'health_oversight'
+  | 'coroner'
+  | 'other'
+
+// src/legal-disclosures/legal-disclosure-rules.ts, DisclosurePart.
+type DisclosurePart = 'medical_file' | 'programs' | 'sessions' | 'messages'
+
 // --- The words -------------------------------------------------------------------------------------------
 
 const SECOND_FACTOR_REFUSAL: Record<SecondFactorRefusal, string> = {
@@ -62,6 +75,25 @@ const STEP_UP_REASON = {
   wrong_password: 'Wrong password',
   ...SECOND_FACTOR_REFUSAL,
 } satisfies Record<StepUpFailureReason, string>
+
+// The admin's own words for these (the form's), not the patient's: the audit
+// log is read by admins.
+const LEGAL_BASIS = {
+  court_order: 'A court order',
+  subpoena: 'A subpoena, with the assurances the law requires',
+  required_by_law: 'Required by law',
+  law_enforcement: 'A request from law enforcement',
+  health_oversight: 'A health oversight agency',
+  coroner: 'A coroner or medical examiner',
+  other: 'Another legal basis',
+} satisfies Record<LegalBasis, string>
+
+const DISCLOSURE_PART = {
+  medical_file: 'Medical file',
+  programs: 'Exercise programs',
+  sessions: 'Sessions',
+  messages: 'Messages',
+} satisfies Record<DisclosurePart, string>
 
 const EMAIL_CHANGE_CANCEL_REASON = {
   cancelled_in_app: 'Cancelled in the app',
@@ -108,6 +140,26 @@ const DETAIL_WORDING: Partial<Record<AuditAction, Record<string, DetailWording>>
   COMPLAINT_REVIEW_NOTICE_REVIEWED: {
     complaintReviewId: { label: 'Complaint review' },
     openedBy: { label: 'Opened by (user id)' },
+  },
+  // The legal disclosure (decisions §25, pass 3): to whom, under what, which
+  // parts and period, and the hold — in the form's order. An optional field
+  // left empty is absent from the entry, so absent from here.
+  LEGAL_DISCLOSURE_MADE: {
+    recipientName: { label: 'Disclosed to' },
+    recipientOrganisation: { label: 'Organisation' },
+    legalBasis: { label: 'Legal basis', values: LEGAL_BASIS },
+    basisExplanation: { label: 'Explanation' },
+    orderReference: { label: 'Order reference' },
+    receivedOn: { label: 'Request received on' },
+    parts: { label: 'Parts', values: DISCLOSURE_PART },
+    periodFrom: { label: 'Period from' },
+    periodTo: { label: 'Period to' },
+    withheldUntil: { label: 'Held back from the patient until' },
+    withholdingStatement: { label: "Agency's statement" },
+  },
+  LEGAL_DISCLOSURE_NOTICE_REVIEWED: {
+    disclosureId: { label: 'Disclosure' },
+    madeBy: { label: 'Made by (user id)' },
   },
   STEP_UP_FAILED: {
     purpose: { label: 'For', values: STEP_UP_PURPOSE },
@@ -157,11 +209,18 @@ export function orderDetailKeys(action: string | undefined, keys: string[]): str
 }
 
 // The words for a stored value, or undefined when there are none — a value
-// that isn't text or true / false (a number, a list), or one the table
-// doesn't know.
+// that isn't text, true / false or a list of texts (a number, an object), or
+// one the table doesn't know. A LIST of texts (a disclosure's parts, since
+// 2026-10-28) gets words item by item, joined like any list; an item the
+// table doesn't know is shown as stored — never hidden.
 export function valueWords(wording: DetailWording | undefined, value: unknown): string | undefined {
-  if (!wording?.values) return undefined
+  const values = wording?.values
+  if (!values) return undefined
+  const known = (text: string) => (Object.hasOwn(values, text) ? values[text] : undefined)
+  if (Array.isArray(value)) {
+    if (value.length === 0 || !value.every((item) => typeof item === 'string')) return undefined
+    return value.map((item: string) => known(item) ?? item).join(', ')
+  }
   if (typeof value !== 'string' && typeof value !== 'boolean') return undefined
-  const text = String(value)
-  return Object.hasOwn(wording.values, text) ? wording.values[text] : undefined
+  return known(String(value))
 }

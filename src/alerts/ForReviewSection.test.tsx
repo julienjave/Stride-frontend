@@ -7,7 +7,13 @@ import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import { localDateString } from '@/common/calendarDate'
 import { PractitionerHomePage } from '@/app/PractitionerHomePage'
 import { apiError, json, urlOf } from '@/sessions/testData'
-import { attendanceAlert, complaintReviewAlert, joinAlert, sessionAlert } from './testData'
+import {
+  attendanceAlert,
+  complaintReviewAlert,
+  joinAlert,
+  legalDisclosureAlert,
+  sessionAlert,
+} from './testData'
 import type { Alert } from './types'
 import { expectSkeleton } from '@/common/loadingAssertions'
 
@@ -22,12 +28,14 @@ let alerts: () => Response
 let joinReview: () => Response | Promise<Response>
 // … and on a complaint review's notice (pass 2).
 let complaintReview: () => Response | Promise<Response>
+let disclosureReview: () => Response | Promise<Response>
 
 beforeEach(() => {
   fetchMock.mockReset()
   alerts = () => json([])
   joinReview = () => json({ reviewedAt: '2031-06-12T12:00:00.000Z' })
   complaintReview = () => json({ reviewedAt: '2031-06-12T12:00:00.000Z' })
+  disclosureReview = () => json({ reviewedAt: '2031-06-12T12:00:00.000Z' })
   fetchMock.mockImplementation((input, init) => {
     const url = new URL(urlOf(input))
     if (init?.method === 'POST' && url.pathname.endsWith('/alerts/care-team-joins/41/review')) {
@@ -35,6 +43,9 @@ beforeEach(() => {
     }
     if (init?.method === 'POST' && url.pathname.endsWith('/alerts/complaint-reviews/12/review')) {
       return Promise.resolve(complaintReview())
+    }
+    if (init?.method === 'POST' && url.pathname.endsWith('/alerts/legal-disclosures/21/review')) {
+      return Promise.resolve(disclosureReview())
     }
     if (url.pathname.endsWith('/alerts')) return Promise.resolve(alerts())
     // The card's Messages slot (Phase 5) asks for the conversations.
@@ -227,11 +238,11 @@ describe('the For review list on the practitioner home', () => {
 
   // --- A colleague joined a patient's care team (2026-10-28) ---
 
-  it('says the list holds care-team joins and complaint reviews too', async () => {
+  it('says the list holds care-team joins, complaint reviews and disclosures too', async () => {
     renderHome()
     expect(
       await screen.findByText(
-        'Your patients who have stopped coming, sessions of the last 14 days to look at, colleagues who joined their care teams, and complaint reviews of their records.',
+        'Your patients who have stopped coming, sessions of the last 14 days to look at, colleagues who joined their care teams, complaint reviews of their records, and records disclosed outside the clinic.',
       ),
     ).toBeInTheDocument()
   })
@@ -378,6 +389,85 @@ describe('the For review list on the practitioner home', () => {
       ])
     renderHome()
     expect(await rows()).toHaveLength(3)
+    expect(
+      consoleError.mock.calls.filter((call) => String(call[0]).includes('same key')),
+    ).toEqual([])
+    consoleError.mockRestore()
+  })
+
+  // --- An admin disclosed the record (2026-10-28, pass 3) ---
+
+  it('gives a disclosure row who made it, to whom, when, what it means — and no link', async () => {
+    alerts = () => json([legalDisclosureAlert()])
+    renderHome()
+    const [row] = await rows()
+    expect(within(row).getByText('Pat Lee')).toBeInTheDocument()
+    expect(
+      within(row).getByText('Avery Admin disclosed the record to Det. Jane Roe (Montreal Police)'),
+    ).toBeInTheDocument()
+    expect(
+      within(row).getByText(
+        "The law required the clinic to give them a copy. The order's details stay with the clinic's admins.",
+      ),
+    ).toBeInTheDocument()
+    expect(
+      within(row).getByRole('button', { name: "Mark as reviewed: disclosure of Pat Lee's record" }),
+    ).toHaveTextContent('Mark as reviewed')
+    expect(within(row).queryByRole('link')).not.toBeInTheDocument()
+  })
+
+  it('says, while a hold runs, when the patient will see it — and not to tell them first', async () => {
+    // A hold far in the future: still running whatever the real clock says.
+    alerts = () =>
+      json([legalDisclosureAlert({ disclosure: { withheldUntil: '2099-06-30T12:00:00.000Z' } })])
+    renderHome()
+    const [row] = await rows()
+    expect(within(row).getByText(/· Pat sees it from/)).toBeInTheDocument()
+    expect(within(row).getByText(/An agency asked that Pat not be told until then/)).toBeInTheDocument()
+  })
+
+  it('marks a disclosure seen: its own POST, focus to the heading, said', async () => {
+    let listed = [legalDisclosureAlert()]
+    alerts = () => json(listed)
+    const user = userEvent.setup()
+    renderHome()
+    const [row] = await rows()
+    listed = []
+    await user.click(within(row).getByRole('button', { name: /^Mark as reviewed/ }))
+    expect(postRequests()).toEqual(['/alerts/legal-disclosures/21/review undefined'])
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 2, name: 'For review' })).toHaveFocus(),
+    )
+    expect(
+      await screen.findByText("Marked as reviewed: the disclosure of Pat Lee's record.", {
+        selector: '[role="status"]',
+      }),
+    ).toBeInTheDocument()
+    expect(await screen.findByText("You're all caught up.")).toBeInTheDocument()
+  })
+
+  it('says a refused disclosure mark in the row', async () => {
+    alerts = () => json([legalDisclosureAlert()])
+    disclosureReview = () => apiError(409, 'This disclosure is not in your For review list')
+    const user = userEvent.setup()
+    renderHome()
+    const [row] = await rows()
+    await user.click(within(row).getByRole('button', { name: /^Mark as reviewed/ }))
+    expect(await within(row).findByRole('alert')).toHaveTextContent(
+      'This disclosure is not in your For review list',
+    )
+    expect(within(row).getByRole('button', { name: /^Mark as reviewed/ })).toBeEnabled()
+  })
+
+  it('keys a disclosure apart from a complaint review of the same number', async () => {
+    const consoleError = vi.spyOn(console, 'error')
+    alerts = () =>
+      json([
+        complaintReviewAlert({ review: { id: 21 } }),
+        legalDisclosureAlert(),
+      ])
+    renderHome()
+    expect(await rows()).toHaveLength(2)
     expect(
       consoleError.mock.calls.filter((call) => String(call[0]).includes('same key')),
     ).toEqual([])

@@ -2,6 +2,7 @@ import type {
   AttendanceAlert,
   CareTeamJoinAlert,
   ComplaintReviewAlert,
+  LegalDisclosureAlert,
   SessionAlert,
   StaffSession,
 } from './types'
@@ -104,6 +105,30 @@ export function complaintReviewAlert(
       expiresAt: '2031-06-17T12:00:00.000Z',
       endedAt: null,
       ...review,
+    },
+  }
+}
+// Avery Admin disclosed Pat's record to Det. Jane Roe of the Montreal Police
+// on 10 June 2031 at noon UTC, no hold — the same calendar day in Paris and
+// Montreal.
+export function legalDisclosureAlert(
+  fields: Partial<Omit<LegalDisclosureAlert, 'disclosure'>> & {
+    disclosure?: Partial<LegalDisclosureAlert['disclosure']>
+  } = {},
+): LegalDisclosureAlert {
+  const { disclosure, ...rest } = fields
+  return {
+    kind: 'legal_disclosure',
+    patient: PAT_ALERT,
+    ...rest,
+    disclosure: {
+      id: 21,
+      madeBy: { id: 1, firstName: 'Avery', lastName: 'Admin' },
+      madeAt: '2031-06-10T12:00:00.000Z',
+      recipientName: 'Det. Jane Roe',
+      recipientOrganisation: 'Montreal Police',
+      withheldUntil: null,
+      ...disclosure,
     },
   }
 }

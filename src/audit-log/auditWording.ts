@@ -155,6 +155,13 @@ const WORDING: Record<AuditAction, string> = {
   // reason, to copies of one patient's record.
   COMPLAINT_REVIEW_OPENED: 'Opened a complaint review of a health record',
   COMPLAINT_REVIEW_ENDED: 'Ended a complaint review early',
+
+  // The legal disclosure (decisions §25, pass 3): a copy of a health record
+  // given outside the clinic because the law required it. Its copy is ALSO a
+  // "Downloaded a copy of a health record" entry, by the same admin, at the
+  // same moment — with the ids of what went in, withheld (clinical).
+  LEGAL_DISCLOSURE_MADE: 'Disclosed a health record (legal requirement)',
+  LEGAL_DISCLOSURE_NOTICE_REVIEWED: 'Marked a disclosure notice as reviewed',
 }
 
 // `Object.hasOwn`, not `in`: `'toString' in WORDING` is true (inherited).

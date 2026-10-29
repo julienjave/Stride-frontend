@@ -8,17 +8,21 @@ import { expectSkeleton } from '@/common/loadingAssertions'
 
 const PATH = '/profile/records'
 
-function answers(file: unknown = chainedFile(), status = 200) {
+// The page's two requests: the file, and (since 2026-10-28) the times the
+// record was shared outside the clinic — none, unless a test says otherwise.
+function answers(file: unknown = chainedFile(), status = 200, shared: unknown = []) {
   return ({ method, path }: { method: string; path: string }) =>
-    method === 'GET' && path === '/medical-files'
-      ? status === 200
-        ? json(file)
-        : json({ statusCode: status, message: ['Boom'], error: 'Error' }, status)
-      : undefined
+    method === 'GET' && path === '/legal-disclosures'
+      ? json(shared)
+      : method === 'GET' && path === '/medical-files'
+        ? status === 200
+          ? json(file)
+          : json({ statusCode: status, message: ['Boom'], error: 'Error' }, status)
+        : undefined
 }
 
 describe('MyRecordsPage', () => {
-  it("shows the patient's whole file in their words, read-only, from ONE request naming nobody", async () => {
+  it("shows the patient's whole file in their words, read-only, from ONE request for it naming nobody", async () => {
     const user = userEvent.setup()
     renderMedicalFile([PATH], answers(), 'patient')
 
@@ -41,7 +45,11 @@ describe('MyRecordsPage', () => {
 
     expect(screen.queryByRole('link', { name: /Amend/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Add an entry' })).not.toBeInTheDocument()
-    expect(requests().map((r) => `${r.method} ${r.path}`)).toEqual(['GET /medical-files'])
+    // The file in one request; the shared list in its own (in no set order).
+    expect(requests().map((r) => `${r.method} ${r.path}`).sort()).toEqual([
+      'GET /legal-disclosures',
+      'GET /medical-files',
+    ])
   })
 
   it('says what the records are, and leads back to the profile', async () => {
@@ -78,5 +86,32 @@ describe('MyRecordsPage', () => {
     await waitFor(() =>
       expect(screen.getByRole('heading', { level: 1, name: 'My records' })).toHaveFocus(),
     )
+  })
+
+  // Decisions §25, pass 3: the accounting of disclosures, below the notes —
+  // its own request, shown whatever the file's list does.
+  it('lists the times the record was shared outside the clinic, below the notes', async () => {
+    const shared = [
+      {
+        id: 21,
+        madeAt: '2031-06-10T12:00:00.000Z',
+        recipientName: 'Jane Roe',
+        recipientOrganisation: 'Montreal Police',
+        legalBasis: 'court_order',
+        basisExplanation: null,
+        parts: ['medical_file', 'messages'],
+        periodFrom: null,
+        periodTo: null,
+      },
+    ]
+    renderMedicalFile([PATH], answers([], 500, shared), 'patient')
+    const section = await screen.findByRole('region', { name: 'When your record was shared' })
+    const [line] = within(
+      await within(section).findByRole('list', { name: 'Times your record was shared' }),
+    ).getAllByRole('listitem')
+    expect(line).toHaveTextContent(`${formatMomentDate('2031-06-10T12:00:00.000Z')} · Jane Roe (Montreal Police)`)
+    // Below the notes' part of the page, which failed on its own.
+    const failed = await screen.findByText(/^Couldn't load your records\./)
+    expect(failed.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 })

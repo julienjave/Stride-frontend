@@ -16,6 +16,7 @@ import { CareTeamSection } from '@/patients/CareTeamSection'
 import { ResetTwoFactorSection } from '@/two-factor/ResetTwoFactorSection'
 import { RecordsExportLinksSection } from '@/records-export/RecordsExportLinksSection'
 import { ComplaintReviewsSection } from '@/complaint-reviews/ComplaintReviewsSection'
+import { LegalDisclosuresSection } from '@/legal-disclosures/LegalDisclosuresSection'
 import { Loading } from '@/common/Loading'
 
 export function UserEditPage() {
@@ -149,6 +150,20 @@ function UserEditView({ userId }: { userId: number }) {
           the admin who opened the review. */}
       {user.roles.includes('patient') && me && (
         <ComplaintReviewsSection
+          patientId={userId}
+          firstName={user.firstName}
+          lastName={user.lastName}
+          myId={me.id}
+        />
+      )}
+
+      {/* A legal disclosure (decisions §25, pass 3): when the law requires
+          the clinic to give THIS patient's record to someone outside it — one
+          stamped copy of what the order covers, recorded, listed for the
+          patient. For any patient, active or not (an order doesn't wait for a
+          reactivation). */}
+      {user.roles.includes('patient') && me && (
+        <LegalDisclosuresSection
           patientId={userId}
           firstName={user.firstName}
           lastName={user.lastName}

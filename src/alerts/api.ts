@@ -50,6 +50,14 @@ export function reviewComplaintReviewNotice(reviewId: number) {
   })
 }
 
+// "Mark as reviewed" on a legal disclosure's notice (decisions §25, pass 3)
+// — no body: a disclosure is made at an instant.
+export function reviewLegalDisclosureNotice(disclosureId: number) {
+  return apiRequest<{ reviewedAt: string }>(`/alerts/legal-disclosures/${disclosureId}/review`, {
+    method: 'POST',
+  })
+}
+
 // "Mark as reviewed" for a program's attendance alert (2026-10-19). Only
 // `today` is sent — the day the alert is judged on; the server works out
 // the facts being reviewed itself, so they're never the client's word.

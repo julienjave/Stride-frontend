@@ -111,7 +111,32 @@ export interface ComplaintReviewAlert {
   }
 }
 
-export type Alert = AttendanceAlert | SessionAlert | CareTeamJoinAlert | ComplaintReviewAlert
+// An admin disclosed one of my patients' records outside the clinic because
+// the law required it (decisions §25, pass 3 — the backend's
+// LegalDisclosureAlert): who made it, when, to whom, and when the patient
+// will see it if an agency asked the clinic to hold it back. NEVER the legal
+// basis, the parts or the order's reference — the care team can't read them,
+// down to the database, so this type has no field for them. Instants (ISO).
+export interface LegalDisclosureAlert {
+  kind: 'legal_disclosure'
+  patient: AlertPatient
+  disclosure: {
+    id: number
+    madeBy: PersonName
+    madeAt: string
+    recipientName: string
+    recipientOrganisation: string | null
+    // The moment the patient may see it (null: no hold).
+    withheldUntil: string | null
+  }
+}
+
+export type Alert =
+  | AttendanceAlert
+  | SessionAlert
+  | CareTeamJoinAlert
+  | ComplaintReviewAlert
+  | LegalDisclosureAlert
 
 // One review of a session: who on the care team looked at it, and when.
 export interface SessionReview {

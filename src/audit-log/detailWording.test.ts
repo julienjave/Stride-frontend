@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { describeDetails } from './auditDetails'
 import { detailWording, valueWords } from './detailWording'
-import { formatEntryMoment } from './auditWording'
+import { formatEntryDay, formatEntryMoment } from './auditWording'
 
 // Plain words for stored values (2026-10-25). Tested through describeDetails —
 // what the screen shows — plus the two lookups' edges.
@@ -197,11 +197,18 @@ describe('anything the table does not know', () => {
     expect(shown({ toString: 'x' }, 'STEP_UP_FAILED')).toStrictEqual([['To string', 'x']])
   })
 
-  it('gives words only to text and true / false, never to numbers or lists', () => {
-    const wording = { values: { '3': 'three', a: 'A' } }
+  it('gives words to text, true / false and lists of texts — never to numbers or objects', () => {
+    const wording = { values: { '3': 'three', a: 'A', b: 'B' } }
     expect(valueWords(wording, 3)).toBeUndefined()
-    expect(valueWords(wording, ['a'])).toBeUndefined()
+    expect(valueWords(wording, { a: 1 })).toBeUndefined()
     expect(valueWords(wording, 'a')).toBe('A')
+    // A list: each item its words, an unknown item as stored.
+    expect(valueWords(wording, ['b', 'a', 'z'])).toBe('B, A, z')
+    // Not a list of texts, or empty: the generic formatting decides.
+    expect(valueWords(wording, ['a', 3])).toBeUndefined()
+    expect(valueWords(wording, [])).toBeUndefined()
+    // An item named like an inherited property is unknown, not a function.
+    expect(valueWords(wording, ['toString'])).toBe('toString')
   })
 })
 
@@ -235,6 +242,85 @@ describe('COMPLAINT_REVIEW_ENDED and the notice', () => {
     ).toStrictEqual([
       ['Complaint review', '#12'],
       ['Opened by (user id)', '7'],
+    ])
+  })
+})
+// The legal disclosure (decisions §25, pass 3): to whom, under what, which
+// parts and period, the hold — in the form's order, whatever order Postgres
+// stored them in; the basis and each part in words.
+describe('LEGAL_DISCLOSURE_MADE', () => {
+  it('says to whom, under what, what went and the hold', () => {
+    expect(
+      shown(
+        {
+          parts: ['medical_file', 'messages'],
+          periodTo: '2031-03-31',
+          legalBasis: 'court_order',
+          receivedOn: '2031-03-01',
+          periodFrom: '2031-03-01',
+          recipientName: 'Jane Roe',
+          withheldUntil: '2031-04-01T04:00:00.000Z',
+          orderReference: '500-17-123',
+          recipientOrganisation: 'Montreal Police',
+          withholdingStatement: 'Investigation',
+        },
+        'LEGAL_DISCLOSURE_MADE',
+      ),
+    ).toStrictEqual([
+      ['Disclosed to', 'Jane Roe'],
+      ['Organisation', 'Montreal Police'],
+      ['Legal basis', 'A court order'],
+      ['Order reference', '500-17-123'],
+      ['Request received on', formatEntryDay('2031-03-01')],
+      ['Parts', 'Medical file, Messages'],
+      ['Period from', formatEntryDay('2031-03-01')],
+      ['Period to', formatEntryDay('2031-03-31')],
+      ['Held back from the patient until', formatEntryMoment('2031-04-01T04:00:00.000Z')],
+      ["Agency's statement", 'Investigation'],
+    ])
+  })
+
+  it('has words for every basis and every part', () => {
+    const basis = (value: string) => shown({ legalBasis: value }, 'LEGAL_DISCLOSURE_MADE')[0][1]
+    expect(
+      [
+        'court_order',
+        'subpoena',
+        'required_by_law',
+        'law_enforcement',
+        'health_oversight',
+        'coroner',
+        'other',
+      ].map(basis),
+    ).toStrictEqual([
+      'A court order',
+      'A subpoena, with the assurances the law requires',
+      'Required by law',
+      'A request from law enforcement',
+      'A health oversight agency',
+      'A coroner or medical examiner',
+      'Another legal basis',
+    ])
+    // Stored in another order (Postgres puts shorter keys first): shown in the
+    // form's — the explanation before the reference.
+    expect(
+      shown(
+        { parts: ['programs', 'sessions'], orderReference: 'R-1', basisExplanation: 'Why' },
+        'LEGAL_DISCLOSURE_MADE',
+      ),
+    ).toStrictEqual([
+      ['Explanation', 'Why'],
+      ['Order reference', 'R-1'],
+      ['Parts', 'Exercise programs, Sessions'],
+    ])
+  })
+
+  it('says which disclosure a notice was about', () => {
+    expect(
+      shown({ madeBy: 7, disclosureId: 21 }, 'LEGAL_DISCLOSURE_NOTICE_REVIEWED'),
+    ).toStrictEqual([
+      ['Disclosure', '#21'],
+      ['Made by (user id)', '7'],
     ])
   })
 })
