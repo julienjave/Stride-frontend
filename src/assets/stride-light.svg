@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 8318 3420" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:affinity="https://www.affinity.studio/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:1.5;">
+    <g transform="matrix(1,0,0,1,-1987.301887,-6940)">
+        <g id="_--Stride-Wordmark3" affinity:id="# Stride Wordmark3" transform="matrix(4.287281,0,0,1,-6544.386324,6940)">
+            <rect x="1990" y="0" width="1940" height="3420" style="fill:none;"/>
+            <g id="tride---black" affinity:id="tride - black">
+                <g transform="matrix(0.201999,-0.5,0.116624,0.866025,2116.334222,6129.544233)">
+                    <text x="7090.97px" y="685.612px" style="font-family:'Comfortaa-Regular', 'Comfortaa';font-size:2522.5px;">e</text>
+                </g>
+                <g transform="matrix(0.490272,0,0,2.101935,456.992154,-3445.522758)">
+                    <text x="4025.808px" y="3005.241px" style="font-family:'Comfortaa-Regular', 'Comfortaa';font-size:1200px;">trid</text>
+                </g>
+            </g>
+            <g id="Logo" transform="matrix(0.150834,0,0,0.855,1990,0)">
+                <rect x="0" y="0" width="3000" height="4000" style="fill:none;"/>
+                <g transform="matrix(1.53204,0,0,1.158736,269.483628,-119.205569)">
+                    <circle cx="794.168" cy="3208.405" r="131.218" style="fill:rgb(224,120,86);"/>
+                </g>
+                <g id="S---small" affinity:id="S - small" transform="matrix(1.170498,0,0,0.885289,-71.785311,-51.918267)">
+                    <g transform="matrix(1.017706,0,0,1.017706,-67.461963,221.17515)">
+                        <path d="M1367.925,3375.643C1747.544,3375.643 2055.746,3067.441 2055.746,2687.822C2055.746,2308.203 1747.544,2000 1367.925,2000" style="fill:none;stroke:rgb(47,122,120);stroke-width:108.18px;"/>
+                    </g>
+                    <g transform="matrix(1.017706,0,0,1.017706,-67.461963,-1178.82485)">
+                        <path d="M1367.925,3375.643C988.305,3375.643 680.103,3067.441 680.103,2687.822C680.103,2308.203 988.305,2000 1367.925,2000" style="fill:none;stroke:rgb(47,122,120);stroke-width:108.18px;"/>
+                    </g>
+                </g>
+                <g id="S---mid" affinity:id="S - mid" transform="matrix(1.340257,0,0,1.013683,-291.356206,-333.626198)">
+                    <g transform="matrix(1.017706,0,0,1.017706,-67.461963,221.17515)">
+                        <path d="M1367.925,3375.643C1747.544,3375.643 2055.746,3067.441 2055.746,2687.822C2055.746,2308.203 1747.544,2000 1367.925,2000" style="fill:none;stroke:rgb(59,143,140);stroke-width:118.1px;"/>
+                    </g>
+                    <g transform="matrix(1.017706,0,0,1.017706,-67.461963,-1178.82485)">
+                        <path d="M1367.925,3375.643C988.305,3375.643 680.103,3067.441 680.103,2687.822C680.103,2308.203 988.305,2000 1367.925,2000" style="fill:none;stroke:rgb(59,143,140);stroke-width:118.1px;"/>
+                    </g>
+                </g>
+                <g id="S---main" affinity:id="S - main" transform="matrix(1.546392,0,0,1.169591,-562.297749,-678.222142)">
+                    <g transform="matrix(1.017706,0,0,1.017706,-67.461963,221.17515)">
+                        <path d="M1367.925,3375.643C1747.544,3375.643 2055.746,3067.441 2055.746,2687.822C2055.746,2308.203 1747.544,2000 1367.925,2000" style="fill:none;stroke:rgb(224,120,86);stroke-width:122.83px;"/>
+                    </g>
+                    <g transform="matrix(1.017706,0,0,1.017706,-67.461963,-1178.82485)">
+                        <path d="M1367.925,3375.643C988.305,3375.643 680.103,3067.441 680.103,2687.822C680.103,2308.203 988.305,2000 1367.925,2000" style="fill:none;stroke:rgb(224,120,86);stroke-width:122.83px;"/>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

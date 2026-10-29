@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 3420 3420" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:affinity="https://www.affinity.studio/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:1.5;">
+    <g id="_--Stride-Favicon" affinity:id="# Stride Favicon" transform="matrix(1.762887,0,0,1,3508.14433,0)">
+        <rect x="-1990" y="0" width="1940" height="3420" style="fill:none;"/>
+        <g transform="matrix(0.551086,0,0,0.952047,-1977.358831,77)">
+            <path d="M2509.221,0C2935.3,0 3281.221,352.991 3281.221,787.776L3281.221,2632.224C3281.221,3067.009 2935.3,3420 2509.221,3420L965.221,3420C539.143,3420 193.221,3067.009 193.221,2632.224L193.221,787.776C193.221,352.991 539.143,0 965.221,0L2509.221,0Z" style="stroke:white;stroke-width:64.98px;"/>
+        </g>
+        <g transform="matrix(0.730583,0,0,1.287935,-1625.164622,-1055.215685)">
+            <circle cx="794.168" cy="3208.405" r="131.218" style="fill:rgb(224,120,86);"/>
+        </g>
+        <g id="S---small" affinity:id="S - small" transform="matrix(0.429365,0,0,0.756922,-1591.497131,-76.096808)">
+            <g transform="matrix(1.017706,0,0,1.017706,-67.461963,53.39043)">
+                <path d="M1367.925,3375.643C1516.293,3375.643 1653.752,3328.565 1766.166,3248.544C1941.378,3123.822 2055.746,2919.072 2055.746,2687.822C2055.746,2308.203 1703.15,2156.614 1323.531,2156.614" style="fill:none;stroke:rgb(47,122,120);stroke-width:162.27px;"/>
+            </g>
+            <g transform="matrix(1.017706,0,0,1.017706,-67.461963,-972.727084)">
+                <path d="M1642.705,3190.054C1263.086,3190.054 757.992,3088.211 757.992,2708.592C757.992,2328.973 988.305,2000 1367.925,2000" style="fill:none;stroke:rgb(47,122,120);stroke-width:162.27px;"/>
+            </g>
+        </g>
+        <g id="S---mid" affinity:id="S - mid" transform="matrix(0.491636,0,0,0.866699,-1672.0407,-316.957089)">
+            <g transform="matrix(1.017706,0,0,1.017706,-67.461963,141.562766)">
+                <path d="M1367.925,3375.643C1516.345,3375.643 1653.849,3328.531 1766.285,3248.459C1941.43,3123.729 2055.746,2919.02 2055.746,2687.822C2055.746,2308.203 1704.884,2067.577 1325.265,2067.577" style="fill:none;stroke:rgb(59,143,140);stroke-width:188.95px;"/>
+            </g>
+            <g transform="matrix(1.017706,0,0,1.017706,-67.461963,-1081.905427)">
+                <path d="M1516.865,3287.411C1137.246,3287.411 693.708,3147.37 693.708,2767.75C693.708,2388.131 988.305,2000 1367.925,2000" style="fill:none;stroke:rgb(59,143,140);stroke-width:188.95px;"/>
+            </g>
+        </g>
+        <g id="S---main" affinity:id="S - main" transform="matrix(0.567251,0,0,1,-1771.428185,-611.586621)">
+            <g transform="matrix(1.017706,0,0,1.017706,-67.461963,221.17515)">
+                <path d="M1367.925,3375.643C1747.544,3375.643 2055.746,3067.441 2055.746,2687.822C2055.746,2308.203 1747.544,2000 1367.925,2000" style="fill:none;stroke:rgb(224,120,86);stroke-width:204.71px;"/>
+            </g>
+            <g transform="matrix(1.017706,0,0,1.017706,-67.461963,-1178.82485)">
+                <path d="M1367.925,3375.643C988.305,3375.643 680.103,3067.441 680.103,2687.822C680.103,2308.203 988.305,2000 1367.925,2000" style="fill:none;stroke:rgb(224,120,86);stroke-width:204.71px;"/>
+            </g>
+        </g>
+    </g>
+</svg>
