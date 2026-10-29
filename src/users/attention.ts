@@ -7,7 +7,7 @@ import { adminMetricsQueryKey } from '@/app/home/admin/api'
 // owns their WORDS and how the users list's address names them, so the
 // home and the list say the same thing.
 
-// The same values as the backend's ATTENTION_KINDS (GET /users?attention=…).
+// The same values as the backend's ATTENTION_KINDS (GET /admin/users?attention=…).
 export const ATTENTION_KINDS = [
   'patients-without-care-team',
   'practitioners-without-clinic',

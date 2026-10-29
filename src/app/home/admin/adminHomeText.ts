@@ -39,3 +39,9 @@ export function moreLine(list: AttentionList): string | null {
 export function nothingNeedsAttention(metrics: AdminMetrics): boolean {
   return Object.values(metrics.needsAttention).every((list) => list.total === 0)
 }
+// The freshness bar's time: "14:05" (or "2:05 PM" — the viewer's own
+// locale), the moment the OLDER of the two answers arrived — everything on
+// the page is at least that fresh.
+export function updatedAtText(moment: number, locale?: string): string {
+  return new Intl.DateTimeFormat(locale, { timeStyle: 'short' }).format(moment)
+}

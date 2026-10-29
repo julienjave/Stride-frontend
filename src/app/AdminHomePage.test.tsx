@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
@@ -464,6 +464,167 @@ describe('AdminHomePage', () => {
       await waitFor(() =>
         expect(within(activitySection()).getByRole('heading', { name: 'Recent activity' })).toHaveFocus(),
       )
+    })
+  })
+
+  // Kept current while the page stays open (Phase 6.5, decided with the
+  // person 2026-10-29): a refetch every minute, "Updated …" and a Refresh
+  // button above the two sections.
+  describe('freshness', () => {
+    const bar = () => screen.getByRole('button', { name: /^Refresh/ }).parentElement!
+    const count = (path: string) => requests().filter((r) => r === path).length
+    const METRICS_REQUEST = 'GET /admin/metrics'
+    const ACTIVITY_REQUEST = 'GET /audit-logs?page=1&limit=5&kind=change'
+
+    const at = (iso: string) =>
+      new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(Date.parse(iso))
+
+    it('says when the numbers were fetched, and that they refresh every minute', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      vi.setSystemTime(new Date('2031-03-10T14:05:00'))
+      renderWithUser()
+      expect(
+        await screen.findByText(`Updated ${at('2031-03-10T14:05:00')} · refreshes every minute`),
+      ).toBeInTheDocument()
+    })
+
+    it('says nothing before anything has loaded', () => {
+      fetchMock.mockImplementation(() => new Promise(() => {})) // nothing answers
+      renderWithUser()
+      expect(screen.queryByRole('button', { name: /^Refresh/ })).not.toBeInTheDocument()
+      expect(screen.queryByText(/^Updated /)).not.toBeInTheDocument()
+    })
+
+    it('sits above the metrics', async () => {
+      renderWithUser()
+      await screen.findByText(/^Updated /)
+      expect(
+        bar().compareDocumentPosition(metricsSection()) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
+    })
+
+    it('asks both again every minute — not before', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      vi.setSystemTime(new Date('2031-03-10T14:05:00'))
+      renderWithUser()
+      await screen.findByText(/^Updated /)
+      expect([count(METRICS_REQUEST), count(ACTIVITY_REQUEST)]).toEqual([1, 1])
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(59_000)
+      })
+      expect([count(METRICS_REQUEST), count(ACTIVITY_REQUEST)]).toEqual([1, 1])
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1_000)
+      })
+      await waitFor(() =>
+        expect([count(METRICS_REQUEST), count(ACTIVITY_REQUEST)]).toEqual([2, 2]),
+      )
+      expect(
+        await screen.findByText(`Updated ${at('2031-03-10T14:06:00')} · refreshes every minute`),
+      ).toBeInTheDocument()
+    })
+
+    it('Refresh asks both again at once, and says so to a screen reader', async () => {
+      const user = userEvent.setup()
+      renderWithUser()
+      await screen.findByText(/^Updated /)
+
+      answers.metrics = () => json({ ...METRICS, pendingInvitations: 9 })
+      await user.click(screen.getByRole('button', { name: 'Refresh' }))
+
+      await waitFor(() =>
+        expect([count(METRICS_REQUEST), count(ACTIVITY_REQUEST)]).toEqual([2, 2]),
+      )
+      await waitFor(() =>
+        expect(tiles()).toContainEqual(['Invitations waiting', '9']),
+      )
+      expect(
+        await screen.findByText(/^Refreshed at /, { selector: '[role="status"]' }),
+      ).toBeInTheDocument()
+      // Focus stays on the button (aria-disabled while working, never
+      // disabled — a disabled button drops focus).
+      expect(screen.getByRole('button', { name: 'Refresh' })).toHaveFocus()
+    })
+
+    it('says "Refreshing…" during a press, and ignores a second press meanwhile', async () => {
+      const user = userEvent.setup()
+      renderWithUser()
+      await screen.findByText(/^Updated /)
+
+      let release: () => void = () => {}
+      answers.metrics = () =>
+        new Promise<Response>((resolve) => {
+          release = () => resolve(json(METRICS))
+        }) as unknown as Response
+      fetchMock.mockImplementation((input) => {
+        const url = new URL(input as string)
+        if (url.pathname === '/admin/metrics') return answers.metrics() as unknown as Promise<Response>
+        return Promise.resolve(answers.activity())
+      })
+      await user.click(screen.getByRole('button', { name: 'Refresh' }))
+
+      const button = await screen.findByRole('button', { name: 'Refreshing…' })
+      expect(button).toHaveAttribute('aria-disabled', 'true')
+      await user.click(button)
+      expect(count(METRICS_REQUEST)).toBe(2)
+
+      release()
+      expect(await screen.findByRole('button', { name: 'Refresh' })).toHaveAttribute(
+        'aria-disabled',
+        'false',
+      )
+    })
+
+    // A refresh that fails keeps what was on screen — not an error in
+    // place of the numbers — and the line says how old they are.
+    it('keeps the numbers when a refresh fails, and says so', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      vi.setSystemTime(new Date('2031-03-10T14:05:00'))
+      const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTime(ms) })
+      renderWithUser()
+      await screen.findByText(/^Updated /)
+
+      answers.metrics = () => json({ statusCode: 500, message: ['Internal server error'] }, 500)
+      await user.click(screen.getByRole('button', { name: 'Refresh' }))
+
+      expect(
+        await screen.findByText(`Couldn't refresh. Showing the numbers from ${at('2031-03-10T14:05:00')}.`),
+      ).toBeInTheDocument()
+      expect(tiles()).toContainEqual(['Invitations waiting', '5'])
+      expect(within(metricsSection()).queryByText(/Couldn't load/)).not.toBeInTheDocument()
+      expect(
+        await screen.findByText("Couldn't refresh. Try again in a moment.", {
+          selector: '[role="status"]',
+        }),
+      ).toBeInTheDocument()
+
+      // The next refresh that works says "Updated" again.
+      answers.metrics = () => json(METRICS)
+      await user.click(screen.getByRole('button', { name: 'Refresh' }))
+      expect(await screen.findByText(/^Updated /)).toBeInTheDocument()
+    })
+
+    // The metrics refresh at 14:08, the activity's refresh fails: the line
+    // names the OLDER answer's time (14:05) — what the page can vouch for.
+    it('keeps the activity rows when their refresh fails, and names the older time', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      vi.setSystemTime(new Date('2031-03-10T14:05:00'))
+      const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTime(ms) })
+      answers.activity = () => json(auditPage([entry(1)]))
+      renderWithUser()
+      await within(activitySection()).findByRole('listitem')
+
+      vi.setSystemTime(new Date('2031-03-10T14:08:00'))
+      answers.activity = () => json({ statusCode: 500, message: ['Internal server error'] }, 500)
+      await user.click(screen.getByRole('button', { name: 'Refresh' }))
+
+      expect(
+        await screen.findByText(`Couldn't refresh. Showing the numbers from ${at('2031-03-10T14:05:00')}.`),
+      ).toBeInTheDocument()
+      expect(within(activitySection()).getAllByRole('listitem')).toHaveLength(1)
+      expect(within(activitySection()).queryByText(/Couldn't load/)).not.toBeInTheDocument()
     })
   })
 })

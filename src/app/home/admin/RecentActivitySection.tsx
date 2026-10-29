@@ -1,26 +1,11 @@
-import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { LoadError } from '@/common/LoadError'
 import { useRetryFocus } from '@/common/useRetryFocus'
-import { auditLogQueryKey, fetchAuditLog } from '@/audit-log/api'
-import { NO_FILTERS, writeFilters, type AuditLogQuery } from '@/audit-log/auditFilters'
+import { NO_FILTERS, writeFilters } from '@/audit-log/auditFilters'
 import { actionLabel, formatEntryMoment } from '@/audit-log/auditWording'
 import type { AuditLogEntry, AuditPerson } from '@/audit-log/types'
 import { ListSkeleton } from '@/common/Loading'
-
-// How many changes the home shows; the audit log has the rest.
-export const RECENT_ACTIVITY_ROWS = 5
-
-// The request: page 1 of the CHANGES only (the person's choice, 2026-10-24:
-// sign-ins and record views would fill five rows on their own), newest
-// first — the backend's order. Built as the audit log's own query (same
-// names, same key prefix ['audit-log', …]), so nothing new is needed on the
-// backend and anything that refreshes the audit log refreshes this too.
-const RECENT_CHANGES_QUERY: AuditLogQuery = {
-  page: '1',
-  limit: String(RECENT_ACTIVITY_ROWS),
-  kind: 'change',
-}
+import { useRecentChanges } from './useAdminHome'
 
 // The audit log page filtered the same way: "See all" leads to exactly the
 // list these rows were the start of. writeFilters gives the page's own
@@ -34,10 +19,8 @@ const fullName = (person: AuditPerson) => `${person.firstName} ${person.lastName
 // newest changes, in the audit log's own words — a summary, so no details
 // toggle; each row's full entry is one click away in the log.
 export function RecentActivitySection() {
-  const changes = useQuery({
-    queryKey: auditLogQueryKey(RECENT_CHANGES_QUERY),
-    queryFn: () => fetchAuditLog(RECENT_CHANGES_QUERY),
-  })
+  // Refetched every minute while the tab is visible (useAdminHome.ts).
+  const changes = useRecentChanges()
   // After a "Try again" that worked, focus goes to the section's heading.
   const heading = useRetryFocus<HTMLHeadingElement>('recent activity', changes.isSuccess)
 
@@ -53,11 +36,16 @@ export function RecentActivitySection() {
       </div>
 
       {changes.isPending && <ListSkeleton label="Loading recent activity…" />}
-      {changes.isError && <LoadError what="recent activity" queries={[changes]} />}
-      {changes.isSuccess && changes.data.data.length === 0 && (
+      {/* Only when there is nothing to show: a minute's refresh that fails
+          keeps the last rows on screen, and the freshness bar says so
+          (AdminHomeFreshness) — the rows shouldn't vanish for a blip. */}
+      {changes.isError && !changes.data && (
+        <LoadError what="recent activity" queries={[changes]} />
+      )}
+      {changes.data && changes.data.data.length === 0 && (
         <p className="text-sm">No changes recorded yet.</p>
       )}
-      {changes.isSuccess && changes.data.data.length > 0 && (
+      {changes.data && changes.data.data.length > 0 && (
         <ul aria-label="Recent activity" className="divide-y rounded-lg border">
           {changes.data.data.map((entry) => (
             <ActivityRow key={entry.id} entry={entry} />

@@ -1,8 +1,8 @@
-import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { LoadError } from '@/common/LoadError'
 import { useRetryFocus } from '@/common/useRetryFocus'
-import { adminMetricsQueryKey, fetchAdminMetrics, type AttentionList } from './api'
+import { type AttentionList } from './api'
+import { useAdminMetrics } from './useAdminHome'
 import { moreLine, nothingNeedsAttention, notCountedLine } from './adminHomeText'
 import { ATTENTION_GROUPS, attentionHref, type AttentionKind } from '@/users/attention'
 import { LinesSkeleton } from '@/common/Loading'
@@ -17,7 +17,8 @@ import { LinesSkeleton } from '@/common/Loading'
 // each slot in one equal column, and five numbers plus two lists don't fit a
 // third of a 375 px screen.
 export function AdminMetricsSection() {
-  const metrics = useQuery({ queryKey: adminMetricsQueryKey, queryFn: fetchAdminMetrics })
+  // Refetched every minute while the tab is visible (useAdminHome.ts).
+  const metrics = useAdminMetrics()
   // After a "Try again" that worked, focus goes to the section's heading.
   const heading = useRetryFocus<HTMLHeadingElement>('the metrics', metrics.isSuccess)
 
@@ -36,9 +37,11 @@ export function AdminMetricsSection() {
       {metrics.isPending && <LinesSkeleton label="Loading the metrics…" lines={3} />}
       {/* "Try again" refetches just this request (decisions §15) — not
           "Try refreshing the page", which reloads the whole app for it. */}
-      {metrics.isError && <LoadError what="the metrics" queries={[metrics]} />}
+      {/* Only when there is nothing to show: a minute's refresh that fails
+          keeps the last numbers, and the freshness bar says so. */}
+      {metrics.isError && !metrics.data && <LoadError what="the metrics" queries={[metrics]} />}
 
-      {metrics.isSuccess && (
+      {metrics.data && (
         <>
           {/* A description list: each number is DEFINED by its label, which
               is what <dt>/<dd> say to a screen reader ("Patients, 8") — a

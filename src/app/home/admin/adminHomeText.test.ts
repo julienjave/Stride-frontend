@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import type { AdminMetrics } from './api'
-import { countOf, moreLine, nothingNeedsAttention, notCountedLine } from './adminHomeText'
+import {
+  countOf,
+  moreLine,
+  nothingNeedsAttention,
+  notCountedLine,
+  updatedAtText,
+} from './adminHomeText'
 
 function metrics(overrides: {
   deactivatedAccounts?: number
@@ -77,5 +83,15 @@ describe('nothingNeedsAttention', () => {
     expect(nothingNeedsAttention(metrics({ patients: 1 }))).toBe(false)
     expect(nothingNeedsAttention(metrics({ practitioners: 1 }))).toBe(false)
     expect(nothingNeedsAttention(metrics({ invitations: 1 }))).toBe(false)
+  })
+})
+
+describe('updatedAtText', () => {
+  // The viewer's own locale in the app; pinned here so the words are known.
+  it('says the time of a moment, in the locale given', () => {
+    const moment = new Date(2031, 2, 10, 14, 5).getTime() // local 14:05
+    expect(updatedAtText(moment, 'en-GB')).toBe('14:05')
+    // (Not en-US: its space before "PM" is a narrow no-break space in some
+    // ICU versions and a plain one in others — a test of the machine.)
   })
 })

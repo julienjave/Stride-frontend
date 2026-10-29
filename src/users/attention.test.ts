@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { QueryClient } from '@tanstack/react-query'
 import { attentionHref, readAttention, refreshAttention } from './attention'
-import { userQueryKey, usersListQueryKey, usersNeedingAttentionQueryKey } from './api'
+import { userListPageQueryKey, userQueryKey, usersListQueryKey } from './api'
 import { adminMetricsQueryKey } from '@/app/home/admin/api'
 
 describe('readAttention', () => {
@@ -46,7 +46,8 @@ describe('refreshAttention', () => {
       metrics: adminMetricsQueryKey,
       everyone: usersListQueryKey(false),
       withDeactivated: usersListQueryKey(true),
-      group: usersNeedingAttentionQueryKey('patients-without-care-team'),
+      // A page of the Users page (GET /admin/users), a group's included.
+      page: userListPageQueryKey('attention=patients-without-care-team'),
       oneUser: userQueryKey(7),
       careTeam: ['care-team', 7],
     }
@@ -57,6 +58,6 @@ describe('refreshAttention', () => {
     const stale = Object.entries(keys)
       .filter(([, key]) => queryClient.getQueryState(key)?.isInvalidated)
       .map(([name]) => name)
-    expect(stale).toEqual(['metrics', 'everyone', 'withDeactivated', 'group'])
+    expect(stale).toEqual(['metrics', 'everyone', 'withDeactivated', 'page'])
   })
 })
