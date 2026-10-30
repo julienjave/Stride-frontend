@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router'
 import { Dumbbell } from 'lucide-react'
 import type { ExerciseListItem } from './types'
@@ -12,23 +13,54 @@ interface ExerciseCardProps {
 }
 
 export function ExerciseCard({ exercise, href }: ExerciseCardProps) {
+  // Remembers WHICH url failed (UserAvatar's pattern): when the list is
+  // fetched again with another URL — the next hour's signature, or a new
+  // cover — it no longer equals failedUrl and gets a fresh try, with no
+  // effect needed to reset a boolean.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null)
+  const showPhoto = exercise.coverUrl !== null && exercise.coverUrl !== failedUrl
+
   return (
     <Link
       to={href ?? `/practitioner/library/${exercise.id}`}
       className="flex flex-col gap-2 rounded-lg border p-3 hover:bg-muted/50"
     >
-      {/* A placeholder icon, not a real thumbnail, for every card
-          regardless of whether mediaUrls is populated — mediaUrls
-          stores raw storage keys, not usable URLs (no presigned-URL
-          conversion exists for exercises yet; avatars and clinic logos
-          have one, exercises are still to do).
-          Real thumbnails are the roadmap's own separate 🟡 "Exercise
-          image upload" item, not part of this browse pass. */}
+      {/* The thumbnail: the exercise's cover photo (its first), or a
+          dumbbell when it has none or the photo couldn't load (a URL that
+          expired in a tab left open, storage down) — never the browser's
+          broken-image icon.
+          - The FRAME has a fixed height whatever happens inside it, so
+            the grid doesn't jump when the photos arrive (no layout shift);
+            the muted background shows while one downloads.
+          - object-contain: the whole photo, scaled to fit, plain bands
+            where its shape differs from the frame's — a start or end
+            position with a foot or a hand cropped off would mislead (the
+            photo carousel's choice too).
+          - alt="": the photo repeats what the name right below says, so
+            a screen reader would only read the name twice; the frame is
+            hidden from it either way.
+          - loading="lazy": cards below the screen download their photo
+            only when scrolled near. decoding="async": decoding a big photo
+            doesn't hold up drawing the rest of the page.
+          - The URL stays the same for the whole hour (the backend's
+            getCacheablePresignedUrl), so a refetched list hands React the
+            same `src` and the browser serves the photo from its cache. */}
       <div
-        className="flex h-24 items-center justify-center rounded-md bg-muted"
+        className="flex h-24 items-center justify-center overflow-hidden rounded-md bg-muted"
         aria-hidden="true"
       >
-        <Dumbbell className="h-8 w-8 text-muted-foreground" />
+        {showPhoto ? (
+          <img
+            src={exercise.coverUrl ?? undefined}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="h-full w-full object-contain"
+            onError={() => setFailedUrl(exercise.coverUrl)}
+          />
+        ) : (
+          <Dumbbell className="h-8 w-8 text-muted-foreground" />
+        )}
       </div>
 
       <span className="font-medium leading-tight">{exercise.name}</span>

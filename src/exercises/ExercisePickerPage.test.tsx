@@ -74,7 +74,7 @@ describe('ExercisePickerPage', () => {
             secondaryMuscles: [],
             equipment: [],
             instructions: ['Step'],
-            mediaUrls: [],
+            coverUrl: null,
             source: 'custom',
             createdBy: 7,
             isArchived: false,

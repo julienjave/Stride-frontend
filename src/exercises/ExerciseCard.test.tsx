@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { ExerciseCard } from './ExerciseCard'
 import type { ExerciseListItem } from './types'
@@ -12,7 +12,7 @@ const baseExercise: ExerciseListItem = {
   secondaryMuscles: [],
   equipment: [],
   instructions: ['Step one'],
-  mediaUrls: [],
+  coverUrl: null,
   source: 'custom',
   createdBy: 7,
   isArchived: false,
@@ -25,6 +25,19 @@ function renderCard(exercise: ExerciseListItem) {
       <ExerciseCard exercise={exercise} />
     </MemoryRouter>,
   )
+}
+
+const COVER = 'http://localhost:9000/stride/exercises/42/0.jpg?X-Amz-Date=20310304T140000Z'
+const NEXT_HOUR_COVER = 'http://localhost:9000/stride/exercises/42/0.jpg?X-Amz-Date=20310304T150000Z'
+
+// The photo has alt="" inside an aria-hidden frame — deliberately invisible
+// to role queries (the name below says it all) — so the tests find the
+// <img> and lucide's dumbbell <svg> through the DOM.
+function thumbnail(container: HTMLElement) {
+  return {
+    img: container.querySelector('img'),
+    dumbbell: container.querySelector('svg.lucide-dumbbell'),
+  }
 }
 
 describe('ExerciseCard', () => {
@@ -58,5 +71,87 @@ describe('ExerciseCard', () => {
     // shows up as a stray empty line by checking the joined muscle text
     // from the base fixture is genuinely gone.
     expect(screen.queryByText('shoulders')).not.toBeInTheDocument()
+  })
+
+  // --- The thumbnail (Phase 7) ---
+
+  it('shows a dumbbell, and no photo, for an exercise with no cover', () => {
+    const { container } = renderCard(baseExercise)
+    const { img, dumbbell } = thumbnail(container)
+    expect(img).toBeNull()
+    expect(dumbbell).not.toBeNull()
+  })
+
+  it('shows the cover photo in place of the dumbbell: whole, lazy, decorative', () => {
+    const { container } = renderCard({ ...baseExercise, coverUrl: COVER })
+    const { img, dumbbell } = thumbnail(container)
+    expect(dumbbell).toBeNull()
+    expect(img).toHaveAttribute('src', COVER)
+    expect(img).toHaveAttribute('alt', '')
+    expect(img).toHaveAttribute('loading', 'lazy')
+    expect(img).toHaveAttribute('decoding', 'async')
+    expect(img).toHaveClass('object-contain')
+    // The frame is hidden from screen readers; the link is named by the
+    // card's text, starting with the exercise's name. (jsdom joins the
+    // spans without spaces — "Wall Slideshoulders…" — so only the start is
+    // compared.)
+    expect(img?.parentElement).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.getByRole('link', { name: /^Wall Slide/ })).toBeInTheDocument()
+  })
+
+  it("falls back to the dumbbell when the photo can't load — never a broken image", () => {
+    const { container } = renderCard({ ...baseExercise, coverUrl: COVER })
+    const img = thumbnail(container).img
+    expect(img).not.toBeNull()
+
+    fireEvent.error(img as HTMLImageElement)
+
+    expect(thumbnail(container).img).toBeNull()
+    expect(thumbnail(container).dumbbell).not.toBeNull()
+  })
+
+  it('tries again when the list brings a NEW URL after a failure', () => {
+    const { container, rerender } = renderCard({ ...baseExercise, coverUrl: COVER })
+    fireEvent.error(thumbnail(container).img as HTMLImageElement)
+
+    rerender(
+      <MemoryRouter>
+        <ExerciseCard exercise={{ ...baseExercise, coverUrl: NEXT_HOUR_COVER }} />
+      </MemoryRouter>,
+    )
+
+    expect(thumbnail(container).img).toHaveAttribute('src', NEXT_HOUR_COVER)
+    expect(thumbnail(container).dumbbell).toBeNull()
+  })
+
+  // The order that matters: a photo failed (failedUrl holds its URL), then
+  // the exercise lost its last photo. `null !== failedUrl` alone would be
+  // true here and draw an <img> with no src.
+  it('shows the dumbbell when the cover is removed after a failed photo', () => {
+    const { container, rerender } = renderCard({ ...baseExercise, coverUrl: COVER })
+    fireEvent.error(thumbnail(container).img as HTMLImageElement)
+
+    rerender(
+      <MemoryRouter>
+        <ExerciseCard exercise={{ ...baseExercise, coverUrl: null }} />
+      </MemoryRouter>,
+    )
+
+    expect(thumbnail(container).img).toBeNull()
+    expect(thumbnail(container).dumbbell).not.toBeNull()
+  })
+
+  it('keeps the dumbbell when the list brings the SAME URL that failed', () => {
+    const { container, rerender } = renderCard({ ...baseExercise, coverUrl: COVER })
+    fireEvent.error(thumbnail(container).img as HTMLImageElement)
+
+    // A refetch in the same hour: an equal URL, in a new object.
+    rerender(
+      <MemoryRouter>
+        <ExerciseCard exercise={{ ...baseExercise, coverUrl: COVER }} />
+      </MemoryRouter>,
+    )
+
+    expect(thumbnail(container).img).toBeNull()
   })
 })

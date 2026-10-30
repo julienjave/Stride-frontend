@@ -45,7 +45,7 @@ function makeExercise(overrides: Partial<ExerciseListItem> = {}): ExerciseListIt
     secondaryMuscles: [],
     equipment: [],
     instructions: ['Step'],
-    mediaUrls: [],
+    coverUrl: null,
     source: 'custom',
     createdBy: 7,
     isArchived: false,

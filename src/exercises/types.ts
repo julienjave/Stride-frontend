@@ -16,12 +16,13 @@ export interface ExerciseImage {
 }
 
 // The shape GET /exercises (the LIST endpoint) returns for each row.
-// mediaUrls stays a raw, non-displayable array of storage keys here —
-// ExercisesService.findAll deliberately does NOT convert these to signed
-// URLs, since the Library browse cards always show a placeholder
-// thumbnail regardless (see ExerciseCard's own comment); paying for
-// presigned-URL generation on every row of every page would have no
-// payoff today. Contrast with ExerciseDetail below, which DOES.
+// coverUrl is the cover photo's (the first photo's) signed URL for the
+// card's thumbnail, or null when the exercise has no photo. Only the cover
+// is signed — a card shows one picture; ExerciseDetail below carries the
+// whole gallery. The URL stays the same for an hour (the backend's
+// getCacheablePresignedUrl), so the browser can reuse the picture when the
+// list is fetched again. No storage keys here (the list sent the raw
+// `mediaUrls` until Phase 7's thumbnails).
 export interface ExerciseListItem {
   id: number
   externalId: string | null
@@ -30,7 +31,7 @@ export interface ExerciseListItem {
   secondaryMuscles: string[]
   equipment: string[]
   instructions: string[]
-  mediaUrls: string[]
+  coverUrl: string | null
   source: 'api' | 'custom'
   createdBy: number | null
   isArchived: boolean
