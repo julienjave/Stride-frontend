@@ -2,10 +2,12 @@ import { describe, it, expect } from 'vitest'
 import { formatShortDate } from '@/common/calendarDate'
 import { workoutNames } from './programSchedule'
 import {
+  backOnProblem,
   changeWindow,
   nextProgramWeekStart,
   replacedText,
   replacedVersions,
+  scheduleAfterPause,
   scheduleChangeProblems,
   startingDraft,
   toScheduleVersionInput,
@@ -225,6 +227,26 @@ describe('toScheduleVersionInput', () => {
     ).toStrictEqual({ effectiveFrom: '2031-06-20', type: 'paused' })
   })
 
+  // Roadmap Phase 6.5: a pause with an end.
+  it('sends a pause with its back-on day as resumeOn', () => {
+    expect(
+      toScheduleVersionInput('pause', '2031-06-20', emptyScheduleDraft(), IDS, '2031-06-30'),
+    ).toStrictEqual({ effectiveFrom: '2031-06-20', type: 'paused', resumeOn: '2031-06-30' })
+  })
+
+  it('leaves resumeOn out for an open-ended pause (an empty back-on day)', () => {
+    expect(
+      toScheduleVersionInput('pause', '2031-06-20', emptyScheduleDraft(), IDS, ''),
+    ).toStrictEqual({ effectiveFrom: '2031-06-20', type: 'paused' })
+  })
+
+  it('never sends a back-on day with a schedule that is not a pause', () => {
+    const draft: ScheduleDraft = { ...emptyScheduleDraft(), type: 'times_per_week', timesPerWeek: 2 }
+    expect(
+      toScheduleVersionInput('resume', '2031-06-12', draft, IDS, '2031-06-30'),
+    ).toStrictEqual({ effectiveFrom: '2031-06-12', type: 'times_per_week', timesPerWeek: 2 })
+  })
+
   it('sends specific days with their workouts, a day left to the suggestion as the suggested one', () => {
     const draft: ScheduleDraft = {
       ...emptyScheduleDraft(),
@@ -273,5 +295,81 @@ describe('toScheduleVersionInput', () => {
       type: 'times_per_week',
       timesPerWeek: 3,
     })
+  })
+})
+
+// Roadmap Phase 6.5: the pause's optional back-on day.
+describe('backOnProblem', () => {
+  const ENDS = { endDate: '2031-07-31' }
+
+  it.each([
+    ['empty — an open-ended pause', ''],
+    ['the day after the pause starts', '2031-06-21'],
+    ["the program's last day", '2031-07-31'],
+  ])('accepts %s', (_label, backOn) => {
+    expect(backOnProblem(backOn, '2031-06-20', ENDS, 'en-GB')).toBeUndefined()
+  })
+
+  it('accepts any later day on an open-ended program', () => {
+    expect(backOnProblem('2040-01-01', '2031-06-20', { endDate: null })).toBeUndefined()
+  })
+
+  it('refuses something that is not a day', () => {
+    expect(backOnProblem('2031-02-30', '2031-06-20', ENDS)).toBe('Choose a day, or leave it empty')
+  })
+
+  it.each([
+    ['the day the pause starts', '2031-06-20'],
+    ['a day before it', '2031-06-19'],
+  ])('refuses %s', (_label, backOn) => {
+    expect(backOnProblem(backOn, '2031-06-20', ENDS)).toBe('Choose a day after the pause starts')
+  })
+
+  it('refuses a day after the program ends, saying how to pause until the end', () => {
+    expect(backOnProblem('2031-08-01', '2031-06-20', ENDS, 'en-GB')).toBe(
+      `The program ends on ${formatShortDate('2031-07-31', 'en-GB')}: leave this empty to pause until the end`,
+    )
+  })
+
+  // While "Pause from" isn't a day, that field says so: no second error
+  // here about a comparison that can't be made.
+  it('judges only against a pause day that is a day', () => {
+    expect(backOnProblem('2031-06-10', '', ENDS)).toBeUndefined()
+    // Not a day, yet LATER as a string than the back-on day: a rule that
+    // compared without checking would call the back-on day "before" it.
+    expect(backOnProblem('2031-06-21', '2031-13-40', ENDS)).toBeUndefined()
+  })
+})
+
+describe('scheduleAfterPause', () => {
+  it('names the schedule in force just before the pause — the latest one', () => {
+    const versions = [
+      version(1, START),
+      version(2, '2031-06-10', { days: [{ weekday: 5, workoutId: 58 }] }),
+    ]
+    expect(scheduleAfterPause(versions, '2031-06-20', NAMES, START)).toBe('Fri B')
+  })
+
+  it('ignores a version starting on the pause day or later', () => {
+    const versions = [
+      version(1, START),
+      version(2, '2031-06-20', { days: [{ weekday: 5, workoutId: 58 }] }),
+    ]
+    expect(scheduleAfterPause(versions, '2031-06-20', NAMES, START)).toBe(
+      scheduleAfterPause([version(1, START)], '2031-06-20', NAMES, START),
+    )
+    expect(scheduleAfterPause(versions, '2031-06-20', NAMES, START)).not.toBe('Fri B')
+  })
+
+  it('skips a pause already in force', () => {
+    const versions = [
+      version(1, START, { days: [{ weekday: 1, workoutId: 57 }] }),
+      version(2, '2031-06-10', PAUSED),
+    ]
+    expect(scheduleAfterPause(versions, '2031-06-20', NAMES, START)).toBe('Mon A')
+  })
+
+  it('is null when there is nothing before the pause', () => {
+    expect(scheduleAfterPause([], '2031-06-20', NAMES, START)).toBeNull()
   })
 })

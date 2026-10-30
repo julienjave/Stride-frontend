@@ -347,6 +347,42 @@ describe('ScheduleChangeForm — pausing and resuming', () => {
     expect(bodiesSent()).toEqual(['{"effectiveFrom":"2031-06-12","type":"paused"}'])
   })
 
+  // Roadmap Phase 6.5: "Pause from … back on …" in one request.
+  it('pauses with a back-on day: says what comes back, and sends resumeOn', async () => {
+    const user = userEvent.setup()
+    renderSection()
+    await user.click(screen.getByRole('button', { name: 'Pause' }))
+    const backOn = screen.getByLabelText('Back on (optional)')
+    // Not before the day after the pause starts.
+    expect(backOn).toHaveAttribute('min', '2031-06-13')
+    await user.type(backOn, '2031-06-23')
+
+    expect(
+      screen.getByText(
+        `From that day, nothing is due and no day counts as missed. From ${formatShortDate('2031-06-23')}, the schedule comes back: Mon A · Wed B · Fri A.`,
+      ),
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Pause program' }))
+    await vi.waitFor(() =>
+      expect(bodiesSent()).toEqual([
+        '{"effectiveFrom":"2031-06-12","type":"paused","resumeOn":"2031-06-23"}',
+      ]),
+    )
+  })
+
+  it('refuses a back-on day that is not after the pause, sending nothing', async () => {
+    const user = userEvent.setup()
+    renderSection()
+    await user.click(screen.getByRole('button', { name: 'Pause' }))
+    await user.type(screen.getByLabelText('Back on (optional)'), '2031-06-12')
+    await user.click(screen.getByRole('button', { name: 'Pause program' }))
+
+    expect(screen.getByText('Choose a day after the pause starts')).toBeInTheDocument()
+    expect(screen.getByLabelText('Back on (optional)')).toHaveAttribute('aria-invalid', 'true')
+    expect(bodiesSent()).toEqual([])
+  })
+
   it('returns focus to "Pause" when the pause is dismissed', async () => {
     const user = userEvent.setup()
     renderSection()

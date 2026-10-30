@@ -175,13 +175,21 @@ export function scheduleChangeProblems(
 //     there is something to rotate. Not edited = every workout in order,
 //     which is also the backend's default when none is sent.
 // Only the chosen kind's fields: the backend refuses another kind's (400).
+//   - A pause with a back-on day (`backOn`, roadmap Phase 6.5): `resumeOn`
+//     too — only when one was chosen ('' = open-ended, the key left out, so
+//     an open pause's body is exactly what it always was).
 export function toScheduleVersionInput(
   kind: ScheduleChangeKind,
   from: string,
   draft: ScheduleDraft,
   workoutIds: readonly number[],
+  backOn = '',
 ): ScheduleVersionInput {
-  if (kind === 'pause') return { effectiveFrom: from, type: 'paused' }
+  if (kind === 'pause') {
+    return backOn === ''
+      ? { effectiveFrom: from, type: 'paused' }
+      : { effectiveFrom: from, type: 'paused', resumeOn: backOn }
+  }
   if (draft.type === 'weekdays') {
     return {
       effectiveFrom: from,
@@ -200,4 +208,49 @@ export function toScheduleVersionInput(
       ? { rotation: resolveRotation(draft, workoutIds) }
       : {}),
   }
+}
+
+// --- A PAUSE WITH AN END (roadmap Phase 6.5) ---------------------------------
+
+// What's wrong with the pause's optional "Back on" day — undefined when
+// nothing is ('' = no back-on day: an open-ended pause, as before). The
+// backend's rules (assertResumeDayAllowed), said at the field before any
+// request: after the pause starts, and not after the program's last day.
+// Judged against `from` only once `from` is itself a day — otherwise the
+// "Pause from" field already says what's wrong.
+export function backOnProblem(
+  backOn: string,
+  from: string,
+  program: { endDate: string | null },
+  locale?: string,
+): string | undefined {
+  if (backOn === '') return undefined
+  if (!isCalendarDate(backOn)) return 'Choose a day, or leave it empty'
+  if (isCalendarDate(from) && backOn <= from) {
+    return 'Choose a day after the pause starts'
+  }
+  if (program.endDate !== null && backOn > program.endDate) {
+    return `The program ends on ${formatShortDate(program.endDate, locale)}: leave this empty to pause until the end`
+  }
+  return undefined
+}
+
+// The schedule that comes back on the back-on day, in words — the same
+// rule as the backend's contentBeforePause: the LAST version starting
+// before the pause that isn't itself a pause. Said before saving, so "back
+// to what?" is never a surprise. null when there is none (not possible
+// through the app: a program starts with a real schedule).
+export function scheduleAfterPause(
+  versions: readonly ScheduleVersion[],
+  from: string,
+  names: WorkoutNames,
+  startDate: string,
+): string | null {
+  const before = versions.filter(
+    (version) => version.effectiveFrom < from && version.type !== 'paused',
+  )
+  // The versions come oldest first (the backend's order), so the last one
+  // is the latest.
+  const last = before.at(-1)
+  return last ? describeVersion(last, names, startDate) : null
 }

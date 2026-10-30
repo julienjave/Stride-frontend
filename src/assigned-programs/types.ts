@@ -393,8 +393,11 @@ export type ScheduleVersionInput = { effectiveFrom: string } & (
   | { type: 'weekdays'; days: { weekday: number; workoutId: number }[] }
   // rotation omitted = every workout in order (the backend's default).
   | { type: 'times_per_week'; timesPerWeek: number; rotation?: number[] }
-  // Nothing is due from that day until a later version resumes it.
-  | { type: 'paused' }
+  // Nothing is due from that day until a later version resumes it — or, with
+  // `resumeOn` (roadmap Phase 6.5), until that day: the backend then also
+  // writes the schedule in force before the pause, from `resumeOn`, in the
+  // same transaction.
+  | { type: 'paused'; resumeOn?: string }
 )
 
 // --- CLOSING IT (POST …/cancel, …/complete; GET …/closing) --------------------
