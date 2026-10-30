@@ -51,6 +51,29 @@ export function filterByClinic<T extends { clinics: readonly ClinicRef[] }>(
   )
 }
 
+// Is this a clinic the practitioner does NOT work at (roadmap Phase 6.5,
+// "Roster badges")? `myClinicIds` comes from /auth/me. `false` when no list
+// is given: "unknown" must never be drawn as "not mine" — the directory
+// search passes none, its clinics being shared ones by definition.
+export function isOtherClinic(
+  clinic: ClinicRef,
+  myClinicIds: readonly number[] | undefined,
+): boolean {
+  return myClinicIds !== undefined && !myClinicIds.includes(clinic.id)
+}
+
+// Does any of these patients attend a clinic I don't work at? Decides
+// whether the page shows the one-line key explaining the dashed badges —
+// a key for something that isn't on screen would only be noise.
+export function showsOtherClinic(
+  patients: readonly { clinics: readonly ClinicRef[] }[],
+  myClinicIds: readonly number[],
+): boolean {
+  return patients.some((patient) =>
+    patient.clinics.some((clinic) => isOtherClinic(clinic, myClinicIds)),
+  )
+}
+
 // --- ACCOUNTS ------------------------------------------------------------------
 
 // "My patients" split by account (decisions §22): the ACTIVE ones — the

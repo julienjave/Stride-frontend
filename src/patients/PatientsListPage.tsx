@@ -14,8 +14,9 @@ import { readNotice } from '@/common/readNotice'
 import { ShowHiddenToggle } from '@/common/ShowHiddenToggle'
 import { useRetryFocus } from '@/common/useRetryFocus'
 import { useUsers } from '@/users/useUsers'
+import { OtherClinicsKey } from './ClinicBadges'
 import { PatientIdentity } from './PatientIdentity'
-import { ALL_CLINICS, filterByClinic, splitByAccount } from './roster'
+import { ALL_CLINICS, filterByClinic, showsOtherClinic, splitByAccount } from './roster'
 import type { User } from '@/users/types'
 import { ListSkeleton } from '@/common/Loading'
 
@@ -56,6 +57,9 @@ export function PatientsListPage() {
   // `?? []` while /auth/me isn't there (in practice it always is — the
   // route guard waited for it): no clinics means no filter.
   const myClinics = currentUser?.clinics ?? []
+  // Their ids, for the badges: a clinic outside this list is drawn as "not
+  // one of yours" (roadmap Phase 6.5, "Roster badges").
+  const myClinicIds = myClinics.map((clinic) => clinic.id)
 
   // The filter only appears for a practitioner working in two clinics or
   // more: with one, it could only ever offer "all" and that one clinic —
@@ -73,6 +77,13 @@ export function PatientsListPage() {
   const hasActive = patients?.some((patient) => patient.isActive) ?? false
 
   const chosenClinic = myClinics.find((clinic) => String(clinic.id) === clinicFilter)
+
+  // The key explaining the dashed badges, only when one is ON SCREEN: the
+  // active rows always, the deactivated ones only while they're shown.
+  const showKey = showsOtherClinic(
+    showDeactivated ? [...visiblePatients, ...deactivated] : visiblePatients,
+    myClinicIds,
+  )
 
   return (
     <div className="mx-auto mt-8 max-w-2xl space-y-4 px-4">
@@ -151,7 +162,9 @@ export function PatientsListPage() {
         </p>
       )}
 
-      {visiblePatients.length > 0 && <PatientRows label="Patients" patients={visiblePatients} />}
+      {visiblePatients.length > 0 && (
+        <PatientRows label="Patients" patients={visiblePatients} myClinicIds={myClinicIds} />
+      )}
 
       <ShowHiddenToggle
         count={deactivated.length}
@@ -161,8 +174,17 @@ export function PatientsListPage() {
         onChange={setShowDeactivated}
       />
       {showDeactivated && deactivated.length > 0 && (
-        <PatientRows label="Deactivated patients" patients={deactivated} />
+        <PatientRows
+          label="Deactivated patients"
+          patients={deactivated}
+          myClinicIds={myClinicIds}
+        />
       )}
+
+      {/* Once, under the lists, rather than on every row: the badges say it
+          to screen readers themselves; this tells everyone else what the
+          dashed outline means. */}
+      {showKey && <OtherClinicsKey />}
     </div>
   )
 }
@@ -170,7 +192,15 @@ export function PatientsListPage() {
 // One list of patient rows. Named (aria-label): with two lists on the page,
 // a screen reader announces WHICH one it's entering — the patient page's
 // program lists do the same.
-function PatientRows({ label, patients }: { label: string; patients: User[] }) {
+function PatientRows({
+  label,
+  patients,
+  myClinicIds,
+}: {
+  label: string
+  patients: User[]
+  myClinicIds: readonly number[]
+}) {
   return (
     <ul aria-label={label} className="divide-y divide-border rounded-lg border">
       {patients.map((patient) => (
@@ -192,8 +222,10 @@ function PatientRows({ label, patients }: { label: string; patients: User[] }) {
               // Harbour" is useful to whoever treats Robin. The
               // directory search stays at the clinics we share — its
               // patients aren't mine, and it shows only what finding
-              // them needs (decisions §3, directory level).
+              // them needs (decisions §3, directory level). The ones I
+              // don't work at are marked (`myClinicIds`, Phase 6.5).
               clinics={patient.clinics}
+              myClinicIds={myClinicIds}
             />
             {/* Words, not only a greyed row: the state must be readable
                 (and read out) without relying on colour. */}

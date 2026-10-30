@@ -9,6 +9,10 @@ interface PatientIdentityProps {
   avatarUrl: string | null
   dateOfBirth: string | null
   clinics: readonly ClinicRef[]
+  // The signed-in practitioner's clinic ids, so badges for the others are
+  // marked (ClinicBadges). Given by My patients; not by the directory
+  // search, whose clinics are all shared ones.
+  myClinicIds?: readonly number[]
 }
 
 // "Who is this?" — photo, name, date of birth and clinics: the block every
@@ -25,6 +29,7 @@ export function PatientIdentity({
   avatarUrl,
   dateOfBirth,
   clinics,
+  myClinicIds,
 }: PatientIdentityProps) {
   return (
     // min-w-0 lets this flex child shrink below its content's width, so a
@@ -48,7 +53,7 @@ export function PatientIdentity({
             Born {formatCalendarDate(dateOfBirth)}
           </p>
         )}
-        <ClinicBadges clinics={clinics} />
+        <ClinicBadges clinics={clinics} myClinicIds={myClinicIds} />
       </div>
     </div>
   )

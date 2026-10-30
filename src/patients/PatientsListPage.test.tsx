@@ -138,12 +138,61 @@ describe('PatientsListPage', () => {
     expect(
       within(row).getByText(`Born ${formatCalendarDate('1992-01-05')}`),
     ).toBeInTheDocument()
-    // Robin also attends Harbour, which isn't one of my clinics: shown too.
+    // Robin also attends Harbour, which isn't one of my clinics: shown too —
+    // and SAID to be someone else's, in words a screen reader reads out.
     const badges = within(row).getByRole('list', { name: 'Clinics' })
     expect(within(badges).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
       'Riverside Physio',
-      'Harbour Sports Clinic',
+      'Harbour Sports Clinic (not one of your clinics)',
     ])
+  })
+
+  // Roadmap Phase 6.5, "Roster badges".
+  const KEY = "Dashed outline: a clinic you don't work at — the patient is also seen there."
+
+  it('draws a clinic I do not work at with a dashed outline, mine as before', async () => {
+    respondWithPatients([robin])
+    renderRoster([riverside])
+
+    const row = (await screen.findByText('Robin Silva')).closest('a')!
+    const [mine, other] = within(within(row).getByRole('list', { name: 'Clinics' })).getAllByRole(
+      'listitem',
+    )
+    expect(other).toHaveClass('border-dashed')
+    expect(mine).not.toHaveClass('border-dashed')
+    // The words are visually hidden, never only a style: `sr-only`.
+    expect(within(other).getByText('(not one of your clinics)')).toHaveClass('sr-only')
+    expect(within(mine).queryByText(/not one of your clinics/)).not.toBeInTheDocument()
+  })
+
+  it('shows the key once, under the list, when a dashed badge is on screen', async () => {
+    respondWithPatients([robin, jo])
+    renderRoster([riverside])
+    await screen.findByText('Robin Silva')
+    expect(screen.getAllByText(KEY)).toHaveLength(1)
+  })
+
+  it('shows no key, and no dashed badge, when every clinic shown is mine', async () => {
+    respondWithPatients([robin, jo])
+    // Robin's Harbour IS mine for a practitioner in both clinics.
+    renderRoster([riverside, harbour])
+    await screen.findByText('Robin Silva')
+    expect(screen.queryByText(KEY)).not.toBeInTheDocument()
+    expect(screen.queryByText(/not one of your clinics/)).not.toBeInTheDocument()
+  })
+
+  it('shows the key for a deactivated patient only once their row is shown', async () => {
+    // Dee (deactivated) attends Harbour, not mine; Jo (active) only Riverside.
+    respondWithPatients([jo, dee])
+    const user = userEvent.setup()
+    renderRoster([riverside])
+    await screen.findByText('Jo Novak')
+    expect(screen.queryByText(KEY)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('checkbox', { name: 'Show 1 deactivated patient' }))
+    expect(screen.getByText(KEY)).toBeInTheDocument()
+    const deactivatedList = screen.getByRole('list', { name: 'Deactivated patients' })
+    expect(within(deactivatedList).getByText('(not one of your clinics)')).toBeInTheDocument()
   })
 
   it('offers no clinic filter to a practitioner with one clinic', async () => {

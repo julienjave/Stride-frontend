@@ -3,6 +3,8 @@ import {
   ALL_CLINICS,
   directorySearchTerm,
   filterByClinic,
+  isOtherClinic,
+  showsOtherClinic,
   splitByAccount,
   namesFromSearch,
   sortByName,
@@ -90,6 +92,41 @@ describe('filterByClinic', () => {
   it('keeps the patients attending the chosen clinic (the value is a string id)', () => {
     expect(filterByClinic([pat, robin, blakesOnly], '2')).toEqual([robin, blakesOnly])
     expect(filterByClinic([pat, robin, blakesOnly], '1')).toEqual([pat, robin])
+  })
+})
+
+// Roadmap Phase 6.5, "Roster badges": which badges say "not one of yours".
+describe('isOtherClinic', () => {
+  it('is a clinic outside my list', () => {
+    expect(isOtherClinic(harbour, [riverside.id])).toBe(true)
+    expect(isOtherClinic(riverside, [riverside.id])).toBe(false)
+  })
+
+  it('is never "other" when no list is given — unknown is not "not mine"', () => {
+    expect(isOtherClinic(harbour, undefined)).toBe(false)
+  })
+
+  it('treats an empty list as "I work nowhere": every clinic is another one', () => {
+    // A practitioner in no clinic (admin metrics' "needs attention" case)
+    // still sees their care-team patients; none of those clinics is theirs.
+    expect(isOtherClinic(riverside, [])).toBe(true)
+  })
+})
+
+describe('showsOtherClinic', () => {
+  const pat = { clinics: [riverside] }
+  const robin = { clinics: [riverside, harbour] }
+
+  it('is true as soon as ONE patient attends a clinic I am not in', () => {
+    expect(showsOtherClinic([pat, robin], [riverside.id])).toBe(true)
+  })
+
+  it('is false when every clinic shown is mine', () => {
+    expect(showsOtherClinic([pat, robin], [riverside.id, harbour.id])).toBe(false)
+  })
+
+  it('is false for no patient at all', () => {
+    expect(showsOtherClinic([], [riverside.id])).toBe(false)
   })
 })
 

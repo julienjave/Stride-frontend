@@ -143,7 +143,10 @@ function TestControls() {
   )
 }
 
-function renderPatientPage(path = '/practitioner/patients/6') {
+function renderPatientPage(
+  path = '/practitioner/patients/6',
+  myClinics: { id: number; name: string }[] = [{ id: 1, name: 'Riverside Physio' }],
+) {
   // staleTime as in the app (queryClient.ts): with the default 0, every
   // list would refetch on mount anyway, and a missing invalidation could
   // never show.
@@ -154,7 +157,7 @@ function renderPatientPage(path = '/practitioner/patients/6') {
     ...ME,
     activeRole: 'practitioner',
     roles: ['practitioner'],
-    clinics: [{ id: 1, name: 'Riverside Physio' }],
+    clinics: myClinics,
   })
   render(
     <QueryClientProvider client={queryClient}>
@@ -186,10 +189,31 @@ describe('PatientPage — the patient', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Pat Lee' })).toBeInTheDocument()
     expect(screen.getByText(`Born ${formatCalendarDate('1988-04-12')}`)).toBeInTheDocument()
     const badges = screen.getAllByRole('list', { name: 'Clinics' })[0]
+    // I work at Riverside only (the cached /auth/me): Harbour is marked as
+    // someone else's, in words, and the key says what the dashed outline means.
+    expect(within(badges).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      'Riverside Physio',
+      'Harbour Sports Clinic (not one of your clinics)',
+    ])
+    expect(within(badges).getAllByRole('listitem')[1]).toHaveClass('border-dashed')
+    expect(
+      screen.getByText("Dashed outline: a clinic you don't work at — the patient is also seen there."),
+    ).toBeInTheDocument()
+  })
+
+  it('marks no clinic, and shows no key, when I work at every clinic the patient attends', async () => {
+    renderPatientPage('/practitioner/patients/6', [
+      { id: 1, name: 'Riverside Physio' },
+      { id: 2, name: 'Harbour Sports Clinic' },
+    ])
+
+    await screen.findByRole('heading', { level: 1, name: 'Pat Lee' })
+    const badges = screen.getAllByRole('list', { name: 'Clinics' })[0]
     expect(within(badges).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
       'Riverside Physio',
       'Harbour Sports Clinic',
     ])
+    expect(screen.queryByText(/Dashed outline/)).not.toBeInTheDocument()
   })
 
   // A deactivated patient's care team keeps its links (2026-10-25), so the

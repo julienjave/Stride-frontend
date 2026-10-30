@@ -12,9 +12,10 @@ import { MessageButton } from '@/messages/MessageButton'
 import { ProfileFields } from '@/users/ProfileFields'
 import { useUser } from '@/users/useUser'
 import { CareTeamSection } from './CareTeamSection'
-import { ClinicBadges } from './ClinicBadges'
+import { ClinicBadges, OtherClinicsKey } from './ClinicBadges'
 import { PatientProgramsSection } from './PatientProgramsSection'
 import { deactivatedPatientNotice } from './patientPageRules'
+import { showsOtherClinic } from './roster'
 import { Loading } from '@/common/Loading'
 
 // The practitioner's patient page (/practitioner/patients/:id) — decided
@@ -77,6 +78,8 @@ function PatientView({ patientId }: { patientId: number }) {
   if (!patient || !currentUser) return null
 
   const fullName = `${patient.firstName} ${patient.lastName}`
+  // The clinics I work at (from /auth/me), for the badges.
+  const myClinicIds = currentUser.clinics.map((clinic) => clinic.id)
 
   function handleLeft() {
     setHasLeft(true)
@@ -114,8 +117,10 @@ function PatientView({ patientId }: { patientId: number }) {
                 Born {formatCalendarDate(patient.patientProfile.dateOfBirth)}
               </p>
             )}
-            {/* Every clinic, as on the roster: I'm on the care team. */}
-            <ClinicBadges clinics={patient.clinics} />
+            {/* Every clinic, as on the roster: I'm on the care team — the
+                ones I don't work at marked the same way, with the same key. */}
+            <ClinicBadges clinics={patient.clinics} myClinicIds={myClinicIds} />
+            {showsOtherClinic([patient], myClinicIds) && <OtherClinicsKey />}
             {/* The page opens only for the care team (a 403 otherwise) —
                 exactly who may write to this patient. Not to a deactivated
                 one (decisions §22: the backend answers 409) — the notice
