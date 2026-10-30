@@ -8,6 +8,12 @@ describe('actionLabel', () => {
     expect(actionLabel('CONVERSATION_READ')).toBe('Read new messages')
   })
 
+  // Roadmap Phase 6.5: a practitioner opening a patient's thread — told apart
+  // from "Mark as read" (CONVERSATION_READ, a change).
+  it('words the read of a thread', () => {
+    expect(actionLabel('MESSAGES_VIEWED')).toBe('Viewed messages')
+  })
+
   // Two-factor sign-in, pass 2's three actions (decisions §14).
   it('words the recovery-code and reset actions', () => {
     expect(actionLabel('MFA_RECOVERY_CODE_USED')).toBe('Signed in with a recovery code')

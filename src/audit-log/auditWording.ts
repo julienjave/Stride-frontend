@@ -134,6 +134,9 @@ const WORDING: Record<AuditAction, string> = {
   CONVERSATION_READ: 'Read new messages',
   CONVERSATION_ARCHIVED: 'Archived a conversation',
   CONVERSATION_UNARCHIVED: 'Unarchived a conversation',
+  // A practitioner opened a patient's conversation (roadmap Phase 6.5): one
+  // entry per page of the thread, the ids of the messages shown.
+  MESSAGES_VIEWED: 'Viewed messages',
 
   // Medical files (entry ids — never the notes)
   MEDICAL_FILE_ENTRY_CREATED: 'Added a medical file entry',
