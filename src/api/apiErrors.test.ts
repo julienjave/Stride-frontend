@@ -49,6 +49,13 @@ describe('failureText', () => {
     expect(failureText(apiError(499, ['Client Closed Request']))).toBe('Client Closed Request')
   })
 
+  // A refusal with NO words: an answer the backend didn't write (a proxy's
+  // HTML 413), which the client reads as an ApiError without messages. An
+  // empty line would say nothing; it's the server's side, so its sentence.
+  it('gives a refusal without words the shared sentence', () => {
+    expect(failureText(apiError(413, []))).toBe(SERVER_PROBLEM_TEXT)
+  })
+
   it('says to check the connection when no answer came', () => {
     expect(failureText(new TypeError('Failed to fetch'))).toBe(
       'Something went wrong. Check your connection and try again.',

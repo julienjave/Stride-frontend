@@ -35,6 +35,10 @@ export function hasMessage(error: unknown, status: number, message: string): boo
 // - The server FAILED (a 5xx): its words ("Internal server error") help
 //   nobody, and may say more than a visitor should read. One plain sentence
 //   instead — the request itself may be fine, so "try again".
+//   The same sentence for a refusal WITHOUT words: an answer the backend
+//   didn't write (a proxy's HTML page — a 413, a 403 from the CDN), which the
+//   client turns into an ApiError with no messages (client.ts,
+//   readErrorBody). Joining nothing would show an empty line.
 // - NO ANSWER at all (the network, a timeout, anything thrown that isn't an
 //   ApiError): nothing came back to show. The caller may say what failed
 //   ("Couldn't upload the photo.") — the reader then knows which action to
@@ -44,7 +48,7 @@ export const NO_ANSWER_TEXT = 'Something went wrong. Check your connection and t
 
 export function failureText(error: unknown, noAnswer: string = NO_ANSWER_TEXT): string {
   if (!(error instanceof ApiError)) return noAnswer
-  if (error.statusCode >= 500) return SERVER_PROBLEM_TEXT
+  if (error.statusCode >= 500 || error.messages.length === 0) return SERVER_PROBLEM_TEXT
   return error.messages.join(' ')
 }
 // A 404: for the four resources row security guards (programs, sessions,

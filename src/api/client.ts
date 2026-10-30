@@ -5,19 +5,31 @@
 // The index signature accounts for the filter's "extra" mechanism: some
 // exceptions (e.g. the multi-role login case) attach additional custom
 // fields like `roles` alongside the standard ones.
+// `requestId` (decisions §32): the reference the server gave the request —
+// the same id as its X-Request-Id header and its log lines. Absent from an
+// answer the backend didn't write (a proxy's 502), unless the header is there.
 interface BackendErrorBody {
   statusCode: number
   message: string[]
   error: string
   timestamp: string
   path: string
+  requestId?: string
   [key: string]: unknown
 }
+
+// The response header the backend puts its request id in (the backend's
+// observability/request-id.ts; readable across origins because its CORS
+// settings expose it).
+export const REQUEST_ID_HEADER = 'X-Request-Id'
 
 export class ApiError extends Error {
   readonly statusCode: number
   readonly messages: string[]
   readonly retryAfterSeconds?: number
+  // The request's reference, for an error screen to show ("Reference: 7f3a…")
+  // and an error report to carry — undefined when nobody gave one.
+  readonly requestId?: string
   // The full parsed error body, kept around so callers can read a custom
   // field (e.g. `error.body.roles` for the multi-role login case) without
   // ApiError needing a dedicated property for every possible backend-
@@ -32,6 +44,7 @@ export class ApiError extends Error {
     this.statusCode = body.statusCode
     this.messages = body.message
     this.retryAfterSeconds = retryAfterSeconds
+    this.requestId = typeof body.requestId === 'string' ? body.requestId : undefined
     this.body = body
   }
 }
@@ -199,15 +212,9 @@ async function send(path: string, options: RequestOptions): Promise<Response> {
       ? Number(retryAfterHeader)
       : undefined
 
-    // response.json() genuinely returns Promise<any> — TypeScript has no
-    // way to verify at compile time that a network response actually
-    // matches BackendErrorBody. We accept that here via an EXPLICIT cast
-    // (not an implicit any-to-typed assignment) specifically because the
-    // backend's global exception filter guarantees this exact shape on
-    // every error response (docs/api/03-conventions.md) — a documented,
-    // load-bearing contract, not a guess. (A refused DOWNLOAD answers JSON
-    // too: only a success is a file.)
-    const body = (await response.json()) as BackendErrorBody
+    // The refusal's words — or, when the answer isn't the backend's own (see
+    // readErrorBody), a body standing in for them.
+    const body = await readErrorBody(response)
 
     // A 401 from /auth/me is excluded deliberately — that's the routine,
     // EXPECTED "not logged in yet" bootstrap check every page load does,
@@ -223,4 +230,55 @@ async function send(path: string, options: RequestOptions): Promise<Response> {
   }
 
   return response
+}
+
+// A refusal's body, as the backend's exception filter writes it on EVERY
+// error it answers (docs/api/03-conventions.md) — the shape is checked, not
+// assumed: response.json() is typed `any`, and not every refusal comes from
+// the backend. Something IN FRONT of it can answer instead: Caddy or
+// Cloudflare with an HTML page when the backend is down or restarting (502,
+// 503, 504), or a body too large for the proxy (413). Calling
+// response.json() on that HTML threw a SyntaxError — which isn't an ApiError,
+// so the screens said "check your connection" for what was really the
+// server's side (found 2026-10-30, decisions §32).
+//
+// Such an answer becomes a body with the real status and NO words
+// (`message: []`): failureText then says "Something went wrong on our side"
+// (apiErrors.ts), and the 401 check above still sees the status.
+//
+// The request id: the body's own, or else the header's — a proxy's answer
+// may still carry the backend's header (a timeout after the backend
+// answered), and the backend's body may one day come without one.
+async function readErrorBody(response: Response): Promise<BackendErrorBody> {
+  const text = await response.text()
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    parsed = undefined
+  }
+  const body: BackendErrorBody = isBackendErrorBody(parsed)
+    ? parsed
+    : {
+        statusCode: response.status,
+        message: [],
+        error: 'UnreadableErrorBody',
+        timestamp: new Date().toISOString(),
+        path: '',
+      }
+  const headerId = response.headers.get(REQUEST_ID_HEADER)
+  if (typeof body.requestId !== 'string' && headerId) {
+    return { ...body, requestId: headerId }
+  }
+  return body
+}
+
+function isBackendErrorBody(value: unknown): value is BackendErrorBody {
+  if (typeof value !== 'object' || value === null) return false
+  const candidate = value as Record<string, unknown>
+  return (
+    typeof candidate.statusCode === 'number' &&
+    Array.isArray(candidate.message) &&
+    candidate.message.every((item) => typeof item === 'string')
+  )
 }

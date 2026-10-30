@@ -115,6 +115,82 @@ describe('apiRequest', () => {
     }
   })
 
+  // The reference an error screen will show (decisions §32): the backend
+  // puts the request's id in the error body — and in a header.
+  it("keeps the request's id from the error body", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          statusCode: 409,
+          message: ['Taken'],
+          error: 'ConflictException',
+          timestamp: '2031-01-01T00:00:00.000Z',
+          path: '/x',
+          requestId: 'from-the-body',
+        }),
+        { status: 409, headers: { 'X-Request-Id': 'from-the-header' } },
+      ),
+    )
+    const error = await apiRequest('/x').catch((caught: unknown) => caught)
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).requestId).toBe('from-the-body')
+  })
+
+  it('falls back to the header when the body has no id, and to nothing', async () => {
+    const body = JSON.stringify({
+      statusCode: 404,
+      message: ['Nope'],
+      error: 'NotFoundException',
+      timestamp: '2031-01-01T00:00:00.000Z',
+      path: '/x',
+    })
+    fetchMock.mockResolvedValueOnce(
+      new Response(body, { status: 404, headers: { 'X-Request-Id': 'from-the-header' } }),
+    )
+    const withHeader = await apiRequest('/x').catch((caught: unknown) => caught)
+    expect((withHeader as ApiError).requestId).toBe('from-the-header')
+    expect((withHeader as ApiError).body.requestId).toBe('from-the-header')
+
+    fetchMock.mockResolvedValueOnce(new Response(body, { status: 404 }))
+    const without = await apiRequest('/x').catch((caught: unknown) => caught)
+    expect((without as ApiError).requestId).toBeUndefined()
+    expect((without as ApiError).messages).toEqual(['Nope'])
+  })
+
+  // An answer the backend didn't write: Caddy's or Cloudflare's HTML page
+  // while the backend is down (502). Read as JSON, it threw a SyntaxError —
+  // not an ApiError — and screens blamed the connection. Now: an ApiError
+  // with the real status and no words (failureText then says "on our side").
+  it('turns a non-JSON refusal into an ApiError with its status and no words', async () => {
+    fetchMock.mockResolvedValue(
+      new Response('<html><body><h1>502 Bad Gateway</h1></body></html>', {
+        status: 502,
+        headers: { 'Content-Type': 'text/html', 'X-Request-Id': 'proxied' },
+      }),
+    )
+    const error = await apiRequest('/x').catch((caught: unknown) => caught)
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).statusCode).toBe(502)
+    expect((error as ApiError).messages).toEqual([])
+    expect((error as ApiError).requestId).toBe('proxied')
+  })
+
+  // JSON that isn't the backend's shape (another server's own JSON error) is
+  // treated the same: its fields can't be trusted to mean ours.
+  it.each([
+    ['an object of another shape', JSON.stringify({ error: 'upstream timeout' })],
+    ['words that are not strings', JSON.stringify({ statusCode: 500, message: [1] })],
+    ['words without a status', JSON.stringify({ message: ['Busy'] })],
+    ['a bare value', JSON.stringify('busy')],
+    ['nothing', ''],
+  ])('treats %s like any unreadable body', async (_name, text) => {
+    fetchMock.mockResolvedValue(new Response(text, { status: 503 }))
+    const error = await apiRequest('/x').catch((caught: unknown) => caught)
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).statusCode).toBe(503)
+    expect((error as ApiError).messages).toEqual([])
+  })
+
   it('reads Retry-After on a 429 and exposes it as retryAfterSeconds', async () => {
     fetchMock.mockResolvedValue(
       new Response(
