@@ -14,7 +14,14 @@ beforeEach(() => {
   fetchMock.mockReset()
 })
 
-const me = { id: 7, firstName: 'Julien', activeRole: 'practitioner', preferredWeightUnit: 'kg' }
+const me = {
+  id: 7,
+  firstName: 'Julien',
+  activeRole: 'practitioner',
+  roles: ['practitioner'],
+  preferredWeightUnit: 'kg',
+  messageEmailNotices: true,
+}
 
 // `currentUser: null` = nobody logged in. Seeded directly, so
 // useCurrentUser() never fetches /auth/me: every fetch a test sees is one
@@ -154,5 +161,79 @@ describe('SettingsMenu — weight unit', () => {
     // Give a (wrong) request every chance to go out before checking.
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+// Roadmap Phase 6.5: "Email me about new messages".
+describe('SettingsMenu — message emails', () => {
+  const item = () => screen.getByRole('menuitemcheckbox', { name: 'Email me about new messages' })
+
+  it('shows the setting ticked when it is on', async () => {
+    renderMenu()
+    await openMenu()
+    expect(item()).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('shows it unticked when it is off', async () => {
+    renderMenu({ ...me, messageEmailNotices: false })
+    await openMenu()
+    expect(item()).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('offers it to a patient, and to an account that is ALSO an admin', async () => {
+    renderMenu({ ...me, activeRole: 'admin', roles: ['admin', 'patient'] })
+    await openMenu()
+    expect(item()).toBeInTheDocument()
+  })
+
+  it('does not offer it to an admin-only account, nor without a user', async () => {
+    renderMenu({ ...me, activeRole: 'admin', roles: ['admin'] })
+    await openMenu()
+    expect(screen.queryByRole('menuitemcheckbox')).not.toBeInTheDocument()
+  })
+
+  it('turns it off at once and sends exactly that', async () => {
+    let answer: (response: Response) => void = () => {}
+    fetchMock.mockReturnValue(new Promise((resolve) => (answer = resolve)))
+    const { queryClient } = renderMenu()
+    await openMenu()
+    await userEvent.click(item())
+
+    // Before the server answers: the cached account already says off.
+    expect(
+      queryClient.getQueryData<typeof me>(currentUserQueryKey)?.messageEmailNotices,
+    ).toBe(false)
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url as string).toMatch(/\/users\/7$/)
+    expect(init?.method).toBe('PATCH')
+    expect(init?.body).toBe('{"messageEmailNotices":false}')
+    answer(new Response(JSON.stringify({ ...me, messageEmailNotices: false }), { status: 200 }))
+    await openMenu()
+    expect(item()).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('asks the server again and explains, when the save fails', async () => {
+    fetchMock.mockImplementation((_input, init) =>
+      Promise.resolve(
+        init?.method === 'PATCH'
+          ? new Response(JSON.stringify({ statusCode: 500, message: ['boom'] }), { status: 500 })
+          : // The refetched /auth/me: the server still says ON.
+            new Response(JSON.stringify(me), { status: 200 }),
+      ),
+    )
+    renderMenu()
+    await openMenu()
+    await userEvent.click(item())
+
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([input]) => (input as string).endsWith('/auth/me'))).toBe(
+        true,
+      ),
+    )
+    await openMenu()
+    await waitFor(() => expect(item()).toHaveAttribute('aria-checked', 'true'))
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      "Couldn't save your email setting. Try again.",
+    )
   })
 })

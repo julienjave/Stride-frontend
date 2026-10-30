@@ -50,6 +50,7 @@ const multiRoleUser: User = {
   createdAt: '2026-09-01T00:00:00.000Z',
   mfaEnabled: false,
   preferredWeightUnit: 'kg',
+  messageEmailNotices: true,
   roles: ['practitioner', 'admin'],
   practitionerProfile: { licenseNumber: 'PT-1', specialties: ['Sports rehab'], bio: null },
   adminProfile: { position: null },

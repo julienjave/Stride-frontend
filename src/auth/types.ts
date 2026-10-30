@@ -38,6 +38,10 @@ export interface CurrentUser extends Address {
   // in, and the unit pre-selected when typing a new weight — read it
   // through usePreferredWeightUnit(), not from here directly.
   preferredWeightUnit: WeightUnit
+  // "Email me about new messages" (roadmap Phase 6.5): NOT NULL, on by
+  // default. Shown in the Settings menu to accounts that message (a
+  // practitioner or a patient).
+  messageEmailNotices: boolean
   // Present ONLY if the account actually holds that role — a multi-role
   // account can have more than one of these at once, which is exactly why
   // they're optional, nested, named sub-objects rather than flattened

@@ -35,6 +35,7 @@ export interface User extends Address {
   createdAt: string
   mfaEnabled: boolean
   preferredWeightUnit: WeightUnit
+  messageEmailNotices: boolean
   // Every role this account currently holds — a multi-role account (e.g.
   // an admin who is also a treating practitioner) can have more than one.
   roles: string[]
@@ -89,6 +90,8 @@ export interface UpdateUserPayload {
   // NOT NULL (always 'kg' or 'lbs'), so never null. Only the user
   // themselves may send it — the backend answers anyone else with a 403.
   preferredWeightUnit?: WeightUnit
+  // Self-only too (roadmap Phase 6.5).
+  messageEmailNotices?: boolean
 }
 
 // What POST /users returns: the new account, plus its first invitation —

@@ -3,6 +3,7 @@ import { Monitor, Moon, Settings, Sun } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
@@ -15,6 +16,7 @@ import { parseThemePreference, type ThemePreference } from '@/theme/theme'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { usePreferredWeightUnit } from '@/auth/usePreferredWeightUnit'
 import { useSetPreferredWeightUnit } from '@/auth/useSetPreferredWeightUnit'
+import { useSetMessageEmailNotices } from '@/auth/useSetMessageEmailNotices'
 import { isWeightUnit, WEIGHT_UNITS } from '@/common/weight'
 
 // The options in display order. Kept as data so the menu is a simple map,
@@ -42,6 +44,13 @@ export function SettingsMenu() {
   // content: picking an item closes the menu and unmounts that content,
   // and the error message below must survive that (see the hook).
   const setWeightUnit = useSetPreferredWeightUnit()
+  // Here too, for the same reason (roadmap Phase 6.5).
+  const setEmailNotices = useSetMessageEmailNotices()
+  // The emails concern accounts that message: a practitioner or a patient
+  // (an admin-only account has no conversations). By the ACCOUNT's roles,
+  // not the active one — it's the person's inbox, whichever role they're
+  // using right now.
+  const messages = currentUser?.roles.some((role) => role === 'practitioner' || role === 'patient')
   // Each radio group is NAMED by its visible label (aria-labelledby →
   // the label's id). With two groups in one menu, "Light" and "kg" are
   // otherwise just menu items in a row; named groups let a screen reader
@@ -116,6 +125,29 @@ export function SettingsMenu() {
             {setWeightUnit.isError && (
               <p role="alert" className="px-2 py-1.5 text-xs text-destructive">
                 Couldn't save your weight unit. Try again.
+              </p>
+            )}
+          </>
+        )}
+
+        {currentUser && messages && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Messages</DropdownMenuLabel>
+            {/* A checkbox item (role="menuitemcheckbox", aria-checked): one
+                on/off setting. The words say what turning it on does; what
+                the email holds — never the message — is said in the email. */}
+            <DropdownMenuCheckboxItem
+              checked={currentUser.messageEmailNotices}
+              onCheckedChange={(checked) =>
+                setEmailNotices.mutate({ userId: currentUser.id, on: checked })
+              }
+            >
+              Email me about new messages
+            </DropdownMenuCheckboxItem>
+            {setEmailNotices.isError && (
+              <p role="alert" className="px-2 py-1.5 text-xs text-destructive">
+                Couldn't save your email setting. Try again.
               </p>
             )}
           </>
