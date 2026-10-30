@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query'
 import { failureText } from '@/api/apiErrors'
+import { copiedNotice, type CopyTarget } from './copyExercises'
 import {
   applyExerciseOrder,
   applyWorkoutOrder,
@@ -33,14 +34,16 @@ export interface WorkoutResource<W extends WorkoutLike, E extends ExerciseLike> 
 // page passes the template routes, the program page the program routes;
 // everything else — the cache work, the guesses, the messages — is the
 // same, and lives here once.
-export interface WorkoutEditingRoutes<R, E> {
+export interface WorkoutEditingRoutes<R> {
   addWorkout: () => Promise<R>
   removeWorkout: (workoutId: number) => Promise<R>
   renameWorkout: (workoutId: number, name: string | null) => Promise<R>
   reorderWorkouts: (order: number[]) => Promise<R>
   reorderExercises: (workoutId: number, order: number[]) => Promise<R>
   moveExercise: (exerciseRowId: number, workoutId: number) => Promise<R>
-  copyExercise: (source: E, workoutId: number, sortOrder: number) => Promise<R>
+  // One exercise or several, into a workout or a new one — ONE request
+  // either way (roadmap Phase 6.5; the backend copies the rows).
+  copyExercises: (exerciseIds: number[], target: CopyTarget) => Promise<R>
   removeExercise: (exerciseRowId: number) => Promise<R>
 }
 
@@ -55,11 +58,12 @@ export interface MoveRequest {
   targetLabel: string
 }
 
-export interface CopyRequest<E> {
-  source: E
-  workoutId: number
-  sortOrder: number
-  name: string
+// `subject` ("Squat", "3 exercises") and `targetLabel` ("B · Strength", or
+// the new workout's "C") travel only for the messages.
+export interface CopyRequest {
+  exerciseIds: number[]
+  target: CopyTarget
+  subject: string
   targetLabel: string
 }
 
@@ -103,7 +107,7 @@ export function useWorkoutEditing<
   W extends WorkoutLike,
   E extends ExerciseLike,
   R extends WorkoutResource<W, E>,
->(queryKey: QueryKey, routes: WorkoutEditingRoutes<R, E>, options: Options<R>) {
+>(queryKey: QueryKey, routes: WorkoutEditingRoutes<R>, options: Options<R>) {
   const queryClient = useQueryClient()
   const [problem, setProblem] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -211,23 +215,19 @@ export function useWorkoutEditing<
     onError: (error, move) => setProblem(describeFailure(`Couldn't move ${move.name}`, error)),
   })
 
-  // The copy's position is decided by the caller, from the resource on
-  // screen (nextExercisePosition): every write on the page answers with the
-  // whole resource, so what's on screen is it as of the last write — no
-  // extra request needed to find "the end of B". (A route may ignore it and
-  // let the backend append — the program's does.)
-  const copyExercise = useMutation({
-    mutationFn: (copy: CopyRequest<E>) =>
-      routes.copyExercise(copy.source, copy.workoutId, copy.sortOrder),
+  // Copying (roadmap Phase 6.5): the menu's one exercise and the dialog's
+  // several take the same road. The backend appends the copies after the
+  // target workout's last exercise, inside its own transaction — nothing is
+  // computed here from a screen that may be stale (the old one-exercise copy
+  // sent a position worked out from the screen).
+  const copyExercises = useMutation({
+    mutationFn: (copy: CopyRequest) => routes.copyExercises(copy.exerciseIds, copy.target),
     onMutate: startAction,
     onSuccess: (updated, copy) => {
       write(updated)
-      // Said at the moment it matters: the two are now separate.
-      setNotice(
-        `Copied ${copy.name} to ${copy.targetLabel}. The copy is independent: changing one won't change the other.`,
-      )
+      setNotice(copiedNotice(copy.exerciseIds.length, copy.subject, copy.targetLabel))
     },
-    onError: (error, copy) => setProblem(describeFailure(`Couldn't copy ${copy.name}`, error)),
+    onError: (error, copy) => setProblem(describeFailure(`Couldn't copy ${copy.subject}`, error)),
   })
 
   // Renaming is a plain async function, not a mutation here: each workout
@@ -247,7 +247,7 @@ export function useWorkoutEditing<
     addWorkout.isPending ||
     removeWorkout.isPending ||
     moveExercise.isPending ||
-    copyExercise.isPending
+    copyExercises.isPending
 
   return {
     addWorkout,
@@ -256,7 +256,7 @@ export function useWorkoutEditing<
     reorderExercises,
     removeExercise,
     moveExercise,
-    copyExercise,
+    copyExercises,
     renameWorkout,
     isBusy,
     problem,
@@ -278,14 +278,14 @@ interface Action<V> {
   variables?: V
 }
 
-export interface WorkoutEditing<E> {
+export interface WorkoutEditing {
   addWorkout: Action<void>
   removeWorkout: Action<number>
   reorderWorkouts: Action<number[]>
   reorderExercises: Action<{ workoutId: number; order: number[] }>
   removeExercise: Action<RemoveRequest>
   moveExercise: Action<MoveRequest>
-  copyExercise: Action<CopyRequest<E>>
+  copyExercises: Action<CopyRequest>
   renameWorkout: (workoutId: number, name: string | null) => Promise<void>
   isBusy: boolean
   problem: string | null

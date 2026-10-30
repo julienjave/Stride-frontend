@@ -207,7 +207,7 @@ describe('useTemplateWorkoutEditing — other writes', () => {
     [
       'copying an exercise',
       (r: Editing) =>
-        r.copyExercise.mutate({ source: ex(1, 57, 0), workoutId: 58, sortOrder: 2, name: 'Squat', targetLabel: 'B' }),
+        r.copyExercises.mutate({ exerciseIds: [1], target: { workoutId: 58 }, subject: 'Squat', targetLabel: 'B' }),
     ],
   ])('is busy while %s is on its way, and not after', async (_name, start) => {
     const answer = pendingResponse()

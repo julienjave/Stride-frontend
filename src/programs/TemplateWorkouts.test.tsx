@@ -410,9 +410,10 @@ describe('Template workouts — moving and copying', () => {
     expect(laterRequests()).toStrictEqual(['PATCH /programs/1/exercises/1 {"workoutId":58}'])
   })
 
-  it("Copy sends the same exercise and prescription to the end of the target workout, and says it's independent", async () => {
-    // B holds positions 0 and 2 (one was removed): the copy goes to 3 —
-    // not to B's count (2), nor to the template's (4).
+  // One exercise from the menu goes through the copy route (roadmap Phase
+  // 6.5): the backend copies the row — prescription included — and appends
+  // it after B's last exercise itself, so no position is sent.
+  it("Copy sends the exercise's row to the copy route, and says it's independent", async () => {
     const squat = {
       ...row(1, 57, 0, 'Squat'),
       sets: 3,
@@ -438,7 +439,7 @@ describe('Template workouts — moving and copying', () => {
       ),
     ).toBeInTheDocument()
     expect(laterRequests()).toStrictEqual([
-      'POST /programs/1/exercises {"exerciseId":101,"workoutId":58,"sets":3,"reps":10,"durationInSeconds":null,"weight":20,"weightUnit":"kg","notes":"Slowly","sortOrder":3}',
+      'POST /programs/1/exercises/copy {"exerciseIds":[1],"targetWorkoutId":58}',
     ])
   })
 
@@ -527,5 +528,164 @@ describe("Template workouts — someone else's template", () => {
       expect(screen.queryByRole('button', { name })).not.toBeInTheDocument()
     }
     expect(screen.queryByRole('link', { name: /^Add New Exercise/ })).not.toBeInTheDocument()
+  })
+})
+
+// Roadmap Phase 6.5: several exercises, or a whole workout, in one request.
+describe('Template workouts — copying several exercises', () => {
+  const C: TemplateWorkout = { id: 59, templateId: 1, name: null, sortOrder: 2 }
+
+  async function openDialog(user: ReturnType<typeof userEvent.setup>, buttonName: string) {
+    await user.click(await screen.findByRole('button', { name: buttonName }))
+    return screen.findByRole('dialog')
+  }
+
+  it('offers Copy only on a workout with exercises', async () => {
+    serve(makeTemplate({ workouts: [A, B, C] }))
+    renderPage()
+    await screen.findByText('Squat')
+    expect(screen.getByRole('button', { name: 'Copy exercises of workout A · Mobility…' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Copy exercises of workout B…' })).toBeInTheDocument()
+    // C is empty: nothing to copy.
+    expect(screen.queryByRole('button', { name: 'Copy exercises of workout C…' })).not.toBeInTheDocument()
+  })
+
+  it('copies the whole workout by default, to the next workout, in one request', async () => {
+    serve(makeTemplate(), () => jsonResponse(makeTemplate(), 201))
+    const user = userEvent.setup()
+    renderPage()
+    const dialog = await openDialog(user, 'Copy exercises of workout A · Mobility…')
+
+    expect(within(dialog).getByRole('heading', { name: 'Copy exercises from A · Mobility' })).toBeInTheDocument()
+    const boxes = within(dialog).getAllByRole('checkbox')
+    expect(boxes.map((box) => (box as HTMLInputElement).checked)).toEqual([true, true])
+    expect(within(dialog).getByRole('radio', { name: 'Workout B' })).toBeChecked()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Copy 2 exercises' }))
+
+    expect(
+      await screen.findByText(
+        "Copied 2 exercises to B. The copies are independent: changing one won't change its original.",
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(laterRequests()).toStrictEqual([
+      'POST /programs/1/exercises/copy {"exerciseIds":[1,2],"targetWorkoutId":58}',
+    ])
+  })
+
+  it('copies the ticked ones into a NEW, named workout', async () => {
+    serve(makeTemplate(), () => jsonResponse(makeTemplate(), 201))
+    const user = userEvent.setup()
+    renderPage()
+    const dialog = await openDialog(user, 'Copy exercises of workout A · Mobility…')
+
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Lunge' }))
+    await user.click(within(dialog).getByRole('radio', { name: 'A new workout (C)' }))
+    await user.type(within(dialog).getByLabelText('Name of the new workout (optional)'), 'Warm-up')
+    await user.click(within(dialog).getByRole('button', { name: 'Copy 1 exercise' }))
+
+    expect(
+      await screen.findByText(
+        "Copied Squat to a new workout, C · Warm-up. The copy is independent: changing one won't change the other.",
+      ),
+    ).toBeInTheDocument()
+    expect(laterRequests()).toStrictEqual([
+      'POST /programs/1/exercises/copy {"exerciseIds":[1],"targetWorkoutId":null,"newWorkoutName":"Warm-up"}',
+    ])
+  })
+
+  // Ticked in reverse: the request still lists them in the workout's order.
+  it("sends the exercises in the workout's order, whatever order they were ticked in", async () => {
+    serve(makeTemplate(), () => jsonResponse(makeTemplate(), 201))
+    const user = userEvent.setup()
+    renderPage()
+    const dialog = await openDialog(user, 'Copy exercises of workout A · Mobility…')
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Squat' }))
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Lunge' }))
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Lunge' }))
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Squat' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Copy 2 exercises' }))
+    await screen.findByText(/^Copied 2 exercises/)
+    expect(laterRequests()).toStrictEqual([
+      'POST /programs/1/exercises/copy {"exerciseIds":[1,2],"targetWorkoutId":58}',
+    ])
+  })
+
+  it('needs at least one exercise ticked, and says so', async () => {
+    serve(makeTemplate())
+    const user = userEvent.setup()
+    renderPage()
+    const dialog = await openDialog(user, 'Copy exercises of workout A · Mobility…')
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Squat' }))
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Lunge' }))
+
+    expect(within(dialog).getByText('Tick at least one exercise to copy.')).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Copy 0 exercises' })).toBeDisabled()
+    expect(laterRequests()).toStrictEqual([])
+  })
+
+  it('offers no new workout once there are 10, and says why', async () => {
+    const ten = Array.from({ length: 10 }, (_, index) => ({
+      id: 60 + index,
+      templateId: 1,
+      name: null,
+      sortOrder: index,
+    }))
+    serve(makeTemplate({ workouts: ten, exercises: [row(1, 60, 0, 'Squat')] }))
+    const user = userEvent.setup()
+    renderPage()
+    const dialog = await openDialog(user, 'Copy exercises of workout A…')
+    expect(within(dialog).getByRole('radio', { name: 'A new workout (K)' })).toBeDisabled()
+    expect(within(dialog).getByText(/There are already 10 workouts/)).toBeInTheDocument()
+  })
+
+  it('reports a failed copy in the editor, naming what failed', async () => {
+    serve(makeTemplate(), () =>
+      jsonResponse({ statusCode: 404, message: ['Exercise 2 not found in this template'] }, 404),
+    )
+    const user = userEvent.setup()
+    renderPage()
+    const dialog = await openDialog(user, 'Copy exercises of workout A · Mobility…')
+    await user.click(within(dialog).getByRole('button', { name: 'Copy 2 exercises' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Couldn't copy 2 exercises. Exercise 2 not found in this template",
+    )
+  })
+
+  it('Cancel closes without a request', async () => {
+    serve(makeTemplate())
+    const user = userEvent.setup()
+    renderPage()
+    const dialog = await openDialog(user, 'Copy exercises of workout A · Mobility…')
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(laterRequests()).toStrictEqual([])
+  })
+
+  // One workout: no header — the button beside "Add a workout" copies it
+  // into a new workout ("duplicate it").
+  it('with ONE workout, "Copy to a new workout…" duplicates it', async () => {
+    serve(makeTemplate({ workouts: [A], exercises: [row(1, 57, 0, 'Squat'), row(2, 57, 1, 'Lunge')] }), () =>
+      jsonResponse(makeTemplate(), 201),
+    )
+    const user = userEvent.setup()
+    renderPage()
+    const dialog = await openDialog(user, 'Copy to a new workout…')
+    // The only target: there is no other workout.
+    expect(within(dialog).getAllByRole('radio')).toHaveLength(1)
+    expect(within(dialog).getByRole('radio', { name: 'A new workout (B)' })).toBeChecked()
+    await user.click(within(dialog).getByRole('button', { name: 'Copy 2 exercises' }))
+    await screen.findByText(/^Copied 2 exercises to a new workout, B\./)
+    expect(laterRequests()).toStrictEqual([
+      'POST /programs/1/exercises/copy {"exerciseIds":[1,2],"targetWorkoutId":null,"newWorkoutName":null}',
+    ])
+  })
+
+  it('offers no "Copy to a new workout…" for an empty single workout', async () => {
+    serve(makeTemplate({ workouts: [A], exercises: [] }))
+    renderPage()
+    await screen.findByRole('button', { name: 'Add a workout' })
+    expect(screen.queryByRole('button', { name: 'Copy to a new workout…' })).not.toBeInTheDocument()
   })
 })

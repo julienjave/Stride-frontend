@@ -616,19 +616,45 @@ describe('ProgramExercisesSection — requests', () => {
     expect(await screen.findByText('Moved Glute Bridge to A · Mobility.')).toBeInTheDocument()
   })
 
-  // The same exercise and prescription, nulls included — and NO position:
-  // the backend appends (step 3b-0).
-  it('copies an exercise to another workout, sending no position', async () => {
+  // The ROW is copied (roadmap Phase 6.5): only its id travels — the backend
+  // copies the patient's own description, prescription and photos, and
+  // appends it (no position sent).
+  it('copies an exercise to another workout through the copy route', async () => {
     const { user } = renderSection()
     const menu = await openMenu(user, 'More actions for Glute Bridge in workout B · Strength')
     await user.click(within(menu).getByRole('menuitem', { name: 'Copy to C' }))
     expect(writes()).toStrictEqual([
       [
         'POST',
-        '/assigned-programs/12/exercises',
-        '{"exerciseId":202,"workoutId":59,"sets":3,"reps":8,"durationInSeconds":null,"weight":20,"weightUnit":"kg","notes":"Keep the pelvis level."}',
+        '/assigned-programs/12/exercises/copy',
+        '{"exerciseIds":[102],"targetWorkoutId":59}',
       ],
     ])
+  })
+
+  // Roadmap Phase 6.5: a workout's exercises, several at once — the
+  // program's own route; a removed (retired) exercise isn't offered.
+  it('copies a workout\'s exercises from its header, never a removed one', async () => {
+    const { user } = renderSection({
+      ...PROGRAM,
+      retiredExercises: [
+        exercise(104, 58, 'Band Walk', { retiredAt: '2031-06-10T10:00:00Z', retiredBy: 3 }),
+      ],
+    })
+    await user.click(
+      await screen.findByRole('button', { name: 'Copy exercises of workout B · Strength…' }),
+    )
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getAllByRole('checkbox').map((box) => box.closest('label')?.textContent)).toEqual([
+      'Glute Bridge',
+      'Clamshell',
+    ])
+    await user.click(within(dialog).getByRole('button', { name: 'Copy 2 exercises' }))
+    await waitFor(() =>
+      expect(writes()).toStrictEqual([
+        ['POST', '/assigned-programs/12/exercises/copy', '{"exerciseIds":[102,103],"targetWorkoutId":59}'],
+      ]),
+    )
   })
 
   it('adds a workout, renames one, and deletes one', async () => {

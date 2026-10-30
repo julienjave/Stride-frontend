@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   DndContext,
   PointerSensor,
@@ -15,15 +15,15 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, Plus } from 'lucide-react'
+import { Copy, GripVertical, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { computeReorderedIds } from '@/common/reorderIds'
 import { sortableAnnouncements } from '@/common/sortableAnnouncements'
 import { WorkoutHeader } from './WorkoutHeader'
 import { ExerciseWorkoutMenu } from './ExerciseWorkoutMenu'
+import { CopyExercisesDialog } from './CopyExercisesDialog'
 import {
   MAX_WORKOUTS,
-  nextExercisePosition,
   type ExerciseLike,
   type WorkoutGroup,
   type WorkoutLike,
@@ -42,7 +42,7 @@ export interface CardSlots {
 
 interface WorkoutListEditorProps<W extends WorkoutLike, E extends ExerciseLike> {
   groups: WorkoutGroup<W, E>[]
-  editing: WorkoutEditing<E>
+  editing: WorkoutEditing
   // An exercise's name, for the menus, the messages and the drag
   // announcements — a template exercise carries it on its library
   // exercise, a program exercise on its own copy.
@@ -90,6 +90,12 @@ export function WorkoutListEditor<W extends WorkoutLike, E extends ExerciseLike>
   const isSeveral = groups.length > 1
   const atLimit = groups.length >= MAX_WORKOUTS
   const container = useRef<HTMLDivElement>(null)
+  // The workout whose "Copy exercises" dialog is open (roadmap Phase 6.5),
+  // or null. One dialog for the whole editor, opened from a workout's
+  // header — or, with ONE workout (no header), from the button beside "Add
+  // a workout".
+  const [copyFromId, setCopyFromId] = useState<number | null>(null)
+  const copySource = groups.find((group) => group.workout.id === copyFromId) ?? null
 
   // Focus after a removal (focusAfterRemoval): the target was chosen from
   // the server's answer, but the screen may not show that answer yet —
@@ -128,7 +134,7 @@ export function WorkoutListEditor<W extends WorkoutLike, E extends ExerciseLike>
       )}
 
       {isSeveral ? (
-        <SortableWorkouts {...props} />
+        <SortableWorkouts {...props} onCopyFrom={setCopyFromId} />
       ) : (
         // One workout: no header, no menu — the list as it always was.
         <WorkoutExercises {...props} group={groups[0]} />
@@ -143,16 +149,45 @@ export function WorkoutListEditor<W extends WorkoutLike, E extends ExerciseLike>
         {editing.notice}
       </p>
 
+      {copySource && (
+        <CopyExercisesDialog
+          source={copySource}
+          groups={groups}
+          exerciseName={props.exerciseName}
+          open
+          onOpenChange={(open) => {
+            if (!open) setCopyFromId(null)
+          }}
+          onCopy={(request) => editing.copyExercises.mutate(request)}
+        />
+      )}
+
       <div className="space-y-1">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => editing.addWorkout.mutate()}
-          disabled={atLimit || editing.isBusy}
-        >
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          {editing.addWorkout.isPending ? 'Adding…' : 'Add a workout'}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => editing.addWorkout.mutate()}
+            disabled={atLimit || editing.isBusy}
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            {editing.addWorkout.isPending ? 'Adding…' : 'Add a workout'}
+          </Button>
+          {/* With ONE workout there's no header to hold the Copy button:
+              copying it means a new workout — "duplicate the workout",
+              then change the copy. */}
+          {!isSeveral && groups[0].exercises.length > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCopyFromId(groups[0].workout.id)}
+              disabled={atLimit || editing.isBusy}
+            >
+              <Copy className="h-4 w-4" aria-hidden="true" />
+              Copy to a new workout…
+            </Button>
+          )}
+        </div>
         {/* Each sentence explains what the screen can't show on its own. */}
         {atLimit ? (
           <p className="text-xs text-muted-foreground">
@@ -189,7 +224,7 @@ function useSortableSensors() {
 // workout ids and exercise ids are both plain numbers that could collide
 // (workout 3 and exercise 3) inside a single one.
 function SortableWorkouts<W extends WorkoutLike, E extends ExerciseLike>(
-  props: WorkoutListEditorProps<W, E>,
+  props: WorkoutListEditorProps<W, E> & { onCopyFrom: (workoutId: number) => void },
 ) {
   const { groups, editing } = props
   const sensors = useSortableSensors()
@@ -224,9 +259,12 @@ function SortableWorkouts<W extends WorkoutLike, E extends ExerciseLike>(
 }
 
 function SortableWorkoutSection<W extends WorkoutLike, E extends ExerciseLike>(
-  props: WorkoutListEditorProps<W, E> & { group: WorkoutGroup<W, E> },
+  props: WorkoutListEditorProps<W, E> & {
+    group: WorkoutGroup<W, E>
+    onCopyFrom: (workoutId: number) => void
+  },
 ) {
-  const { group, editing, canDeleteWorkout, workoutNote } = props
+  const { group, editing, canDeleteWorkout, workoutNote, onCopyFrom } = props
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: group.workout.id,
   })
@@ -264,6 +302,8 @@ function SortableWorkoutSection<W extends WorkoutLike, E extends ExerciseLike>(
         }
         onRename={(name) => editing.renameWorkout(group.workout.id, name)}
         onDelete={canDeleteWorkout(group) ? () => editing.removeWorkout.mutate(group.workout.id) : undefined}
+        // Only a workout with something to copy offers it.
+        onCopy={group.exercises.length > 0 ? () => onCopyFrom(group.workout.id) : undefined}
         disabled={editing.isBusy}
       />
       {note && <p className="text-xs text-muted-foreground">{note}</p>}
@@ -329,16 +369,13 @@ function WorkoutExercises<W extends WorkoutLike, E extends ExerciseLike>({
             targetLabel: target.label,
           })
         }
+        // One exercise, through the same route as the dialog's several: the
+        // backend copies the row and appends it (roadmap Phase 6.5).
         onCopy={(target) =>
-          editing.copyExercise.mutate({
-            source: exercise,
-            workoutId: target.id,
-            // The end of the TARGET workout, from the resource on screen.
-            sortOrder: nextExercisePosition(
-              groups.flatMap((other) => other.exercises),
-              target.id,
-            ),
-            name,
+          editing.copyExercises.mutate({
+            exerciseIds: [exercise.id],
+            target: { workoutId: target.id },
+            subject: name,
             targetLabel: target.label,
           })
         }

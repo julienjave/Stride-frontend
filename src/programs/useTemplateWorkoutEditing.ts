@@ -1,7 +1,7 @@
 import { useWorkoutEditing } from '@/workouts/useWorkoutEditing'
 import {
   addTemplateWorkout,
-  copyTemplateExercise,
+  copyTemplateExercises,
   moveTemplateExercise,
   programQueryKey,
   removeTemplateExercise,
@@ -34,8 +34,8 @@ export function useTemplateWorkoutEditing(templateId: number) {
         reorderTemplateExercises(templateId, workoutId, order),
       moveExercise: (exerciseRowId, workoutId) =>
         moveTemplateExercise(templateId, exerciseRowId, workoutId),
-      copyExercise: (source, workoutId, sortOrder) =>
-        copyTemplateExercise(templateId, source, workoutId, sortOrder),
+      copyExercises: (exerciseIds, target) =>
+        copyTemplateExercises(templateId, exerciseIds, target),
       removeExercise: (exerciseRowId) => removeTemplateExercise(templateId, exerciseRowId),
     },
     { noun: 'template' },

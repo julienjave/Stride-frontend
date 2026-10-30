@@ -3,7 +3,7 @@ import { useWorkoutEditing } from '@/workouts/useWorkoutEditing'
 import {
   addProgramWorkout,
   assignedProgramQueryKey,
-  copyProgramExercise,
+  copyProgramExercises,
   fetchRemovalPreview,
   moveProgramExercise,
   removalPreviewQueryKey,
@@ -38,8 +38,8 @@ export function useProgramWorkoutEditing(programId: number) {
       reorderExercises: (workoutId, order) => reorderProgramExercises(programId, workoutId, order),
       moveExercise: (exerciseRowId, workoutId) =>
         moveProgramExercise(programId, exerciseRowId, workoutId),
-      // The position computed by the list is not sent: the backend appends.
-      copyExercise: (source, workoutId) => copyProgramExercise(programId, source, workoutId),
+      copyExercises: (exerciseIds, target) =>
+        copyProgramExercises(programId, exerciseIds, target),
       removeExercise: (exerciseRowId) => removeProgramExercise(programId, exerciseRowId),
     },
     { noun: 'program', removedNotice },

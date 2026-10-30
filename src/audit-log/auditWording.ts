@@ -82,6 +82,8 @@ const WORDING: Record<AuditAction, string> = {
   TEMPLATE_WORKOUT_REMOVED: 'Removed a workout from a template',
   TEMPLATE_WORKOUTS_REORDERED: 'Reordered a template’s workouts',
   TEMPLATE_EXERCISE_ADDED: 'Added an exercise to a template',
+  // Roadmap Phase 6.5: one exercise or several, in one entry.
+  TEMPLATE_EXERCISES_COPIED: 'Copied exercises within a template',
   TEMPLATE_EXERCISE_UPDATED: 'Edited a template exercise',
   TEMPLATE_EXERCISE_REMOVED: 'Removed an exercise from a template',
   TEMPLATE_EXERCISES_REORDERED: 'Reordered a template’s exercises',
@@ -98,6 +100,7 @@ const WORDING: Record<AuditAction, string> = {
   ASSIGNED_PROGRAM_WORKOUT_REMOVED: 'Removed a workout from a program',
   ASSIGNED_PROGRAM_WORKOUTS_REORDERED: 'Reordered a program’s workouts',
   ASSIGNED_PROGRAM_EXERCISE_ADDED: 'Added an exercise to a program',
+  ASSIGNED_PROGRAM_EXERCISES_COPIED: 'Copied exercises within a program',
   ASSIGNED_PROGRAM_EXERCISE_UPDATED: 'Edited a program exercise',
   ASSIGNED_PROGRAM_EXERCISE_REMOVED: 'Removed an exercise from a program',
   ASSIGNED_PROGRAM_EXERCISE_RETIRED: 'Retired a program exercise',

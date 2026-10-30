@@ -1,6 +1,6 @@
 import { useId, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Check, Pencil, Trash2, X } from 'lucide-react'
+import { Check, Copy, Pencil, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { failureText } from '@/api/apiErrors'
@@ -24,7 +24,10 @@ interface WorkoutHeaderProps {
   // would succeed (isWorkoutRemovable), so the button never leads to a
   // refusal the screen could have predicted.
   onDelete?: () => void
-  // Disables the Delete button (a write is on its way).
+  // Absent = no Copy button (a read-only view, or an empty workout). Opens
+  // the "Copy exercises" dialog (roadmap Phase 6.5).
+  onCopy?: () => void
+  // Disables the Copy and Delete buttons (a write is on its way).
   disabled?: boolean
 }
 
@@ -39,6 +42,7 @@ export function WorkoutHeader({
   dragHandle,
   onRename,
   onDelete,
+  onCopy,
   disabled = false,
 }: WorkoutHeaderProps) {
   const letter = workoutLetter(position)
@@ -173,6 +177,19 @@ export function WorkoutHeader({
           onClick={startEditing}
         >
           <Pencil className="h-4 w-4" />
+        </Button>
+      )}
+      {onCopy && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          // The trailing "…" says a dialog follows, as menus write it.
+          aria-label={`Copy exercises of workout ${label}…`}
+          onClick={onCopy}
+          disabled={disabled}
+        >
+          <Copy className="h-4 w-4" />
         </Button>
       )}
       {onDelete && (

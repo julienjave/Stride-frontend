@@ -14,6 +14,12 @@ describe('actionLabel', () => {
     expect(actionLabel('MESSAGES_VIEWED')).toBe('Viewed messages')
   })
 
+  // Roadmap Phase 6.5: copying exercises, several in one entry.
+  it('words the copies', () => {
+    expect(actionLabel('TEMPLATE_EXERCISES_COPIED')).toBe('Copied exercises within a template')
+    expect(actionLabel('ASSIGNED_PROGRAM_EXERCISES_COPIED')).toBe('Copied exercises within a program')
+  })
+
   // Two-factor sign-in, pass 2's three actions (decisions §14).
   it('words the recovery-code and reset actions', () => {
     expect(actionLabel('MFA_RECOVERY_CODE_USED')).toBe('Signed in with a recovery code')

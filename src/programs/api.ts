@@ -1,6 +1,7 @@
 import { apiRequest } from '@/api/client'
+import { copyRequestBody, type CopyTarget } from '@/workouts/copyExercises'
 import { nextExercisePosition } from '@/workouts/workoutGroups'
-import type { ProgramTemplate, ProgramTemplateDetail, TemplateExercise } from './types'
+import type { ProgramTemplate, ProgramTemplateDetail } from './types'
 import type {
   CreateTemplateFormValues,
   AddTemplateExerciseFormValues,
@@ -286,33 +287,19 @@ export function moveTemplateExercise(
   )
 }
 
-// COPY an exercise into a workout: a NEW row through the ordinary add route,
-// with the same exercise and the same prescription. The two rows are then
-// independent — "copy, not reference", like assigning a template: changing
-// the copy's reps never changes the original. (Nothing makes an exercise
-// unique within a template, so the backend needs no special route for this.)
-//
-// The prescription is sent exactly as stored, nulls included: null means
-// "not set" on both sides (and a weight and its unit are both null or both
-// set, which the backend checks).
-export function copyTemplateExercise(
+// COPY (roadmap Phase 6.5): one exercise or several — the menu's "Copy to"
+// and the workout's "Copy exercises" dialog — into a workout of this
+// template, or a NEW one, in ONE request. The backend copies the rows
+// (library exercise + prescription), appends them after the target's last
+// exercise, and answers with the whole template. (Until then a copy was the
+// ordinary add route, with a position computed here from the screen.)
+export function copyTemplateExercises(
   templateId: number,
-  source: TemplateExercise,
-  workoutId: number,
-  sortOrder: number,
+  exerciseIds: number[],
+  target: CopyTarget,
 ) {
-  return apiRequest<ProgramTemplateDetail>(`/programs/${templateId}/exercises`, {
+  return apiRequest<ProgramTemplateDetail>(`/programs/${templateId}/exercises/copy`, {
     method: 'POST',
-    body: {
-      exerciseId: source.exerciseId,
-      workoutId,
-      sets: source.sets,
-      reps: source.reps,
-      durationInSeconds: source.durationInSeconds,
-      weight: source.weight,
-      weightUnit: source.weightUnit,
-      notes: source.notes,
-      sortOrder,
-    },
+    body: copyRequestBody(exerciseIds, target),
   })
 }

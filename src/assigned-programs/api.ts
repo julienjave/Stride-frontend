@@ -1,10 +1,10 @@
 import { apiRequest } from '@/api/client'
+import { copyRequestBody, type CopyTarget } from '@/workouts/copyExercises'
 import type { PrescriptionChanges } from '@/common/PrescriptionSummary'
 import type { ExerciseDescriptionChanges } from '@/exercises/descriptionRules'
 import type { AddTemplateExerciseFormValues } from '@/programs/schemas'
 import type {
   AssignedProgramDetail,
-  AssignedProgramExercise,
   AssignedProgramListItem,
   ClosingPreview,
   CloseResult,
@@ -212,29 +212,15 @@ export function moveProgramExercise(id: number, exerciseRowId: number, workoutId
   )
 }
 
-// COPY: a NEW row through the ordinary add route — the same exercise and
-// prescription, nulls included (null = "not set" on both sides). Unlike the
-// template's copy, no position is sent: since step 3b-0 the backend appends
-// after the target workout's last exercise itself, inside its transaction.
-// (The backend copies the exercise's description — name, muscles,
-// instructions — from the library, as for any exercise added to a program.)
-export function copyProgramExercise(
-  id: number,
-  source: AssignedProgramExercise,
-  workoutId: number,
-) {
-  return apiRequest<AssignedProgramDetail>(`/assigned-programs/${id}/exercises`, {
+// COPY (roadmap Phase 6.5): one exercise or several into a workout of this
+// program, or a NEW one, in ONE request. The backend copies the ROWS — the
+// patient's own description, prescription, photo choice and own photos (to
+// new files) — not the library's current entry: the old one-exercise copy
+// went through the add route and took the library's text.
+export function copyProgramExercises(id: number, exerciseIds: number[], target: CopyTarget) {
+  return apiRequest<AssignedProgramDetail>(`/assigned-programs/${id}/exercises/copy`, {
     method: 'POST',
-    body: {
-      exerciseId: source.exerciseId,
-      workoutId,
-      sets: source.sets,
-      reps: source.reps,
-      durationInSeconds: source.durationInSeconds,
-      weight: source.weight,
-      weightUnit: source.weightUnit,
-      notes: source.notes,
-    },
+    body: copyRequestBody(exerciseIds, target),
   })
 }
 
