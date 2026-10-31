@@ -22,6 +22,7 @@ import {
   PASSWORD_CHANGED_NOTICE,
   type ChangePasswordFormValues,
 } from './passwordChangeRules'
+import { showSuccess } from '@/snackbars/snackbarStore'
 
 // /profile/password — changing one's own password (decisions §13). Its own
 // page, like the email change: room to say what happens, and a real form
@@ -61,8 +62,12 @@ export function ChangePasswordPage() {
       // show a change that no longer exists (no request needed — the 204
       // already says it).
       queryClient.setQueryData(pendingEmailChangeQueryKey, null)
-      // replace: Back from the profile doesn't reopen a form already sent.
-      void navigate('/profile', { replace: true, state: { notice: PASSWORD_CHANGED_NOTICE } })
+      // The confirmation is a snackbar (decisions §33), raised here and
+      // drawn by the layout — it outlives this page, which unmounts as the
+      // profile opens. replace: Back from the profile doesn't reopen a form
+      // already sent.
+      showSuccess(PASSWORD_CHANGED_NOTICE)
+      void navigate('/profile', { replace: true })
     },
     // A wrong current password belongs to its field — said there, the field
     // cleared (whatever was typed is wrong) and focused. Anything else is

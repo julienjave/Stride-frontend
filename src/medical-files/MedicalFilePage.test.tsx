@@ -161,11 +161,6 @@ describe('MedicalFilePage', () => {
     )
   })
 
-  it('shows the notice an entry page leaves for it', async () => {
-    renderMedicalFile([{ pathname: FILE_PATH, state: { notice: 'Entry added.' } }], answers())
-    expect(await screen.findByRole('status')).toHaveTextContent('Entry added.')
-  })
-
   it('refuses an address without a valid patient', () => {
     renderMedicalFile(['/practitioner/patients/abc/medical-file'], () => undefined)
     expect(screen.getByText('Invalid patient.')).toBeInTheDocument()

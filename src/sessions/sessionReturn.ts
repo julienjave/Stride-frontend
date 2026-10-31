@@ -11,7 +11,7 @@
 //      session was viewed, from this week" — on returning, the page opens
 //      that week again and puts focus back on the link.
 //
-// Read DEFENSIVELY, like readNotice: location.state is whatever an entry
+// Read DEFENSIVELY: location.state is whatever an entry
 // holds (or null), so each reader checks the shape and answers null on
 // anything else. Pure (sessionReturn.test.ts).
 

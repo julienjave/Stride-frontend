@@ -2,13 +2,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
+import { MemoryRouter, Route, Routes } from 'react-router'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
-import { readNotice } from '@/common/readNotice'
 import { StopSessionPage } from './StopSessionPage'
 import type { Session } from './types'
 import { PAT, apiError, json, session, urlOf } from './testData'
 import { expectLoadError, expectNotAvailable } from './notAvailableAssertions'
+import { expectSnackbar } from '@/snackbars/snackbarAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -39,7 +39,7 @@ afterEach(() => {
 })
 
 function HomeStandIn() {
-  return <p>Home page. Notice: {readNotice(useLocation().state) ?? 'none'}</p>
+  return <p>Home page</p>
 }
 
 function renderPage(path = '/patient/sessions/31/stop') {
@@ -116,7 +116,8 @@ describe('StopSessionPage', () => {
     await form()
     await user.click(within(reasons()).getByRole('radio', { name: 'No time' }))
     await user.click(screen.getByRole('button', { name: 'Stop session' }))
-    expect(await screen.findByText('Home page. Notice: Session stopped. It is kept as not finished.')).toBeInTheDocument()
+    expect(await screen.findByText('Home page')).toBeInTheDocument()
+    expectSnackbar('success', 'Session stopped. It is kept as not finished.')
     expect(posts()).toStrictEqual(['/sessions/31/stop {"reason":"no_time"}'])
   })
 

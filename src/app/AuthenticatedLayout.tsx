@@ -10,6 +10,7 @@ import { NavigationProgress } from './layout/NavigationProgress'
 import { isMessagingRole, messagesPath, type MessagingRole } from '@/messages/messagesPath'
 import { MessagingConnectionProvider } from '@/messages/MessagingConnectionProvider'
 import { useUnreadMessageCount } from '@/messages/useConversations'
+import { Snackbars } from '@/snackbars/Snackbars'
 
 // A LAYOUT route (element with no path, see routes.tsx) wrapping every
 // authenticated page: whichever page matched renders where <Outlet /> is,
@@ -52,17 +53,34 @@ export function AuthenticatedLayout() {
   }
 
   const role = user.activeRole as UserRole
-  if (!isMessagingRole(role)) return <Shell role={role} />
+  // Who is signed in, and as what: the key of everything that must start
+  // over when that changes (the live connection, the snackbars).
+  const identity = `${user.id}:${role}`
 
   return (
-    // key: a NEW connection for a new identity. Switching role (or logging
-    // in as someone else without a reload) changes the key, so React
-    // unmounts the old provider — its cleanup closes the old socket — and
-    // mounts a fresh one; the backend has also cut the old session's
-    // sockets (disconnectSession). One socket never carries two identities.
-    <MessagingConnectionProvider key={`${user.id}:${role}`} userId={user.id}>
-      <MessagingShell role={role} />
-    </MessagingConnectionProvider>
+    <>
+      {isMessagingRole(role) ? (
+        // key: a NEW connection for a new identity. Switching role (or
+        // logging in as someone else without a reload) changes the key, so
+        // React unmounts the old provider — its cleanup closes the old
+        // socket — and mounts a fresh one; the backend has also cut the old
+        // session's sockets (disconnectSession). One socket never carries
+        // two identities.
+        <MessagingConnectionProvider key={identity} userId={user.id}>
+          <MessagingShell role={role} />
+        </MessagingConnectionProvider>
+      ) : (
+        <Shell role={role} />
+      )}
+      {/* The snackbars (decisions §33), once for every signed-in page —
+          outside the page's <Outlet />, so one raised by a page that then
+          navigates away survives the page. Same key, same reason as the
+          connection: a new identity unmounts the old list, and its clean-up
+          empties the store (Snackbars.tsx) — a message about a patient is
+          never left on screen for another role. Sign-out unmounts this
+          whole layout, which empties it too. */}
+      <Snackbars key={identity} />
+    </>
   )
 }
 

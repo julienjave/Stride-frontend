@@ -17,6 +17,7 @@ import { ENDING_NOTICE } from './sessionText'
 import { skippableWorkout } from './startRules'
 import type { PatientEndReason } from './types'
 import { useSessionWrite } from './useSessionWrite'
+import { showSuccess } from '@/snackbars/snackbarStore'
 
 // "Skip today" — `/patient/sessions/skip/:programId` (pass (c), decided
 // 2026-10-16), from the home's DUE rows. Like the start page, the address
@@ -106,9 +107,11 @@ function SkipForm({
   const [painBefore, setPainBefore] = useState<number | null>(null)
   const [missingReason, setMissingReason] = useState(false)
   const reasonRef = useRef<HTMLDivElement>(null)
-  const skip = useSessionWrite(skipSession, () =>
-    void navigate('/patient', { replace: true, state: { notice: ENDING_NOTICE.skipped } }),
-  )
+  // Home with a snackbar (decisions §33), replacing this page.
+  const skip = useSessionWrite(skipSession, () => {
+    showSuccess(ENDING_NOTICE.skipped)
+    void navigate('/patient', { replace: true })
+  })
   const names = workoutNames(program.workouts)
 
   function onSkip() {

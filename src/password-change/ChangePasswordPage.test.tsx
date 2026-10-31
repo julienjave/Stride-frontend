@@ -17,6 +17,7 @@ import {
   type SentRequest,
 } from './renderPasswordChange'
 import { PASSWORD_CHANGED_NOTICE, SAME_PASSWORD_MESSAGE } from './passwordChangeRules'
+import { expectSnackbar } from '@/snackbars/snackbarAssertions'
 
 const GET_PENDING: SentRequest = { method: 'GET', path: '/auth/email-change', body: null }
 
@@ -96,7 +97,8 @@ describe('ChangePasswordPage', () => {
 
     await send(await fill(' old pw ', ' new secret ', ' new secret '))
 
-    expect(await screen.findByRole('status')).toHaveTextContent(PASSWORD_CHANGED_NOTICE)
+    await screen.findByRole('heading', { name: 'My profile' })
+    expectSnackbar('success', PASSWORD_CHANGED_NOTICE)
     expect(address()).toBe('/profile')
     // The backend cancelled the email change; the cache was told — the
     // profile's Email row shows nothing waiting, and asks nothing again.
@@ -117,7 +119,7 @@ describe('ChangePasswordPage', () => {
 
     const user = await fill('old secret', 'new secret')
     await send(user)
-    await screen.findByRole('status')
+    await screen.findByRole('heading', { name: 'My profile' })
     await user.click(screen.getByRole('button', { name: 'test: back' }))
 
     expect(address()).toBe('/start')
@@ -220,7 +222,8 @@ describe('ChangePasswordPage', () => {
     const button = await screen.findByRole('button', { name: 'Changing…' })
     expect(button).toBeDisabled()
     finish(noContent())
-    expect(await screen.findByRole('status')).toHaveTextContent(PASSWORD_CHANGED_NOTICE)
+    await screen.findByRole('heading', { name: 'My profile' })
+    expectSnackbar('success', PASSWORD_CHANGED_NOTICE)
     expect(requests().filter((request) => request.method === 'POST')).toHaveLength(1)
   })
 })
@@ -250,7 +253,8 @@ describe('ChangePasswordPage — with two-factor sign-in on', () => {
     await user.type(code, ' abcde-23456 ')
     await send(user)
 
-    await screen.findByText(PASSWORD_CHANGED_NOTICE)
+    await screen.findByRole('heading', { name: 'My profile' })
+    expectSnackbar('success', PASSWORD_CHANGED_NOTICE)
     expect(requests().find((r) => r.method === 'POST')).toEqual({
       method: 'POST',
       path: '/auth/password',
@@ -341,7 +345,8 @@ describe('ChangePasswordPage — the account read again on opening', () => {
     const user = await fill('old secret', 'new secret 1')
     await send(user)
 
-    await screen.findByText(PASSWORD_CHANGED_NOTICE)
+    await screen.findByRole('heading', { name: 'My profile' })
+    expectSnackbar('success', PASSWORD_CHANGED_NOTICE)
     expect(requests().find((r) => r.method === 'POST')).toEqual({
       method: 'POST',
       path: '/auth/password',

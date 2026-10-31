@@ -15,7 +15,7 @@ export const CHANGE_PASSWORD_PATH = '/profile/password'
 // WRONG_PASSWORD_MESSAGE, auth/currentPassword.ts.)
 export const SAME_PASSWORD_MESSAGE = 'Your new password must be different from your current one'
 
-// Handed to the profile through navigation state (readNotice). "Any other
+// The snackbar raised as the profile opens (decisions §33). "Any other
 // devices": true whether there were some or none.
 export const PASSWORD_CHANGED_NOTICE =
   'Your password is changed. Any other devices signed in to your account are signed out.'

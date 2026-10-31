@@ -232,18 +232,15 @@ describe('ProfilePage — what it shows', () => {
     await retryThenExpectFocusOn(user, { level: 1, name: 'My profile' })
   })
 
-  it('shows the notice another page handed over, and none otherwise', async () => {
+  // The password and two-factor pages' confirmations were navigation state,
+  // drawn here — again after every reload, since the browser keeps history
+  // state. They're snackbars raised by those pages now (decisions §33): an
+  // old history entry still holding such state draws nothing here.
+  it('draws nothing from navigation state (the confirmation is a snackbar now)', async () => {
     fakeBackend(patientUser)
     renderProfile(patientUser, 'patient', { notice: 'Your password is changed.' })
-    expect(await screen.findByText('Your password is changed.', { selector: '[role="status"]' })).toBeInTheDocument()
-  })
-
-  it('shows no notice when none was handed over', async () => {
-    fakeBackend(patientUser)
-    renderProfile(patientUser, 'patient')
-    await screen.findByRole('heading', { name: 'My profile' })
     await screen.findByRole('region', { name: 'Sign-in and security' })
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByText('Your password is changed.')).not.toBeInTheDocument()
   })
 
   it('shows a patient their date of birth as a readable date, and "no clinic" plainly', async () => {

@@ -2,14 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router'
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
-import { readNotice } from '@/common/readNotice'
 import { assignedProgramQueryKey, assignedProgramSummaryQueryKey } from '@/assigned-programs/api'
 import type { ScheduleSummary } from '@/assigned-programs/types'
 import { SkipSessionPage } from './SkipSessionPage'
 import { A, B, KNEE, PAT, TODAY, apiError, json, scheduledDay, session, summary, urlOf } from './testData'
 import { expectLoadError, expectNotAvailable } from './notAvailableAssertions'
+import { expectSnackbar, raisedSnackbars } from '@/snackbars/snackbarAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -58,7 +58,7 @@ function HomeStandIn() {
   const navigate = useNavigate()
   return (
     <>
-      <p>Home page. Notice: {readNotice(useLocation().state) ?? 'none'}</p>
+      <p>Home page</p>
       <button onClick={() => void navigate(-1)}>Back from home</button>
     </>
   )
@@ -142,7 +142,8 @@ describe('SkipSessionPage — skipping', () => {
     await user.click(within(reasons()).getByRole('radio', { name: 'Feeling unwell' }))
     await user.type(screen.getByLabelText('Anything to add? (optional)'), ' flu ')
     await user.click(screen.getByRole('button', { name: 'Skip today' }))
-    expect(await screen.findByText("Home page. Notice: Today's session is skipped.")).toBeInTheDocument()
+    expect(await screen.findByText('Home page')).toBeInTheDocument()
+    expectSnackbar('success', "Today's session is skipped.")
     expect(posts()).toStrictEqual([
       '/sessions/skip {"assignedProgramId":12,"localDate":"2031-06-12","reason":"illness","note":"flu"}',
     ])
@@ -150,10 +151,12 @@ describe('SkipSessionPage — skipping', () => {
     expect(
       queryClient.getQueryState(assignedProgramSummaryQueryKey(12, TODAY, '2031-06-25'))?.isInvalidated,
     ).toBe(true)
-    // This page was REPLACED: Back reaches the home the patient came from
-    // (no notice) — not this form again for a day now skipped.
+    // This page was REPLACED: Back reaches the home the patient came from —
+    // not this form again for a day now skipped — and the confirmation
+    // isn't raised a second time (it was never in the history).
     await user.click(screen.getByRole('button', { name: 'Back from home' }))
-    expect(await screen.findByText('Home page. Notice: none')).toBeInTheDocument()
+    expect(await screen.findByText('Home page')).toBeInTheDocument()
+    expect(raisedSnackbars()).toEqual([{ kind: 'success', text: "Today's session is skipped." }])
   })
 
   it('sends the pain level with the reason "pain" — 0 included', async () => {

@@ -4,9 +4,8 @@ import { userRoleSchema } from '@/auth/schemas'
 import { useUser } from './useUser'
 import { ProfileFields } from './ProfileFields'
 import { AvatarUpload } from './AvatarUpload'
-import { Link, useLocation } from 'react-router'
+import { Link } from 'react-router'
 import { LoadError } from '@/common/LoadError'
-import { readNotice } from '@/common/readNotice'
 import { useRetryFocus } from '@/common/useRetryFocus'
 import { MY_RECORDS_PATH } from '@/medical-files/medicalFilePaths'
 import { Loading } from '@/common/Loading'
@@ -36,9 +35,6 @@ function ProfileView({ userId, activeRole }: { userId: number; activeRole: strin
   const { data: user, isLoading } = userQuery
   // After a "Try again" that worked, focus goes to the page's heading.
   const heading = useRetryFocus<HTMLHeadingElement>('your profile', userQuery.isSuccess)
-  // A one-line confirmation another page hands over ("Your password is
-  // changed…", from /profile/password) — read defensively (readNotice).
-  const notice = readNotice(useLocation().state)
 
   if (isLoading) {
     return <Loading label="Loading your profile…" className="mx-auto mt-12 max-w-lg px-4" />
@@ -69,15 +65,6 @@ function ProfileView({ userId, activeRole }: { userId: number; activeRole: strin
         </h1>
         <p className="text-sm text-muted-foreground">{roleNames}</p>
       </div>
-
-      {notice && (
-        <p
-          role="status"
-          className="rounded-lg border border-green-600/30 bg-green-600/10 p-3 text-sm"
-        >
-          {notice}
-        </p>
-      )}
 
       {/* A patient's way to their medical file from here (decisions §8):
           the records live in the profile AREA, on a page of their own. By

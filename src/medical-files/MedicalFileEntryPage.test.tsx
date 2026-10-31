@@ -6,6 +6,7 @@ import { PAT_USER, renderMedicalFile, requests, type SentRequest } from './rende
 import { chainedFile, entry, json } from './testData'
 import type { MedicalFileEntry } from './types'
 import { expectLoading } from '@/common/loadingAssertions'
+import { expectSnackbar } from '@/snackbars/snackbarAssertions'
 
 // An entry the page can't show (2026-10-23): the shared "not available"
 // shape, both possibilities, and the way back to the file — no "Try again".
@@ -120,7 +121,7 @@ describe('MedicalFileEntryPage — a new entry', () => {
     expect(screen.queryByLabelText('Why are you amending it?')).not.toBeInTheDocument()
   })
 
-  it('sends the entry, then returns to the file — replacing the form in the history — with a notice', async () => {
+  it('sends the entry, then returns to the file — replacing the form in the history — with a snackbar', async () => {
     const user = userEvent.setup()
     renderMedicalFile([PATIENT_PATH, NEW_PATH], answers())
     await user.selectOptions(await screen.findByLabelText('Type of entry'), 'Initial assessment')
@@ -129,7 +130,7 @@ describe('MedicalFileEntryPage — a new entry', () => {
     await user.click(screen.getByRole('button', { name: 'Save the entry' }))
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Medical file' })).toBeInTheDocument()
-    expect(screen.getByText('Entry added.', { selector: '[role="status"]' })).toBeInTheDocument()
+    expectSnackbar('success', 'Entry added.')
     expect(posts()).toEqual([
       {
         method: 'POST',
@@ -174,8 +175,8 @@ describe('MedicalFileEntryPage — a new entry', () => {
     await user.type(screen.getByLabelText('Plan'), 'The new plan')
     await user.click(screen.getByRole('button', { name: 'Save the entry' }))
 
-    expect(await screen.findByText('Entry added.', { selector: '[role="status"]' })).toBeInTheDocument()
     const list = await screen.findByRole('list', { name: 'Entries' })
+    expectSnackbar('success', 'Entry added.')
     expect(await within(list).findByText('The new plan')).toBeInTheDocument()
     expect(requests().filter((r) => r.path === '/medical-files?patientId=6')).toHaveLength(2)
   })
@@ -273,7 +274,8 @@ describe('MedicalFileEntryPage — an amendment', () => {
     await user.type(screen.getByLabelText('Why are you amending it?'), ' Measured again ')
     await user.click(screen.getByRole('button', { name: 'Save the amendment' }))
 
-    expect(await screen.findByText('Amendment saved.', { selector: '[role="status"]' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Medical file' })).toBeInTheDocument()
+    expectSnackbar('success', 'Amendment saved.')
     expect(posts()).toEqual([
       {
         method: 'POST',

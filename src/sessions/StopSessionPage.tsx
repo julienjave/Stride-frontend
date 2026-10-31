@@ -19,6 +19,7 @@ import { ENDING_NOTICE, checklistProgressText } from './sessionText'
 import type { PatientEndReason, Session } from './types'
 import { useSession } from './useSession'
 import { useSessionWrite } from './useSessionWrite'
+import { showSuccess } from '@/snackbars/snackbarStore'
 
 // Stop — `/patient/sessions/:sessionId/stop` (pass (c), decided 2026-10-16).
 // Ending a session before finishing it: it becomes `incomplete`, kept as
@@ -87,7 +88,11 @@ function StopForm({ session, heading }: { session: Session; heading: Ref<HTMLHea
   const reasonRef = useRef<HTMLDivElement>(null)
   const stop = useSessionWrite(
     (body: ReturnType<typeof stopBody>) => stopSession(session.id, body),
-    () => void navigate('/patient', { replace: true, state: { notice: ENDING_NOTICE.stopped } }),
+    // Home with a snackbar (decisions §33), replacing this page.
+    () => {
+      showSuccess(ENDING_NOTICE.stopped)
+      void navigate('/patient', { replace: true })
+    },
   )
 
   function onStop() {

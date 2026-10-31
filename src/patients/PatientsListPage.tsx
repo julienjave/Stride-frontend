@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useLocation } from 'react-router'
+import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -10,7 +10,6 @@ import {
 } from '@/components/ui/select'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { LoadError } from '@/common/LoadError'
-import { readNotice } from '@/common/readNotice'
 import { ShowHiddenToggle } from '@/common/ShowHiddenToggle'
 import { useRetryFocus } from '@/common/useRetryFocus'
 import { useUsers } from '@/users/useUsers'
@@ -47,12 +46,6 @@ export function PatientsListPage() {
   const [clinicFilter, setClinicFilter] = useState(ALL_CLINICS)
   const [showDeactivated, setShowDeactivated] = useState(false)
 
-  // A one-line confirmation another page can hand over through navigation
-  // state — the patient page does after "Leave care team" ("You left Pat
-  // Lee's care team."). Read defensively: location.state is whatever the
-  // previous page put there (or null), so it's checked, not trusted.
-  const location = useLocation()
-  const notice = readNotice(location.state)
 
   // `?? []` while /auth/me isn't there (in practice it always is — the
   // route guard waited for it): no clinics means no filter.
@@ -95,15 +88,6 @@ export function PatientsListPage() {
           <Link to="/practitioner/patients/add">Add patient</Link>
         </Button>
       </div>
-
-      {notice && (
-        <p
-          role="status"
-          className="rounded-lg border border-green-600/30 bg-green-600/10 p-3 text-sm"
-        >
-          {notice}
-        </p>
-      )}
 
       {showClinicFilter && (
         <div className="flex items-center gap-2">

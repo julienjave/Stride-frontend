@@ -17,6 +17,7 @@ import { PatientProgramsSection } from './PatientProgramsSection'
 import { deactivatedPatientNotice } from './patientPageRules'
 import { showsOtherClinic } from './roster'
 import { Loading } from '@/common/Loading'
+import { showSuccess } from '@/snackbars/snackbarStore'
 
 // The practitioner's patient page (/practitioner/patients/:id) — decided
 // 2026-10-08 (decisions §3, "Patient page"). Top to bottom, in the order a
@@ -83,14 +84,14 @@ function PatientView({ patientId }: { patientId: number }) {
 
   function handleLeft() {
     setHasLeft(true)
-    // The roster reads this state and confirms what happened (it's
-    // navigation state, not part of the URL: a reload doesn't repeat it).
-    // `replace`: this page REPLACES itself in the history, so Back from
-    // the roster doesn't return to a page I can no longer open.
-    void navigate('/practitioner/patients', {
-      replace: true,
-      state: { notice: `You left ${fullName}'s care team.` },
-    })
+    // The confirmation is a snackbar (decisions §33), drawn by the layout
+    // over the roster. (Until 2026-10-31 it was navigation state, read by
+    // the roster — which the browser keeps across a reload, so the notice
+    // came back on a refresh.) `replace`: this page REPLACES itself in the
+    // history, so Back from the roster doesn't return to a page I can no
+    // longer open.
+    showSuccess(`You left ${fullName}'s care team.`)
+    void navigate('/practitioner/patients', { replace: true })
   }
 
   return (

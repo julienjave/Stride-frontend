@@ -25,6 +25,7 @@ import { ENTRY_TYPE_LABELS, SECTION_HINTS, SECTION_LABELS, entryHeading } from '
 import { ENTRY_TYPES, SECTIONS, type EntryType, type MedicalFileEntry } from './types'
 import { useAddMedicalFileEntry, useMedicalFileEntry } from './useMedicalFile'
 import { Loading } from '@/common/Loading'
+import { showSuccess } from '@/snackbars/snackbarStore'
 
 // Writing in the medical file — `/practitioner/patients/:id/medical-file/new`
 // (Phase 6, decisions §8): its own page, so the four sections get room even
@@ -177,11 +178,12 @@ function EntryForm({
       return
     }
     add.mutate(entryBody({ ...draft, entryType: draft.entryType }, patientId, original?.id), {
-      onSuccess: () =>
-        void navigate(medicalFilePath(patientId), {
-          replace: true,
-          state: { notice: original ? 'Amendment saved.' : 'Entry added.' },
-        }),
+      // The confirmation is a snackbar (decisions §33): it outlives this
+      // page, which the file REPLACES in the history.
+      onSuccess: () => {
+        showSuccess(original ? 'Amendment saved.' : 'Entry added.')
+        void navigate(medicalFilePath(patientId), { replace: true })
+      },
     })
   }
 

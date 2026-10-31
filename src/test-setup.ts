@@ -4,6 +4,7 @@ import { cleanup, configure } from '@testing-library/react'
 // jest-dom's matchers (toBeInTheDocument, toHaveTextContent, etc.) — an
 // extension, not something Vitest ships with by default.
 import '@testing-library/jest-dom/vitest'
+import { clearSnackbars } from '@/snackbars/snackbarStore'
 
 // How long every `findBy…` / `waitFor` keeps retrying before failing:
 // 3 seconds instead of Testing Library's 1 (2026-10-19). A page often
@@ -95,6 +96,10 @@ afterEach(() => {
   localStorage.clear()
   document.documentElement.className = ''
   document.documentElement.style.colorScheme = ''
+  // The snackbars' store lives at module level (snackbarStore.ts), like the
+  // theme above: a snackbar raised by one test would still be in the list
+  // when the next starts.
+  clearSnackbars()
 })
 
 // jsdom (the in-memory fake browser these tests run against) does not

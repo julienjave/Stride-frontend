@@ -2,9 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router'
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
-import { readNotice } from '@/common/readNotice'
 import { assignedProgramSummaryQueryKey } from '@/assigned-programs/api'
 import { programSessionsQueryKey } from '@/progress/api'
 import { sessionQueryKey } from './api'
@@ -13,6 +12,7 @@ import { earlierDayText } from './sessionText'
 import type { Session } from './types'
 import { KNEE, PAT, TODAY, apiError, json, session, sessionExercise, summary, urlOf } from './testData'
 import { expectLoadError, expectNotAvailable } from './notAvailableAssertions'
+import { expectSnackbar } from '@/snackbars/snackbarAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -51,13 +51,14 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-// The pages around this one: the home shows the notice it was handed; the
-// session page offers the browser's Back.
+// The pages around this one: the home (the confirmation is a snackbar the
+// page raises — checked in the store, decisions §33); the session page
+// offers the browser's Back.
 function HomeStandIn() {
   const navigate = useNavigate()
   return (
     <>
-      <p>Home page. Notice: {readNotice(useLocation().state) ?? 'none'}</p>
+      <p>Home page</p>
       <button onClick={() => void navigate(-1)}>Back from home</button>
     </>
   )
@@ -179,7 +180,8 @@ describe('FinishSessionPage — finishing', () => {
     queryClient.setQueryData(assignedProgramSummaryQueryKey(12, TODAY, '2031-06-25'), summary())
     queryClient.setQueryData(programSessionsQueryKey(12), [])
     await user.click(screen.getByRole('button', { name: 'Finish session' }))
-    expect(await screen.findByText('Home page. Notice: Session finished. Well done!')).toBeInTheDocument()
+    expect(await screen.findByText('Home page')).toBeInTheDocument()
+    expectSnackbar('success', 'Session finished. Well done!')
     expect(queryClient.getQueryData<Session>(sessionQueryKey(31))?.status).toBe('completed')
     expect(
       queryClient.getQueryState(assignedProgramSummaryQueryKey(12, TODAY, '2031-06-25'))?.isInvalidated,

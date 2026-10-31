@@ -1,7 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { useLocation } from 'react-router'
 import { LoadError } from '@/common/LoadError'
-import { readNotice } from '@/common/readNotice'
 import { useRetryFocus } from '@/common/useRetryFocus'
 import { useCurrentUser } from '@/auth/useCurrentUser'
 import { localDateString } from '@/common/calendarDate'
@@ -26,9 +24,6 @@ export function PatientHomePage() {
   // state (a function), so the date isn't recomputed on every render.
   const [today] = useState(() => localDateString())
   const { list, programs, summaries } = useActiveProgramSummaries(today)
-  // The confirmation an ending hands over ("Session finished. Well done!"),
-  // through navigation state — read defensively (readNotice).
-  const notice = readNotice(useLocation().state)
   // After a "Try again" of the list that worked, focus goes to the page's
   // heading (the greeting): whatever came back — the Today card, or "You
   // don't have a program yet" — follows it.
@@ -50,15 +45,6 @@ export function PatientHomePage() {
         avatarUrl={user.avatarUrl}
         headingRef={heading}
       />
-
-      {notice && (
-        <p
-          role="status"
-          className="rounded-lg border border-green-600/30 bg-green-600/10 p-3 text-sm"
-        >
-          {notice}
-        </p>
-      )}
 
       {list.isPending ? (
         <Card>

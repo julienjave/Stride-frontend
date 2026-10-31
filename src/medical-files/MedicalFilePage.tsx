@@ -1,9 +1,8 @@
 import type { ReactNode } from 'react'
-import { Link, useLocation, useParams } from 'react-router'
+import { Link, useParams } from 'react-router'
 import { ApiError } from '@/api/client'
 import { LoadError } from '@/common/LoadError'
 import { useRetryFocus } from '@/common/useRetryFocus'
-import { readNotice } from '@/common/readNotice'
 import { Button } from '@/components/ui/button'
 import { useUser } from '@/users/useUser'
 import { MedicalFileEntryList } from './MedicalFileEntryList'
@@ -35,7 +34,6 @@ export function MedicalFilePage() {
 }
 
 function MedicalFileView({ patientId }: { patientId: number }) {
-  const notice = readNotice(useLocation().state)
   // The patient's name for the header and the way back — the same query as
   // the patient page, usually cached by the time this page opens.
   const patient = useUser(patientId)
@@ -82,12 +80,6 @@ function MedicalFileView({ patientId }: { patientId: number }) {
           added as a new version, and the original stays in the file.
         </p>
       </div>
-
-      {notice && (
-        <p role="status" className="rounded-lg border border-green-600/30 bg-green-600/10 p-3 text-sm">
-          {notice}
-        </p>
-      )}
 
       {file.isError ? (
         <LoadError what="the medical file" queries={[file]} />

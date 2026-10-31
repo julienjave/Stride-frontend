@@ -423,20 +423,15 @@ describe('PatientHomePage — Start and Resume', () => {
   })
 })
 
-// After an ending (pass (c)): the confirmation handed over in navigation
-// state, read defensively.
+// After an ending: the confirmation was navigation state, drawn by this page —
+// again after every reload, since the browser keeps history state. It's a
+// snackbar raised by the ending page now (decisions §33; tested there): an old
+// history entry still holding such state draws nothing here.
 describe('PatientHomePage — the confirmation after an ending', () => {
-  it('shows the notice it was handed', async () => {
+  it('draws nothing from navigation state (the confirmation is a snackbar now)', async () => {
     renderPage({ notice: 'Session finished. Well done!' })
     await loaded()
-    expect(screen.getByRole('status')).toHaveTextContent('Session finished. Well done!')
-  })
-
-  it('shows none without one', async () => {
-    renderPage({ from: '/elsewhere' })
-    await loaded()
     expect(screen.queryByText(/Well done/)).not.toBeInTheDocument()
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 })
 

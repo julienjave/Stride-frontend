@@ -33,6 +33,7 @@ import {
   type ConfirmSetupFormValues,
 } from './twoFactorRules'
 import { useRecoveryCodesLeft } from './useRecoveryCodesLeft'
+import { showSuccess } from '@/snackbars/snackbarStore'
 
 // /profile/two-factor — two-factor sign-in with an authenticator app (MFA
 // enrolment, decisions §14). Reached from the profile's "Two-factor sign-in"
@@ -73,8 +74,11 @@ export function TwoFactorPage() {
           doneLabel={shown.after === 'enabled' ? 'Done — back to my profile' : 'Done'}
           onDone={() => {
             if (shown.after === 'enabled') {
-              // replace: Back from the profile doesn't reopen a set-up done.
-              void navigate('/profile', { replace: true, state: { notice: TWO_FACTOR_ON_NOTICE } })
+              // The confirmation is a snackbar (decisions §33): it outlives
+              // this page. replace: Back from the profile doesn't reopen a
+              // set-up done.
+              showSuccess(TWO_FACTOR_ON_NOTICE)
+              void navigate('/profile', { replace: true })
             } else {
               setShown(null)
             }
@@ -84,9 +88,10 @@ export function TwoFactorPage() {
         <ManageTwoFactor
           me={me}
           onRenewed={(codes) => setShown({ codes, after: 'renewed' })}
-          onTurnedOff={() =>
-            void navigate('/profile', { replace: true, state: { notice: TWO_FACTOR_OFF_NOTICE } })
-          }
+          onTurnedOff={() => {
+            showSuccess(TWO_FACTOR_OFF_NOTICE)
+            void navigate('/profile', { replace: true })
+          }}
         />
       ) : (
         <SetUpTwoFactor me={me} onEnabled={(codes) => setShown({ codes, after: 'enabled' })} />

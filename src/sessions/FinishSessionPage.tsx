@@ -23,6 +23,7 @@ import {
 import type { Session } from './types'
 import { useSession } from './useSession'
 import { useSessionWrite } from './useSessionWrite'
+import { showSuccess } from '@/snackbars/snackbarStore'
 
 // Finish — `/patient/sessions/:sessionId/finish` (pass (c), decided
 // 2026-10-16). A ROUTE, not a dialog: a phone's Back button leaves it like
@@ -122,11 +123,15 @@ function FinishForm({
   const [painAfter, setPainAfter] = useState<number | null>(null)
   const [mobilityAfter, setMobilityAfter] = useState<number | null>(null)
   const [feedback, setFeedback] = useState('')
-  // After finishing: home, with a confirmation, REPLACING this page — Back
-  // must not return to a form for a session that is now final.
+  // After finishing: home, with a confirmation (a snackbar — decisions
+  // §33), REPLACING this page — Back must not return to a form for a
+  // session that is now final.
   const finish = useSessionWrite(
     (body: ReturnType<typeof completeBody>) => completeSession(session.id, body),
-    () => void navigate('/patient', { replace: true, state: { notice: ENDING_NOTICE.completed } }),
+    () => {
+      showSuccess(ENDING_NOTICE.completed)
+      void navigate('/patient', { replace: true })
+    },
   )
   const unticked = untickedText(session.exercises)
   const sessionPath = `/patient/sessions/${session.id}`

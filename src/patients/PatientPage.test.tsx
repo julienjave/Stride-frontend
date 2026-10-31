@@ -15,6 +15,7 @@ import { PatientPage } from './PatientPage'
 import { PatientsListPage } from './PatientsListPage'
 import type { CareTeamEntry } from './types'
 import { expectSkeleton, holdRequests } from '@/common/loadingAssertions'
+import { expectSnackbar } from '@/snackbars/snackbarAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -698,8 +699,9 @@ describe('PatientPage — leaving the care team', () => {
 
     await user.click(within(dialog).getByRole('button', { name: 'Leave care team' }))
 
-    expect(await screen.findByRole('status')).toHaveTextContent("You left Pat Lee's care team.")
-    expect(screen.getByRole('heading', { name: 'My patients' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'My patients' })).toBeInTheDocument()
+    // The confirmation is a snackbar raised by this page (decisions §33).
+    expectSnackbar('success', "You left Pat Lee's care team.")
 
     const endCalls = calls((url) => url.endsWith('/end'))
     expect(endCalls).toHaveLength(1)
@@ -722,7 +724,7 @@ describe('PatientPage — leaving the care team', () => {
     // the old answer isn't kept as if fresh.
     const team = queryClient.getQueryState(['care-team', 6, false])!
     expect(team.isInvalidated || team.dataUpdateCount > 1).toBe(true)
-    // The roster no longer lists Pat (only the notice names them).
+    // The roster no longer lists Pat (only the snackbar names them).
     expect(await screen.findByText('No patients yet')).toBeInTheDocument()
   })
 
@@ -730,7 +732,7 @@ describe('PatientPage — leaving the care team', () => {
     const user = userEvent.setup()
     const { dialog } = await openLeaveDialog(user)
     await user.click(within(dialog).getByRole('button', { name: 'Leave care team' }))
-    await screen.findByRole('status')
+    await screen.findByRole('heading', { name: 'My patients' })
 
     await user.click(screen.getByRole('button', { name: 'test: back' }))
 

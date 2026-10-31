@@ -26,6 +26,7 @@ import {
   TWO_FACTOR_OFF_NOTICE,
   TWO_FACTOR_ON_NOTICE,
 } from './twoFactorRules'
+import { expectSnackbar } from '@/snackbars/snackbarAssertions'
 
 type Answer = (request: SentRequest) => Response | Promise<Response> | undefined
 
@@ -193,7 +194,8 @@ describe('TwoFactorPage — setting it up', () => {
     await user.click(screen.getByLabelText("I've saved my recovery codes"))
     await user.click(done)
 
-    expect(await screen.findByRole('status')).toHaveTextContent(TWO_FACTOR_ON_NOTICE)
+    await screen.findByRole('heading', { name: 'My profile' })
+    expectSnackbar('success', TWO_FACTOR_ON_NOTICE)
     expect(address()).toBe('/profile')
     expect(screen.getByText('10 recovery codes left')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Manage two-factor sign-in' })).toBeInTheDocument()
@@ -367,7 +369,8 @@ describe('TwoFactorPage — managing it', () => {
     await user.type(within(section).getByLabelText('Two-factor code'), 'abcde-23456')
     await user.click(within(section).getByRole('button', { name: 'Turn off' }))
 
-    expect(await screen.findByRole('status')).toHaveTextContent(TWO_FACTOR_OFF_NOTICE)
+    await screen.findByRole('heading', { name: 'My profile' })
+    expectSnackbar('success', TWO_FACTOR_OFF_NOTICE)
     expect(address()).toBe('/profile')
     expect(posts()).toEqual([
       {

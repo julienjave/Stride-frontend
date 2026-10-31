@@ -334,17 +334,15 @@ describe('PatientsListPage', () => {
     expect(await screen.findByText('No patients yet')).toBeInTheDocument()
   })
 
-  // Handed over by the patient page after "Leave care team".
-  it('shows a notice passed in the navigation state', async () => {
+  // Until 2026-10-31 the patient page handed "You left Pat Lee's care team."
+  // over in navigation state, and this page drew it — again after every
+  // reload, since the browser keeps history state. It's a snackbar now,
+  // raised by the patient page (decisions §33): an old entry in the history
+  // still holding such state draws nothing here.
+  it('draws nothing from navigation state (the confirmation is a snackbar now)', async () => {
     respondWithPatients([])
     renderRoster([riverside], { notice: "You left Pat Lee's care team." })
-    expect(await screen.findByRole('status')).toHaveTextContent("You left Pat Lee's care team.")
-  })
-
-  it('ignores navigation state that is not a notice', async () => {
-    respondWithPatients([])
-    renderRoster([riverside], { notice: 42 })
     await screen.findByText('No patients yet')
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByText("You left Pat Lee's care team.")).not.toBeInTheDocument()
   })
 })

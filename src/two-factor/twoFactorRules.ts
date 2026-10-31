@@ -85,7 +85,7 @@ export type StepUpFormValues = z.input<typeof stepUpSchema>
 
 // --- WORDS AND SMALL RULES ---------------------------------------------------
 
-// Handed to the profile through navigation state (readNotice).
+// The snackbars raised as the profile opens (decisions §33).
 export const TWO_FACTOR_ON_NOTICE =
   'Two-factor sign-in is on. Any other devices signed in to your account are signed out.'
 export const TWO_FACTOR_OFF_NOTICE =
