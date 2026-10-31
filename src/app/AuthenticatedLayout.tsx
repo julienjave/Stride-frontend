@@ -74,12 +74,13 @@ export function AuthenticatedLayout() {
       )}
       {/* The snackbars (decisions §33), once for every signed-in page —
           outside the page's <Outlet />, so one raised by a page that then
-          navigates away survives the page. Same key, same reason as the
-          connection: a new identity unmounts the old list, and its clean-up
-          empties the store (Snackbars.tsx) — a message about a patient is
-          never left on screen for another role. Sign-out unmounts this
-          whole layout, which empties it too. */}
-      <Snackbars key={identity} />
+          navigates away survives the page. Given the identity, NOT keyed by
+          it: a new identity empties the list (an effect in Snackbars.tsx) —
+          a message about a patient is never left on screen for another
+          role — without remounting it, which froze the role switch
+          (decisions §34). Sign-out unmounts this whole layout, which empties
+          it too. */}
+      <Snackbars identity={identity} />
     </>
   )
 }

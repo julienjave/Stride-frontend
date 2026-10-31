@@ -7,7 +7,9 @@ import oxlint from 'eslint-plugin-oxlint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // dist-e2e: the browser suite's build; playwright-report and test-results:
+  // what a Playwright run writes (decisions §34).
+  globalIgnores(['dist', 'dist-e2e', 'playwright-report', 'test-results']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -50,3 +52,4 @@ export default defineConfig([
   },
   oxlint.configs['flat/recommended'],
 ])
+

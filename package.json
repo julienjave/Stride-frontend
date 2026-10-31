@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint && eslint .",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "preview": "vite preview",
     "generate:address-data": "node scripts/generate-address-data.mjs",
     "snapshot:codebase": "node devTools/generate-frontend-codebase-snapshot.mjs"
@@ -36,6 +37,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^7.0.1",

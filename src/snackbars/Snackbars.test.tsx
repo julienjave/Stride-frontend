@@ -23,7 +23,7 @@ describe('Snackbars', () => {
   })
 
   it('draws a success in the Notifications (F8) region, with its icon hidden and a named Close', () => {
-    render(<Snackbars />)
+    render(<Snackbars identity="3:patient" />)
     act(() => showSuccess('Entry added.'))
 
     expect(snackbarArea()).toHaveAccessibleName('Notifications (F8)')
@@ -37,7 +37,7 @@ describe('Snackbars', () => {
     render(
       <>
         <button>Where I was</button>
-        <Snackbars />
+        <Snackbars identity="3:patient" />
       </>,
     )
     screen.getByRole('button', { name: 'Where I was' }).focus()
@@ -56,7 +56,7 @@ describe('Snackbars', () => {
   })
 
   it('closes a success after its time', async () => {
-    render(<Snackbars />)
+    render(<Snackbars identity="3:patient" />)
     act(() => showSuccess('Entry added.'))
 
     await act(() => vi.advanceTimersByTimeAsync(SUCCESS_MIN_MS - 100))
@@ -69,7 +69,7 @@ describe('Snackbars', () => {
 
   it('keeps a failure until it is closed', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-    render(<Snackbars />)
+    render(<Snackbars identity="3:patient" />)
     act(() => showFailure("Couldn't save your weight unit. Try again."))
 
     await act(() => vi.advanceTimersByTimeAsync(10 * 60_000))
@@ -80,7 +80,7 @@ describe('Snackbars', () => {
   })
 
   it('pauses the timer while the pointer is over the snackbars', async () => {
-    render(<Snackbars />)
+    render(<Snackbars identity="3:patient" />)
     act(() => showSuccess('Entry added.'))
 
     // Radix listens for pointermove on the region and pointerleave to resume.
@@ -94,7 +94,7 @@ describe('Snackbars', () => {
   })
 
   it('pauses while the window is in the background (another tab or app)', async () => {
-    render(<Snackbars />)
+    render(<Snackbars identity="3:patient" />)
     act(() => showSuccess('Entry added.'))
 
     fireEvent.blur(window)
@@ -108,7 +108,7 @@ describe('Snackbars', () => {
 
   it('closes the focused one with Escape', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-    render(<Snackbars />)
+    render(<Snackbars identity="3:patient" />)
     act(() => showFailure("Couldn't save your email setting. Try again."))
 
     drawnSnackbar("Couldn't save your email setting. Try again.").focus()
@@ -117,7 +117,7 @@ describe('Snackbars', () => {
   })
 
   it('draws at most three, the newest last', () => {
-    render(<Snackbars />)
+    render(<Snackbars identity="3:patient" />)
     act(() => {
       showSuccess('One.')
       showSuccess('Two.')
@@ -130,8 +130,28 @@ describe('Snackbars', () => {
     expect(texts).toEqual(['Two.', 'Three.', 'Four.'])
   })
 
-  it('empties the list when it goes away (sign-out, role switch)', () => {
-    const { unmount } = render(<Snackbars />)
+  // A role switch gives a new identity: the list is emptied, the component
+  // NOT remounted — the same region element stays (a remount of Radix's
+  // provider froze the role switch in the browser; decisions §34).
+  it('empties the list when the identity changes, without remounting', () => {
+    const { rerender } = render(<Snackbars identity="3:patient" />)
+    act(() => showSuccess("You left Pat Lee's care team."))
+    const region = snackbarArea()
+
+    rerender(<Snackbars identity="3:practitioner" />)
+    expect(useSnackbarStore.getState().snackbars).toEqual([])
+    expect(snackbarArea()).toBe(region)
+  })
+
+  it('keeps the list when it re-renders for the same identity', () => {
+    const { rerender } = render(<Snackbars identity="3:patient" />)
+    act(() => showSuccess('Entry added.'))
+    rerender(<Snackbars identity="3:patient" />)
+    expect(useSnackbarStore.getState().snackbars).toHaveLength(1)
+  })
+
+  it('empties the list when it goes away (sign-out)', () => {
+    const { unmount } = render(<Snackbars identity="3:patient" />)
     act(() => showSuccess("You left Pat Lee's care team."))
     unmount()
     expect(useSnackbarStore.getState().snackbars).toEqual([])

@@ -28,21 +28,30 @@ import { clearSnackbars, closeSnackbar, useSnackbarStore } from './snackbarStore
 //
 // Focus is NEVER moved to a snackbar: the person is in the middle of
 // something, and a confirmation must not take them out of it.
-export function Snackbars() {
+export function Snackbars({ identity }: { identity: string }) {
   // Subscribes to the store: this component re-renders when the list
   // changes, and only then. The selector picks the one field it needs.
   const snackbars = useSnackbarStore((state) => state.snackbars)
 
-  // Emptied when this component goes away. The layout renders it with a
-  // `key` made of the user and the role, so it goes away on SIGN-OUT (the
-  // signed-in layout unmounts) and on a ROLE SWITCH (a new key = React
-  // unmounts the old one and mounts a fresh one): "You left Pat Lee's care
-  // team." is never still on screen for the next person or role.
+  // Emptied when the IDENTITY changes (`user id:role`, from the layout) and
+  // when this component goes away: "You left Pat Lee's care team." is never
+  // still on screen for the next person or role. An effect's clean-up runs
+  // before the effect runs again with a new dependency — so a new identity
+  // empties the list — and on unmount, which SIGN-OUT causes (the signed-in
+  // layout goes away).
+  //
+  // Why not `key={identity}` on this component, as the messaging connection
+  // has (pass 1 did that): a new key REMOUNTS it, and remounting Radix's
+  // toast provider in the same update as a role switch — made from the
+  // account menu, itself a Radix layer, still open — froze the screen on the
+  // old role (found by the browser suite, 2026-10-31; decisions §34). No
+  // unit test could see it: jsdom never showed the freeze. The list must be
+  // emptied; nothing needs remounting.
   //
   // (In development React's StrictMode mounts, unmounts and mounts again
   // once, to surface missing clean-ups: that extra clean-up empties a list
   // that is still empty on a first mount — harmless.)
-  useEffect(() => clearSnackbars, [])
+  useEffect(() => clearSnackbars, [identity])
 
   return (
     // The provider holds the shared settings and the bookkeeping Radix needs

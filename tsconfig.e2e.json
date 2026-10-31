@@ -1,0 +1,28 @@
+// The browser suite's own TypeScript project (decisions §34): the Playwright
+// config and everything under e2e/. Third beside the app (tsconfig.app.json,
+// browser code under src/) and the build tooling (tsconfig.node.json): these
+// files run in NODE — the Playwright runner — and drive a browser from
+// outside, so they get Node's types, never the app's DOM-and-React set-up.
+// `tsc -b` checks them through the reference in tsconfig.json.
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.e2e.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"],
+    "skipLibCheck": true,
+
+    "module": "nodenext",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["playwright.config.ts", "e2e/**/*.ts"]
+}
