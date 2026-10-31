@@ -17,7 +17,7 @@ import { ACCOUNTS, PASSWORD, stateFile, type AccountName } from './support/accou
 // by host, not port, and the backend sets SameSite=Lax — the app on :4174
 // calling the API on :3100 is "same site" (the port isn't part of a site), so
 // the browser sends it, exactly as in development.
-const SIGNED_IN: AccountName[] = ['admin', 'alex', 'pat']
+const SIGNED_IN: AccountName[] = ['admin', 'alex', 'pat', 'jo']
 
 for (const account of SIGNED_IN) {
   setup(`sign in as ${account}`, async ({ request }) => {

@@ -6,6 +6,10 @@ export const ACCOUNTS = {
   admin: 'admin@stride.test',
   alex: 'alex@stride.test',
   pat: 'pat@stride.test',
+  // Lower Back Mobility, with timed exercises (Plank 3 × 20 s) — the timer
+  // test's patient. Not Pat: the patient test finishes Pat's session today,
+  // and a second session on the same day is refused (one session a day).
+  jo: 'jo@stride.test',
   // Two roles (practitioner + admin): the sign-in asks which one.
   morgan: 'morgan@stride.test',
 } as const
