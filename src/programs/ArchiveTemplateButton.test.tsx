@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { ArchiveTemplateButton } from './ArchiveTemplateButton'
 import { programQueryKey, programsListQueryKey } from './api'
+import { expectSnackbar, raisedSnackbars } from '@/snackbars/snackbarAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -121,6 +122,11 @@ describe('ArchiveTemplateButton — confirming successfully', () => {
       ),
     )
     expect(await screen.findByText('Programs hub')).toBeInTheDocument()
+    // The hub just lacks the template: a snackbar says why (decisions §33).
+    expectSnackbar(
+      'success',
+      'Deleted Shoulder Rehab. Programs already assigned from it are not affected.',
+    )
 
     // Gone from the hub's cached list BEFORE the hub renders — the
     // "correct on first paint" guarantee.
@@ -154,6 +160,7 @@ describe('ArchiveTemplateButton — a failed confirm', () => {
 
     expect(await screen.findByText('Refused by the server')).toBeInTheDocument()
     expect(screen.getByText('Delete Shoulder Rehab?')).toBeInTheDocument()
+    expect(raisedSnackbars()).toEqual([])
     expect(router.state.location.pathname).toBe(
       '/practitioner/programs/templates/1',
     )

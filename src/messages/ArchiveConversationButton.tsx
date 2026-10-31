@@ -3,8 +3,10 @@ import { Archive, ArchiveRestore } from 'lucide-react'
 import { failureText } from '@/api/apiErrors'
 import { Button } from '@/components/ui/button'
 import { messagesPath, type MessagingRole } from './messagesPath'
+import { archivedText } from './messageText'
 import type { ConversationSummary } from './types'
 import { useArchiveConversation } from './useArchiveConversation'
+import { showSuccess } from '@/snackbars/snackbarStore'
 
 // Archive / Unarchive, in the conversation's header (decided 2026-10-20:
 // one place for the action, the same on a phone and on desktop — not a
@@ -21,6 +23,11 @@ import { useArchiveConversation } from './useArchiveConversation'
 // No confirmation: archiving loses nothing and is undone in two taps — and
 // a new message brings the conversation back by itself (decided
 // 2026-10-20).
+//
+// Archiving says so in a snackbar (decisions §33): the conversation has just
+// left the screen, and the list it returns to doesn't show it any more.
+// Unarchiving needs none — the conversation stays open and the button itself
+// turns back into "Archive".
 export function ArchiveConversationButton({ summary, role }: { summary: ConversationSummary; role: MessagingRole }) {
   const archive = useArchiveConversation(summary.id)
   const navigate = useNavigate()
@@ -31,7 +38,9 @@ export function ArchiveConversationButton({ summary, role }: { summary: Conversa
   function onClick() {
     archive.mutate(!archived, {
       onSuccess: (updated) => {
-        if (updated.archivedAt !== null) void navigate(messagesPath(role), { replace: true })
+        if (updated.archivedAt === null) return
+        showSuccess(archivedText(summary.otherParticipant))
+        void navigate(messagesPath(role), { replace: true })
       },
     })
   }

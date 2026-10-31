@@ -41,8 +41,10 @@ export function SettingsMenu() {
   const { data: currentUser } = useCurrentUser()
   const weightUnit = usePreferredWeightUnit()
   // Called HERE, in the always-mounted menu, not inside the dropdown's
-  // content: picking an item closes the menu and unmounts that content,
-  // and the error message below must survive that (see the hook).
+  // content: picking an item closes the menu and unmounts that content, and
+  // the mutation's state (pending, the scope that queues picks) lives with
+  // the component that called the hook. A failure is a snackbar raised by
+  // the hook itself (decisions §33) — nothing is drawn here for it.
   const setWeightUnit = useSetPreferredWeightUnit()
   // Here too, for the same reason (roadmap Phase 6.5).
   const setEmailNotices = useSetMessageEmailNotices()
@@ -117,16 +119,9 @@ export function SettingsMenu() {
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
-            {/* The pick closed the menu, and a failure has already put the
-                old unit back — so the explanation waits here, for the next
-                time the menu is opened. It clears itself on the next pick
-                (each mutate() starts a fresh mutation state). role="alert"
-                makes screen readers announce it when it appears. */}
-            {setWeightUnit.isError && (
-              <p role="alert" className="px-2 py-1.5 text-xs text-destructive">
-                Couldn't save your weight unit. Try again.
-              </p>
-            )}
+            {/* A failure puts the old unit back (the hook) and says so in a
+                snackbar — until 2026-10-31 a sentence here, which the closed
+                menu hid until it was opened again. */}
           </>
         )}
 
@@ -145,11 +140,6 @@ export function SettingsMenu() {
             >
               Email me about new messages
             </DropdownMenuCheckboxItem>
-            {setEmailNotices.isError && (
-              <p role="alert" className="px-2 py-1.5 text-xs text-destructive">
-                Couldn't save your email setting. Try again.
-              </p>
-            )}
           </>
         )}
       </DropdownMenuContent>

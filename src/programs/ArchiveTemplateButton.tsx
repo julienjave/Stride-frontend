@@ -15,6 +15,7 @@ import {
 import { failureText } from '@/api/apiErrors'
 import { archiveTemplate, programQueryKey } from './api'
 import { removeFromProgramsList } from './programsListCache'
+import { showSuccess } from '@/snackbars/snackbarStore'
 
 interface ArchiveTemplateButtonProps {
   templateId: number
@@ -53,6 +54,10 @@ export function ArchiveTemplateButton({
       // deleted template visible (and clickable) on the hub for a moment.
       removeFromProgramsList(queryClient, templateId)
       setIsOpen(false)
+      // The template leaves the screen with this page: the hub says what
+      // happened in a snackbar (decisions §33), repeating the one reassurance
+      // of the confirmation — the patients' programs are untouched.
+      showSuccess(`Deleted ${templateTitle}. Programs already assigned from it are not affected.`)
       // replace, not push: this page's history entry is SWAPPED for the
       // hub, rather than the hub being stacked on top of it. So pressing
       // the browser's Back button from the hub doesn't land right back on

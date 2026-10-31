@@ -149,3 +149,10 @@ export function charactersLeftText(length: number): string | null {
 // dropped network is the browser's "Failed to fetch"). A refusal shows its
 // words, a 5xx the shared sentence (`failureText`).
 export const START_CONVERSATION_FAILED_TEXT = "Couldn't start the conversation. Check your connection and try again."
+
+// The snackbar after archiving (decisions §33). It says where the
+// conversation went and the one thing that brings it back by itself — so
+// nobody wonders whether a message from this person will still reach them.
+export function archivedText(person: { firstName: string; lastName: string }): string {
+  return `Archived your conversation with ${personName(person)}. A new message from either of you brings it back.`
+}

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { DeactivateClinicButton } from './DeactivateClinicButton'
 import { clinicQueryKey, clinicsListQueryKey } from './api'
+import { expectSnackbar, raisedSnackbars } from '@/snackbars/snackbarAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -95,6 +96,7 @@ describe('DeactivateClinicButton — confirming successfully', () => {
     )
 
     expect(await screen.findByText('Clinics list page')).toBeInTheDocument()
+    expectSnackbar('success', "Deactivated Acme Clinic. It's no longer in the active clinics list.")
     expect(router.state.location.pathname).toBe('/admin/clinics')
     expect(queryClient.getQueryData(clinicQueryKey(1))).toEqual({
       id: 1,
@@ -123,6 +125,7 @@ describe('DeactivateClinicButton — a failed confirm', () => {
     expect(await screen.findByText('Refused by the server')).toBeInTheDocument()
     // Still open — the confirmation copy is still visible.
     expect(screen.getByText('Deactivate Acme Clinic?')).toBeInTheDocument()
+    expect(raisedSnackbars()).toEqual([])
     expect(router.state.location.pathname).toBe('/admin/clinics/1')
   })
 })

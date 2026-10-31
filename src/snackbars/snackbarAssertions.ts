@@ -1,5 +1,5 @@
 import { expect } from 'vitest'
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { useSnackbarStore } from './snackbarStore'
 import type { SnackbarKind } from './snackbarRules'
 
@@ -19,6 +19,22 @@ export function raisedSnackbars(): { kind: SnackbarKind; text: string }[] {
 
 export function expectSnackbar(kind: SnackbarKind, text: string): void {
   expect(raisedSnackbars()).toContainEqual({ kind, text })
+}
+
+// The same, WAITED for: a snackbar raised in a mutation's onSuccess appears
+// after the request's answer, a moment after the click. A pattern matches
+// the start of a long sentence (/^Copied 2 exercises/).
+export async function findSnackbar(kind: SnackbarKind, text: string | RegExp): Promise<void> {
+  await waitFor(() =>
+    expect(
+      raisedSnackbars().some(
+        (raised) =>
+          raised.kind === kind &&
+          (typeof text === 'string' ? raised.text === text : text.test(raised.text)),
+      ),
+      `a ${kind} snackbar ${String(text)} — raised: ${JSON.stringify(raisedSnackbars())}`,
+    ).toBe(true),
+  )
 }
 
 // For tests that DO render <Snackbars />: the drawn rows live inside the

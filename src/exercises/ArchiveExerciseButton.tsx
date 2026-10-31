@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import { failureText } from '@/api/apiErrors'
 import { archiveExercise, exerciseQueryKey } from './api'
+import { showSuccess } from '@/snackbars/snackbarStore'
 
 interface ArchiveExerciseButtonProps {
   exerciseId: number
@@ -46,6 +47,9 @@ export function ArchiveExerciseButton({
       // the entry setQueryData just wrote.
       void queryClient.invalidateQueries({ queryKey: ['exercises-list'] })
       setIsOpen(false)
+      // The library it lands on simply lacks the exercise: a snackbar
+      // (decisions §33) says why it's gone.
+      showSuccess(`Deleted ${exerciseName} from the library.`)
       // The default library view only ever shows non-archived exercises
       // (isArchived: false) — staying on a now-vanished exercise's own
       // detail page would be a dead end.

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { ArchiveExerciseButton } from './ArchiveExerciseButton'
 import { exerciseQueryKey } from './api'
+import { expectSnackbar, raisedSnackbars } from '@/snackbars/snackbarAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -107,6 +108,7 @@ describe('ArchiveExerciseButton — confirming successfully', () => {
     )
 
     expect(await screen.findByText('Library page')).toBeInTheDocument()
+    expectSnackbar('success', 'Deleted Wall Slide from the library.')
     expect(router.state.location.pathname).toBe('/practitioner/library')
     expect(queryClient.getQueryData(exerciseQueryKey(1))).toEqual({
       id: 1,
@@ -136,6 +138,7 @@ describe('ArchiveExerciseButton — a failed confirm', () => {
     expect(
       await screen.findByText('Refused by the server'),
     ).toBeInTheDocument()
+    expect(raisedSnackbars()).toEqual([])
     expect(screen.getByText('Delete Wall Slide?')).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/practitioner/library/1')
   })

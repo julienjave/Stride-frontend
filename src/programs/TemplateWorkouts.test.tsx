@@ -6,6 +6,7 @@ import { MemoryRouter, Routes, Route } from 'react-router'
 import { TemplateDetailPage } from './TemplateDetailPage'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import type { ProgramTemplateDetail, TemplateExercise, TemplateWorkout } from './types'
+import { findSnackbar, raisedSnackbars } from '@/snackbars/snackbarAssertions'
 
 // The workouts part of the template page (step 3a-w): grouping, the
 // workout headers, adding / renaming / deleting workouts, and moving or
@@ -405,7 +406,7 @@ describe('Template workouts — moving and copying', () => {
     const menu = await openMenu(user, 'More actions for Squat in workout A · Mobility')
     await user.click(within(menu).getByRole('menuitem', { name: 'Move to B' }))
 
-    expect(await screen.findByText('Moved Squat to B.')).toBeInTheDocument()
+    await findSnackbar('success', 'Moved Squat to B.')
     expect(within(workoutSection('B')).getByText('Squat')).toBeInTheDocument()
     expect(laterRequests()).toStrictEqual(['PATCH /programs/1/exercises/1 {"workoutId":58}'])
   })
@@ -433,11 +434,10 @@ describe('Template workouts — moving and copying', () => {
     const menu = await openMenu(user, 'More actions for Squat in workout A · Mobility')
     await user.click(within(menu).getByRole('menuitem', { name: 'Copy to B' }))
 
-    expect(
-      await screen.findByText(
-        "Copied Squat to B. The copy is independent: changing one won't change the other.",
-      ),
-    ).toBeInTheDocument()
+    await findSnackbar(
+      'success',
+      "Copied Squat to B. The copy is independent: changing one won't change the other.",
+    )
     expect(laterRequests()).toStrictEqual([
       'POST /programs/1/exercises/copy {"exerciseIds":[1],"targetWorkoutId":58}',
     ])
@@ -455,7 +455,8 @@ describe('Template workouts — moving and copying', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       "Couldn't move Squat. Workout 58 not found in this template",
     )
-    expect(screen.queryByText(/^Moved/)).not.toBeInTheDocument()
+    // A failure is said at the list (above), never as a confirmation.
+    expect(raisedSnackbars()).toEqual([])
   })
 
   it("reports a failed copy, and a server error in the app's shared sentence", async () => {
@@ -470,27 +471,29 @@ describe('Template workouts — moving and copying', () => {
     )
   })
 
-  it("clears the last action's message when the next one starts", async () => {
+  // A confirmation is a snackbar now (decisions §33), with its own timer —
+  // the next action doesn't clear it. What the editor still clears is its
+  // OWN message area: a failure, when the next action starts.
+  it('clears a failure when the next action starts', async () => {
     let answer: Response = jsonResponse(makeTemplate(), 201)
     serve(makeTemplate(), () => answer)
     const user = userEvent.setup()
     renderPage()
     let menu = await openMenu(user, 'More actions for Squat in workout A · Mobility')
     await user.click(within(menu).getByRole('menuitem', { name: 'Copy to B' }))
-    await screen.findByText(/^Copied Squat to B/)
+    await findSnackbar('success', /^Copied Squat to B/)
 
     answer = jsonResponse({ statusCode: 404, message: ['Workout 58 not found in this template'] }, 404)
     menu = await openMenu(user, 'More actions for Lunge in workout A · Mobility')
     await user.click(within(menu).getByRole('menuitem', { name: 'Move to B' }))
 
     await screen.findByRole('alert')
-    expect(screen.queryByText(/^Copied Squat/)).not.toBeInTheDocument()
 
-    // …and the error goes too when the next action starts.
+    // The error goes when the next action starts.
     answer = jsonResponse(makeTemplate(), 201)
     menu = await openMenu(user, 'More actions for Lunge in workout A · Mobility')
     await user.click(within(menu).getByRole('menuitem', { name: 'Copy to B' }))
-    await screen.findByText(/^Copied Lunge to B/)
+    await findSnackbar('success', /^Copied Lunge to B/)
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
@@ -563,11 +566,10 @@ describe('Template workouts — copying several exercises', () => {
 
     await user.click(within(dialog).getByRole('button', { name: 'Copy 2 exercises' }))
 
-    expect(
-      await screen.findByText(
-        "Copied 2 exercises to B. The copies are independent: changing one won't change its original.",
-      ),
-    ).toBeInTheDocument()
+    await findSnackbar(
+      'success',
+      "Copied 2 exercises to B. The copies are independent: changing one won't change its original.",
+    )
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(laterRequests()).toStrictEqual([
       'POST /programs/1/exercises/copy {"exerciseIds":[1,2],"targetWorkoutId":58}',
@@ -585,11 +587,10 @@ describe('Template workouts — copying several exercises', () => {
     await user.type(within(dialog).getByLabelText('Name of the new workout (optional)'), 'Warm-up')
     await user.click(within(dialog).getByRole('button', { name: 'Copy 1 exercise' }))
 
-    expect(
-      await screen.findByText(
-        "Copied Squat to a new workout, C · Warm-up. The copy is independent: changing one won't change the other.",
-      ),
-    ).toBeInTheDocument()
+    await findSnackbar(
+      'success',
+      "Copied Squat to a new workout, C · Warm-up. The copy is independent: changing one won't change the other.",
+    )
     expect(laterRequests()).toStrictEqual([
       'POST /programs/1/exercises/copy {"exerciseIds":[1],"targetWorkoutId":null,"newWorkoutName":"Warm-up"}',
     ])
@@ -606,7 +607,7 @@ describe('Template workouts — copying several exercises', () => {
     await user.click(within(dialog).getByRole('checkbox', { name: 'Lunge' }))
     await user.click(within(dialog).getByRole('checkbox', { name: 'Squat' }))
     await user.click(within(dialog).getByRole('button', { name: 'Copy 2 exercises' }))
-    await screen.findByText(/^Copied 2 exercises/)
+    await findSnackbar('success', /^Copied 2 exercises/)
     expect(laterRequests()).toStrictEqual([
       'POST /programs/1/exercises/copy {"exerciseIds":[1,2],"targetWorkoutId":58}',
     ])
@@ -676,7 +677,7 @@ describe('Template workouts — copying several exercises', () => {
     expect(within(dialog).getAllByRole('radio')).toHaveLength(1)
     expect(within(dialog).getByRole('radio', { name: 'A new workout (B)' })).toBeChecked()
     await user.click(within(dialog).getByRole('button', { name: 'Copy 2 exercises' }))
-    await screen.findByText(/^Copied 2 exercises to a new workout, B\./)
+    await findSnackbar('success', /^Copied 2 exercises to a new workout, B\./)
     expect(laterRequests()).toStrictEqual([
       'POST /programs/1/exercises/copy {"exerciseIds":[1,2],"targetWorkoutId":null,"newWorkoutName":null}',
     ])

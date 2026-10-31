@@ -7,6 +7,7 @@ import { deleteMessageLabel, seenText } from './messageText'
 import { fakeApi, fetchMock, renderMessages, requests } from './renderMessages'
 import { ALEX_ID, message, page, summary } from './testData'
 import type { ConversationSummary, MessagesPage } from './types'
+import { expectSnackbar, raisedSnackbars } from '@/snackbars/snackbarAssertions'
 
 vi.stubGlobal('fetch', fetchMock)
 
@@ -684,6 +685,11 @@ describe('archiving', () => {
     // Written into the cached list (not fetched again).
     expect(await screen.findByText('Every conversation is archived.')).toBeInTheDocument()
     expect(requests().filter((r) => r === 'GET /conversations')).toHaveLength(1)
+    // The list no longer shows it: a snackbar says where it went (decisions §33).
+    expectSnackbar(
+      'success',
+      'Archived your conversation with Pat Lee. A new message from either of you brings it back.',
+    )
   })
 
   it('unarchives from inside an archived conversation, which stays open', async () => {
@@ -698,6 +704,8 @@ describe('archiving', () => {
     expect(await archiveButton()).toBeInTheDocument()
     expect(requests()).toContain('PATCH /conversations/12/unarchive')
     expect(router.state.location.pathname).toBe('/practitioner/messages/12')
+    // No snackbar: the conversation stays on screen, its button says Archive again.
+    expect(raisedSnackbars()).toEqual([])
   })
 
   it('cannot be pressed again while the first press is on its way', async () => {

@@ -13,6 +13,7 @@ import type {
   AssignedProgramExercise,
   ScheduleVersion,
 } from './types'
+import { findSnackbar } from '@/snackbars/snackbarAssertions'
 
 // The program page's exercise editor (step 3b-1): the shared list
 // (WorkoutListEditor — its drags and shapes are the template page's, tested
@@ -322,7 +323,7 @@ describe('ProgramExercisesSection — removing an exercise', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
 
     expect(writes()).toStrictEqual([['DELETE', '/assigned-programs/12/exercises/102', undefined]])
-    expect(await screen.findByText('Removed Glute Bridge from the program.')).toBeInTheDocument()
+    await findSnackbar('success', 'Removed Glute Bridge from the program.')
     expect(screen.queryByText('Glute Bridge')).not.toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     // Focus doesn't fall to the page: it goes to the NEXT exercise of the
@@ -451,11 +452,10 @@ describe('ProgramExercisesSection — removing an exercise', () => {
     ).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
 
-    expect(
-      await screen.findByText(
-        'Removed Glute Bridge from the program. It stays in the records of the sessions that used it.',
-      ),
-    ).toBeInTheDocument()
+    await findSnackbar(
+      'success',
+      'Removed Glute Bridge from the program. It stays in the records of the sessions that used it.',
+    )
     expect(screen.getByRole('checkbox', { name: 'Show 1 removed exercise' })).not.toBeChecked()
   })
 
@@ -613,7 +613,7 @@ describe('ProgramExercisesSection — requests', () => {
     const menu = await openMenu(user, 'More actions for Glute Bridge in workout B · Strength')
     await user.click(within(menu).getByRole('menuitem', { name: 'Move to A · Mobility' }))
     expect(writes()).toStrictEqual([['PATCH', '/assigned-programs/12/exercises/102', '{"workoutId":57}']])
-    expect(await screen.findByText('Moved Glute Bridge to A · Mobility.')).toBeInTheDocument()
+    await findSnackbar('success', 'Moved Glute Bridge to A · Mobility.')
   })
 
   // The ROW is copied (roadmap Phase 6.5): only its id travels — the backend

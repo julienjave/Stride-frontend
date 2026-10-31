@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { failureText } from '@/api/apiErrors'
 import { duplicateTemplate, programQueryKey } from './api'
 import { upsertInProgramsList } from './programsListCache'
+import { showSuccess } from '@/snackbars/snackbarStore'
 
 interface DuplicateTemplateButtonProps {
   templateId: number
@@ -29,6 +30,10 @@ export function DuplicateTemplateButton({
       // showing "Loading…" while it fetches something we already have.
       queryClient.setQueryData(programQueryKey(copy.id), copy)
       upsertInProgramsList(queryClient, copy)
+      // The copy's page looks almost exactly like the original's — only the
+      // title's "Copy of" tells them apart. A snackbar (decisions §33) says
+      // which one is now on screen, so nobody edits the original by mistake.
+      showSuccess(`Duplicated the template. You're now on the copy, "${copy.title}".`)
       // Push, not replace (unlike archiving): the source template still
       // exists and is a perfectly sensible place for Back to return to.
       void navigate(`/practitioner/programs/templates/${copy.id}`)

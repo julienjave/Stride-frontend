@@ -10,6 +10,7 @@ import {
   type FocusAfterRemoval,
   type WorkoutLike,
 } from './workoutGroups'
+import { showSuccess } from '@/snackbars/snackbarStore'
 
 // What a failed request says on screen: "<what failed>. <why>".
 //
@@ -73,7 +74,7 @@ export interface RemoveRequest {
 }
 
 interface Options<R> {
-  // What to announce after a removal, from the resource as the server
+  // The snackbar after a removal, from the resource as the server
   // answered. None by default (a template's card simply disappears); the
   // program page says whether the exercise was deleted or kept for its
   // sessions (step 3b-1).
@@ -95,10 +96,13 @@ interface Options<R> {
 // answers feels broken, so the screen moves it at once — and puts back the
 // previous state if the server refuses.
 //
-// One message area for the whole editor, `problem` (role="alert") and
-// `notice` (a polite live region): whichever action happened last speaks.
-// Starting any action clears both, so an old message never describes a
-// newer state.
+// A failure is said in the editor's one message area, `problem`
+// (role="alert"), next to the list it is about; starting any action clears
+// it, so an old message never describes a newer state. What a move, copy or
+// removal DID is a snackbar (decisions §33, pass 2 — until 2026-10-31 a
+// polite live region under the list): the card has just jumped to another
+// workout, maybe off screen, or gone, and the sentence is read wherever the
+// person is looking.
 //
 // Generic over R, the resource's own type: TypeScript then knows that
 // `setQueryData` writes a template into a template's cache entry and a
@@ -110,7 +114,6 @@ export function useWorkoutEditing<
 >(queryKey: QueryKey, routes: WorkoutEditingRoutes<R>, options: Options<R>) {
   const queryClient = useQueryClient()
   const [problem, setProblem] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
   // Where focus should go after a removal (focusAfterRemoval), until the
   // list has moved it there (WorkoutListEditor calls focusMoved()).
   const [focusTarget, setFocusTarget] = useState<FocusAfterRemoval | null>(null)
@@ -121,7 +124,6 @@ export function useWorkoutEditing<
 
   function startAction() {
     setProblem(null)
-    setNotice(null)
   }
 
   // The shared shape of an optimistic write: stop any refetch that could
@@ -200,7 +202,8 @@ export function useWorkoutEditing<
         before ? focusAfterRemoval(before.exercises, updated.exercises, removal.exerciseRowId) : null,
       )
       write(updated)
-      setNotice(options.removedNotice?.(updated, removal) ?? null)
+      const notice = options.removedNotice?.(updated, removal)
+      if (notice) showSuccess(notice)
     },
     onError: (error) => setProblem(describeFailure("Couldn't remove that exercise", error)),
   })
@@ -210,7 +213,7 @@ export function useWorkoutEditing<
     onMutate: startAction,
     onSuccess: (updated, move) => {
       write(updated)
-      setNotice(`Moved ${move.name} to ${move.targetLabel}.`)
+      showSuccess(`Moved ${move.name} to ${move.targetLabel}.`)
     },
     onError: (error, move) => setProblem(describeFailure(`Couldn't move ${move.name}`, error)),
   })
@@ -225,7 +228,7 @@ export function useWorkoutEditing<
     onMutate: startAction,
     onSuccess: (updated, copy) => {
       write(updated)
-      setNotice(copiedNotice(copy.exerciseIds.length, copy.subject, copy.targetLabel))
+      showSuccess(copiedNotice(copy.exerciseIds.length, copy.subject, copy.targetLabel))
     },
     onError: (error, copy) => setProblem(describeFailure(`Couldn't copy ${copy.subject}`, error)),
   })
@@ -260,7 +263,6 @@ export function useWorkoutEditing<
     renameWorkout,
     isBusy,
     problem,
-    notice,
     focusTarget,
     focusMoved: () => setFocusTarget(null),
     noun: options.noun,
@@ -289,7 +291,6 @@ export interface WorkoutEditing {
   renameWorkout: (workoutId: number, name: string | null) => Promise<void>
   isBusy: boolean
   problem: string | null
-  notice: string | null
   // After a removal: what should receive focus, until focusMoved() says it
   // did (see focusAfterRemoval in workoutGroups.ts).
   focusTarget: FocusAfterRemoval | null

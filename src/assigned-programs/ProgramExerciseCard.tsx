@@ -149,8 +149,8 @@ export function SortableProgramExerciseCard({
 // something it can't describe (the closing dialogs' rule, ProgramActions).
 //
 // Nothing closes the dialog by hand on success: the exercise leaves the
-// program, so its card — and the dialog inside it — unmounts. The editor's
-// live region then says what really happened (removedNotice).
+// program, so its card — and the dialog inside it — unmounts. A snackbar
+// then says what really happened (removedNotice, raised by the editor).
 // The removal preview's load error: "Couldn't load what removing it would
 // change."
 const REMOVAL_PREVIEW_WHAT = 'what removing it would change'

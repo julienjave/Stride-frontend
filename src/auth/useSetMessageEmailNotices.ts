@@ -3,6 +3,8 @@ import { updateUser, userQueryKey } from '@/users/api'
 import { fetchCurrentUser } from './api'
 import type { CurrentUser } from './types'
 import { currentUserQueryKey } from './useCurrentUser'
+import { showFailure } from '@/snackbars/snackbarStore'
+import { settingFailureText } from './settingFailureText'
 
 // Turns the new-message emails on or off (roadmap Phase 6.5) — from the
 // Settings menu, where a pick closes the menu at once. So, like the weight
@@ -44,11 +46,16 @@ export function useSetMessageEmailNotices() {
     // tells the infinite-refetch bug that prevents), so nothing refetches it
     // on its own. prefetchQuery with staleTime 0 always asks, and writes the
     // answer into the same cache entry every observer reads.
-    onError: () =>
+    //
+    // And the failure is said in a snackbar (decisions §33): the menu closed
+    // with the click.
+    onError: (error) => {
+      showFailure(settingFailureText('your email setting', error))
       void queryClient.prefetchQuery({
         queryKey: currentUserQueryKey,
         queryFn: fetchCurrentUser,
         staleTime: 0,
-      }),
+      })
+    },
   })
 }

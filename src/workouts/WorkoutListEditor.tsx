@@ -140,14 +140,8 @@ export function WorkoutListEditor<W extends WorkoutLike, E extends ExerciseLike>
         <WorkoutExercises {...props} group={groups[0]} />
       )}
 
-      {/* A polite live region, ALWAYS in the page (only its text changes):
-          screen readers announce a change of text in a region that already
-          exists, while one that appears with its text already inside is
-          often missed. It says what a move, copy or removal did — the card
-          has just jumped to another workout, maybe off screen, or gone. */}
-      <p aria-live="polite" className="text-sm text-muted-foreground empty:hidden">
-        {editing.notice}
-      </p>
+      {/* What a move, copy or removal did is a snackbar now (decisions §33,
+          raised by useWorkoutEditing) — no message area of its own here. */}
 
       {copySource && (
         <CopyExercisesDialog

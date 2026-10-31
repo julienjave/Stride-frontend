@@ -4,6 +4,8 @@ import type { WeightUnit } from '@/common/weight'
 import { updateUser, userQueryKey } from '@/users/api'
 import type { CurrentUser } from './types'
 import { currentUserQueryKey } from './useCurrentUser'
+import { showFailure } from '@/snackbars/snackbarStore'
+import { settingFailureText } from './settingFailureText'
 
 // Changes the logged-in user's weight unit — OPTIMISTICALLY: the new unit
 // is written into the cache the instant it's picked, before the server
@@ -116,10 +118,15 @@ export function useSetPreferredWeightUnit() {
     // the first pick fails, "before it" was kg, while the user's last
     // choice is lbs. The server-confirmed unit is the one value that's
     // always right to fall back to.
-    onError: () => {
+    onError: (error) => {
       if (pendingPicks() === 1 && confirmedUnit.current) {
         setCachedUnit(confirmedUnit.current)
       }
+      // The menu closed with the pick: the failure is a snackbar (decisions
+      // §33), which stays until closed. Every failing pick raises it; the
+      // same sentence twice replaces the first (addSnackbar), so a burst of
+      // failed picks still shows one.
+      showFailure(settingFailureText('your weight unit', error))
     },
   })
 }

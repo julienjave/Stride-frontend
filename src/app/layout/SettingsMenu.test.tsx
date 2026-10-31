@@ -6,6 +6,7 @@ import { SettingsMenu } from './SettingsMenu'
 import { ThemeProvider } from '@/theme/ThemeProvider'
 import { THEME_STORAGE_KEY } from '@/theme/theme'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
+import { findSnackbar } from '@/snackbars/snackbarAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -133,7 +134,9 @@ describe('SettingsMenu — weight unit', () => {
     expect(init?.body).toBe('{"preferredWeightUnit":"lbs"}')
   })
 
-  it('puts the old unit back and explains, when the save fails', async () => {
+  // The explanation is a failure SNACKBAR (decisions §33): the pick closed
+  // the menu, so a sentence inside it went unseen until it was reopened.
+  it('puts the old unit back and explains in a snackbar, when the save fails', async () => {
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify({ statusCode: 500, message: 'Internal error' }), {
         status: 500,
@@ -143,10 +146,13 @@ describe('SettingsMenu — weight unit', () => {
     await openMenu()
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'lbs' }))
 
-    await openMenu()
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      "Couldn't save your weight unit. Try again.",
+    await findSnackbar(
+      'failure',
+      "Couldn't save your weight unit. Something went wrong on our side. Try again in a moment.",
     )
+    await openMenu()
+    // Nothing waits inside the menu any more.
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(options('Weight unit')).toEqual([
       ['kg', 'true'],
       ['lbs', 'false'],
@@ -212,7 +218,7 @@ describe('SettingsMenu — message emails', () => {
     expect(item()).toHaveAttribute('aria-checked', 'false')
   })
 
-  it('asks the server again and explains, when the save fails', async () => {
+  it('asks the server again and explains in a snackbar, when the save fails', async () => {
     fetchMock.mockImplementation((_input, init) =>
       Promise.resolve(
         init?.method === 'PATCH'
@@ -232,8 +238,10 @@ describe('SettingsMenu — message emails', () => {
     )
     await openMenu()
     await waitFor(() => expect(item()).toHaveAttribute('aria-checked', 'true'))
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      "Couldn't save your email setting. Try again.",
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    await findSnackbar(
+      'failure',
+      "Couldn't save your email setting. Something went wrong on our side. Try again in a moment.",
     )
   })
 })

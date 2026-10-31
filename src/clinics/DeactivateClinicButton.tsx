@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import { failureText } from '@/api/apiErrors'
 import { deactivateClinic, clinicQueryKey } from './api'
+import { showSuccess } from '@/snackbars/snackbarStore'
 
 interface DeactivateClinicButtonProps {
   clinicId: number
@@ -47,6 +48,9 @@ export function DeactivateClinicButton({ clinicId, clinicName }: DeactivateClini
       // can never touch it.
       void queryClient.invalidateQueries({ queryKey: ['clinics-list'] })
       setIsOpen(false)
+      // The active list it lands on no longer shows the clinic: a snackbar
+      // (decisions §33) says where it went.
+      showSuccess(`Deactivated ${clinicName}. It's no longer in the active clinics list.`)
       // The active-only list no longer shows this clinic, so staying on
       // its own now-easy-to-lose-track-of detail page would be a dead
       // end for anyone browsing the default (active-only) view.

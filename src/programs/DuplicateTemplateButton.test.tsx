@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { DuplicateTemplateButton } from './DuplicateTemplateButton'
 import { programQueryKey, programsListQueryKey } from './api'
+import { expectSnackbar, raisedSnackbars } from '@/snackbars/snackbarAssertions'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -67,6 +68,8 @@ describe('DuplicateTemplateButton', () => {
       ),
     )
     expect(await screen.findByText('Copied template page')).toBeInTheDocument()
+    // The copy looks like the original: a snackbar says which one is open.
+    expectSnackbar('success', 'Duplicated the template. You\'re now on the copy, "Copy of Shoulder Rehab".')
     // The NEW id (42), not the source (1).
     expect(router.state.location.pathname).toBe(
       '/practitioner/programs/templates/42',
@@ -104,6 +107,7 @@ describe('DuplicateTemplateButton', () => {
     expect(
       await screen.findByText('Archived program templates cannot be duplicated'),
     ).toBeInTheDocument()
+    expect(raisedSnackbars()).toEqual([])
     expect(router.state.location.pathname).toBe(
       '/practitioner/programs/templates/1',
     )
