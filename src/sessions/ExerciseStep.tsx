@@ -6,6 +6,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { PrescriptionSummary } from '@/common/PrescriptionSummary'
 import { ExercisePhotoCarousel } from '@/programs/ExercisePhotoCarousel'
 import { ScoreScale } from './ScoreScale'
+import { ExerciseTimer } from './timer/ExerciseTimer'
+import type { Beeper } from './timer/beeper'
 import { FEEDBACK_MAX_LENGTH, noteToSend } from './sessionRules'
 import type { SessionExercise, SessionExerciseChanges } from './types'
 
@@ -15,7 +17,10 @@ import type { SessionExercise, SessionExerciseChanges } from './types'
 // program's (live from the library).
 //
 // It only DRAWS and reports: `save(changes, failure)` is the player's
-// optimistic update. The note keeps a DRAFT of its own (typing isn't
+// optimistic update. The timer (2026-10-31) is the one thing with a life of
+// its own, and it saves nothing: a hold countdown when a duration is
+// prescribed, a stopwatch otherwise — forgotten when the patient moves to
+// another exercise (the `key` below restarts this component). The note keeps a DRAFT of its own (typing isn't
 // saving); the page gives this component `key={exercise.id}`, so moving to
 // another exercise starts a fresh draft.
 export function ExerciseStep({
@@ -23,6 +28,7 @@ export function ExerciseStep({
   photos,
   headingRef,
   save,
+  beeper,
 }: {
   exercise: SessionExercise
   photos: { url: string }[]
@@ -30,6 +36,9 @@ export function ExerciseStep({
   // changes (see SessionPlayer).
   headingRef: React.Ref<HTMLHeadingElement>
   save: (changes: SessionExerciseChanges, failure: string) => void
+  // The timer's sound maker — the app's shared one unless a test passes a
+  // fake (jsdom has no Web Audio).
+  beeper?: Beeper
 }) {
   const name = exercise.name
 
@@ -66,6 +75,10 @@ export function ExerciseStep({
         )}
         <Equipment exercise={exercise} />
       </section>
+
+      {/* After the steps (read first, then do), before Done (tap when it's
+          done). */}
+      <ExerciseTimer exercise={exercise} beeper={beeper} />
 
       <DoneToggle
         done={exercise.completed}

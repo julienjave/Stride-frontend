@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router'
@@ -547,6 +547,63 @@ describe('SessionPlayer — how it felt', () => {
       'maxLength',
       '2000',
     )
+  })
+})
+
+// The timer (2026-10-31) — chosen per exercise from the session's copy of
+// the prescription; a helper that saves nothing. Its own behaviour is tested
+// in timer/; here, only how it sits in the player.
+describe('SessionPlayer — the timer', () => {
+  // Squat given a prescribed hold: 3 sets of 20 seconds.
+  function withTimedSquat() {
+    server = {
+      ...server,
+      exercises: server.exercises.map((row) => (row.id === 2 ? { ...row, durationInSeconds: 20 } : row)),
+    }
+  }
+
+  it('a prescribed duration gets the hold countdown; an exercise without one, the stopwatch', async () => {
+    withTimedSquat()
+    const user = userEvent.setup()
+    renderPage()
+    await opened()
+    const squat = screen.getByRole('article', { name: 'Squat' })
+    expect(within(squat).getByRole('timer', { name: 'Hold timer' })).toHaveTextContent('0:20')
+    expect(within(squat).getByText('Hold for 20 seconds · set 1 of 3')).toBeInTheDocument()
+    expect(within(squat).queryByRole('timer', { name: 'Stopwatch' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Next' }))
+    const bridge = screen.getByRole('article', { name: 'Bridge' })
+    expect(within(bridge).getByRole('timer', { name: 'Stopwatch' })).toHaveTextContent('0:00')
+    expect(within(bridge).queryByRole('timer', { name: 'Hold timer' })).not.toBeInTheDocument()
+  })
+
+  it('a hold that ends saves nothing and ticks nothing — and Next forgets it', async () => {
+    withTimedSquat()
+    // The clock the timer reads too (`performance`), still pinned to the
+    // test's day; following real time so user-event's waits finish.
+    vi.useFakeTimers({
+      shouldAdvanceTime: true,
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date', 'performance'],
+    })
+    vi.setSystemTime(new Date(2031, 5, 12, 15, 0))
+    const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTime(ms) })
+    renderPage()
+    await opened()
+
+    await user.click(screen.getByRole('button', { name: 'Start' }))
+    act(() => {
+      vi.advanceTimersByTime(20_000)
+    })
+    expect(screen.getByRole('button', { name: 'Start set 2' })).toBeInTheDocument()
+    // Done stays the patient's tap (the person's choice), and nothing is sent.
+    expect(doneButton('Squat')).toHaveAttribute('aria-pressed', 'false')
+    expect(patches()).toStrictEqual([])
+
+    await user.click(screen.getByRole('button', { name: 'Next' }))
+    await user.click(screen.getByRole('button', { name: 'Previous' }))
+    expect(screen.getByRole('button', { name: 'Start' })).toBeInTheDocument()
+    expect(screen.getByText('Hold for 20 seconds · set 1 of 3')).toBeInTheDocument()
   })
 })
 
