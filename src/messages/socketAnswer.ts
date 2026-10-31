@@ -9,11 +9,14 @@ import type { SocketAnswer } from './types'
 // syntax that would have to generate JavaScript, rather than just be erased.)
 export class MessageRefusedError extends Error {
   readonly status: number
+  // Only on a 500: its reference (api/apiErrors.ts, serverProblemText).
+  readonly requestId?: string
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, requestId?: string) {
     super(message)
     this.name = 'MessageRefusedError'
     this.status = status
+    this.requestId = requestId
   }
 }
 
@@ -21,6 +24,8 @@ export class MessageRefusedError extends Error {
 // client sends answers in the same shape (the backend's WsHttpExceptionFilter),
 // so every mutation that sends one unwraps it the same way.
 export function dataOrThrow<T>(answer: SocketAnswer<T>): T {
-  if (!answer.ok) throw new MessageRefusedError(answer.status, answer.message.join(' '))
+  if (!answer.ok) {
+    throw new MessageRefusedError(answer.status, answer.message.join(' '), answer.requestId)
+  }
   return answer.data
 }

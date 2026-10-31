@@ -2,7 +2,7 @@ import { type RefObject, useRef, useState, type FormEvent, type KeyboardEvent, t
 import { Link, useParams } from 'react-router'
 import { ChevronLeft } from 'lucide-react'
 import { ApiError } from '@/api/client'
-import { SERVER_PROBLEM_TEXT } from '@/api/apiErrors'
+import { serverProblemText } from '@/api/apiErrors'
 import { LoadError, LoadFailure } from '@/common/LoadError'
 import { NotAvailable } from '@/common/NotAvailable'
 import { UserAvatar } from '@/common/UserAvatar'
@@ -382,13 +382,14 @@ function Composer({ conversationId }: { conversationId: number }) {
 }
 
 // A refusal: the server's own words — but a failure on the server's side
-// (status 500) gets the app's shared sentence, as every REST answer does
-// (failureText, api/apiErrors.ts): "Internal server error" helps nobody.
+// (status 500) gets the app's shared sentence and its reference, as every
+// REST answer does (failureText, api/apiErrors.ts): "Internal server error"
+// helps nobody.
 // Anything else (no answer in time, the connection dropped mid-way): a plain
 // "try again" — the text is still in the box.
 function sendErrorText(error: Error): string {
   if (error instanceof MessageRefusedError) {
-    return error.status >= 500 ? SERVER_PROBLEM_TEXT : error.message
+    return error.status >= 500 ? serverProblemText(error.requestId) : error.message
   }
   return "Couldn't send your message. Check your connection and try again."
 }

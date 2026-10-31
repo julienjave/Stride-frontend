@@ -6,9 +6,13 @@ import { ThemeProvider } from './theme/ThemeProvider'
 import './index.css'
 import App from './App.tsx'
 import { installStaleChunkReload } from './app/staleChunkReload'
+import { installErrorReporting } from './observability/errorReporting'
 
-// Before anything renders: a page file missing after a new deploy reloads
-// the app onto the new version (see staleChunkReload.ts).
+// Before anything renders: errors nobody catches are reported from here on
+// (the SDK itself arrives later — see errorReporting.ts), and a page file
+// missing after a new deploy reloads the app onto the new version (see
+// staleChunkReload.ts).
+installErrorReporting()
 installStaleChunkReload()
 
 createRoot(document.getElementById('root')!).render(

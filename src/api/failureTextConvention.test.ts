@@ -39,9 +39,18 @@ function isApplicationCode(path: string): boolean {
   return !path.endsWith('.test.ts') && !path.endsWith('.test.tsx')
 }
 
+// Reads an error's text to CLASSIFY it, never to show it: which errors the
+// browser reports (a "Failed to fetch" is the network, not a bug — decisions
+// §32, pass 3).
+const CLASSIFYING_FILES = ['/src/observability/reportRules.ts']
+
 // The files the rule is checked in.
 const checked = Object.entries(sources).filter(
-  ([path]) => isApplicationCode(path) && path !== RULE_FILE && !SOCKET_REFUSAL_FILES.includes(path),
+  ([path]) =>
+    isApplicationCode(path) &&
+    path !== RULE_FILE &&
+    !SOCKET_REFUSAL_FILES.includes(path) &&
+    !CLASSIFYING_FILES.includes(path),
 )
 
 describe('the words of a failure', () => {

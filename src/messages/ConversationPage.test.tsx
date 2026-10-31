@@ -250,15 +250,21 @@ describe('writing a message', () => {
   })
 
   // A failure on the server's side: the app's shared sentence, never
-  // "Internal server error" — as for every REST answer (failureText). The
-  // whole text is matched: the server's words mustn't sit beside it.
-  it("says the server's side failed for a 500, and keeps the text", async () => {
+  // "Internal server error" — as for every REST answer (failureText) — and
+  // the reference of the socket's answer. The whole text is matched: the
+  // server's words mustn't sit beside it.
+  it("says the server's side failed for a 500, with its reference, and keeps the text", async () => {
     const { socket } = await ready()
     await userEvent.type(box(), 'Hello')
     await userEvent.click(screen.getByRole('button', { name: 'Send' }))
-    await socket.answerLast({ ok: false, status: 500, message: ['Internal server error'] })
+    await socket.answerLast({
+      ok: false,
+      status: 500,
+      message: ['Internal server error'],
+      requestId: '7f3a1c2e-9b4d-4e1f-8a2b-3c4d5e6f7a8b',
+    })
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      /^Something went wrong on our side\. Try again in a moment\.$/,
+      /^Something went wrong on our side\. Try again in a moment\. Reference: 7f3a1c2e\.$/,
     )
     expect(box()).toHaveValue('Hello')
   })
@@ -515,10 +521,15 @@ describe('deleting a message', () => {
     await userEvent.click(trash(2)!)
     const dialog = await screen.findByRole('dialog', { name: 'Delete this message?' })
     await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
-    await socket.answerLast({ ok: false, status: 500, message: ['Internal server error'] })
+    await socket.answerLast({
+      ok: false,
+      status: 500,
+      message: ['Internal server error'],
+      requestId: '0b1c2d3e-9b4d-4e1f-8a2b-3c4d5e6f7a8b',
+    })
 
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(
-      /^Something went wrong on our side\. Try again in a moment\.$/,
+      /^Something went wrong on our side\. Try again in a moment\. Reference: 0b1c2d3e\.$/,
     )
   })
 

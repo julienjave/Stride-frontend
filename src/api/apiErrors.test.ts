@@ -1,19 +1,29 @@
 import { describe, it, expect } from 'vitest'
 import { ApiError } from './client'
-import { failureText, NO_ANSWER_TEXT, SERVER_PROBLEM_TEXT } from './apiErrors'
+import {
+  failureText,
+  NO_ANSWER_TEXT,
+  referenceText,
+  SERVER_PROBLEM_TEXT,
+  serverProblemText,
+  shortReference,
+} from './apiErrors'
 
 // The app's one rule for the words of a failure (2026-10-27). Every screen
 // shows what this answers, so each case is pinned to its exact text.
 
-function apiError(statusCode: number, message: string[]): ApiError {
+function apiError(statusCode: number, message: string[], requestId?: string): ApiError {
   return new ApiError({
     statusCode,
     message,
     error: 'Error',
     timestamp: '2031-01-01T00:00:00.000Z',
     path: '/x',
+    ...(requestId ? { requestId } : {}),
   })
 }
+
+const REQUEST_ID = '7f3a1c2e-9b4d-4e1f-8a2b-3c4d5e6f7a8b'
 
 describe('failureText', () => {
   it("shows a refusal's own words", () => {
@@ -72,5 +82,41 @@ describe('failureText', () => {
     expect(failureText(apiError(500, ['Internal server error']), sentence)).toBe(
       SERVER_PROBLEM_TEXT,
     )
+  })
+
+  // The reference (decisions §32, pass 3): the request's id, shortened, at
+  // the end of the server's-side sentence — what a person reads to the
+  // clinic. Pinned whole: the format IS what the person sees.
+  it("ends a 5xx's sentence with its reference", () => {
+    expect(failureText(apiError(500, ['Internal server error'], REQUEST_ID))).toBe(
+      'Something went wrong on our side. Try again in a moment. Reference:\u00a07f3a1c2e.',
+    )
+    expect(failureText(apiError(413, [], REQUEST_ID))).toBe(
+      `${SERVER_PROBLEM_TEXT} Reference:\u00a07f3a1c2e.`,
+    )
+  })
+
+  // A refusal says what to do in its own words; the reference is for the
+  // server's side only.
+  it('gives a refusal no reference', () => {
+    expect(failureText(apiError(409, ['This program is closed'], REQUEST_ID))).toBe(
+      'This program is closed',
+    )
+  })
+})
+
+describe('the reference', () => {
+  // The backend cuts the same way (observability/request-id.ts, referenceOf):
+  // its report's `reference` tag must equal what the screen shows.
+  it('is the first 8 characters of the request id', () => {
+    expect(shortReference(REQUEST_ID)).toBe('7f3a1c2e')
+    // A no-break space: the label and the code never part at a line's end.
+    expect(referenceText(REQUEST_ID)).toBe('Reference:\u00a07f3a1c2e.')
+  })
+
+  // A proxy's 502: the backend never answered, so there's no id to give.
+  it('is left out when there is no id', () => {
+    expect(serverProblemText(undefined)).toBe(SERVER_PROBLEM_TEXT)
+    expect(serverProblemText('')).toBe(SERVER_PROBLEM_TEXT)
   })
 })

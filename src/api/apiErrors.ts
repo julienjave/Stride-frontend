@@ -48,8 +48,49 @@ export const NO_ANSWER_TEXT = 'Something went wrong. Check your connection and t
 
 export function failureText(error: unknown, noAnswer: string = NO_ANSWER_TEXT): string {
   if (!(error instanceof ApiError)) return noAnswer
-  if (error.statusCode >= 500 || error.messages.length === 0) return SERVER_PROBLEM_TEXT
+  if (error.statusCode >= 500 || error.messages.length === 0) {
+    return serverProblemText(error.requestId)
+  }
   return error.messages.join(' ')
+}
+
+// --- The reference a person can quote ---------------------------------------
+//
+// (Decided 2026-10-30 — observability pass 3, decisions §32.) A failure on
+// the server's side ends with the request's reference:
+//
+//   Something went wrong on our side. Try again in a moment. Reference: 7f3a1c2e.
+//
+// The backend makes an id for every request (a UUID) and answers it in the
+// error body and the `X-Request-Id` header (ApiError.requestId). The same id
+// is on every log line of that request and on the backend's own error report
+// — so a person who reads the reference to the clinic leads whoever looks
+// straight to what happened. SHORTENED to its first 8 characters (the person's
+// choice: easy to read out over the phone); the backend's report carries the
+// same 8 characters as its `reference` tag (backend observability/request-id.ts,
+// referenceOf — the two must cut the same way).
+//
+// Only for the server's side: a refusal (a 4xx) says in its own words what
+// to do, and no answer at all has no id to give. A server failure without an
+// id (a proxy's 502 — the backend never answered) keeps the plain sentence.
+// The error body's `path` is never shown or reported (it echoes the query).
+export const REFERENCE_LENGTH = 8
+
+export function shortReference(id: string): string {
+  return id.slice(0, REFERENCE_LENGTH)
+}
+
+// A NO-BREAK space after the colon (\u00a0): the label and its code stay on
+// one line, read as one piece (seen at 375 px: "Reference:" ended a line,
+// the code began the next).
+export function referenceText(id: string): string {
+  return `Reference:\u00a0${shortReference(id)}.`
+}
+
+// The shared sentence, with the reference when there is one. Also used by
+// the messaging socket's refusals (messages/), whose 500 carries an id too.
+export function serverProblemText(requestId: string | undefined): string {
+  return requestId ? `${SERVER_PROBLEM_TEXT} ${referenceText(requestId)}` : SERVER_PROBLEM_TEXT
 }
 // A 404: for the four resources row security guards (programs, sessions,
 // conversations, medical-file entries), "no such record" AND "a record you

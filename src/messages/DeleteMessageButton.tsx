@@ -1,6 +1,6 @@
 import { useRef, useState, type RefObject } from 'react'
 import { Trash2 } from 'lucide-react'
-import { SERVER_PROBLEM_TEXT } from '@/api/apiErrors'
+import { serverProblemText } from '@/api/apiErrors'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -134,7 +134,7 @@ export function DeleteMessageButton({ conversationId, message, deadline, focusAf
 // connection dropped): try again.
 function deleteErrorText(error: Error): string {
   if (error instanceof MessageRefusedError) {
-    return error.status >= 500 ? SERVER_PROBLEM_TEXT : error.message
+    return error.status >= 500 ? serverProblemText(error.requestId) : error.message
   }
   return "Couldn't delete your message. Check your connection and try again."
 }

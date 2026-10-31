@@ -81,4 +81,6 @@ export interface ServerEvents {
 // WsHttpExceptionFilter).
 export type SocketAnswer<T> =
   | { ok: true; data: T }
-  | { ok: false; status: number; message: string[] }
+  // A 500 carries the request id the backend made for it (its log line and
+  // error report carry the same) — shown as "Reference: …".
+  | { ok: false; status: number; message: string[]; requestId?: string }
