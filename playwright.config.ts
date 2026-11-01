@@ -54,7 +54,13 @@ export default defineConfig({
   // 60 s — the patient's session clicks through several pages.
   timeout: 60_000,
   expect: { timeout: 10_000 },
-  reporter: [['list'], ['html', { open: 'never' }]],
+  // On GitHub Actions (CI=true) the `github` reporter is added: each failure
+  // becomes an annotation on the test's line, shown on the run's summary and
+  // in the pull request's diff. `list` prints progress either way; `html` is
+  // the report kept as an artifact when a CI run fails.
+  reporter: process.env.CI
+    ? [['github'], ['list'], ['html', { open: 'never' }]]
+    : [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: APP_URL,
     // When a test fails, keep everything needed to see why without running
