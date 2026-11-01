@@ -16,6 +16,15 @@ export function hasMessage(error: unknown, status: number, message: string): boo
   )
 }
 
+// A DTO's 400, message by message — for a form that shows each message at
+// the field it is about (range of motion's assessment form, 2026-10-31: the
+// backend prefixes a refused value's message with its path,
+// "measurements.3.…"). Null for anything else: those failures go through
+// failureText like every other.
+export function validationMessages(error: unknown): string[] | null {
+  return error instanceof ApiError && error.statusCode === 400 ? error.messages : null
+}
+
 // --- The words of a failure: ONE rule for every screen ----------------------
 //
 // (Decided 2026-10-27 — "plain words for every 429", pass 2.) Before, about

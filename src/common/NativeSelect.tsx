@@ -23,11 +23,19 @@ import { cn } from '@/lib/utils'
 // colour: light grey on white in dark mode (found in live testing,
 // 2026-10-12). So the options get explicit colours of their own — the
 // theme's popover pair, the same as the app's other drop-down menus.
+//
+// The same for a GROUP's heading (<optgroup label="Knee">, 2026-11-01): the
+// browser draws the label as its own row, painted by the <optgroup>, not by
+// any <option> — so the options' colours didn't reach it, and in dark mode
+// on Windows the joints of range of motion's movement picker, its visit
+// notes' groups and the audit log's action groups were light grey on white
+// (seen by the person; the options themselves were fine). The optgroup gets
+// the same pair.
 export function NativeSelect({ className, ...props }: ComponentProps<'select'>) {
   return (
     <select
       className={cn(
-        'h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2 text-base outline-none [&_option]:bg-popover [&_option]:text-popover-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive md:text-sm dark:bg-input/30',
+        'h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2 text-base outline-none [&_option]:bg-popover [&_option]:text-popover-foreground [&_optgroup]:bg-popover [&_optgroup]:text-popover-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive md:text-sm dark:bg-input/30',
         className,
       )}
       {...props}

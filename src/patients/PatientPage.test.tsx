@@ -554,6 +554,23 @@ describe('PatientPage — medical file', () => {
     // …and nothing asked for the file.
     expect(calls((url) => url.includes('/medical-files'))).toEqual([])
   })
+
+  // Decisions §36: range of motion's card, right after the medical file's —
+  // data-free like it (every read of the assessments is audited).
+  it('links to the range of motion after the medical file, and reads nothing from it', async () => {
+    renderPatientPage()
+    const card = await screen.findByRole('region', { name: 'Range of motion' })
+    expect(within(card).getByRole('link', { name: 'Open range of motion' })).toHaveAttribute(
+      'href',
+      '/practitioner/patients/6/range-of-motion',
+    )
+    expect(within(card).getByText(/Opening them is recorded in the audit log\./)).toBeInTheDocument()
+    const regions = screen.getAllByRole('region').map((region) => region.getAttribute('aria-labelledby'))
+    expect(regions.indexOf('patient-section-range-of-motion')).toBe(regions.indexOf('patient-section-medical-file') + 1)
+    await screen.findByRole('region', { name: 'Care team' })
+    await waitFor(() => expect(calls((url) => url.includes('/care-team')).length).toBeGreaterThan(0))
+    expect(calls((url) => url.includes('/range-of-motion'))).toEqual([])
+  })
 })
 
 describe('PatientPage — care team', () => {

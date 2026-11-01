@@ -7,6 +7,7 @@ import {
   SERVER_PROBLEM_TEXT,
   serverProblemText,
   shortReference,
+  validationMessages,
 } from './apiErrors'
 
 // The app's one rule for the words of a failure (2026-10-27). Every screen
@@ -102,6 +103,22 @@ describe('failureText', () => {
     expect(failureText(apiError(409, ['This program is closed'], REQUEST_ID))).toBe(
       'This program is closed',
     )
+  })
+})
+
+// A 400's messages, one by one, for a form that places each at its field.
+describe('validationMessages', () => {
+  it("gives a 400's messages as they are", () => {
+    expect(validationMessages(apiError(400, ['measurements.0.Knee flexion needs a side', 'Other']))).toStrictEqual([
+      'measurements.0.Knee flexion needs a side',
+      'Other',
+    ])
+  })
+
+  it('gives nothing for any other failure', () => {
+    expect(validationMessages(apiError(403, ['Refused']))).toBeNull()
+    expect(validationMessages(apiError(500, ['Boom']))).toBeNull()
+    expect(validationMessages(new TypeError('Failed to fetch'))).toBeNull()
   })
 })
 

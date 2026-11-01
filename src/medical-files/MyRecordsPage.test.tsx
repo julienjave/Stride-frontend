@@ -5,20 +5,32 @@ import { formatMomentDate } from '@/common/formatMomentDate'
 import { renderMedicalFile, requests } from './renderMedicalFile'
 import { chainedFile, json } from './testData'
 import { expectSkeleton } from '@/common/loadingAssertions'
+import { formatCalendarDate } from '@/common/formatCalendarDate'
+import { catalogue, patRecord } from '@/range-of-motion/testData'
 
 const PATH = '/profile/records'
 
-// The page's two requests: the file, and (since 2026-10-28) the times the
-// record was shared outside the clinic — none, unless a test says otherwise.
-function answers(file: unknown = chainedFile(), status = 200, shared: unknown = []) {
+// The page's requests: the file; (since 2026-10-28) the times the record was
+// shared outside the clinic — none, unless a test says otherwise; and (since
+// 2026-10-31, decisions §36) the range of motion and its catalogue — none
+// measured, unless a test says otherwise.
+function answers(file: unknown = chainedFile(), status = 200, shared: unknown = [], rom: unknown = [], romStatus = 200) {
   return ({ method, path }: { method: string; path: string }) =>
-    method === 'GET' && path === '/legal-disclosures'
-      ? json(shared)
-      : method === 'GET' && path === '/medical-files'
-        ? status === 200
-          ? json(file)
-          : json({ statusCode: status, message: ['Boom'], error: 'Error' }, status)
-        : undefined
+    method !== 'GET'
+      ? undefined
+      : path === '/legal-disclosures'
+        ? json(shared)
+        : path === '/range-of-motion/movements'
+          ? json(catalogue())
+          : path === '/range-of-motion'
+            ? romStatus === 200
+              ? json(rom)
+              : json({ statusCode: romStatus, message: ['Boom'], error: 'Error' }, romStatus)
+            : path === '/medical-files'
+              ? status === 200
+                ? json(file)
+                : json({ statusCode: status, message: ['Boom'], error: 'Error' }, status)
+              : undefined
 }
 
 describe('MyRecordsPage', () => {
@@ -44,11 +56,15 @@ describe('MyRecordsPage', () => {
     expect(within(corrected).getByText('Left knee flexion 120°')).toBeInTheDocument()
 
     expect(screen.queryByRole('link', { name: /Amend/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Record measurements/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Add an entry' })).not.toBeInTheDocument()
-    // The file in one request; the shared list in its own (in no set order).
+    // The file in one request; the shared list and the range of motion in
+    // their own (in no set order) — every one naming nobody.
     expect(requests().map((r) => `${r.method} ${r.path}`).sort()).toEqual([
       'GET /legal-disclosures',
       'GET /medical-files',
+      'GET /range-of-motion',
+      'GET /range-of-motion/movements',
     ])
   })
 
@@ -113,5 +129,54 @@ describe('MyRecordsPage', () => {
     // Below the notes' part of the page, which failed on its own.
     const failed = await screen.findByText(/^Couldn't load your records\./)
     expect(failed.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  // Decisions §36: the range of motion, under the notes — the practitioner's
+  // movement cards, read-only, the typical value worded as a guide.
+  describe('the range of motion', () => {
+    it('shows the movement cards and every assessment, read-only, the typical value as a guide', async () => {
+      const user = userEvent.setup()
+      renderMedicalFile([PATH], answers(chainedFile(), 200, [], patRecord()), 'patient')
+      const section = await screen.findByRole('region', { name: 'Range of motion' })
+      expect(
+        within(section).getByText(
+          'How far your joints moved when your care team measured them, in degrees. The typical value is a textbook guide, not a target: people differ, and your other side is often the better comparison.',
+        ),
+      ).toBeInTheDocument()
+      const card = await within(section).findByRole('article', { name: 'Knee flexion · active' })
+      expect(within(card).getByText('Typical: 135° (a guide, not a target)')).toBeInTheDocument()
+      expect(within(section).getByRole('heading', { level: 3, name: 'Each assessment' })).toBeInTheDocument()
+      const assessments = within(section).getByRole('list', { name: 'Assessments' })
+      expect(within(assessments).getAllByRole('heading', { level: 4 }).map((h) => h.textContent)).toEqual([
+        `Measured ${formatCalendarDate('2031-03-20')}`,
+        `Measured ${formatCalendarDate('2031-03-11')}`,
+        `Measured ${formatCalendarDate('2031-03-01')}`,
+      ])
+      // The patient's word for an amendment, and its original theirs to read.
+      const corrected = within(assessments).getAllByRole('article')[1]
+      expect(corrected).toHaveTextContent(`Corrects the measurements of ${formatCalendarDate('2031-03-11')}`)
+      await user.click(within(corrected).getByRole('button', { name: 'Show the original' }))
+      expect(within(corrected).getByRole('heading', { level: 5 })).toBeInTheDocument()
+      // The note a measurement is linked to, named from the file the page read.
+      expect(within(section).getAllByText(/^Visit note: Initial assessment/)).toHaveLength(1)
+      // Read-only: nothing to record or amend.
+      expect(within(section).queryByRole('link')).not.toBeInTheDocument()
+    })
+
+    it('says when nothing has been measured', async () => {
+      renderMedicalFile([PATH], answers(), 'patient')
+      const section = await screen.findByRole('region', { name: 'Range of motion' })
+      expect(await within(section).findByText("Your care team hasn't measured any joints yet.")).toBeInTheDocument()
+      expect(within(section).queryByRole('list', { name: 'Movements' })).not.toBeInTheDocument()
+    })
+
+    it('fails on its own, below the notes, with its own "Try again"', async () => {
+      renderMedicalFile([PATH], answers(chainedFile(), 200, [], [], 500), 'patient')
+      const section = await screen.findByRole('region', { name: 'Range of motion' })
+      expect(await within(section).findByRole('alert')).toHaveTextContent(/^Couldn't load your range of motion\./)
+      expect(within(section).getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+      // The notes are there all the same.
+      expect(screen.getByRole('list', { name: 'Entries' })).toBeInTheDocument()
+    })
   })
 })

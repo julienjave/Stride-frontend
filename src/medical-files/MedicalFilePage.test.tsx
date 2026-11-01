@@ -125,6 +125,22 @@ describe('MedicalFilePage', () => {
     expect(await screen.findByRole('link', { name: '← Pat Lee' })).toHaveAttribute('href', '/practitioner/patients/6')
   })
 
+  // Decisions §36: the range-of-motion form with the note chosen — on each
+  // note's LATEST version (the note as it now reads).
+  it('offers "Record measurements for this visit" on the latest version of each note', async () => {
+    renderMedicalFile([FILE_PATH], answers())
+    await screen.findByRole('list', { name: 'Entries' })
+    const links = screen.getAllByRole('link', { name: /^Record measurements for this visit: / })
+    expect(links.map((a) => a.getAttribute('href'))).toEqual([
+      '/practitioner/patients/6/range-of-motion/new?note=5',
+      '/practitioner/patients/6/range-of-motion/new?note=4',
+      '/practitioner/patients/6/range-of-motion/new?note=1',
+    ])
+    expect(links[2]).toHaveAccessibleName(
+      `Record measurements for this visit: Initial assessment · ${formatMomentDate('2031-03-01T09:00:00.000Z')}`,
+    )
+  })
+
   it('says when the file is empty — and only then', async () => {
     renderMedicalFile([FILE_PATH], answers([]))
     expect(await screen.findByText(/^No entries yet/)).toBeInTheDocument()

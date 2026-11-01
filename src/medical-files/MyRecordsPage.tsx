@@ -4,6 +4,7 @@ import { LoadError } from '@/common/LoadError'
 import { useRetryFocus } from '@/common/useRetryFocus'
 import { DownloadMyRecords } from '@/records-export/DownloadMyRecords'
 import { SharedRecordSection } from '@/legal-disclosures/SharedRecordSection'
+import { MyRangeOfMotion } from '@/range-of-motion/MyRangeOfMotion'
 import { MedicalFileEntryList } from './MedicalFileEntryList'
 import { useMyMedicalFile } from './useMedicalFile'
 import { ListSkeleton } from '@/common/Loading'
@@ -20,6 +21,7 @@ import { ListSkeleton } from '@/common/Loading'
 //
 // Above the notes, "Download a copy" (decisions §20, pass 3): the whole
 // record as a PDF — the notes, the programs and the sessions. Below them,
+// "Range of motion" (decisions §36): the measurements, read-only — then
 // "When your record was shared" (decisions §25, pass 3): the patient's
 // accounting of disclosures.
 export function MyRecordsPage() {
@@ -62,6 +64,7 @@ function Page({ children, heading }: { children: ReactNode; heading: Ref<HTMLHea
       </div>
       <DownloadMyRecords />
       {children}
+      <MyRangeOfMotion />
       <SharedRecordSection />
     </div>
   )

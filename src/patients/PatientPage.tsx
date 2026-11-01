@@ -9,6 +9,7 @@ import { formatCalendarDate } from '@/common/formatCalendarDate'
 import { InvitationStatus } from '@/invitations/InvitationStatus'
 import { MedicalFileLinkCard } from '@/medical-files/MedicalFileLinkCard'
 import { MessageButton } from '@/messages/MessageButton'
+import { RangeOfMotionLinkCard } from '@/range-of-motion/RangeOfMotionLinkCard'
 import { ProfileFields } from '@/users/ProfileFields'
 import { useUser } from '@/users/useUser'
 import { CareTeamSection } from './CareTeamSection'
@@ -22,7 +23,8 @@ import { showSuccess } from '@/snackbars/snackbarStore'
 // The practitioner's patient page (/practitioner/patients/:id) — decided
 // 2026-10-08 (decisions §3, "Patient page"). Top to bottom, in the order a
 // practitioner needs it: who this is, their programs, the way into their
-// medical file (its own page — decisions §8), their care team, their
+// medical file (its own page — decisions §8) and their range of motion
+// (decisions §36), their care team, their
 // invitation (until they've set up their account), and their profile.
 //
 // Only the patient's CARE TEAM sees it: GET /users/:id answers anyone else
@@ -152,6 +154,9 @@ function PatientView({ patientId }: { patientId: number }) {
       <PatientProgramsSection patientId={patientId} patientActive={patient.isActive} />
 
       <MedicalFileLinkCard patientId={patientId} />
+
+      {/* Beside the medical file, data-free like it (decisions §36). */}
+      <RangeOfMotionLinkCard patientId={patientId} />
 
       <CareTeamSection
         patientId={patientId}

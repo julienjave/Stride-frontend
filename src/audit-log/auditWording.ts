@@ -147,6 +147,13 @@ const WORDING: Record<AuditAction, string> = {
   MEDICAL_FILE_VIEWED: 'Viewed a medical file',
   MEDICAL_FILE_ENTRY_VIEWED: 'Viewed a medical file entry',
 
+  // Range of motion (Phase 7, decisions §36): assessment ids and counts —
+  // never a value (clinical, withheld from admins like the medical file's).
+  ROM_ASSESSMENT_RECORDED: 'Recorded range of motion',
+  ROM_ASSESSMENT_AMENDED: 'Amended a range-of-motion assessment',
+  ROM_VIEWED: 'Viewed range of motion',
+  ROM_ASSESSMENT_VIEWED: 'Viewed a range-of-motion assessment',
+
   // Records exports (decisions §20): a copy of a patient's whole record, as
   // a PDF — downloaded by the patient (signed in, or through an emailed
   // link), or, under a complaint review (decisions §25), by the admin who

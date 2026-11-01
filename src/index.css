@@ -19,6 +19,8 @@
     --color-score-pain-before: var(--score-pain-before);
     --color-score-pain-after: var(--score-pain-after);
     --color-score-mobility: var(--score-mobility);
+    --color-rom-left: var(--rom-left);
+    --color-rom-right: var(--rom-right);
     --color-chart-5: var(--chart-5);
     --color-chart-4: var(--chart-4);
     --color-chart-3: var(--chart-3);
@@ -81,6 +83,14 @@
     --score-pain-before: #eb6834;
     --score-pain-after: #2a78d6;
     --score-mobility: #6250d6;
+    /* The range-of-motion charts' two sides (2026-10-31) — aqua and violet
+       from the same reference palette (its darker aqua step on the light
+       page, for 3:1 contrast); validated as a pair, light and dark (CVD
+       separation, normal-vision floor, contrast against the page). Left is
+       also a ROUND marker and right a SQUARE one, so colour is never the
+       only cue. */
+    --rom-left: #199e70;
+    --rom-right: #6250d6;
     --radius: 0.625rem;
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
@@ -120,6 +130,8 @@
     --score-pain-before: #d95926;
     --score-pain-after: #3987e5;
     --score-mobility: #9085e9;
+    --rom-left: #1baf7a;
+    --rom-right: #9085e9;
     --sidebar: oklch(0.205 0 0);
     --sidebar-foreground: oklch(0.985 0 0);
     --sidebar-primary: oklch(0.488 0.243 264.376);

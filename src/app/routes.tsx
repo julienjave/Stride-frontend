@@ -337,6 +337,23 @@ export const router = createBrowserRouter([
                       (module) => module.MedicalFileEntryPage,
                     ),
                   },
+                  // Range of motion (Phase 7, decisions §36): its own page —
+                  // opening it is the audited read — and the form that records
+                  // an assessment or (`?amends=`) an amendment.
+                  {
+                    path: '/practitioner/patients/:id/range-of-motion',
+                    lazy: page(
+                      () => import('@/range-of-motion/RangeOfMotionPage'),
+                      (module) => module.RangeOfMotionPage,
+                    ),
+                  },
+                  {
+                    path: '/practitioner/patients/:id/range-of-motion/new',
+                    lazy: page(
+                      () => import('@/range-of-motion/RomAssessmentPage'),
+                      (module) => module.RomAssessmentPage,
+                    ),
+                  },
                   {
                     path: '/practitioner/library',
                     lazy: page(

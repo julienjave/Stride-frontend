@@ -13,10 +13,13 @@ import {
 // it reads.
 
 // A patient's file, as their practitioner opens it (?patientId=).
-export function useMedicalFile(patientId: number) {
+// `enabled: false` waits: the range-of-motion page reads the file only when
+// an assessment is linked to one of its notes (to name it — decisions §36).
+export function useMedicalFile(patientId: number, { enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: medicalFileQueryKey(patientId),
     queryFn: () => fetchMedicalFile(patientId),
+    enabled,
   })
 }
 

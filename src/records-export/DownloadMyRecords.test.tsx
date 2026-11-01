@@ -37,17 +37,20 @@ function refusal(statusCode: number, message: string, headers: Record<string, st
 }
 
 // The file's own request answered with `file`; the download with `download`.
-// My records' requests: the notes, the copy, and (since 2026-10-28) the
-// times the record was shared — none here.
+// My records' requests: the notes, the copy, (since 2026-10-28) the times
+// the record was shared, and (since 2026-10-31) the range of motion and its
+// catalogue — none of either here.
 function answers(download: () => Response | Promise<Response>, file: () => Response = () => json(chainedFile())) {
   return ({ method, path }: SentRequest) =>
     method === 'GET' && path === '/medical-files'
       ? file()
       : method === 'GET' && path === EXPORT_PATH
         ? download()
-        : method === 'GET' && path === '/legal-disclosures'
+        : method === 'GET' && (path === '/legal-disclosures' || path === '/range-of-motion')
           ? json([])
-          : undefined
+          : method === 'GET' && path === '/range-of-motion/movements'
+            ? json({ joints: [] })
+            : undefined
 }
 
 const downloads = () => requests().filter((request) => request.path.startsWith('/records-export'))

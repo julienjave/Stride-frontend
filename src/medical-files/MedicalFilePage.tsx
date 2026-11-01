@@ -4,6 +4,7 @@ import { ApiError } from '@/api/client'
 import { LoadError } from '@/common/LoadError'
 import { useRetryFocus } from '@/common/useRetryFocus'
 import { Button } from '@/components/ui/button'
+import { romAssessmentPath } from '@/range-of-motion/romPaths'
 import { useUser } from '@/users/useUser'
 import { MedicalFileEntryList } from './MedicalFileEntryList'
 import { medicalFileEntryPath, patientPagePath } from './medicalFilePaths'
@@ -18,7 +19,8 @@ import { ListSkeleton } from '@/common/Loading'
 //
 // The notes, newest first, each with its earlier versions folded under it;
 // "Add an entry" and, on each note's latest version, "Amend" — both lead to
-// the entry page.
+// the entry page — and "Record measurements for this visit" (decisions §36:
+// the range-of-motion form, this note chosen).
 export function MedicalFilePage() {
   const { id } = useParams<{ id: string }>()
   const patientId = Number(id)
@@ -94,6 +96,7 @@ function MedicalFileView({ patientId }: { patientId: number }) {
           entries={file.data}
           audience="practitioner"
           amendHref={(entry) => medicalFileEntryPath(patientId, entry.id)}
+          recordHref={(entry) => romAssessmentPath(patientId, { note: entry.id })}
         />
       )}
     </Page>

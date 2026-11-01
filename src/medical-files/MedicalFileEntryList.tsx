@@ -1,5 +1,6 @@
 import { useId, useState } from 'react'
 import { Link } from 'react-router'
+import { cn } from '@/lib/utils'
 import { groupIntoNotes, type Note } from './medicalFileRules'
 import {
   SECTION_LABELS,
@@ -16,22 +17,33 @@ import { SECTIONS, type MedicalFileEntry } from './types'
 // version, the versions it replaced folded under it behind "Show the
 // original". Shared by the practitioner's page and the patient's "My
 // records" — the words change with `audience`; only the practitioner gets
-// `amendHref` (patients read, never write).
+// `amendHref` and `recordHref` (patients read, never write).
+//
+// `recordHref` (decisions §36): "Record measurements for this visit" — the
+// range-of-motion form with this note already chosen as the visit's.
 export function MedicalFileEntryList({
   entries,
   audience,
   amendHref,
+  recordHref,
 }: {
   entries: MedicalFileEntry[]
   audience: Audience
   amendHref?: (entry: MedicalFileEntry) => string
+  recordHref?: (entry: MedicalFileEntry) => string
 }) {
   // A list of <li><article>: a screen reader announces "list, N items" and
   // each note is a landmark-like article named by its heading.
   return (
     <ol aria-label="Entries" className="space-y-4">
       {groupIntoNotes(entries).map((note) => (
-        <NoteCard key={note.latest.id} note={note} audience={audience} amendHref={amendHref} />
+        <NoteCard
+          key={note.latest.id}
+          note={note}
+          audience={audience}
+          amendHref={amendHref}
+          recordHref={recordHref}
+        />
       ))}
     </ol>
   )
@@ -41,10 +53,12 @@ function NoteCard({
   note,
   audience,
   amendHref,
+  recordHref,
 }: {
   note: Note
   audience: Audience
   amendHref?: (entry: MedicalFileEntry) => string
+  recordHref?: (entry: MedicalFileEntry) => string
 }) {
   const { latest, earlier } = note
   const [showEarlier, setShowEarlier] = useState(false)
@@ -79,12 +93,23 @@ function NoteCard({
               {earlierToggleText(earlier.length, showEarlier)}
             </button>
           )}
+          {recordHref && (
+            // The latest version is the one linked: an assessment points at
+            // the note as it now reads.
+            <Link
+              to={recordHref(latest)}
+              className="ml-auto text-sm underline underline-offset-4"
+              aria-label={`Record measurements for this visit: ${entryHeading(latest)}`}
+            >
+              Record measurements for this visit
+            </Link>
+          )}
           {amendHref && (
             // On the LATEST version only: amending an older one would branch
             // the chain, which the backend refuses (409).
             <Link
               to={amendHref(latest)}
-              className="ml-auto text-sm font-medium underline underline-offset-4"
+              className={cn('text-sm font-medium underline underline-offset-4', !recordHref && 'ml-auto')}
               aria-label={`Amend: ${entryHeading(latest)}`}
             >
               Amend

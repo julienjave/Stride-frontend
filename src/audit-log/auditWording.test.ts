@@ -71,6 +71,14 @@ describe('actionLabel', () => {
     expect(actionLabel('PATIENT_MERGE_NOTICE_REVIEWED')).toBe('Marked a merge notice as reviewed')
   })
 
+  // Range of motion (decisions §36).
+  it('words the range-of-motion actions', () => {
+    expect(actionLabel('ROM_ASSESSMENT_RECORDED')).toBe('Recorded range of motion')
+    expect(actionLabel('ROM_ASSESSMENT_AMENDED')).toBe('Amended a range-of-motion assessment')
+    expect(actionLabel('ROM_VIEWED')).toBe('Viewed range of motion')
+    expect(actionLabel('ROM_ASSESSMENT_VIEWED')).toBe('Viewed a range-of-motion assessment')
+  })
+
   // An action the table doesn't know is still readable.
   it('makes words from the name of an action it does not know', () => {
     expect(actionLabel('PROGRAM_PAUSED_BY_ROBOT')).toBe('Program paused by robot')
