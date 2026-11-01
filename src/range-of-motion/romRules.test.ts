@@ -4,6 +4,7 @@ import {
   changeSinceFirst,
   degreeScale,
   groupIntoAssessments,
+  latestVisitLines,
   indexCatalogue,
   movementCards,
   pointPositions,
@@ -209,5 +210,55 @@ describe('degreeScale', () => {
   it('takes negative values in, and never spans nothing', () => {
     expect(degreeScale(card(0, ['2031-03-01', -12]))).toStrictEqual({ low: -20, high: 10 })
     expect(degreeScale(card(0, ['2031-03-01', 0]))).toStrictEqual({ low: -10, high: 10 })
+  })
+})
+
+describe('latestVisitLines', () => {
+  it("gives the newest measured visit's values, each with its side's whole series", () => {
+    const visit = latestVisitLines(patRecord(), index)
+    expect(visit?.measuredOn).toBe('2031-03-20')
+    expect(
+      visit?.lines.map((l) => [l.key, l.series.points.map((p) => p.degrees)]),
+    ).toStrictEqual([
+      ['knee_flexion|left|active', [138, 138, 139]],
+      ['knee_flexion|right|active', [110, 120, 126]],
+    ])
+  })
+
+  it("reads an amended visit's LATEST version, and skips a movement it doesn't know", () => {
+    const visit = latestVisitLines(
+      [
+        assessment(2, {
+          measuredOn: '2031-03-10',
+          amendsId: 1,
+          amendmentReason: 'x',
+          measurements: [value('unknown_movement', null, 1), value('cervical_flexion', null, 30)],
+        }),
+        assessment(1, { measuredOn: '2031-03-10', amendedById: 2, measurements: [value('cervical_flexion', null, 99)] }),
+      ],
+      index,
+    )
+    expect(visit?.lines.map((l) => [l.key, l.series.points.map((p) => p.degrees)])).toStrictEqual([
+      ['cervical_flexion|none|active', [30]],
+    ])
+  })
+
+  it('is null when nothing has been measured', () => {
+    expect(latestVisitLines([], index)).toBeNull()
+  })
+
+  it("gives each mode its own series (a passive value is not the active one's)", () => {
+    const visit = latestVisitLines(
+      [
+        assessment(1, {
+          measurements: [value('knee_flexion', 'right', 120), value('knee_flexion', 'right', 131, { mode: 'passive' })],
+        }),
+      ],
+      index,
+    )
+    expect(visit?.lines.map((l) => [l.key, l.series.points.map((p) => p.degrees)])).toStrictEqual([
+      ['knee_flexion|right|active', [120]],
+      ['knee_flexion|right|passive', [131]],
+    ])
   })
 })

@@ -193,3 +193,39 @@ export function degreeScale(card: MovementCard): { low: number; high: number } {
     high: Math.ceil((Math.max(...all) + 5) / 10) * 10,
   }
 }
+// --- THE HOME'S GLANCE ------------------------------------------------------
+
+// One line of the patient home's "Range of motion" (2026-11-01, the person's
+// choice: the latest visit's movements): a movement, a mode and a side
+// measured at the LATEST visit, with that side's whole series (for the
+// sparkline and the change since the first value).
+export interface TrendLine {
+  key: string
+  card: MovementCard
+  series: RomSeries
+}
+
+// At most this many lines on the home; the rest is "and N more" (My records
+// has them all).
+export const HOME_TREND_LINES = 3
+
+// The latest visit (the newest MEASURED assessment, its latest version — the
+// list's own order) and one line per value it holds, in its order (catalogue,
+// side, mode — the backend's). Null when nothing has been measured. A value
+// whose movement the page doesn't know has no card, so no line.
+export function latestVisitLines(
+  assessments: readonly RomAssessment[],
+  catalogue: CatalogueIndex,
+): { measuredOn: string; lines: TrendLine[] } | null {
+  const [newest] = groupIntoAssessments(assessments)
+  if (!newest) return null
+  const cards = movementCards(assessments, catalogue)
+  const lines = newest.latest.measurements.flatMap((measurement) => {
+    const card = cards.find((c) => c.movement.movement === measurement.movement && c.mode === measurement.mode)
+    const series = card?.series.find((s) => s.side === measurement.side)
+    return card && series
+      ? [{ key: `${measurement.movement}|${measurement.side ?? 'none'}|${measurement.mode}`, card, series }]
+      : []
+  })
+  return { measuredOn: newest.latest.measuredOn, lines }
+}

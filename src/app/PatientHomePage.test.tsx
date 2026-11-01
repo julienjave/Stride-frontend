@@ -9,6 +9,7 @@ import { expectLoadError, retryThenExpectFocusOn } from '@/common/loadFailureAss
 import type { AssignedProgramListItem, ScheduleSummary, ScheduledDay } from '@/assigned-programs/types'
 import { PatientHomePage } from './PatientHomePage'
 import { expectSkeleton } from '@/common/loadingAssertions'
+import { catalogue, patRecord } from '@/range-of-motion/testData'
 
 const fetchMock = vi.fn<typeof fetch>()
 vi.stubGlobal('fetch', fetchMock)
@@ -165,14 +166,20 @@ let summaries: Record<number, () => Response | Promise<Response>>
 // Each program's session list (the cards' pain trend — PainTrend's own
 // tests cover it): none by default.
 let sessionLists: Record<number, () => Response>
+// The patient's range of motion (the home's own section, 2026-11-01 —
+// RangeOfMotionTrend's tests cover it): nothing measured by default.
+let romRecord: () => Response
 
 beforeEach(() => {
   fetchMock.mockReset()
   list = () => json([KNEE, BACK])
   summaries = { 12: () => json(KNEE_SUMMARY), 14: () => json(BACK_SUMMARY) }
   sessionLists = { 12: () => json([]), 14: () => json([]) }
+  romRecord = () => json([])
   fetchMock.mockImplementation((input) => {
     const url = urlOf(input)
+    if (url.endsWith('/range-of-motion')) return Promise.resolve(romRecord())
+    if (url.endsWith('/range-of-motion/movements')) return Promise.resolve(json(catalogue()))
     if (url.endsWith('/assigned-programs')) return Promise.resolve(list())
     const sessions = /\/assigned-programs\/(\d+)\/sessions$/.exec(url)
     if (sessions) return Promise.resolve(sessionLists[Number(sessions[1])]())
@@ -226,7 +233,12 @@ describe('PatientHomePage — what it asks for', () => {
   it("asks for the patient's programs, then each active one's summary as of today, two weeks ahead", async () => {
     renderPage()
     await loaded()
-    const paths = () => requested().map((url) => new URL(url).pathname + new URL(url).search)
+    // The programs' requests (the range of motion asks for its own, at once
+    // — the last test below).
+    const paths = () =>
+      requested()
+        .map((url) => new URL(url).pathname + new URL(url).search)
+        .filter((path) => path.startsWith('/assigned-programs'))
     // The list first; then, in whatever order the cards ask, each active
     // program's summary — and its sessions, for the card's pain trend
     // (2026-10-18).
@@ -694,5 +706,31 @@ describe('PatientHomePage — late make-ups', () => {
       `Knee RehabYou can still make up A · Mobility from ${formatShortDate('2031-06-02')} on another free day, until ${formatShortDate('2031-06-14')}.`,
     )
     expect(within(kneeRow()).queryByRole('link')).not.toBeInTheDocument()
+  })
+})
+
+// The latest visit's measurements (2026-11-01, decisions §36): after My
+// programs, and nothing at all for a patient never measured.
+describe('PatientHomePage — range of motion', () => {
+  it('shows the latest visit after My programs', async () => {
+    romRecord = () => json(patRecord())
+    renderPage()
+    await loaded()
+    const rom = await screen.findByRole('heading', { level: 2, name: 'Range of motion' })
+    const programs = screen.getByRole('heading', { level: 2, name: 'My programs' })
+    expect(programs.compareDocumentPosition(rom) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // Asked for the patient's own (no id named) and the catalogue.
+    const paths = requested().map((url) => new URL(url).pathname + new URL(url).search)
+    expect(paths.filter((path) => path.startsWith('/range-of-motion')).sort()).toStrictEqual([
+      '/range-of-motion',
+      '/range-of-motion/movements',
+    ])
+  })
+
+  it('shows nothing for a patient never measured', async () => {
+    renderPage()
+    await loaded()
+    await vi.waitFor(() => expect(requested().some((url) => url.endsWith('/range-of-motion'))).toBe(true))
+    expect(screen.queryByRole('heading', { name: 'Range of motion' })).not.toBeInTheDocument()
   })
 })

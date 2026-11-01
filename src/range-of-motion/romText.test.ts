@@ -12,6 +12,8 @@ import {
   changeText,
   degreesText,
   measurementLabel,
+  moreLinesText,
+  trendLineLabel,
   replacedByText,
   typicalText,
   visitNoteText,
@@ -111,5 +113,17 @@ describe('an assessment', () => {
     expect(measurementLabel(value('cervical_flexion', null, 1), index)).toBe('Neck flexion, active')
     // A movement this page doesn't know: its code, rather than nothing.
     expect(measurementLabel(value('new_one', null, 1), index)).toBe('new_one, active')
+  })
+})
+
+describe("the home's lines", () => {
+  it('name the side first, and the mode only when passive', () => {
+    expect(trendLineLabel('Knee flexion', 'right', 'active')).toBe('Right knee flexion')
+    expect(trendLineLabel('Knee flexion', 'left', 'passive')).toBe('Left knee flexion · passive')
+    expect(trendLineLabel('Neck flexion', null, 'active')).toBe('Neck flexion')
+  })
+
+  it('count the ones left out', () => {
+    expect(moreLinesText(2)).toBe('and 2 more')
   })
 })

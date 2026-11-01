@@ -110,3 +110,15 @@ export function measurementLabel(measurement: RomMeasurement, catalogue: Catalog
   const name = catalogue.get(measurement.movement)?.name ?? measurement.movement
   return [name, measurement.side, measurement.mode].filter((part) => part !== null).join(', ')
 }
+// A home line's name: "Right knee flexion", "Neck flexion", and the mode
+// only when it is the less usual one — "Right knee flexion · passive" (an
+// active value is what a patient expects; passive is said).
+export function trendLineLabel(name: string, side: RomSide | null, mode: RomMode): string {
+  const base = side === null ? name : `${SIDE_LABELS[side]} ${name.charAt(0).toLowerCase()}${name.slice(1)}`
+  return mode === 'passive' ? `${base} · passive` : base
+}
+
+// "and 2 more" under the home's lines.
+export function moreLinesText(count: number): string {
+  return `and ${count} more`
+}

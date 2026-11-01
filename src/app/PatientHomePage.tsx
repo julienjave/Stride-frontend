@@ -8,6 +8,7 @@ import { MyProgramsSection, TodayAndUpcomingCard } from '@/app/home/patient/Pati
 import { useActiveProgramSummaries } from '@/assigned-programs/useActiveProgramSummaries'
 import { HomeGreeting } from './home/HomeGreeting'
 import { LinesSkeleton } from '@/common/Loading'
+import { RangeOfMotionTrend } from '@/range-of-motion/RangeOfMotionTrend'
 
 // The patient's home (Phase 4, decisions §2) — the same structure as the
 // other homes: greeting + avatar, a summary card (here Today and Upcoming,
@@ -69,6 +70,12 @@ export function PatientHomePage() {
           <MyProgramsSection entries={entries} />
         </>
       )}
+
+      {/* The latest visit's measurements (2026-11-01; decisions §36,
+          "The patient home's trend") — after the programs, whatever state
+          they're in: its own requests, quiet until there's something to
+          show. */}
+      <RangeOfMotionTrend />
     </div>
   )
 }

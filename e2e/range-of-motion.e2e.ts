@@ -14,6 +14,7 @@ import { todayInParis } from './support/dates.ts'
 //     record read again;
 //   - the patient reads the same card in My records, the typical value as a
 //     guide.
+//   - the patient's home shows the latest visit, and leads to My records.
 //
 // THE PREPARATION, through the API ("API-seeded test data"): Alex — on Pat's
 // care team — records Pat's SHOULDER ABDUCTION twice, two weeks and one week
@@ -133,6 +134,19 @@ test.describe('the practitioner', () => {
 
 test.describe('the patient', () => {
   test.use({ storageState: stateFile('pat'), viewport: { width: 375, height: 740 } })
+
+  // The home's glance (2026-11-01): the latest visit's values. Which visit
+  // is the latest depends on whether the practitioner's test ran first
+  // (it records one today) — the right shoulder is in both.
+  test('sees the latest visit on the home, and follows it to My records', async ({ page }) => {
+    await page.goto('/patient')
+    const section = page.getByRole('region', { name: 'Range of motion' })
+    const right = section.getByRole('listitem').filter({ hasText: 'Right shoulder abduction' })
+    await expect(right).toContainText(/↑ \d+° since/)
+    await expect(right.locator('[data-sparkline]')).toBeVisible()
+    await section.getByRole('link', { name: 'See all your measurements' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'My records' })).toBeVisible()
+  })
 
   test('reads the same card in My records, the typical value as a guide, nothing to change', async ({ page }) => {
     await page.goto('/profile/records')
