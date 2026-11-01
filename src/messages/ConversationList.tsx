@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
+import { useCurrentDateTime } from '@/app/useCurrentDateTime'
 import { LoadError } from '@/common/LoadError'
 import { ShowHiddenToggle } from '@/common/ShowHiddenToggle'
 import { useRetryFocus } from '@/common/useRetryFocus'
@@ -26,12 +27,16 @@ interface ConversationListProps {
 export function ConversationList({ role, myId, selectedId }: ConversationListProps) {
   const conversations = useConversations()
   const [showArchived, setShowArchived] = useState(false)
-  // "Now", for the rows' times ("14:05" today, "Mon" this week…), read ONCE
-  // when the list opens — the app's rule for "today" (a page left open past
-  // midnight keeps describing the day it opened on), and a render stays a
-  // pure function of its inputs: calling new Date() during render would
-  // give a different answer on every re-render.
-  const [now] = useState(() => new Date())
+  // "Now", for the rows' times ("14:05" today, "Mon" this week…), KEPT
+  // CURRENT: useCurrentDateTime is a clock in state that ticks once a minute
+  // (the patient home's card uses it too). An exception to the app's usual
+  // rule — "today" read once, when a page opens — because this list is
+  // meant to stay open beside a conversation, often for hours: read once, a
+  // row saying "14:05" still said it after midnight, when it means
+  // yesterday. The clock is STATE, never `new Date()` during render: a
+  // render stays a pure function of its inputs, and the rows change only
+  // when the minute does — at most one re-render a minute.
+  const now = useCurrentDateTime()
   // After a "Try again" that worked, focus goes to the list's heading.
   const heading = useRetryFocus<HTMLHeadingElement>('your conversations', conversations.isSuccess)
 

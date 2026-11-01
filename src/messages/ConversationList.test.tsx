@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { screen, waitFor, within } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { apiError, json } from '@/sessions/testData'
 import { expectLoadError, retryThenExpectFocusOn } from '@/common/loadFailureAssertions'
 import { fakeApi, fetchMock, renderMessages } from './renderMessages'
+import { listTimeText } from './messageText'
 import { ALEX_ID, message, PAT_PERSON, summary } from './testData'
 import type { ConversationSummary } from './types'
 import { expectSkeleton, holdRequests } from '@/common/loadingAssertions'
@@ -152,5 +153,42 @@ describe('ConversationList — while it loads', () => {
     holdRequests(fetchMock, (url) => new URL(url).pathname === '/conversations')
     renderMessages('/practitioner/messages')
     await waitFor(() => expectSkeleton('Loading your conversations…'))
+  })
+})
+
+// The list stays open for hours beside a conversation, so its times follow
+// the clock (useCurrentDateTime ticks every minute). Only Date and the
+// interval are faked: Testing Library's waiting and TanStack Query use
+// setTimeout, which stays real.
+describe('ConversationList — the times follow the clock', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it("turns today's time into the day once midnight passes, without reopening", async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
+    // Local times (whatever TZ the run uses): the message at 23:50, the
+    // list opened at 23:59:30 — thirty seconds before midnight.
+    const sentAt = new Date(2031, 5, 3, 23, 50).toISOString()
+    vi.setSystemTime(new Date(2031, 5, 3, 23, 59, 30))
+    list = [summary({ lastMessage: message(1, { sentAt }) })]
+    renderMessages('/practitioner/messages')
+    const row = within(await inbox()).getByRole('link')
+
+    // What the rule (listTimeText) says on each side of midnight — the test
+    // checks the WIRING (the list re-reads the clock), not the wording,
+    // which messageText's own tests cover. They must differ, or the test
+    // would prove nothing.
+    const beforeMidnight = listTimeText(sentAt, new Date(2031, 5, 3, 23, 59, 30))
+    const afterMidnight = listTimeText(sentAt, new Date(2031, 5, 4, 0, 0, 30))
+    expect(beforeMidnight).not.toBe(afterMidnight)
+    expect(row).toHaveTextContent(beforeMidnight)
+
+    // One tick of the clock: it is now 00:00:30, the next day.
+    act(() => {
+      vi.advanceTimersByTime(60_000)
+    })
+    expect(row).toHaveTextContent(afterMidnight)
+    expect(row).not.toHaveTextContent(beforeMidnight)
   })
 })
