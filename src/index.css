@@ -37,6 +37,8 @@
     --color-secondary-foreground: var(--secondary-foreground);
     --color-secondary: var(--secondary);
     --color-primary-foreground: var(--primary-foreground);
+    --color-primary-hover: var(--primary-hover);
+    --color-brand-accent: var(--brand-accent);
     --color-primary: var(--primary);
     --color-popover-foreground: var(--popover-foreground);
     --color-popover: var(--popover);
@@ -54,24 +56,55 @@
 }
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
+    /* The brand palette (design decisions §39, "palette A"): the logo's
+       dark teal leads, its coral is an accent, and the greys are WARM.
+
+       Written in OKLCH — lightness, chroma, hue — because that is how the
+       palette was designed: every grey below shares hue 85 (warm) with a
+       tiny chroma (0.003–0.007), so they read as one family next to the
+       coral; "the same teal, darker" is one number (L) changed.
+
+       Every pair the screens use is CHECKED, light and dark, by
+       src/theme/paletteContrast.test.ts against the real values in this
+       file: change a colour and that test says whether text still reads. */
+    --background: oklch(0.985 0.003 85);
+    --foreground: oklch(0.205 0.006 85);
+    /* Cards and menus stay pure white: one step lighter than the warm page,
+       so they lift off it without a shadow. */
     --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
+    --card-foreground: oklch(0.205 0.006 85);
     --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.205 0.006 85);
+    /* The logo's teal (#2F7A78 = oklch 0.533 0.073 193), a touch darker
+       (L 0.515 = #297573): white text on it is 5.4:1, and teal TEXT on the
+       light grey surfaces (the active section, "Yours") stays above 4.5:1 —
+       the logo's own value fell to 4.4 there. */
+    --primary: oklch(0.515 0.073 193);
+    --primary-foreground: oklch(1 0 0);
+    /* The default button's hover. shadcn lightens it to 80% opacity, which
+       was fine on near-black but drops white text on teal to 3.5:1 — so a
+       hover goes DARKER instead (7:1). */
+    --primary-hover: oklch(0.455 0.07 193);
+    --secondary: oklch(0.955 0.006 85);
+    --secondary-foreground: oklch(0.205 0.006 85);
+    --muted: oklch(0.955 0.006 85);
+    --muted-foreground: oklch(0.5 0.01 85);
+    /* NOTE: in shadcn, "accent" is the HOVER surface of menu items and
+       ghost buttons — not a brand accent. Here a pale teal tint, so a
+       hovered row hints at the brand. The coral is --brand-accent below. */
+    --accent: oklch(0.95 0.02 193);
+    --accent-foreground: oklch(0.33 0.05 193);
     --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
+    --border: oklch(0.905 0.007 85);
+    --input: oklch(0.905 0.007 85);
+    /* Focus outlines and focused fields' borders: the brand teal. */
+    --ring: oklch(0.515 0.073 193);
+    /* The coral — the logo's signature — used ONLY as a mark (the active
+       section's line), never for text or a button: on white it is 3:1, too
+       low for text, and darkened enough for text it reads as the
+       destructive red. The logo's own coral (L 0.683) is 2.9:1 on the page;
+       L 0.665 reaches 3:1, what a visible state marker needs. */
+    --brand-accent: oklch(0.665 0.138 39);
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
@@ -103,24 +136,30 @@
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
+    /* Dark: the greys lean slightly toward the teal (hue 182) — the dark
+       mock-up the person chose: a near-black with a hint of teal. The
+       primary flips to a LIGHT teal with dark text (7.5:1). */
+    --background: oklch(0.19 0.007 182);
+    --foreground: oklch(0.96 0.004 182);
+    --card: oklch(0.225 0.008 182);
+    --card-foreground: oklch(0.96 0.004 182);
+    --popover: oklch(0.225 0.008 182);
+    --popover-foreground: oklch(0.96 0.004 182);
+    --primary: oklch(0.711 0.084 190);
+    --primary-foreground: oklch(0.19 0.007 182);
+    /* Lighter on hover here: dark text on a lighter teal only gains. */
+    --primary-hover: oklch(0.77 0.08 190);
+    --secondary: oklch(0.28 0.009 182);
+    --secondary-foreground: oklch(0.96 0.004 182);
+    --muted: oklch(0.28 0.009 182);
+    --muted-foreground: oklch(0.72 0.012 182);
+    --accent: oklch(0.3 0.035 190);
+    --accent-foreground: oklch(0.96 0.004 182);
     --destructive: oklch(0.704 0.191 22.216);
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
+    --ring: oklch(0.711 0.084 190);
+    --brand-accent: oklch(0.724 0.125 39);
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);

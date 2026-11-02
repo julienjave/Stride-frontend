@@ -4,12 +4,17 @@ import { MemoryRouter } from 'react-router'
 import { SectionNav } from './SectionNav'
 import type { UserRole } from '@/auth/schemas'
 
-function renderNav(role: UserRole, currentPath: string, badges?: Record<string, number>) {
+function renderNav(
+  role: UserRole,
+  currentPath: string,
+  badges?: Record<string, number>,
+  variant: 'top' | 'bottom' = 'top',
+) {
   return render(
     // initialEntries sets the "current URL" that NavLink compares against
     // to decide which link is active.
     <MemoryRouter initialEntries={[currentPath]}>
-      <SectionNav role={role} variant="top" badges={badges} />
+      <SectionNav role={role} variant={variant} badges={badges} />
     </MemoryRouter>,
   )
 }
@@ -100,5 +105,33 @@ describe('SectionNav', () => {
   it('caps the badge at 99+, keeping the real number in the name', () => {
     renderNav('patient', '/patient', { '/patient/messages': 150 })
     expect(screen.getByRole('link', { name: 'Messages, 150 unread' })).toHaveTextContent('99+')
+  })
+
+  // The active section's coral mark (decisions §39). jsdom draws nothing, so
+  // the test checks what CAN be checked: the mark exists on the current
+  // section only, in both placements, and is hidden from screen readers
+  // (aria-current already says "current page"; the line is for the eye).
+  describe.each(['top', 'bottom'] as const)('the active mark (%s)', (variant) => {
+    function marks() {
+      return [...document.querySelectorAll('[data-active-mark]')]
+    }
+
+    it('is drawn inside the current section only, hidden from screen readers', () => {
+      renderNav('practitioner', '/practitioner/library/12', undefined, variant)
+      expect(marks()).toHaveLength(1)
+      const [mark] = marks()
+      expect(screen.getByRole('link', { name: 'Library' })).toContainElement(mark as HTMLElement)
+      expect(mark).toHaveAttribute('aria-hidden', 'true')
+    })
+
+    it('is not drawn when no section is current', () => {
+      renderNav('practitioner', '/profile', undefined, variant)
+      expect(marks()).toHaveLength(0)
+    })
+
+    it("doesn't change the link's name", () => {
+      renderNav('patient', '/patient/team', undefined, variant)
+      expect(screen.getByRole('link', { name: 'Team' })).toHaveAttribute('aria-current', 'page')
+    })
   })
 })

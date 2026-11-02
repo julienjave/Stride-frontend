@@ -35,5 +35,13 @@ export default defineConfig({
     // several others share the exact same shape and would hit the same
     // wall eventually on a slow enough machine.
     testTimeout: 10_000,
+    // Vitest replaces every CSS import with an EMPTY module by default —
+    // tests don't need styles, and skipping them is fast. That includes
+    // `?raw` imports of a .css file, so a test reading the stylesheet's
+    // text got "". index.css is opted back in: paletteContrast.test.ts
+    // reads its colours with `import … from '../index.css?raw'` (design
+    // decisions §39). No test imports index.css as a stylesheet, so nothing
+    // else changes.
+    css: { include: [/src\/index\.css/] },
   },
 })

@@ -57,33 +57,63 @@ export function SectionNav({ role, variant, className, badges = {} }: SectionNav
               className={({ isActive }) =>
                 cn(
                   // Icon ABOVE its label, per §1, in both variants.
-                  'flex flex-col items-center gap-0.5 rounded-md text-xs font-medium transition-colors',
+                  // `relative`: the active mark below is placed against
+                  // the link.
+                  'relative flex flex-col items-center gap-0.5 rounded-md text-xs font-medium transition-colors',
                   variant === 'top' ? 'px-3 py-1.5' : 'py-2',
+                  // The current section in the brand teal (decisions §39);
+                  // the others quiet until hovered.
                   isActive
-                    ? 'text-foreground'
+                    ? 'text-primary'
                     : 'text-muted-foreground hover:text-foreground',
                   isActive && variant === 'top' && 'bg-muted',
                 )
               }
             >
-              {/* Decorative: the label right under it already names the
-                  link, so the icon would only be announced as noise.
-                  `relative` on the wrapper: the badge is positioned
-                  against the icon, on its top-right corner. */}
-              <span className="relative">
-                <Icon className="size-5" aria-hidden="true" />
-                {badge > 0 && (
-                  <span
-                    aria-hidden="true"
-                    className="absolute -top-1.5 -right-2.5 min-w-4 rounded-full bg-primary px-1 text-center text-[10px] leading-4 font-semibold text-primary-foreground"
-                  >
-                    {/* Past 99 the exact number stops mattering on a tab,
-                        and would no longer fit. */}
-                    {badge > 99 ? '99+' : badge}
+              {/* NavLink's children may also be a FUNCTION of { isActive }:
+                  that's how the mark below is drawn on the current section
+                  only. */}
+              {({ isActive }) => (
+                <>
+                  {/* The active section's MARK, in the logo's coral (decisions
+                      §39) — the one place coral appears outside the logo. A line
+                      UNDER the label in the top bar, a short bar ABOVE the icon
+                      on the phone's tab bar (at the edge nearest the page, in
+                      both cases). Decoration only: the state is also the teal
+                      label, the grey background (top bar) and aria-current —
+                      colour never carries it alone. */}
+                  {isActive && (
+                    <span
+                      aria-hidden="true"
+                      data-active-mark=""
+                      className={cn(
+                        'absolute h-0.5 rounded-full bg-brand-accent',
+                        variant === 'top'
+                          ? 'inset-x-3 bottom-0'
+                          : 'top-0 left-1/2 w-8 -translate-x-1/2',
+                      )}
+                    />
+                  )}
+                  {/* Decorative: the label right under it already names the
+                      link, so the icon would only be announced as noise.
+                      `relative` on the wrapper: the badge is positioned
+                      against the icon, on its top-right corner. */}
+                  <span className="relative">
+                    <Icon className="size-5" aria-hidden="true" />
+                    {badge > 0 && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute -top-1.5 -right-2.5 min-w-4 rounded-full bg-primary px-1 text-center text-[10px] leading-4 font-semibold text-primary-foreground"
+                      >
+                        {/* Past 99 the exact number stops mattering on a tab,
+                            and would no longer fit. */}
+                        {badge > 99 ? '99+' : badge}
+                      </span>
+                    )}
                   </span>
-                )}
-              </span>
-              {label}
+                  {label}
+                </>
+              )}
             </NavLink>
           </li>
           )
