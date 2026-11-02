@@ -1,3 +1,4 @@
+import type { DemoInfo } from '@/demo/types'
 import type { Address } from '@/common/address/types'
 import type { WeightUnit } from '@/common/weight'
 
@@ -94,4 +95,8 @@ export type RegisterClinicResult = CurrentUser & { clinicId: number }
 // One field: has the one-time setup (register-clinic) already happened?
 export interface SetupStatus {
   setupComplete: boolean
+  // The reviewers' demo (decisions §46): the sign-in card's data, `null` on
+  // every real deployment. Optional: an answer without it (an older backend)
+  // shows no card.
+  demo?: DemoInfo | null
 }

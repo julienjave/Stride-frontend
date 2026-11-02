@@ -478,3 +478,121 @@ describe('LoginPage — the two-factor step', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Your sign-in has expired — start again')
   })
 })
+
+// The reviewers' demo (decisions §46): GET /auth/setup-status answers `demo`
+// on the demo deployment only.
+describe('LoginPage — the demo card', () => {
+  const demo = {
+    accounts: [
+      { email: 'admin@stride.test', role: 'admin', twoFactor: false },
+      { email: 'alex@stride.test', role: 'practitioner', twoFactor: false },
+      { email: 'pat@stride.test', role: 'patient', twoFactor: false },
+      { email: 'casey@stride.test', role: 'patient', twoFactor: true },
+    ],
+    password: 'password123',
+    twoFactorKey: 'STRIDEDEMOTWOFACTORSTRIDEDEMOTWO',
+    reset: { time: '04:00', timeZone: 'America/Toronto' },
+    guideUrl: 'https://github.com/x/stride-backend/blob/main/docs/dev-test-accounts.md',
+  }
+
+  function demoIs(value: unknown) {
+    setupStatusResponse = () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ setupComplete: true, demo: value }), { status: 200 }),
+      )
+  }
+
+  // A real deployment: nothing about a demo on its sign-in page.
+  it('shows no card when the answer has no demo', async () => {
+    demoIs(null)
+    const { queryClient } = renderLoginPage()
+    await setupStatusSettled(queryClient)
+    expect(screen.queryByRole('heading', { name: 'For reviewers' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Use / })).not.toBeInTheDocument()
+  })
+
+  it('lists the shared accounts, their password, the two-factor key, the reset and the guide', async () => {
+    demoIs(demo)
+    renderLoginPage()
+
+    const card = (await screen.findByRole('heading', { name: 'For reviewers' })).closest(
+      'section',
+    )!
+    expect(card).toHaveTextContent('the password of each is password123')
+    for (const { email } of demo.accounts) {
+      expect(screen.getByRole('button', { name: `Use ${email}` })).toBeInTheDocument()
+    }
+    // Said for Casey only — the one account the card marks as two-factor.
+    expect(card.textContent?.match(/two-factor sign-in/g)).toHaveLength(2) // + the rules line
+    expect(card).toHaveTextContent('Patient, two-factor sign-in')
+    expect(card).not.toHaveTextContent('Admin, two-factor')
+    // In groups of four, as authenticator apps print keys — once, on Casey's row.
+    expect(card).toHaveTextContent('STRI DEDE MOTW OFAC TORS TRID EDEM OTWO')
+    expect(card.textContent?.match(/Add this key/g)).toHaveLength(1)
+    // In the viewer's own time (demoReset.test.ts pins the conversion); here,
+    // that it's said at all, with what it deletes.
+    expect(card).toHaveTextContent(
+      /Demo data is reset every day at .+ your time — including accounts you create\./,
+    )
+    expect(card).toHaveTextContent('Don’t enter real personal information')
+    const guide = screen.getByRole('link', { name: /reviewers’ guide.*opens in a new tab/ })
+    expect(guide).toHaveAttribute('href', demo.guideUrl)
+    expect(guide).toHaveAttribute('target', '_blank')
+    expect(guide).toHaveAttribute('rel', 'noreferrer')
+  })
+
+  it('leaves out the reset and the guide when the backend has none', async () => {
+    demoIs({ ...demo, reset: null, guideUrl: null })
+    renderLoginPage()
+    const card = (await screen.findByRole('heading', { name: 'For reviewers' })).closest(
+      'section',
+    )!
+    expect(card).not.toHaveTextContent('reset every day')
+    // The text too, not only the link: an <a> without href has no link role.
+    expect(card).not.toHaveTextContent('reviewers’ guide')
+  })
+
+  // "Use" FILLS the form — the reviewer still signs in, through the real
+  // steps. Focus goes to "Log in"; a refusal left from an earlier try goes.
+  it('fills the form with the account, moves focus to Log in, and signs in on Log in', async () => {
+    demoIs(demo)
+    apiMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ statusCode: 401, message: ['Invalid credentials'] }), {
+        status: 401,
+      }),
+    )
+    const user = userEvent.setup()
+    renderLoginPage()
+
+    // An earlier, failed try with other values.
+    await user.type(screen.getByLabelText('Email'), 'me@x.org')
+    await user.type(screen.getByLabelText('Password'), 'wrong-one')
+    await user.click(screen.getByRole('button', { name: 'Log in' }))
+    expect(await screen.findByText('Invalid credentials')).toBeInTheDocument()
+
+    await user.click(await screen.findByRole('button', { name: 'Use alex@stride.test' }))
+
+    expect(screen.getByLabelText('Email')).toHaveValue('alex@stride.test')
+    expect(screen.getByLabelText('Password')).toHaveValue('password123')
+    expect(screen.queryByText('Invalid credentials')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Log in' })).toHaveFocus()
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'alex@stride.test and its password are filled in. Press Log in.',
+    )
+    // Nothing sent by "Use" itself: one request so far (the failed try).
+    expect(apiMock).toHaveBeenCalledTimes(1)
+
+    apiMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ mfaRequired: true }), { status: 201 }),
+    )
+    await user.keyboard('{Enter}')
+    await waitFor(() =>
+      expect(apiMock).toHaveBeenLastCalledWith(
+        expect.stringContaining('/auth/login'),
+        expect.objectContaining({
+          body: JSON.stringify({ email: 'alex@stride.test', password: 'password123' }),
+        }),
+      ),
+    )
+  })
+})

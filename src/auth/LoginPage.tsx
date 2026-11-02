@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -22,6 +22,7 @@ import { ApiError } from '@/api/client'
 import { failureText } from '@/api/apiErrors'
 import { SecondFactorField } from '@/two-factor/SecondFactorField'
 import { codeRefusal } from '@/two-factor/twoFactorRules'
+import { DemoCard } from '@/demo/DemoCard'
 
 // A fourth state added to the original three: 'role-pending' sits between
 // 'credentials' and either end state, for exactly the case the backend's
@@ -136,6 +137,22 @@ export function LoginPage() {
       }
     },
   })
+
+  // The demo card's "Use" (decisions §46): the account's email and the
+  // shared password go into the form — setValue writes a registered field's
+  // value as if typed — any earlier refusal is cleared (it was about other
+  // values), and focus moves to "Log in": the reviewer still signs in
+  // themselves, and sees the real steps (the role picker, the two-factor
+  // code). The button is below the card's list only for a sighted reader
+  // scrolling; a keyboard user lands on it at once.
+  const submitButton = useRef<HTMLButtonElement>(null)
+  function fillDemoAccount(email: string, password: string) {
+    credentialsForm.setValue('email', email)
+    credentialsForm.setValue('password', password)
+    credentialsForm.clearErrors()
+    loginMutation.reset()
+    submitButton.current?.focus()
+  }
 
   // Called when the user clicks one of the role buttons. We deliberately
   // don't ask them to retype email/password — credentialsForm still holds
@@ -287,7 +304,7 @@ export function LoginPage() {
           </p>
         )}
 
-        <Button type="submit" disabled={loginMutation.isPending}>
+        <Button ref={submitButton} type="submit" disabled={loginMutation.isPending}>
           {loginMutation.isPending ? 'Logging in…' : 'Log in'}
         </Button>
       </form>
@@ -297,6 +314,10 @@ export function LoginPage() {
       <p className="text-sm text-muted-foreground">
         No account yet? Your clinic creates it and emails you an invitation.
       </p>
+      {/* The reviewers' demo only — `demo` is null on a real deployment. */}
+      {setupStatus.data?.demo && (
+        <DemoCard demo={setupStatus.data.demo} onUse={fillDemoAccount} />
+      )}
       {/* Only on a brand-new install: once the first clinic and admin exist,
           the setup page would refuse anyway (the backend answers 403), so
           the link would lead nowhere. `=== false`, not `!setupComplete`:
