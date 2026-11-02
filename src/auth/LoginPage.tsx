@@ -149,7 +149,7 @@ export function LoginPage() {
 
   if (step === 'role-pending') {
     return (
-      <div className="mx-auto mt-24 max-w-sm px-4 space-y-4">
+      <div className="mx-auto mt-8 max-w-sm px-4 space-y-4">
         <h1 className="text-xl font-semibold">Which role do you want to log in as?</h1>
         <div className="flex flex-col gap-2">
           {roleOptions.map((role) => (
@@ -176,7 +176,7 @@ export function LoginPage() {
     // other failure (an expired sign-in step, throttling) under the form.
     const refusal = codeRefusal(mfaMutation.error)
     return (
-      <div className="mx-auto mt-24 max-w-sm px-4 space-y-4">
+      <div className="mx-auto mt-8 max-w-sm px-4 space-y-4">
         <h1 className="text-xl font-semibold">Enter your two-factor code</h1>
         <form
           onSubmit={(e) => void mfaForm.handleSubmit((values) => mfaMutation.mutate(values))(e)}
@@ -209,7 +209,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="mx-auto mt-24 max-w-sm px-4 space-y-4">
+    <div className="mx-auto mt-8 max-w-sm px-4 space-y-4">
       <h1 className="text-xl font-semibold">Log in</h1>
       {/* role="status": announced by screen readers when the page opens. */}
       {state?.passwordSet && (

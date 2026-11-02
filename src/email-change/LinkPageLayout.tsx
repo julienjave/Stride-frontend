@@ -5,7 +5,7 @@ import type { ReactNode } from 'react'
 // on a phone, signed in or not.
 export function LinkPageLayout({ heading, children }: { heading: string; children: ReactNode }) {
   return (
-    <div className="mx-auto mt-24 max-w-sm space-y-4 px-4">
+    <div className="mx-auto mt-8 max-w-sm space-y-4 px-4">
       <h1 className="text-xl font-semibold">{heading}</h1>
       {children}
     </div>

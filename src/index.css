@@ -2,12 +2,24 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+/* Atkinson Hyperlegible Next, for the "Easier-to-read font" setting
+   (decisions §39). Importing it only DECLARES the font (@font-face): a
+   browser downloads a font file when some text on the page actually uses it,
+   so someone with the setting off never downloads it — and someone with it
+   on never downloads Geist. */
+@import "@fontsource-variable/atkinson-hyperlegible-next";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    --font-heading: var(--font-sans);
-    --font-sans: 'Geist Variable', sans-serif;
+    /* Both point at --app-font (defined below), not at a font name. WHY:
+       this block is `@theme inline`, which writes each value straight into
+       the utilities — `font-sans` becomes `font-family: <this value>`. A
+       font NAME here would be frozen into every utility, and nothing could
+       swap it at run time; a VARIABLE is frozen in instead, and a variable
+       can be redefined by a class (`.readable-font` below). */
+    --font-heading: var(--app-font);
+    --font-sans: var(--app-font);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -179,6 +191,18 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+}
+
+/* The app's typeface (decisions §39): Geist, unless the "Easier-to-read
+   font" setting put `.readable-font` on <html> (src/theme/font.ts, and
+   index.html's pre-paint script on load). Headings follow: --font-heading
+   reads the same variable. */
+:root {
+    --app-font: 'Geist Variable', sans-serif;
+}
+
+.readable-font {
+    --app-font: 'Atkinson Hyperlegible Next Variable', sans-serif;
 }
 
 @layer base {

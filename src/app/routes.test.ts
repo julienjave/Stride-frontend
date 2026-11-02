@@ -6,6 +6,10 @@ import { LoginPage } from '@/auth/LoginPage'
 import { DashboardRedirect } from './DashboardRedirect'
 import { RouteErrorPage } from './RouteErrorPage'
 import { RecordsDownloadPage } from '@/records-export/RecordsDownloadPage'
+import { SignedOutLayout } from './SignedOutLayout'
+import { AuthenticatedLayout } from './AuthenticatedLayout'
+import { RequireAuth } from './RequireAuth'
+import { RequireGuest } from './RequireGuest'
 import { apiRequest } from '@/api/client'
 import {
   forgetSignOutReason,
@@ -20,6 +24,22 @@ const STATIC_PAGES: unknown[] = [LoginPage, DashboardRedirect]
 
 function allRoutes(routes: RouteObject[]): RouteObject[] {
   return routes.flatMap((route) => [route, ...allRoutes(route.children ?? [])])
+}
+
+// The routes from the root down to the one at `path` — its ancestors, then
+// itself — so a test can ask what a page sits inside (a layout, a guard).
+function chainTo(path: string, routes = router.routes): RouteObject[] {
+  for (const route of routes) {
+    if (route.path === path) return [route]
+    const below = chainTo(path, route.children ?? [])
+    if (below.length > 0) return [route, ...below]
+  }
+  return []
+}
+
+// The component a route draws, when it has an `element` (a layout, a guard).
+function elementType(route: RouteObject): unknown {
+  return isValidElement(route.element) ? route.element.type : undefined
 }
 
 // A page is a route with a path, or an INDEX route (the page shown at its
@@ -58,14 +78,48 @@ describe('the route tree', () => {
   })
 
   // The records email's link (decisions §20): the patient may be unable to
-  // sign in, so the page sits beside the other pages an email links to — a
-  // direct child of the root, under NO guard (inside RequireAuth it would
+  // sign in, so the page sits under NO guard (inside RequireAuth it would
   // send them to sign in; inside RequireGuest, a signed-in visitor away).
   it('serves the records download link outside every guard', async () => {
-    const route = router.routes[0].children?.find((child) => child.path === '/records-download')
+    const chain = chainTo('/records-download')
+    const route = chain.at(-1)
     expect(route?.element).toBeUndefined()
+    const above = chain.map(elementType)
+    expect(above).not.toContain(RequireAuth)
+    expect(above).not.toContain(RequireGuest)
     if (typeof route?.lazy !== 'function') throw new Error('/records-download should be lazy')
     expect((await route.lazy()).Component).toBe(RecordsDownloadPage)
+  })
+
+  // The logo above every signed-out page (decisions §39): each of them sits
+  // inside SignedOutLayout, and no signed-in page does — one would show the
+  // logo twice, under the top bar's.
+  const SIGNED_OUT_PATHS = [
+    '/login',
+    '/forgot-password',
+    '/register-clinic',
+    '/accept-invitation',
+    '/reset-password',
+    '/confirm-email',
+    '/cancel-email-change',
+    '/records-download',
+  ]
+
+  it.each(SIGNED_OUT_PATHS)('draws %s inside the signed-out layout', (path) => {
+    const above = chainTo(path).map(elementType)
+    expect(above).toContain(SignedOutLayout)
+    expect(above).not.toContain(AuthenticatedLayout)
+  })
+
+  it('keeps the signed-in pages out of the signed-out layout', () => {
+    const signedIn = pageRoutes.filter((route) =>
+      route.path !== undefined && !SIGNED_OUT_PATHS.includes(route.path),
+    )
+    expect(signedIn.length).toBeGreaterThan(25)
+    for (const route of signedIn) {
+      const above = chainTo(route.path as string).map(elementType)
+      expect(above, route.path).not.toContain(SignedOutLayout)
+    }
   })
 })
 

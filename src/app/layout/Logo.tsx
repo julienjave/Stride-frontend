@@ -46,11 +46,36 @@ export function Logo({ homePath, className }: LogoProps) {
       className={cn('flex shrink-0 items-center rounded-sm', className)}
     >
       {/* alt="": the link's aria-label already names it; images with text
-          alternatives inside it would be read a second time. `h-7` (28 px)
-          and `w-auto`: the height is chosen, the width follows the file's
-          own proportions (its viewBox). */}
-      <img src={logoLight} alt="" className="h-7 w-auto dark:hidden" />
-      <img src={logoDark} alt="" className="hidden h-7 w-auto dark:block" />
+          alternatives inside it would be read a second time. `h-7` (28 px):
+          the top bar's size. */}
+      <LogoImages alt="" className="h-7" />
     </Link>
+  )
+}
+
+interface LogoImagesProps {
+  // What a screen reader says for the logo: "" when something around it
+  // already names it (the top bar's link), "Stride" when the logo IS the
+  // content (the signed-out pages — SignedOutLayout).
+  alt: string
+  // The HEIGHT, as a Tailwind class (`h-7`, `h-12`…). The width follows the
+  // file's own proportions (its viewBox) through `w-auto`.
+  className: string
+}
+
+// The two lockups, one per theme — the part shared by the top bar's link and
+// the signed-out pages' larger logo, so the "which file in which theme" rule
+// lives in ONE place.
+//
+// Both images carry the same `alt`. That doesn't make a screen reader say
+// "Stride" twice: `display: none` (what `hidden` / `dark:hidden` set)
+// removes an element from the accessibility tree too, so only the image on
+// screen is announced.
+export function LogoImages({ alt, className }: LogoImagesProps) {
+  return (
+    <>
+      <img src={logoLight} alt={alt} className={cn('w-auto dark:hidden', className)} />
+      <img src={logoDark} alt={alt} className={cn('hidden w-auto dark:block', className)} />
+    </>
   )
 }

@@ -28,16 +28,18 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }
 ]
 
 // Settings, design decisions §1: a menu of labeled groups, one per
-// setting — the theme, then the weight unit.
+// setting — the theme, the text (decisions §39), then the weight unit.
 //
-// The two are stored very differently, on purpose:
-//   - Theme: in THIS browser (localStorage). It's about the device — you
-//     may want dark on your phone and light on your desktop.
+// They are stored very differently, on purpose:
+//   - Theme and text: in THIS browser (localStorage). The theme is about
+//     the device — you may want dark on your phone and light on your
+//     desktop; the font is stored the same way for now (its per-account
+//     version is a deferred improvement).
 //   - Weight unit: on the ACCOUNT (the backend). It's about the person —
 //     the unit you think in is the same on every device, and it has to
 //     follow you when you log in somewhere else.
 export function SettingsMenu() {
-  const { preference, setPreference } = useTheme()
+  const { preference, setPreference, readableFont, setReadableFont } = useTheme()
   const { data: currentUser } = useCurrentUser()
   const weightUnit = usePreferredWeightUnit()
   // Called HERE, in the always-mounted menu, not inside the dropdown's
@@ -92,6 +94,19 @@ export function SettingsMenu() {
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
+
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Text</DropdownMenuLabel>
+        {/* One on / off setting: a checkbox item (role="menuitemcheckbox",
+            aria-checked), like the email setting below. Applied at once —
+            the whole page redraws in the other font while the menu is
+            still open, which is its own preview. */}
+        <DropdownMenuCheckboxItem
+          checked={readableFont}
+          onCheckedChange={(checked) => setReadableFont(checked)}
+        >
+          Easier-to-read font
+        </DropdownMenuCheckboxItem>
 
         {/* Only with a logged-in user: the setting belongs to an account.
             In practice always true — the menu lives in the logged-in

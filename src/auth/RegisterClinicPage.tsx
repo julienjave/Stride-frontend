@@ -80,7 +80,7 @@ export function RegisterClinicPage() {
   // Stride is already set up: no form at all — it could only be refused.
   if (setupStatus.data?.setupComplete === true) {
     return (
-      <div className="mx-auto mt-24 max-w-sm px-4 space-y-4">
+      <div className="mx-auto mt-8 max-w-sm px-4 space-y-4">
         <h1 className="text-xl font-semibold">Stride is already set up</h1>
         <p className="text-sm text-muted-foreground">
           This one-time setup step has already been completed. New accounts are created by your
@@ -99,11 +99,11 @@ export function RegisterClinicPage() {
   // through to the form below — the backend still refuses a second setup
   // with a 403, which the onError above turns into the notice above.
   if (setupStatus.isPending) {
-    return <Loading className="mx-auto mt-24 max-w-sm px-4" />
+    return <Loading className="mx-auto mt-8 max-w-sm px-4" />
   }
 
   return (
-    <div className="mx-auto mt-24 max-w-sm px-4 space-y-4">
+    <div className="mx-auto mt-8 max-w-sm px-4 space-y-4">
       <h1 className="text-xl font-semibold">Set up your clinic</h1>
       <p className="text-sm text-muted-foreground">
         This one-time setup creates your clinic and its first administrator account.

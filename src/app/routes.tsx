@@ -6,6 +6,7 @@ import { RequireAuth } from './RequireAuth'
 import { RequireGuest } from './RequireGuest'
 import { RequireRole } from './RequireRole'
 import { AuthenticatedLayout } from './AuthenticatedLayout'
+import { SignedOutLayout } from './SignedOutLayout'
 import { setUnauthorizedHandler } from '@/api/client'
 import { queryClient } from '@/api/queryClient'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
@@ -75,77 +76,86 @@ export const router = createBrowserRouter([
     hydrateFallbackElement: <Loading className="p-4" />,
     errorElement: <RouteErrorPage />,
     children: [
-      // Under NO guard. Not RequireGuest: a signed-in visitor (a shared
-      // computer, or a practitioner testing their patient's link) would be
-      // bounced to their own home without a word about the invitation — the
-      // page instead tells them to log out first. Not RequireAuth: the person
-      // accepting has no password yet, so no session.
+      // Every page seen WITHOUT the signed-in navigation, under one layout
+      // that draws the Stride logo above it (SignedOutLayout, decisions §39).
+      // A pathless route: it adds no address, only the frame; the guards
+      // inside still decide who may see each page.
       {
-        path: '/accept-invitation',
-        lazy: page(
-          () => import('@/invitations/AcceptInvitationPage'),
-          (module) => module.AcceptInvitationPage,
-        ),
-      },
-      // The page a password reset email links to (Phase 6) — under no
-      // guard, for the same reason as /accept-invitation: a signed-in
-      // visitor is asked to log out first rather than bounced away.
-      {
-        path: '/reset-password',
-        lazy: page(
-          () => import('@/auth/ResetPasswordPage'),
-          (module) => module.ResetPasswordPage,
-        ),
-      },
-      // The two links of a change of email (Phase 6, decisions §12): the
-      // confirmation sent to the NEW address, the cancel link sent to the OLD
-      // one. Under no guard — opened from an inbox, on any device, signed in
-      // or not; neither needs a session (the token is the proof).
-      {
-        path: '/confirm-email',
-        lazy: page(
-          () => import('@/email-change/ConfirmEmailPage'),
-          (module) => module.ConfirmEmailPage,
-        ),
-      },
-      {
-        path: '/cancel-email-change',
-        lazy: page(
-          () => import('@/email-change/CancelEmailChangePage'),
-          (module) => module.CancelEmailChangePage,
-        ),
-      },
-      // The records email's link (Phase 6, decisions §20) — under no guard:
-      // the patient may be unable to sign in, and a signed-in visitor is
-      // fine (the download uses no session). Nothing is sent on load — the
-      // page waits for the date of birth and a press (mail scanners).
-      {
-        path: '/records-download',
-        lazy: page(
-          () => import('@/records-export/RecordsDownloadPage'),
-          (module) => module.RecordsDownloadPage,
-        ),
-      },
-      {
-        // Routes only a logged-OUT visitor should reach.
-        element: <RequireGuest />,
+        element: <SignedOutLayout />,
         children: [
-          { path: '/login', element: <LoginPage /> },
-          // "Forgot your password?" — asking for a reset link (Phase 6).
-          {
-            path: '/forgot-password',
-            lazy: page(
-              () => import('@/auth/ForgotPasswordPage'),
-              (module) => module.ForgotPasswordPage,
-            ),
-          },
-          {
-            path: '/register-clinic',
-            lazy: page(
-              () => import('@/auth/RegisterClinicPage'),
-              (module) => module.RegisterClinicPage,
-            ),
-          },
+        // Under NO guard. Not RequireGuest: a signed-in visitor (a shared
+        // computer, or a practitioner testing their patient's link) would be
+        // bounced to their own home without a word about the invitation — the
+        // page instead tells them to log out first. Not RequireAuth: the person
+        // accepting has no password yet, so no session.
+        {
+          path: '/accept-invitation',
+          lazy: page(
+            () => import('@/invitations/AcceptInvitationPage'),
+            (module) => module.AcceptInvitationPage,
+          ),
+        },
+        // The page a password reset email links to (Phase 6) — under no
+        // guard, for the same reason as /accept-invitation: a signed-in
+        // visitor is asked to log out first rather than bounced away.
+        {
+          path: '/reset-password',
+          lazy: page(
+            () => import('@/auth/ResetPasswordPage'),
+            (module) => module.ResetPasswordPage,
+          ),
+        },
+        // The two links of a change of email (Phase 6, decisions §12): the
+        // confirmation sent to the NEW address, the cancel link sent to the OLD
+        // one. Under no guard — opened from an inbox, on any device, signed in
+        // or not; neither needs a session (the token is the proof).
+        {
+          path: '/confirm-email',
+          lazy: page(
+            () => import('@/email-change/ConfirmEmailPage'),
+            (module) => module.ConfirmEmailPage,
+          ),
+        },
+        {
+          path: '/cancel-email-change',
+          lazy: page(
+            () => import('@/email-change/CancelEmailChangePage'),
+            (module) => module.CancelEmailChangePage,
+          ),
+        },
+        // The records email's link (Phase 6, decisions §20) — under no guard:
+        // the patient may be unable to sign in, and a signed-in visitor is
+        // fine (the download uses no session). Nothing is sent on load — the
+        // page waits for the date of birth and a press (mail scanners).
+        {
+          path: '/records-download',
+          lazy: page(
+            () => import('@/records-export/RecordsDownloadPage'),
+            (module) => module.RecordsDownloadPage,
+          ),
+        },
+        {
+          // Routes only a logged-OUT visitor should reach.
+          element: <RequireGuest />,
+          children: [
+            { path: '/login', element: <LoginPage /> },
+            // "Forgot your password?" — asking for a reset link (Phase 6).
+            {
+              path: '/forgot-password',
+              lazy: page(
+                () => import('@/auth/ForgotPasswordPage'),
+                (module) => module.ForgotPasswordPage,
+              ),
+            },
+            {
+              path: '/register-clinic',
+              lazy: page(
+                () => import('@/auth/RegisterClinicPage'),
+                (module) => module.RegisterClinicPage,
+              ),
+            },
+          ],
+        },
         ],
       },
       {

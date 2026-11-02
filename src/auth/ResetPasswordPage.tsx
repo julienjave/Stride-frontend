@@ -103,7 +103,7 @@ export function ResetPasswordPage() {
 
   if (check.isPending) {
     return (
-      <p role="status" className="mx-auto mt-24 max-w-sm px-4 text-sm text-muted-foreground">
+      <p role="status" className="mx-auto mt-8 max-w-sm px-4 text-sm text-muted-foreground">
         Checking your link…
       </p>
     )
@@ -123,7 +123,7 @@ export function ResetPasswordPage() {
 
   const { email, expiresAt } = check.data
   return (
-    <div className="mx-auto mt-24 max-w-sm px-4 space-y-4">
+    <div className="mx-auto mt-8 max-w-sm px-4 space-y-4">
       <h1 className="text-xl font-semibold">Choose a new password</h1>
       <form
         onSubmit={(e) => void form.handleSubmit(({ password }) => reset.mutate(password))(e)}
@@ -210,7 +210,7 @@ function NewLinkLinks() {
 
 function Notice({ heading, children }: { heading: string; children: ReactNode }) {
   return (
-    <div className="mx-auto mt-24 max-w-sm px-4 space-y-4">
+    <div className="mx-auto mt-8 max-w-sm px-4 space-y-4">
       <h1 className="text-xl font-semibold">{heading}</h1>
       {children}
     </div>

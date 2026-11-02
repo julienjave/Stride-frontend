@@ -10,6 +10,12 @@ import {
   readStoredPreference,
   resolveTheme,
 } from './theme'
+import {
+  FONT_STORAGE_KEY,
+  READABLE_FONT_CLASS,
+  parseReadableFont,
+  readStoredReadableFont,
+} from './font'
 import { installFakeMatchMedia } from './fakeMatchMedia'
 
 afterEach(() => {
@@ -81,5 +87,46 @@ describe('index.html pre-paint theme script', () => {
 
     const expected = resolveTheme(readStoredPreference(), true)
     expect(isDark()).toBe(expected === 'dark')
+  })
+})
+
+// The same proof for the font setting's half of the script (decisions §39):
+// the page must open in the font font.ts will apply, or someone who turned
+// the setting on would see every page drawn in Geist, then redrawn.
+describe('index.html pre-paint font script', () => {
+  const hasReadableFont = () => document.documentElement.classList.contains(READABLE_FONT_CLASS)
+
+  for (const stored of ['readable', 'standard', '', 'Readable', null]) {
+    it(`agrees with font.ts for stored=${JSON.stringify(stored)}`, () => {
+      installFakeMatchMedia(false)
+      if (stored !== null) {
+        localStorage.setItem(FONT_STORAGE_KEY, stored)
+      }
+
+      runPrePaintScript()
+
+      expect(hasReadableFont()).toBe(parseReadableFont(stored))
+    })
+  }
+
+  it('agrees with font.ts when storage is blocked (off)', () => {
+    installFakeMatchMedia(false)
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('SecurityError')
+    })
+
+    expect(() => runPrePaintScript()).not.toThrow()
+    expect(hasReadableFont()).toBe(readStoredReadableFont())
+  })
+
+  it('sets the font and the theme independently', () => {
+    installFakeMatchMedia(false)
+    localStorage.setItem(THEME_STORAGE_KEY, 'dark')
+    localStorage.setItem(FONT_STORAGE_KEY, 'readable')
+
+    runPrePaintScript()
+
+    expect(isDark()).toBe(true)
+    expect(hasReadableFont()).toBe(true)
   })
 })

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
-import { Logo } from './Logo'
+import { Logo, LogoImages } from './Logo'
 
 function renderLogo() {
   return render(
@@ -45,5 +45,21 @@ describe('Logo', () => {
     for (const image of document.querySelectorAll('img')) {
       expect(image).toHaveAttribute('alt', '')
     }
+  })
+})
+
+describe('LogoImages', () => {
+  it('gives both lockups the alt text and the height it is handed', () => {
+    render(<LogoImages alt="Stride" className="h-12" />)
+    // jsdom applies no stylesheet, so BOTH images count here; in a browser
+    // the hidden one is `display: none`, outside the accessibility tree —
+    // a screen reader hears "Stride" once.
+    const images = screen.getAllByRole('img', { name: 'Stride' })
+    expect(images).toHaveLength(2)
+    for (const image of images) {
+      expect(image).toHaveClass('h-12', 'w-auto')
+    }
+    expect(images[0]).toHaveClass('dark:hidden')
+    expect(images[1]).toHaveClass('hidden', 'dark:block')
   })
 })

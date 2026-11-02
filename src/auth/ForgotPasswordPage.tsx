@@ -34,7 +34,7 @@ export function ForgotPasswordPage() {
   if (request.isSuccess) {
     const email = request.variables.email
     return (
-      <div className="mx-auto mt-24 max-w-sm px-4 space-y-4">
+      <div className="mx-auto mt-8 max-w-sm px-4 space-y-4">
         <h1 className="text-xl font-semibold">Check your email</h1>
         {/* role="status": announced when it replaces the form. */}
         <p role="status" className="text-sm">
@@ -58,7 +58,7 @@ export function ForgotPasswordPage() {
   }
 
   return (
-    <div className="mx-auto mt-24 max-w-sm px-4 space-y-4">
+    <div className="mx-auto mt-8 max-w-sm px-4 space-y-4">
       <h1 className="text-xl font-semibold">Reset your password</h1>
       <p className="text-sm text-muted-foreground">
         Enter the email address you log in with. We'll send you a link to choose a new password.

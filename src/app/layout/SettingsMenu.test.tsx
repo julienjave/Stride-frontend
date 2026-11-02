@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SettingsMenu } from './SettingsMenu'
 import { ThemeProvider } from '@/theme/ThemeProvider'
 import { THEME_STORAGE_KEY } from '@/theme/theme'
+import { FONT_STORAGE_KEY, READABLE_FONT_CLASS } from '@/theme/font'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import { findSnackbar } from '@/snackbars/snackbarAssertions'
 
@@ -195,7 +196,9 @@ describe('SettingsMenu — message emails', () => {
   it('does not offer it to an admin-only account, nor without a user', async () => {
     renderMenu({ ...me, activeRole: 'admin', roles: ['admin'] })
     await openMenu()
-    expect(screen.queryByRole('menuitemcheckbox')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('menuitemcheckbox', { name: 'Email me about new messages' }),
+    ).not.toBeInTheDocument()
   })
 
   it('turns it off at once and sends exactly that', async () => {
@@ -243,5 +246,55 @@ describe('SettingsMenu — message emails', () => {
       'failure',
       "Couldn't save your email setting. Something went wrong on our side. Try again in a moment.",
     )
+  })
+})
+
+// Decisions §39: "Easier-to-read font" — per device, for everyone signed in.
+describe('SettingsMenu — text', () => {
+  const item = () => screen.getByRole('menuitemcheckbox', { name: 'Easier-to-read font' })
+
+  it('offers the setting, off by default, under its own label', async () => {
+    renderMenu()
+    await openMenu()
+    expect(item()).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByText('Text')).toBeInTheDocument()
+  })
+
+  it('offers it to every role — an admin-only account too', async () => {
+    renderMenu({ ...me, activeRole: 'admin', roles: ['admin'] })
+    await openMenu()
+    expect(item()).toBeInTheDocument()
+  })
+
+  it('ticks the choice stored on this device', async () => {
+    localStorage.setItem(FONT_STORAGE_KEY, 'readable')
+    renderMenu()
+    await openMenu()
+    expect(item()).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('turning it on applies it, remembers it, and sends nothing to the server', async () => {
+    renderMenu()
+    await openMenu()
+    await userEvent.click(item())
+
+    expect(document.documentElement).toHaveClass(READABLE_FONT_CLASS)
+    expect(localStorage.getItem(FONT_STORAGE_KEY)).toBe('readable')
+    // Per device: no request at all (the weight unit, by contrast, PATCHes).
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    // Reopened, the menu reads the new value back.
+    await openMenu()
+    expect(item()).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('turning it off takes the class away and forgets the choice', async () => {
+    localStorage.setItem(FONT_STORAGE_KEY, 'readable')
+    renderMenu()
+    await openMenu()
+    await userEvent.click(item())
+
+    expect(document.documentElement).not.toHaveClass(READABLE_FONT_CLASS)
+    expect(localStorage.getItem(FONT_STORAGE_KEY)).toBeNull()
   })
 })
