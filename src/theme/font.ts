@@ -7,10 +7,14 @@
 // readers with low vision — letters that are easy to confuse (I / l / 1,
 // O / 0) are drawn clearly different. Off by default.
 //
-// Stored per DEVICE, like the theme (the person's choice for now; the
-// per-account version is in deferred-improvements.md).
+// WHERE IT LIVES (pass 3): on the ACCOUNT (`readableFont`, a users column) —
+// it's about the person, and kept in the browser it reached the next person
+// to sign in on a shared computer. This device keeps only a COPY, written by
+// useAccountFont() for whoever is signed in and removed when nobody is, so
+// that index.html's pre-paint script can draw the first frame of a page
+// load in the right font before the account has been asked.
 
-// The localStorage key. index.html's pre-paint script reads it by its
+// The localStorage key of that copy. index.html's pre-paint script reads it by its
 // literal value too (it runs before any module loads) — themeScript.test.ts
 // fails if the two copies ever disagree, as for the theme.
 export const FONT_STORAGE_KEY = 'stride-font'

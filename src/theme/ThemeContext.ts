@@ -9,11 +9,6 @@ export interface ThemeContextValue {
   preference: ThemePreference
   resolvedTheme: ResolvedTheme
   setPreference: (preference: ThemePreference) => void
-  // The "Easier-to-read font" setting (decisions §39) — the same kind of
-  // thing as the theme (how the app LOOKS on this device), so the same
-  // provider holds it rather than a second one wrapping the app.
-  readableFont: boolean
-  setReadableFont: (readable: boolean) => void
 }
 
 // Default is `null`, not a fake value: a component rendered outside

@@ -42,7 +42,9 @@
         // The "Easier-to-read font" setting (src/theme/font.ts), for the
         // same reason: without it, someone who turned it on would see every
         // page drawn in Geist first, then redrawn in Atkinson once React
-        // starts. Mirrors readStoredReadableFont() + applyReadableFont():
+        // starts. The setting lives on the ACCOUNT; what's read here is this
+        // device's copy of it, kept only while someone is signed in
+        // (src/theme/useAccountFont.ts). Mirrors readStoredReadableFont() + applyReadableFont():
         // exactly 'readable' means on; anything else, or blocked storage,
         // means off.
         var readable = false

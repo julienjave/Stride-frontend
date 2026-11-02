@@ -17,6 +17,7 @@ import { useCurrentUser } from '@/auth/useCurrentUser'
 import { usePreferredWeightUnit } from '@/auth/usePreferredWeightUnit'
 import { useSetPreferredWeightUnit } from '@/auth/useSetPreferredWeightUnit'
 import { useSetMessageEmailNotices } from '@/auth/useSetMessageEmailNotices'
+import { useSetReadableFont } from '@/auth/useSetReadableFont'
 import { isWeightUnit, WEIGHT_UNITS } from '@/common/weight'
 
 // The options in display order. Kept as data so the menu is a simple map,
@@ -31,15 +32,15 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }
 // setting — the theme, the text (decisions §39), then the weight unit.
 //
 // They are stored very differently, on purpose:
-//   - Theme and text: in THIS browser (localStorage). The theme is about
-//     the device — you may want dark on your phone and light on your
-//     desktop; the font is stored the same way for now (its per-account
-//     version is a deferred improvement).
+//   - Theme: in THIS browser (localStorage). It's about the device — you
+//     may want dark on your phone and light on your desktop.
 //   - Weight unit: on the ACCOUNT (the backend). It's about the person —
 //     the unit you think in is the same on every device, and it has to
-//     follow you when you log in somewhere else.
+//     follow you when you log in somewhere else. The font (decisions §39)
+//     too: it's about the person's eyesight — and on a shared computer, a
+//     setting kept in the browser reached the next person to sign in.
 export function SettingsMenu() {
-  const { preference, setPreference, readableFont, setReadableFont } = useTheme()
+  const { preference, setPreference } = useTheme()
   const { data: currentUser } = useCurrentUser()
   const weightUnit = usePreferredWeightUnit()
   // Called HERE, in the always-mounted menu, not inside the dropdown's
@@ -50,6 +51,8 @@ export function SettingsMenu() {
   const setWeightUnit = useSetPreferredWeightUnit()
   // Here too, for the same reason (roadmap Phase 6.5).
   const setEmailNotices = useSetMessageEmailNotices()
+  // And here (decisions §39, pass 3).
+  const setReadableFont = useSetReadableFont()
   // The emails concern accounts that message: a practitioner or a patient
   // (an admin-only account has no conversations). By the ACCOUNT's roles,
   // not the active one — it's the person's inbox, whichever role they're
@@ -95,18 +98,25 @@ export function SettingsMenu() {
           ))}
         </DropdownMenuRadioGroup>
 
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel>Text</DropdownMenuLabel>
-        {/* One on / off setting: a checkbox item (role="menuitemcheckbox",
-            aria-checked), like the email setting below. Applied at once —
-            the whole page redraws in the other font while the menu is
-            still open, which is its own preview. */}
-        <DropdownMenuCheckboxItem
-          checked={readableFont}
-          onCheckedChange={(checked) => setReadableFont(checked)}
-        >
-          Easier-to-read font
-        </DropdownMenuCheckboxItem>
+        {currentUser && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Text</DropdownMenuLabel>
+            {/* One on / off setting: a checkbox item (role="menuitemcheckbox",
+                aria-checked), like the email setting below. Applied at once
+                (optimistic — useSetReadableFont): the whole page redraws in
+                the other font while the menu is still open, which is its
+                own preview. */}
+            <DropdownMenuCheckboxItem
+              checked={currentUser.readableFont}
+              onCheckedChange={(checked) =>
+                setReadableFont.mutate({ userId: currentUser.id, readable: checked })
+              }
+            >
+              Easier-to-read font
+            </DropdownMenuCheckboxItem>
+          </>
+        )}
 
         {/* Only with a logged-in user: the setting belongs to an account.
             In practice always true — the menu lives in the logged-in

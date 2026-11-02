@@ -15,11 +15,6 @@ import {
   writeStoredPreference,
   type ThemePreference,
 } from './theme'
-import {
-  applyReadableFont,
-  readStoredReadableFont,
-  writeStoredReadableFont,
-} from './font'
 
 // The OS dark-mode setting is state that lives OUTSIDE React — the browser
 // owns it and can change it at any moment (many phones switch to dark at
@@ -43,8 +38,7 @@ function getSystemPrefersDark() {
 // Wraps the whole app (see main.tsx) — deliberately ABOVE the router, not
 // inside the authenticated layout, so the login page is themed too, and
 // so "System" keeps following the OS even on pages without a Settings
-// menu. It also holds the "Easier-to-read font" setting (font.ts), for the
-// same reasons: a per-device look, applied on every page, sign-in included.
+// menu.
 export function ThemeProvider({ children }: { children: ReactNode }) {
   // Lazy initializer (a function, not a value): localStorage is read once,
   // on the first render, rather than on every render.
@@ -55,9 +49,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     getSystemPrefersDark,
   )
   const resolvedTheme = resolveTheme(preference, systemPrefersDark)
-  // The font setting: read from this device once, like the theme. No OS
-  // setting to follow here, so a plain state is the whole story.
-  const [readableFont, setReadableFontState] = useState(readStoredReadableFont)
 
   // useLAYOUTEffect, not useEffect: layout effects run after React updates
   // the DOM but BEFORE the browser paints it, so a theme change never
@@ -67,13 +58,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     applyTheme(resolvedTheme)
   }, [resolvedTheme])
-
-  // The same before-paint timing for the font: switching it never shows a
-  // frame of the old letters. (On load, index.html's script has already
-  // put the class there.)
-  useLayoutEffect(() => {
-    applyReadableFont(readableFont)
-  }, [readableFont])
 
   // Persist first, then update state — both happen synchronously in the
   // same click handler, so the order is only about readability: "remember
@@ -85,14 +69,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // Memoized so consumers only re-render when a value actually changes,
   // not every time ThemeProvider itself happens to re-render.
-  const setReadableFont = useCallback((next: boolean) => {
-    writeStoredReadableFont(next)
-    setReadableFontState(next)
-  }, [])
-
   const value = useMemo<ThemeContextValue>(
-    () => ({ preference, resolvedTheme, setPreference, readableFont, setReadableFont }),
-    [preference, resolvedTheme, setPreference, readableFont, setReadableFont],
+    () => ({ preference, resolvedTheme, setPreference }),
+    [preference, resolvedTheme, setPreference],
   )
 
   // React 19 lets a context object be rendered directly as its provider

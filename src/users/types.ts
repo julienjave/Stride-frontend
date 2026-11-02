@@ -36,6 +36,8 @@ export interface User extends Address {
   mfaEnabled: boolean
   preferredWeightUnit: WeightUnit
   messageEmailNotices: boolean
+  // "Easier-to-read font" (decisions §39): NOT NULL, off by default.
+  readableFont: boolean
   // Every role this account currently holds — a multi-role account (e.g.
   // an admin who is also a treating practitioner) can have more than one.
   roles: string[]
@@ -92,6 +94,8 @@ export interface UpdateUserPayload {
   preferredWeightUnit?: WeightUnit
   // Self-only too (roadmap Phase 6.5).
   messageEmailNotices?: boolean
+  // Self-only too (decisions §39).
+  readableFont?: boolean
 }
 
 // What POST /users returns: the new account, plus its first invitation —

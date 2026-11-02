@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SettingsMenu } from './SettingsMenu'
 import { ThemeProvider } from '@/theme/ThemeProvider'
 import { THEME_STORAGE_KEY } from '@/theme/theme'
-import { FONT_STORAGE_KEY, READABLE_FONT_CLASS } from '@/theme/font'
+import { FONT_STORAGE_KEY } from '@/theme/font'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import { findSnackbar } from '@/snackbars/snackbarAssertions'
 
@@ -23,6 +23,7 @@ const me = {
   roles: ['practitioner'],
   preferredWeightUnit: 'kg',
   messageEmailNotices: true,
+  readableFont: false,
 }
 
 // `currentUser: null` = nobody logged in. Seeded directly, so
@@ -249,15 +250,30 @@ describe('SettingsMenu — message emails', () => {
   })
 })
 
-// Decisions §39: "Easier-to-read font" — per device, for everyone signed in.
+// Decisions §39: "Easier-to-read font" — on the ACCOUNT since pass 3, for
+// every role. (Applying it to the page is useAccountFont's job, tested
+// there; the menu reads and changes the cached account.)
 describe('SettingsMenu — text', () => {
   const item = () => screen.getByRole('menuitemcheckbox', { name: 'Easier-to-read font' })
 
-  it('offers the setting, off by default, under its own label', async () => {
+  it("shows the account's setting, off, under its own label", async () => {
     renderMenu()
     await openMenu()
     expect(item()).toHaveAttribute('aria-checked', 'false')
     expect(screen.getByText('Text')).toBeInTheDocument()
+  })
+
+  it("shows it ticked when the account has it on — whatever this device remembers", async () => {
+    renderMenu({ ...me, readableFont: true })
+    await openMenu()
+    expect(item()).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('ignores a choice left on this device by someone else', async () => {
+    localStorage.setItem(FONT_STORAGE_KEY, 'readable')
+    renderMenu()
+    await openMenu()
+    expect(item()).toHaveAttribute('aria-checked', 'false')
   })
 
   it('offers it to every role — an admin-only account too', async () => {
@@ -266,35 +282,56 @@ describe('SettingsMenu — text', () => {
     expect(item()).toBeInTheDocument()
   })
 
-  it('ticks the choice stored on this device', async () => {
-    localStorage.setItem(FONT_STORAGE_KEY, 'readable')
-    renderMenu()
+  it('is not offered without a logged-in user', async () => {
+    renderMenu(null)
+    await openMenu()
+    expect(
+      screen.queryByRole('menuitemcheckbox', { name: 'Easier-to-read font' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('turns it on at once and sends exactly that to the account', async () => {
+    let answer: (response: Response) => void = () => {}
+    fetchMock.mockReturnValue(new Promise((resolve) => (answer = resolve)))
+    const { queryClient } = renderMenu()
+    await openMenu()
+    await userEvent.click(item())
+
+    // Before the server answers: the cached account already says on — the
+    // page's font follows it (useAccountFont).
+    expect(queryClient.getQueryData<typeof me>(currentUserQueryKey)?.readableFont).toBe(true)
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url as string).toMatch(/\/users\/7$/)
+    expect(init?.method).toBe('PATCH')
+    expect(init?.body).toBe('{"readableFont":true}')
+    answer(new Response(JSON.stringify({ ...me, readableFont: true }), { status: 200 }))
     await openMenu()
     expect(item()).toHaveAttribute('aria-checked', 'true')
   })
 
-  it('turning it on applies it, remembers it, and sends nothing to the server', async () => {
+  it('asks the server again and explains in a snackbar, when the save fails', async () => {
+    fetchMock.mockImplementation((_input, init) =>
+      Promise.resolve(
+        init?.method === 'PATCH'
+          ? new Response(JSON.stringify({ statusCode: 500, message: ['boom'] }), { status: 500 })
+          : // The refetched /auth/me: the server still says OFF.
+            new Response(JSON.stringify(me), { status: 200 }),
+      ),
+    )
     renderMenu()
     await openMenu()
     await userEvent.click(item())
 
-    expect(document.documentElement).toHaveClass(READABLE_FONT_CLASS)
-    expect(localStorage.getItem(FONT_STORAGE_KEY)).toBe('readable')
-    // Per device: no request at all (the weight unit, by contrast, PATCHes).
-    expect(fetchMock).not.toHaveBeenCalled()
-
-    // Reopened, the menu reads the new value back.
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([input]) => (input as string).endsWith('/auth/me'))).toBe(
+        true,
+      ),
+    )
     await openMenu()
-    expect(item()).toHaveAttribute('aria-checked', 'true')
-  })
-
-  it('turning it off takes the class away and forgets the choice', async () => {
-    localStorage.setItem(FONT_STORAGE_KEY, 'readable')
-    renderMenu()
-    await openMenu()
-    await userEvent.click(item())
-
-    expect(document.documentElement).not.toHaveClass(READABLE_FONT_CLASS)
-    expect(localStorage.getItem(FONT_STORAGE_KEY)).toBeNull()
+    await waitFor(() => expect(item()).toHaveAttribute('aria-checked', 'false'))
+    await findSnackbar(
+      'failure',
+      "Couldn't save your font setting. Something went wrong on our side. Try again in a moment.",
+    )
   })
 })

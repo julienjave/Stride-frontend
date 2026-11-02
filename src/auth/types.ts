@@ -42,6 +42,11 @@ export interface CurrentUser extends Address {
   // default. Shown in the Settings menu to accounts that message (a
   // practitioner or a patient).
   messageEmailNotices: boolean
+  // "Easier-to-read font" (decisions §39, pass 3): on the ACCOUNT, so it
+  // follows the person to every device. NOT NULL, off by default. Applied
+  // by useAccountFont() — the Settings menu changes it through
+  // useSetReadableFont().
+  readableFont: boolean
   // Present ONLY if the account actually holds that role — a multi-role
   // account can have more than one of these at once, which is exactly why
   // they're optional, nested, named sub-objects rather than flattened

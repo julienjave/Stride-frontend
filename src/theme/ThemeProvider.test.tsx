@@ -4,7 +4,6 @@ import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from './ThemeProvider'
 import { useTheme } from './ThemeContext'
 import { THEME_STORAGE_KEY } from './theme'
-import { FONT_STORAGE_KEY, READABLE_FONT_CLASS } from './font'
 import { installFakeMatchMedia } from './fakeMatchMedia'
 
 afterEach(() => {
@@ -113,57 +112,5 @@ describe('useTheme', () => {
     expect(() => render(<Probe />)).toThrow(
       'useTheme must be used inside <ThemeProvider>',
     )
-  })
-})
-
-// The "Easier-to-read font" setting, held by the same provider (decisions §39).
-function FontProbe() {
-  const { readableFont, setReadableFont } = useTheme()
-  return (
-    <div>
-      <p>readable: {String(readableFont)}</p>
-      <button onClick={() => setReadableFont(true)}>font on</button>
-      <button onClick={() => setReadableFont(false)}>font off</button>
-    </div>
-  )
-}
-
-function renderFontProvider() {
-  installFakeMatchMedia(false)
-  return render(
-    <ThemeProvider>
-      <FontProbe />
-    </ThemeProvider>,
-  )
-}
-
-describe('ThemeProvider — the font setting', () => {
-  it('starts off, with no class on <html>', () => {
-    renderFontProvider()
-    expect(screen.getByText('readable: false')).toBeInTheDocument()
-    expect(html()).not.toHaveClass(READABLE_FONT_CLASS)
-  })
-
-  it('starts from the stored choice and applies it to <html>', () => {
-    localStorage.setItem(FONT_STORAGE_KEY, 'readable')
-    renderFontProvider()
-    expect(screen.getByText('readable: true')).toBeInTheDocument()
-    expect(html()).toHaveClass(READABLE_FONT_CLASS)
-  })
-
-  it('applies and remembers each change at once, without touching the theme', async () => {
-    localStorage.setItem(THEME_STORAGE_KEY, 'dark')
-    renderFontProvider()
-
-    await userEvent.click(screen.getByRole('button', { name: 'font on' }))
-    expect(html()).toHaveClass(READABLE_FONT_CLASS)
-    expect(localStorage.getItem(FONT_STORAGE_KEY)).toBe('readable')
-
-    await userEvent.click(screen.getByRole('button', { name: 'font off' }))
-    expect(html()).not.toHaveClass(READABLE_FONT_CLASS)
-    expect(localStorage.getItem(FONT_STORAGE_KEY)).toBeNull()
-
-    expect(html()).toHaveClass('dark')
-    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark')
   })
 })
