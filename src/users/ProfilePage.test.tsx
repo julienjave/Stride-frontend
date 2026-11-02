@@ -51,7 +51,6 @@ const multiRoleUser: User = {
   mfaEnabled: false,
   preferredWeightUnit: 'kg',
   messageEmailNotices: true,
-  readableFont: false,
   roles: ['practitioner', 'admin'],
   practitionerProfile: { licenseNumber: 'PT-1', specialties: ['Sports rehab'], bio: null },
   adminProfile: { position: null },

@@ -28,7 +28,6 @@ function person(fields: Partial<User> & { id: number }): User {
     mfaEnabled: false,
     preferredWeightUnit: 'kg',
     messageEmailNotices: true,
-    readableFont: false,
     roles: ['patient'],
     patientProfile: { dateOfBirth: '1988-04-12' },
     clinics: [],

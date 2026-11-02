@@ -36,8 +36,10 @@ export interface User extends Address {
   mfaEnabled: boolean
   preferredWeightUnit: WeightUnit
   messageEmailNotices: boolean
-  // "Easier-to-read font" (decisions §39): NOT NULL, off by default.
-  readableFont: boolean
+  // (No `readableFont` here: the "Easier-to-read font" is the person's own
+  // setting, and the backend leaves it out of every answer about someone
+  // else — decisions §41. The signed-in person's own copy is on
+  // CurrentUser, auth/types.ts.)
   // Every role this account currently holds — a multi-role account (e.g.
   // an admin who is also a treating practitioner) can have more than one.
   roles: string[]
