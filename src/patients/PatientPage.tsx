@@ -97,7 +97,7 @@ function PatientView({ patientId }: { patientId: number }) {
   }
 
   return (
-    <div className="mx-auto mt-8 max-w-2xl space-y-8 px-4 pb-8">
+    <div className="mx-auto mt-8 max-w-2xl space-y-8 px-4">
       <div className="space-y-3">
         <Link to="/practitioner/patients" className="text-sm text-muted-foreground hover:underline">
           ← My patients
@@ -106,6 +106,7 @@ function PatientView({ patientId }: { patientId: number }) {
           {/* The photo, read-only: a practitioner may not change a
               patient's photo (decisions §4) — UserAvatar, not AvatarUpload. */}
           <UserAvatar
+            userId={patient.id}
             firstName={patient.firstName}
             lastName={patient.lastName}
             avatarUrl={patient.avatarUrl}

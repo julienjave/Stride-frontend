@@ -71,7 +71,7 @@ export function PractitionerProfilePage() {
 // state, so the list can put focus back on that card (teamReturn.ts).
 function ProfilePage({ children, viewedId }: { children: ReactNode; viewedId?: number }) {
   return (
-    <div className="mx-auto mt-8 max-w-2xl space-y-8 px-4 pb-8">
+    <div className="mx-auto mt-8 max-w-2xl space-y-8 px-4">
       <Link
         to="/patient/team"
         state={viewedId === undefined ? undefined : viewedPractitionerState(viewedId)}
@@ -103,6 +103,7 @@ function Profile({ entry, heading }: { entry: MyCareTeamEntry; heading: Ref<HTML
       {/* Stacked and centred on a phone; side by side from `sm` up. */}
       <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-start sm:text-left">
         <UserAvatar
+          userId={practitioner.id}
           firstName={practitioner.firstName}
           lastName={practitioner.lastName}
           avatarUrl={practitioner.avatarUrl}

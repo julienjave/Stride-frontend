@@ -7,6 +7,7 @@ import { SectionNav } from './layout/SectionNav'
 import { SettingsMenu } from './layout/SettingsMenu'
 import { UserMenu } from './layout/UserMenu'
 import { NavigationProgress } from './layout/NavigationProgress'
+import { useFillsScreen } from './layout/fillsScreen'
 import { isMessagingRole, messagesPath, type MessagingRole } from '@/messages/messagesPath'
 import { MessagingConnectionProvider } from '@/messages/MessagingConnectionProvider'
 import { useUnreadMessageCount } from '@/messages/useConversations'
@@ -94,6 +95,7 @@ function MessagingShell({ role }: { role: MessagingRole }) {
 }
 
 function Shell({ role, badges }: { role: UserRole; badges?: Record<string, number> }) {
+  const fillsScreen = useFillsScreen()
   return (
     <div className="min-h-svh">
       {/* `sticky top-0`: the bar scrolls WITH the page until it reaches the
@@ -123,11 +125,32 @@ function Shell({ role, badges }: { role: UserRole; badges?: Record<string, numbe
         <NavigationProgress />
       </header>
 
-      {/* Bottom padding on phones only, equal to the tab bar's height, so
-          the fixed bar never covers the end of a page. The calc adds the
-          phone's safe-area inset (the home-indicator strip), which the tab
-          bar itself also pads for. */}
-      <main className="pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
+      {/* The room at the bottom of every page, set HERE once (decisions
+          §47) rather than by each page — before, about a third of the pages
+          added their own `pb-8` and the rest ended flush against the edge.
+
+          Phone: the tab bar is `fixed`, so it floats OVER the page; 4rem
+          (its height) keeps it from covering the end of a page, + 2rem of
+          breathing room, + the phone's safe-area inset (the home-indicator
+          strip, which the tab bar pads for too). Desktop: no tab bar, just
+          3rem (`pb-12`) of room.
+
+          A page that fills the screen itself (Messages: a fixed height, its
+          panes scrolling inside) gets ONLY the room the tab bar needs —
+          anything more would make the whole page scroll. It says so with
+          its route's handle (fillsScreen.ts).
+
+          Both class sets are written out in full, never assembled from
+          pieces: Tailwind finds the classes to generate by reading the
+          source files as text, so `pb-[calc(${n}rem…)]` would never be
+          generated. */}
+      <main
+        className={
+          fillsScreen
+            ? 'pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0'
+            : 'pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-12'
+        }
+      >
         <Outlet />
       </main>
 

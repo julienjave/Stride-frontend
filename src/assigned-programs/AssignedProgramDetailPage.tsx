@@ -93,7 +93,7 @@ function ProgramView({ programId }: { programId: number }) {
   const canChange = lock === null
 
   return (
-    <div className="mx-auto mt-8 max-w-2xl space-y-8 px-4 pb-8">
+    <div className="mx-auto mt-8 max-w-2xl space-y-8 px-4">
       <ProgramHeader
         program={program}
         isPaused={isPaused}

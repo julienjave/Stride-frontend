@@ -23,7 +23,7 @@ import { type NotAvailableLink, NotAvailable } from './NotAvailable'
 // it can't be a record either.
 
 function Column({ children }: { children: ReactNode }) {
-  return <div className="mx-auto mt-8 max-w-2xl px-4 pb-8">{children}</div>
+  return <div className="mx-auto mt-8 max-w-2xl px-4">{children}</div>
 }
 
 interface NotFoundProps {

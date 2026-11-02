@@ -305,7 +305,7 @@ function ExerciseDetails({ exercise }: { exercise: AssignedProgramExercise }) {
 
 function ProgramPage({ children }: { children: ReactNode }) {
   return (
-    <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4 pb-8">
+    <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4">
       {children}
       <Link to="/patient/sessions" className="block text-sm underline underline-offset-4">
         Back to Sessions

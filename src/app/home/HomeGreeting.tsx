@@ -2,6 +2,8 @@ import type { Ref } from 'react'
 import { UserAvatar } from '@/common/UserAvatar'
 
 interface HomeGreetingProps {
+  // The user's id, for their avatar's tint (UserAvatar).
+  userId: number
   firstName: string
   lastName: string
   avatarUrl: string | null
@@ -21,10 +23,11 @@ interface HomeGreetingProps {
 // useCurrentUser() itself. The page already has the user (it needs it for
 // other things), and a component that only displays what it's given is
 // simpler to reason about and to test than one that fetches.
-export function HomeGreeting({ firstName, lastName, avatarUrl, headingRef }: HomeGreetingProps) {
+export function HomeGreeting({ userId, firstName, lastName, avatarUrl, headingRef }: HomeGreetingProps) {
   return (
     <div className="flex items-center gap-3">
       <UserAvatar
+        userId={userId}
         firstName={firstName}
         lastName={lastName}
         avatarUrl={avatarUrl}

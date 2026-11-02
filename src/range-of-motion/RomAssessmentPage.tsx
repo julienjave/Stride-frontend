@@ -732,5 +732,5 @@ function AssessmentNotAvailable({ patientId }: { patientId: number }) {
 }
 
 function Page({ children }: { children: ReactNode }) {
-  return <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4 pb-8">{children}</div>
+  return <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4">{children}</div>
 }

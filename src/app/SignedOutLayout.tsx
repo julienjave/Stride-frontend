@@ -27,7 +27,13 @@ export function SignedOutLayout() {
       <div className="flex justify-center px-4 pt-16">
         <LogoImages alt="Stride" className="h-12" />
       </div>
-      <Outlet />
+      {/* The room under every signed-out page, set once here like
+          AuthenticatedLayout's (decisions §47): the sign-in page's
+          reviewer card and the longer forms would otherwise end against
+          the window's edge. No tab bar here, so one size for all widths. */}
+      <div className="pb-12">
+        <Outlet />
+      </div>
     </>
   )
 }

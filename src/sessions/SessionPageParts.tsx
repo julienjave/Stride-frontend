@@ -15,7 +15,7 @@ import type { Session } from './types'
 
 // The page's column: phone-first, the same width as the patient home.
 export function Page({ children }: { children: ReactNode }) {
-  return <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4 pb-8">{children}</div>
+  return <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4">{children}</div>
 }
 
 export function HomeLink() {

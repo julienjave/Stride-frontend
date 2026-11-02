@@ -103,7 +103,7 @@ function AssignFromTemplatePage({
   )
 
   return (
-    <div className="mx-auto mt-8 max-w-xl space-y-6 px-4 pb-12">
+    <div className="mx-auto mt-8 max-w-xl space-y-6 px-4">
       <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
         Assign a program
       </h1>
@@ -177,7 +177,7 @@ function AssignAgainPage({ continuedId }: { continuedId: string }) {
   }
 
   return (
-    <div className="mx-auto mt-8 max-w-xl space-y-6 px-4 pb-12">
+    <div className="mx-auto mt-8 max-w-xl space-y-6 px-4">
       <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
         Assign again
       </h1>

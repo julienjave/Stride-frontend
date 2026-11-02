@@ -1,7 +1,12 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import { avatarTintClass } from './avatarTint'
 
 interface UserAvatarProps {
+  // Picks the circle's tint when there's no photo (avatarTint.ts): the
+  // same person, the same colour, on every screen. Required like
+  // avatarUrl, so no screen can forget it and draw everyone in one colour.
+  userId: number
   firstName: string
   lastName: string
   // The presigned photo URL from the backend, or null for "no photo".
@@ -25,7 +30,7 @@ interface UserAvatarProps {
 // show the browser's broken-image icon; with it, the initials come back
 // until the next page load brings a fresh URL. (Design decisions: the
 // accepted trade-off of a 24h URL over a redirect route.)
-export function UserAvatar({ firstName, lastName, avatarUrl, className }: UserAvatarProps) {
+export function UserAvatar({ userId, firstName, lastName, avatarUrl, className }: UserAvatarProps) {
   // Remembers WHICH url failed, not just "something failed". That detail
   // is what makes a new URL get a fresh try automatically: after an
   // upload, avatarUrl changes, no longer equals failedUrl, and the photo
@@ -44,7 +49,11 @@ export function UserAvatar({ firstName, lastName, avatarUrl, className }: UserAv
       className={cn(
         // overflow-hidden clips the square photo to the circle drawn by
         // rounded-full.
-        'flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted font-medium',
+        'flex shrink-0 items-center justify-center overflow-hidden rounded-full font-medium',
+        // The tint stays under a photo too: unseen once the photo has
+        // loaded, it's what shows while it loads (or through a transparent
+        // PNG) — the same colour as the initials it replaces.
+        avatarTintClass(userId),
         className,
       )}
       // Decorative everywhere it's used: the user's name is always shown

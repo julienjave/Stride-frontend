@@ -180,6 +180,7 @@ export function AvatarUpload({ user }: AvatarUploadProps) {
 
       <div className="flex items-center gap-4">
         <UserAvatar
+          userId={user.id}
           firstName={user.firstName}
           lastName={user.lastName}
           avatarUrl={displayedUrl}

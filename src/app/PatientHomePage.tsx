@@ -39,8 +39,9 @@ export function PatientHomePage() {
   const entries = programs.map((program, index) => ({ program, summary: summaries[index] }))
 
   return (
-    <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4 pb-8">
+    <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4">
       <HomeGreeting
+        userId={user.id}
         firstName={user.firstName}
         lastName={user.lastName}
         avatarUrl={user.avatarUrl}

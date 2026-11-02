@@ -51,6 +51,12 @@
     --color-primary-foreground: var(--primary-foreground);
     --color-primary-hover: var(--primary-hover);
     --color-brand-accent: var(--brand-accent);
+    --color-avatar-teal: var(--avatar-teal);
+    --color-avatar-teal-foreground: var(--avatar-teal-foreground);
+    --color-avatar-coral: var(--avatar-coral);
+    --color-avatar-coral-foreground: var(--avatar-coral-foreground);
+    --color-avatar-sand: var(--avatar-sand);
+    --color-avatar-sand-foreground: var(--avatar-sand-foreground);
     --color-primary: var(--primary);
     --color-popover-foreground: var(--popover-foreground);
     --color-popover: var(--popover);
@@ -117,6 +123,18 @@
        destructive red. The logo's own coral (L 0.683) is 2.9:1 on the page;
        L 0.665 reaches 3:1, what a visible state marker needs. */
     --brand-accent: oklch(0.665 0.138 39);
+    /* The circles of initials (decisions §47) — a user without a photo.
+       Three PALE tints with DARK text of the same hue, never the solid
+       colours: initials are text, and white on coral fails AA (the reason
+       coral is only an accent, §39). Teal and coral from the logo, sand
+       from the warm greys' own hue (85) with more colour in it. Which one
+       a user gets: src/common/avatarTint.ts. */
+    --avatar-teal: oklch(0.93 0.03 193);
+    --avatar-teal-foreground: oklch(0.4 0.065 193);
+    --avatar-coral: oklch(0.93 0.035 45);
+    --avatar-coral-foreground: oklch(0.44 0.1 40);
+    --avatar-sand: oklch(0.93 0.03 85);
+    --avatar-sand-foreground: oklch(0.42 0.045 75);
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
@@ -172,6 +190,13 @@
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.711 0.084 190);
     --brand-accent: oklch(0.724 0.125 39);
+    /* The avatars flip like the primary: a DEEP tint with light text. */
+    --avatar-teal: oklch(0.34 0.05 193);
+    --avatar-teal-foreground: oklch(0.9 0.045 193);
+    --avatar-coral: oklch(0.35 0.06 40);
+    --avatar-coral-foreground: oklch(0.9 0.05 45);
+    --avatar-sand: oklch(0.35 0.03 80);
+    --avatar-sand-foreground: oklch(0.9 0.035 85);
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);

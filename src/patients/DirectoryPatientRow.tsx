@@ -19,6 +19,7 @@ export function DirectoryPatientRow({ patient, onAdded }: DirectoryPatientRowPro
   return (
     <li className="flex items-center justify-between gap-3 px-4 py-3">
       <PatientIdentity
+        userId={patient.id}
         firstName={patient.firstName}
         lastName={patient.lastName}
         avatarUrl={patient.avatarUrl}

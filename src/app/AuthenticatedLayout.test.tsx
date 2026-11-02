@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider, useNavigate } from 'react-router'
 import { AuthenticatedLayout } from './AuthenticatedLayout'
+import { FILLS_SCREEN } from './layout/fillsScreen'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import { ThemeProvider } from '@/theme/ThemeProvider'
 import { json, urlOf } from '@/sessions/testData'
@@ -32,7 +33,11 @@ beforeEach(() => {
 // The pieces (SectionNav, SettingsMenu, UserMenu) each have their own
 // tests. This file checks the ASSEMBLY: that the layout wires them to the
 // current user's role and still renders the matched page.
-function renderLayoutAt(activeRole: string, path: string) {
+// `handle`: what routes.tsx may attach to the page's route (fillsScreen.ts);
+// given, the page is nested one level down, under a pathless parent
+// carrying it — the shape of the Messages routes (the handle on the
+// section's layout, the open conversation its child).
+function renderLayoutAt(activeRole: string, path: string, handle?: unknown) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
@@ -48,7 +53,10 @@ function renderLayoutAt(activeRole: string, path: string) {
     [
       {
         element: <AuthenticatedLayout />,
-        children: [{ path, element: <p>Page content</p> }],
+        children:
+          handle === undefined
+            ? [{ path, element: <p>Page content</p> }]
+            : [{ handle, children: [{ path, element: <p>Page content</p> }] }],
       },
     ],
     { initialEntries: [path] },
@@ -121,6 +129,38 @@ describe('AuthenticatedLayout', () => {
 
 
 // The snackbars (decisions §33) are drawn by the layout, outside the page.
+// The room under each page (decisions §47). jsdom applies no CSS, so the
+// classes are what can be checked here; the pixels were checked in a
+// browser at 375 and 1280 px.
+describe('AuthenticatedLayout — the room under a page', () => {
+  const ORDINARY = ['pb-[calc(6rem+env(safe-area-inset-bottom))]', 'md:pb-12']
+  const FILLS = ['pb-[calc(4rem+env(safe-area-inset-bottom))]', 'md:pb-0']
+
+  it('gives an ordinary page room past the tab bar (phone) and at the bottom (desktop)', () => {
+    renderLayoutAt('practitioner', '/practitioner')
+    const main = screen.getByRole('main')
+    expect(main).toHaveClass(...ORDINARY)
+    expect(main).not.toHaveClass(...FILLS)
+  })
+
+  it('gives a page that fills the screen only the tab bar’s height — set on its parent route', () => {
+    renderLayoutAt('practitioner', '/practitioner/messages/12', FILLS_SCREEN)
+    const main = screen.getByRole('main')
+    expect(main).toHaveClass(...FILLS)
+    expect(main).not.toHaveClass(...ORDINARY)
+  })
+
+  // `handle` is the app's to define (typed unknown): only the exact shape
+  // counts, anything else is an ordinary page — never a crash.
+  it.each([[null], ['fillsScreen'], [{ fillsScreen: 'yes' }], [{ crumb: 'Messages' }]])(
+    'treats a handle of another shape (%j) as an ordinary page',
+    (handle) => {
+      renderLayoutAt('admin', '/admin/users', handle)
+      expect(screen.getByRole('main')).toHaveClass(...ORDINARY)
+    },
+  )
+})
+
 describe('AuthenticatedLayout — snackbars', () => {
   // A page that raises a snackbar and LEAVES in the same click — the way
   // "Finish session" does — and the page it goes to.

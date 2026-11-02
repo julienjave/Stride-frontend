@@ -196,6 +196,7 @@ function PatientRows({
             className="block space-y-1 px-4 py-3 hover:bg-muted/50"
           >
             <PatientIdentity
+              userId={patient.id}
               firstName={patient.firstName}
               lastName={patient.lastName}
               avatarUrl={patient.avatarUrl}

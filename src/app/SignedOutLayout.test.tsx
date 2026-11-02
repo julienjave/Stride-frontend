@@ -34,4 +34,12 @@ describe('SignedOutLayout', () => {
     renderWithPage()
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })
+
+  // jsdom draws nothing, so the room itself can't be measured here; what
+  // can be checked is that the PAGE sits inside the padded block (the
+  // browser pass checks the pixels).
+  it('leaves room under the page', () => {
+    renderWithPage()
+    expect(screen.getByRole('heading', { name: 'Log in' }).parentElement).toHaveClass('pb-12')
+  })
 })

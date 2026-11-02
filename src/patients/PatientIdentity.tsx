@@ -4,6 +4,8 @@ import { ClinicBadges } from './ClinicBadges'
 import type { ClinicRef } from './types'
 
 interface PatientIdentityProps {
+  // The user's id, for their avatar's tint (UserAvatar).
+  userId: number
   firstName: string
   lastName: string
   avatarUrl: string | null
@@ -24,6 +26,7 @@ interface PatientIdentityProps {
 // It renders only the identity, never the row's action (a link, a button),
 // which differs between the two lists: the parent puts it next to this.
 export function PatientIdentity({
+  userId,
   firstName,
   lastName,
   avatarUrl,
@@ -37,6 +40,7 @@ export function PatientIdentity({
     // button off the side of a phone screen.
     <div className="flex min-w-0 items-center gap-3">
       <UserAvatar
+        userId={userId}
         firstName={firstName}
         lastName={lastName}
         avatarUrl={avatarUrl}

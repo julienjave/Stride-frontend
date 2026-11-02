@@ -36,7 +36,10 @@ export function MessagesLayout() {
     // `dvh` (dynamic viewport height) follows a phone browser's address bar
     // as it shows and hides; `vh` would be the tallest size, and push the
     // composer under the bar.
-    <div className="mx-auto flex h-[calc(100dvh-8rem-env(safe-area-inset-bottom))] max-w-6xl md:h-[calc(100dvh-4rem)] md:border-x">
+    // The `1px`: the top bar's bottom border, outside its 4rem (`h-16` is
+    // the bar's inner row) — without it the page scrolled by one pixel
+    // (found 2026-11-03, decisions §47).
+    <div className="mx-auto flex h-[calc(100dvh-8rem-1px-env(safe-area-inset-bottom))] max-w-6xl md:h-[calc(100dvh-4rem-1px)] md:border-x">
       <aside
         aria-label="Conversations"
         className={cn('w-full flex-col md:flex md:w-80 md:shrink-0 md:border-r', open ? 'hidden' : 'flex')}

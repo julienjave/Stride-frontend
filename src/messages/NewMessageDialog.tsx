@@ -114,6 +114,7 @@ export function NewMessageDialog({ role }: { role: MessagingRole }) {
                   className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-muted/50 disabled:opacity-60"
                 >
                   <UserAvatar
+                    userId={recipient.id}
                     firstName={recipient.firstName}
                     lastName={recipient.lastName}
                     avatarUrl={recipient.avatarUrl}

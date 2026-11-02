@@ -7,6 +7,7 @@ import { RequireGuest } from './RequireGuest'
 import { RequireRole } from './RequireRole'
 import { AuthenticatedLayout } from './AuthenticatedLayout'
 import { SignedOutLayout } from './SignedOutLayout'
+import { FILLS_SCREEN } from './layout/fillsScreen'
 import { setUnauthorizedHandler } from '@/api/client'
 import { queryClient } from '@/api/queryClient'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
@@ -499,6 +500,9 @@ export const router = createBrowserRouter([
                   // the parent's. The same three pages serve both roles.
                   {
                     path: '/practitioner/messages',
+                    // Sizes itself to the window: no room added under it
+                    // (AuthenticatedLayout; layout/fillsScreen.ts).
+                    handle: FILLS_SCREEN,
                     lazy: page(
                       () => import('@/messages/MessagesLayout'),
                       (module) => module.MessagesLayout,
@@ -630,6 +634,9 @@ export const router = createBrowserRouter([
                   // patient's prefix (see /practitioner/messages).
                   {
                     path: '/patient/messages',
+                    // Sizes itself to the window: no room added under it
+                    // (AuthenticatedLayout; layout/fillsScreen.ts).
+                    handle: FILLS_SCREEN,
                     lazy: page(
                       () => import('@/messages/MessagesLayout'),
                       (module) => module.MessagesLayout,

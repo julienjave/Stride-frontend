@@ -58,7 +58,7 @@ function ProfileView({ userId, activeRole }: { userId: number; activeRole: strin
     .join(' · ')
 
   return (
-    <div className="mx-auto mt-8 max-w-lg space-y-6 px-4 pb-8">
+    <div className="mx-auto mt-8 max-w-lg space-y-6 px-4">
       <div>
         <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
           My profile

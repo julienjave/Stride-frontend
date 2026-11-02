@@ -48,7 +48,7 @@ export function MyRecordsPage() {
 
 function Page({ children, heading }: { children: ReactNode; heading: Ref<HTMLHeadingElement> }) {
   return (
-    <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4 pb-8">
+    <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4">
       <div className="space-y-3">
         <Link to="/profile" className="text-sm text-muted-foreground hover:underline">
           ← My profile

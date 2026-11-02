@@ -111,7 +111,7 @@ export function MyTeamPage() {
 
 function TeamPage({ children, heading }: { children: ReactNode; heading: Ref<HTMLHeadingElement> }) {
   return (
-    <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4 pb-8">
+    <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4">
       <h1 ref={heading} tabIndex={-1} className="text-2xl font-semibold outline-none">
         My team
       </h1>
@@ -134,6 +134,7 @@ function MemberCard({ entry }: { entry: MyCareTeamEntry }) {
   return (
     <li className="relative flex items-start gap-4 rounded-lg border p-4 transition-colors hover:bg-muted/50">
       <UserAvatar
+        userId={practitioner.id}
         firstName={practitioner.firstName}
         lastName={practitioner.lastName}
         avatarUrl={practitioner.avatarUrl}
@@ -171,6 +172,7 @@ function PastMemberRow({ entry }: { entry: MyCareTeamEntry }) {
   return (
     <li className="flex items-start gap-3 px-4 py-3">
       <UserAvatar
+        userId={practitioner.id}
         firstName={practitioner.firstName}
         lastName={practitioner.lastName}
         avatarUrl={practitioner.avatarUrl}

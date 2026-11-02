@@ -142,6 +142,7 @@ function Header({
         <ChevronLeft aria-hidden="true" className="size-5" />
       </Link>
       <UserAvatar
+        userId={other.id}
         firstName={other.firstName}
         lastName={other.lastName}
         avatarUrl={other.avatarUrl}

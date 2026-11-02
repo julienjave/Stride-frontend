@@ -105,7 +105,7 @@ function PhotosView({ programId, exerciseRowId }: { programId: number; exerciseR
   }
 
   return (
-    <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4 pb-8">
+    <div className="mx-auto mt-8 max-w-2xl space-y-6 px-4">
       <div>
         <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
           This patient's photos

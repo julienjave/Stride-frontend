@@ -188,6 +188,7 @@ function ReviewRow({
   return (
     <li className="flex items-start gap-3 px-4 py-3">
       <UserAvatar
+        userId={alert.patient.id}
         firstName={alert.patient.firstName}
         lastName={alert.patient.lastName}
         avatarUrl={alert.patient.avatarUrl}
@@ -347,6 +348,7 @@ function NoticeRow({
   return (
     <li className="flex items-start gap-3 px-4 py-3">
       <UserAvatar
+        userId={patient.id}
         firstName={patient.firstName}
         lastName={patient.lastName}
         avatarUrl={patient.avatarUrl}

@@ -167,6 +167,7 @@ function ConversationRow({
         )}
       >
         <UserAvatar
+          userId={other.id}
           firstName={other.firstName}
           lastName={other.lastName}
           avatarUrl={other.avatarUrl}

@@ -93,7 +93,7 @@ function UserEditView({ userId }: { userId: number }) {
   // reactivating it (refused by the backend) would only mislead.
   if (merge) {
     return (
-      <div className="mx-auto mt-12 max-w-lg space-y-6 px-4 pb-8">
+      <div className="mx-auto mt-12 max-w-lg space-y-6 px-4">
         <div>
           <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
             {user.firstName} {user.lastName}
@@ -116,7 +116,7 @@ function UserEditView({ userId }: { userId: number }) {
   }
 
   return (
-    <div className="mx-auto mt-12 max-w-lg space-y-6 px-4 pb-8">
+    <div className="mx-auto mt-12 max-w-lg space-y-6 px-4">
       <div>
         <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
           {user.firstName} {user.lastName}

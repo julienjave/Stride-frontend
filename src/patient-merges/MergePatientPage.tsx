@@ -86,7 +86,7 @@ function MergeView({ userId }: { userId: number }) {
   const mergedAway = kept && other ? (kept.id === user.id ? other : user) : undefined
 
   return (
-    <div className="mx-auto mt-12 max-w-3xl space-y-6 px-4 pb-8">
+    <div className="mx-auto mt-12 max-w-3xl space-y-6 px-4">
       <div>
         <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
           Merge {name} with another account

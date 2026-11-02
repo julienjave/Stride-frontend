@@ -73,6 +73,12 @@ const PALETTE = [
   'destructive',
   'ring',
   'brand-accent',
+  'avatar-teal',
+  'avatar-teal-foreground',
+  'avatar-coral',
+  'avatar-coral-foreground',
+  'avatar-sand',
+  'avatar-sand-foreground',
 ]
 
 function color(tokens: Tokens, name: string): Rgba {
@@ -107,6 +113,9 @@ const PAIRS: [string, string, number, string][] = [
   ['ring', 'background', MARK, "a focused field's border"],
   ['ring', 'card', MARK, "a focused field's border on a card"],
   ['brand-accent', 'background', MARK, "the active section's line"],
+  ['avatar-teal-foreground', 'avatar-teal', TEXT, 'initials in a teal circle'],
+  ['avatar-coral-foreground', 'avatar-coral', TEXT, 'initials in a coral circle'],
+  ['avatar-sand-foreground', 'avatar-sand', TEXT, 'initials in a sand circle'],
 ]
 
 describe('the palette in index.css', () => {

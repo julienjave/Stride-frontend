@@ -67,6 +67,7 @@ export function UserMenu() {
         className="flex items-center gap-2 rounded-lg p-1 text-left outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <UserAvatar
+          userId={user.id}
           firstName={user.firstName}
           lastName={user.lastName}
           avatarUrl={user.avatarUrl}

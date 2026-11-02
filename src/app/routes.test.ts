@@ -10,6 +10,7 @@ import { SignedOutLayout } from './SignedOutLayout'
 import { AuthenticatedLayout } from './AuthenticatedLayout'
 import { RequireAuth } from './RequireAuth'
 import { RequireGuest } from './RequireGuest'
+import { FILLS_SCREEN } from './layout/fillsScreen'
 import { apiRequest } from '@/api/client'
 import { queryClient } from '@/api/queryClient'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
@@ -51,6 +52,14 @@ const pageRoutes = allRoutes(router.routes).filter(
 )
 
 describe('the route tree', () => {
+  // Messages sizes itself to the window; the room AuthenticatedLayout adds
+  // under every other page would make it scroll (decisions §47). Only
+  // these two sections say they fill the screen.
+  it('marks the two Messages sections, and only them, as filling the screen', () => {
+    const marked = allRoutes(router.routes).filter((route) => route.handle === FILLS_SCREEN)
+    expect(marked.map((route) => route.path).sort()).toEqual(['/patient/messages', '/practitioner/messages'])
+  })
+
   it('has a root route covering every page with a loading fallback and an error page', () => {
     expect(router.routes).toHaveLength(1)
     const [root] = router.routes

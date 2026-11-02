@@ -117,7 +117,7 @@ export function RecordsDownloadPage() {
 
   const describedBy = fieldError ? 'dateOfBirth-error' : undefined
   return (
-    <div className="mx-auto mt-8 max-w-sm space-y-4 px-4 pb-8">
+    <div className="mx-auto mt-8 max-w-sm space-y-4 px-4">
       <h1 className="text-xl font-semibold">Download your health record</h1>
       <p className="text-sm text-muted-foreground">
         Your clinic sent you this link to download a copy of your health record — your medical

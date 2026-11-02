@@ -154,6 +154,7 @@ export function AddCareTeamMemberDialog({
                       disabled={candidate.onCareTeam}
                     />
                     <UserAvatar
+                      userId={candidate.id}
                       firstName={candidate.firstName}
                       lastName={candidate.lastName}
                       avatarUrl={candidate.avatarUrl}

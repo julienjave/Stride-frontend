@@ -62,7 +62,7 @@ export function TwoFactorPage() {
   if (!me) return null
 
   return (
-    <div className="mx-auto mt-8 max-w-lg space-y-4 px-4 pb-8">
+    <div className="mx-auto mt-8 max-w-lg space-y-4 px-4">
       <Link to="/profile" className="text-sm underline underline-offset-4">
         Back to my profile
       </Link>

@@ -163,6 +163,7 @@ function CareTeamRow({
     <li className={cn('flex items-start justify-between gap-3 px-4 py-3', !entry.isActive && 'opacity-70')}>
       <div className="flex min-w-0 items-start gap-3">
         <UserAvatar
+          userId={practitioner.id}
           firstName={practitioner.firstName}
           lastName={practitioner.lastName}
           avatarUrl={practitioner.avatarUrl}
