@@ -11,6 +11,8 @@ import { setUnauthorizedHandler } from '@/api/client'
 import { queryClient } from '@/api/queryClient'
 import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import { rememberSignOutReason } from '@/auth/currentPassword'
+import { returnState } from '@/auth/returnPath'
+import type { CurrentUser } from '@/auth/types'
 import { RouteErrorPage } from './RouteErrorPage'
 import { Loading } from '@/common/Loading'
 
@@ -664,6 +666,10 @@ export const router = createBrowserRouter([
 // query cache; this is the one place that wires the two together, right
 // where the router itself already lives.
 setUnauthorizedHandler((currentPath, message) => {
+  // Whose session this was — read BEFORE the cache is cleared just below.
+  // The way back is theirs only (returnPath.ts): if someone else signs in
+  // next on this browser, they go to their own home.
+  const signedIn = queryClient.getQueryData<CurrentUser | null>(currentUserQueryKey)
   // Without this, the CACHED current-user data would still say "logged
   // in" even though the session just expired server-side — RequireGuest
   // would then immediately bounce the user straight back out of /login,
@@ -680,5 +686,5 @@ setUnauthorizedHandler((currentPath, message) => {
   // by the sign-in page for its notice (not in the navigation's state: see
   // rememberSignOutReason).
   rememberSignOutReason(message)
-  void router.navigate('/login', { state: { from: currentPath } })
+  void router.navigate('/login', { state: returnState(currentPath, signedIn?.id) })
 })

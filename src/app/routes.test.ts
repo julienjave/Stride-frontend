@@ -11,6 +11,8 @@ import { AuthenticatedLayout } from './AuthenticatedLayout'
 import { RequireAuth } from './RequireAuth'
 import { RequireGuest } from './RequireGuest'
 import { apiRequest } from '@/api/client'
+import { queryClient } from '@/api/queryClient'
+import { currentUserQueryKey } from '@/auth/useCurrentUser'
 import {
   forgetSignOutReason,
   STEP_UP_SIGNED_OUT_MESSAGE,
@@ -149,10 +151,15 @@ describe('a 401 mid-session', () => {
         ),
       ),
     )
+    // Whose session it was: the way back carries its owner (returnPath.ts).
+    queryClient.setQueryData(currentUserQueryKey, { id: 7 })
     await router.navigate('/profile/password')
     await expect(apiRequest('/auth/password', { method: 'POST' })).rejects.toThrow()
     await vi.waitFor(() => expect(router.state.location.pathname).toBe('/login'))
-    expect(router.state.location.state).toStrictEqual({ from: '/profile/password' })
+    expect(router.state.location.state).toStrictEqual({
+      from: '/profile/password',
+      fromUserId: 7,
+    })
   }
 
   it('remembers why for the step-up sign-out', async () => {

@@ -278,6 +278,69 @@ describe('LoginPage', () => {
     })
   })
 
+  // Where the page itself sends the person (returnPath.ts) — checked with
+  // the page ALONE, no guards around it: in the app, RequireGuest races it
+  // to the same answer, and a test of both together can't tell which one
+  // was right.
+  describe('after signing in, where to', () => {
+    function WhereAmI() {
+      return <p data-testid="landed">{useLocation().pathname}</p>
+    }
+
+    // `withCode`: the account has two-factor sign-in on — the password is
+    // answered with `mfaRequired`, and the user arrives with the code.
+    async function signInAs(id: number, state: unknown, withCode = false) {
+      const signedIn = new Response(
+        JSON.stringify({ id, email: 'a@b.com', activeRole: 'practitioner', roles: ['practitioner'] }),
+        { status: 201 },
+      )
+      if (withCode) {
+        apiMock
+          .mockResolvedValueOnce(new Response(JSON.stringify({ mfaRequired: true }), { status: 201 }))
+          .mockResolvedValueOnce(signedIn)
+      } else {
+        apiMock.mockResolvedValue(signedIn)
+      }
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={[{ pathname: '/login', state }]}>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="*" element={<WhereAmI />} />
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>,
+      )
+      const user = userEvent.setup()
+      await user.type(screen.getByLabelText('Email'), 'a@b.com')
+      await user.type(screen.getByLabelText('Password'), 'password123')
+      await user.click(screen.getByRole('button', { name: 'Log in' }))
+      if (withCode) {
+        await user.type(await screen.findByLabelText('Authentication code'), '123456')
+        await user.click(screen.getByRole('button', { name: 'Verify' }))
+      }
+      return (await screen.findByTestId('landed')).textContent
+    }
+
+    it("sends someone else home from the previous person's page", async () => {
+      expect(await signInAs(8, { from: '/practitioner/patients/5', fromUserId: 7 })).toBe('/')
+    })
+
+    it('returns its owner to it', async () => {
+      expect(await signInAs(7, { from: '/practitioner/patients/5', fromUserId: 7 })).toBe(
+        '/practitioner/patients/5',
+      )
+    })
+
+    it('applies the same rule after the two-factor code', async () => {
+      const left = { from: '/practitioner/patients/5', fromUserId: 7 }
+      expect(await signInAs(8, left, true)).toBe('/')
+      cleanup()
+      expect(await signInAs(7, left, true)).toBe('/practitioner/patients/5')
+    })
+  })
+
   // Privacy and security pass 2 (decisions §16): the server signed this
   // session out after 5 wrong passwords or codes in a row; the app's 401
   // handler remembered why (rememberSignOutReason) and brought the person

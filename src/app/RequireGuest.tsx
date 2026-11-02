@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router'
 import { useCurrentUser } from '@/auth/useCurrentUser'
+import { destinationAfterSignIn } from '@/auth/returnPath'
 
 export function RequireGuest() {
   const { data: user } = useCurrentUser()
@@ -15,9 +16,12 @@ export function RequireGuest() {
     // old hardcoded `to="/"` would sometimes win, silently discarding the
     // preserved destination even though LoginPage computed it correctly.
     // Making both agree on the same destination means the race no longer
-    // matters — either one "winning" lands in the same place.
-    const state = location.state as { from?: string } | null
-    return <Navigate to={state?.from ?? '/'} replace />
+    // matters — either one "winning" lands in the same place. Hence ONE
+    // function for both, destinationAfterSignIn (returnPath.ts): when the
+    // page's owner rule arrived (2026-11-02), a copy kept here would have
+    // sent the next person to the previous person's page whenever this
+    // side won — which is how the bug looked live.
+    return <Navigate to={destinationAfterSignIn(location.state, user.id)} replace />
   }
 
   return <Outlet />

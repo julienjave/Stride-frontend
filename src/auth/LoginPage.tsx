@@ -10,6 +10,7 @@ import { login, verifyMfaCode } from './api'
 import { currentUserQueryKey } from './useCurrentUser'
 import { useSetupStatus } from './useSetupStatus'
 import { forgetSignOutReason, wasSignedOutAfterStepUps } from './currentPassword'
+import { destinationAfterSignIn } from './returnPath'
 import {
   loginSchema,
   mfaCodeSchema,
@@ -51,19 +52,17 @@ export function LoginPage() {
   const setupStatus = useSetupStatus()
 
   // location.state is typed as `unknown` by React Router (it can hold
-  // literally anything a caller passed) — narrowing it here, once, rather
-  // than casting inline at each of the three navigate() calls below.
-  // Falls back to '/' when there's no preserved destination at all (the
-  // common case: someone just visited /login directly, nothing to return
-  // to).
+  // literally anything a caller passed) — narrowed here, once, for the
+  // fields this page shows.
   //
   // `email` and `passwordSet` come from the accept-invitation page, after
   // the person chose their first password: the email is filled in for
   // them, and a line confirms the password was set. `passwordReset` (with
   // `email`) comes from the reset page (Phase 6); `email` alone from the
   // forgot page's "Back to log in".
+  // (`from` — where to go after signing in — and its owner, `fromUserId`,
+  // are read by destinationAfterSignIn() in returnPath.ts.)
   const state = location.state as {
-    from?: string
     email?: string
     passwordSet?: boolean
     passwordReset?: boolean
@@ -77,7 +76,6 @@ export function LoginPage() {
   useEffect(() => {
     forgetSignOutReason()
   }, [])
-  const redirectTo = state?.from ?? '/'
 
   const credentialsForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -102,7 +100,8 @@ export function LoginPage() {
       }
       queryClient.setQueryData(currentUserQueryKey, result)
       setStep('authenticated')
-      void navigate(redirectTo)
+      // The remembered page if it's this person's (or nobody's), else home.
+      void navigate(destinationAfterSignIn(location.state, result.id))
     },
     // onError runs whenever the mutation's promise rejects — which,
     // for an ApiError, means any non-2xx response. This is the one place
@@ -126,7 +125,7 @@ export function LoginPage() {
     onSuccess: (user) => {
       queryClient.setQueryData(currentUserQueryKey, user)
       setStep('authenticated')
-      void navigate(redirectTo)
+      void navigate(destinationAfterSignIn(location.state, user.id))
     },
     // A refused code: the field is cleared (whatever was typed is wrong)
     // and focused, ready for the next one.
