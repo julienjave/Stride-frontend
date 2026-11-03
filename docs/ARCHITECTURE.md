@@ -585,8 +585,9 @@ config, the browser suite), then `vite build` into `dist/`.
     version: upgrading it is a deliberate step, followed by the browser suite
     and `npm run check:cache-names`.
 - **Measured 2026-11-03** (`npm run check:cache-names`, which builds twice,
-  changes one page, and compares): 224 files; one page changed renames 1;
-  the first download is 12 files, 768.75 kB (235.44 kB gzipped), of which the
+  changes one page, and compares; re-run the same day after
+  `public/assets/404.html` was added): 225 files; one page changed renames 1;
+  the first download is 12 files, 769.73 kB (235.55 kB gzipped), of which the
   main file is 205 kB (67 kB gzipped) and the framework 315 kB (99 kB).
 - **A page file missing after a deploy.** A tab opened before a deploy asks
   for yesterday's file names. Vite fires `vite:preloadError`;
@@ -605,7 +606,11 @@ config, the browser suite), then `vite build` into `dist/`.
 - **Served as static files** from Cloudflare Pages
   ([`DEPLOYMENT.md`](DEPLOYMENT.md)). The app needs two things from the host:
   every unknown path answered with `index.html` (the router reads the
-  address), and `index.html` itself not cached for long.
+  address), and `index.html` itself not cached for long. Pages does both by
+  default; [`public/_headers`](../public/_headers) adds a year's caching for
+  `/assets/*`, and [`public/assets/404.html`](../public/assets/404.html)
+  makes a missing asset a real `404` rather than `index.html`
+  (DEPLOYMENT.md, part 3, says why).
 
 **Quality gates**, the same locally and in CI (§12): `tsc -b`, `npm run lint`
 (oxlint, then ESLint with `recommendedTypeChecked`, React hooks and
@@ -617,14 +622,12 @@ react-refresh rules), `vitest run`, `vite build`, and the browser suite.
 
 The app hasn't been deployed with the backend yet. Known before it is:
 
-- **The host's settings aren't in the repository.** Cloudflare Pages serves a
-  single-page app when the build has no `404.html`, and its default caching
-  of `index.html` and of `/assets/*` needs checking against §11's two needs;
-  a `public/_headers` file would make them part of the repository.
-  [`DEPLOYMENT.md`](DEPLOYMENT.md) settles both.
 - **`VITE_API_URL`** must be set to `https://api.stridecare.app` in the
   build's environment, and **`VITE_SENTRY_DSN`** to the browser project's
-  DSN (§10), or reporting stays off.
+  DSN (§10), or reporting stays off; and **`NODE_VERSION=24`**, since Pages'
+  build image defaults to Node 22 ([`DEPLOYMENT.md`](DEPLOYMENT.md), part 4).
+  (The host's caching and fallback, open here until 2026-11-03, are settled
+  in the repository: §11.)
 - **A Content-Security-Policy**, if one is added, must allow the two inline
   scripts in `index.html`: the pre-paint script, and the import map Vite
   writes (each by its hash).

@@ -27,6 +27,8 @@ dist-ssr
 extras/
 frontend-codebase-snapshot.md
 frontend-codebase-snapshot.zip
+frontend-docs-snapshot.md
+frontend-docs-snapshot.zip
 e2e-codebase-snapshot.md
 e2e-codebase-snapshot.zip
 devTools/

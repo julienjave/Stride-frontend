@@ -1,0 +1,14 @@
+# Response headers for Cloudflare Pages (docs/DEPLOYMENT.md, "What the host
+# must do"). The build copies this file from public/ into dist/; Pages reads
+# it there and never serves it as a file.
+#
+# Pages answers EVERY file with `Cache-Control: public, max-age=0,
+# must-revalidate` (plus an ETag): the browser keeps a copy but asks again
+# each time. Right for index.html — the one file without a hash in its name,
+# which must be fetched fresh so a deploy is seen — so it keeps that default.
+#
+# The files in /assets/ are named after their content (SessionPage-hv2Az1i5.js):
+# new content, new name. A browser may keep them for a year without asking
+# (`immutable`: not even when the person reloads the page).
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

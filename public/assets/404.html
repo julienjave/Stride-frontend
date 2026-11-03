@@ -1,0 +1,20 @@
+<!doctype html>
+<!--
+  Cloudflare Pages answers a missing file with the NEAREST 404.html
+  (docs/DEPLOYMENT.md, "What the host must do"). This one makes a missing
+  /assets/… file a real 404 — a file from an earlier deploy, asked for by a
+  tab opened before it. Without it, Pages' single-page fallback would answer
+  index.html with 200, and public/_headers would mark that HTML "immutable"
+  under the file's name for a year. There is deliberately NO 404.html at the
+  top level: its absence is what makes Pages answer every other unknown path
+  with index.html, which the router needs.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Not found</title>
+  </head>
+  <body>
+    <p>Not found.</p>
+  </body>
+</html>
