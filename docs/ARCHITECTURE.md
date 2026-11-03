@@ -673,4 +673,16 @@ a story.
 | §9 Look | §39 (palette, logo, fonts), §47 (the avatars' tints) |
 | §10 Error reporting | §32 |
 | §11 Build and delivery | §45 (the framework file, the import map, socket.io on demand) |
-| §12 CI | §34 (the browser suite), §38 (CI) |
+| §12 CI | §34 (the browser suite), §38 (CI; [`PROJECT.md`](PROJECT.md#ci-built-and-parked-with-gitignore) for how it is parked) |
+
+The journal's entries, one per build phase, tell where most of these parts
+came from:
+
+| Entry | Phases | The parts it is about |
+|---|---|---|
+| [01](journal/01-the-shell-and-the-practitioners-loop.md) | 0–3 | §3 who is signed in, §4 code splitting, §6 the program pages and the workout editor |
+| [02](journal/02-the-patients-loop-on-a-phone.md) | 4 | §6 optimistic updates and fresh data for decisions, §8 the charts |
+| [03](journal/03-messaging-shown-once-stored.md) | 5 | §7 messaging |
+| [04](journal/04-honest-states-plain-words-and-account-pages.md) | 6 | §4 the token pages, §5 failures' words and CORS headers, §8 the shared states |
+| [05](journal/05-merges-paging-and-the-leftovers.md) | 6.5 | §6 the address as state |
+| [06](journal/06-reports-the-browser-suite-and-the-bundle.md) | 7 | §8 snackbars, §9 the font, §10 error reporting, §11 the bundle, §12 CI |
