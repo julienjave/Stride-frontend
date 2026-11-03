@@ -1,9 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchClinics, clinicsListQueryKey } from './api'
 
-// Same shape as useHealthCheck (common/useHealthCheck.ts) — a thin wrapper
-// naming a specific useQuery call, rather than every consumer writing out
-// { queryKey: clinicsListQueryKey(...), queryFn: ... } by hand. Unlike
+// A thin wrapper naming one useQuery call, rather than every consumer
+// writing out { queryKey: clinicsListQueryKey(...), queryFn: ... } by hand.
+// useQuery is TanStack Query's core hook: given a KEY (what is fetched — the
+// cache entry's name) and a FUNCTION (how), it hands back the data AND its
+// lifecycle (isPending, isError, the error), cached and shared by every
+// component asking for the same key — no useState/useEffect by hand. Unlike
 // useCurrentUser, this one needs none of that hook's special bootstrap-
 // once machinery — the clinics list isn't read by half a dozen
 // independent components on every render the way "who's logged in" is,
