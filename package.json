@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "generate:address-data": "node scripts/generate-address-data.mjs",
     "check:cache-names": "node scripts/check-cache-names.mjs",
-    "snapshot:codebase": "node devTools/generate-frontend-codebase-snapshot.mjs"
+    "snapshot:codebase": "node devTools/generate-frontend-codebase-snapshot.mjs",
+    "snapshot:doc": "node devTools/generate-docs-snapshot.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
