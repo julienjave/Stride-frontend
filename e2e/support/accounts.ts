@@ -1,5 +1,5 @@
 // The seeded accounts the suite signs in as (the backend's
-// docs/dev-test-accounts.md — `seed:dev` makes them on every run).
+// docs/demo-accounts.md — `seed:dev` makes them on every run).
 export const PASSWORD = 'password123'
 
 export const ACCOUNTS = {

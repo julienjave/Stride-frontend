@@ -53,7 +53,7 @@ VITE_API_URL=http://localhost:3000
 ```
 
 The accounts to sign in with are the backend seed's (the backend's
-`docs/dev-test-accounts.md`, TODO-LINK).
+`docs/demo-accounts.md`, TODO-LINK).
 
 **The production build, locally:**
 

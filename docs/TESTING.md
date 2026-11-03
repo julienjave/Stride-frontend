@@ -98,7 +98,7 @@ npx playwright show-trace test-results/<test>/trace.zip   # replay a failed test
 Neither server is reused from an earlier run (`reuseExistingServer: false`):
 every run starts from the same freshly seeded data, and your development
 database (`stride`) and servers (3000, 5173) are never touched. The tests
-sign in as the seeded accounts (the backend's `dev-test-accounts.md`,
+sign in as the seeded accounts (the backend's `demo-accounts.md`,
 TODO-LINK).
 
 ---

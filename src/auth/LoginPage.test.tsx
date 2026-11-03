@@ -492,7 +492,7 @@ describe('LoginPage — the demo card', () => {
     password: 'password123',
     twoFactorKey: 'STRIDEDEMOTWOFACTORSTRIDEDEMOTWO',
     reset: { time: '04:00', timeZone: 'America/Toronto' },
-    guideUrl: 'https://github.com/x/stride-backend/blob/main/docs/dev-test-accounts.md',
+    guideUrl: 'https://github.com/x/stride-backend/blob/main/docs/demo-accounts.md',
   }
 
   function demoIs(value: unknown) {
