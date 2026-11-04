@@ -68,11 +68,19 @@ designed rather than accepted, and tests that are themselves tested by
 putting deliberate bugs into the code.
 
 > [!NOTE]
+<<<<<<< HEAD
 > **Status: live** at [stridecare.app](https://stridecare.app), served by
 > Cloudflare Pages, with the API at `https://api.stridecare.app`. The
 > reviewers' demo mode is on: the sign-in page lists four published
 > accounts, and the demo resets every night. The deployment was done by
 > following the deployment guide from start to finish.
+=======
+> **Status.** Built and tested against the real backend; not deployed yet.
+> It will be served from `https://stridecare.app` on Cloudflare Pages,
+> with the API at `https://api.stridecare.app`. The deployment
+> guide is written, checked against Cloudflare's local emulation of Pages,
+> and says plainly what hasn't run for real.
+>>>>>>> 87e644fa8f7317862dec1b8b29d596316e489a9c
 
 ---
 
