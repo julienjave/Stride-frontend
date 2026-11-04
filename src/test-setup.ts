@@ -26,7 +26,7 @@ configure({ asyncUtilTimeout: 3_000 })
 // afterEach here runs automatically, for every test in every file, without
 // each test file needing to remember to do it individually.
 // The real address data (src/common/address/addressData.ts, generated from
-// the country-state-city library) has ~250 countries — rendering that many
+// Unicode CLDR) has 250 countries — rendering that many
 // real <SelectItem> options in jsdom is genuinely slow (one affected test
 // measured at ~4.5s, right at the edge of Vitest's default 5s test
 // timeout, and enough to time out outright on a slower machine). No test
@@ -36,13 +36,16 @@ configure({ asyncUtilTimeout: 3_000 })
 // across the address-bearing forms' test files (United States, with states
 // including Illinois/California; Aland Islands, with none). The real data
 // has its own test, addressData.test.ts, which reads the real module with
-// vi.importActual.
+// vi.importActual. (The fixture keeps the spelling of the data it was
+// written from, 'Aland Islands'; CLDR's is 'Åland Islands'. No test
+// compares the two, so either works here.)
 //
 // findCountry (the address display shows a stored 'US' as "United States")
 // looks up the SAME fixture list, so the two can never disagree about which
 // countries exist.
 //
-// Until 2026-10-15 this mocked the library itself; the app now reads the
+// Until 2026-10-15 this mocked the library the data came from
+// (country-state-city, since replaced by CLDR); the app now reads the
 // generated data through addressData.ts, so that's the module replaced.
 //
 // vi.hoisted(): Vitest moves every vi.mock() call to the very top of the

@@ -4,14 +4,14 @@ import stateEntries from './states.generated.json'
 // The countries and states / provinces the address forms offer — the ONE
 // place the app reads them from.
 //
-// The two JSON files are GENERATED from the `country-state-city` library
-// by `npm run generate:address-data` (scripts/generate-address-data.mjs):
-// each country's ISO code and name, each country's subdivisions, nothing
-// else — the library's latitudes, flags, currencies and time zones made up
-// most of the app's bundle. The values are the library's, unchanged: the
-// database stores a country's CODE and a state's NAME, so they must stay
-// exactly what the forms always sent. addressData.test.ts compares these
-// files with the installed library and fails if they differ.
+// The two JSON files are GENERATED from Unicode CLDR's data (the packages
+// cldr-core, cldr-subdivisions-full, cldr-localenames-full) by `npm run
+// generate:address-data` (scripts/generate-address-data.mjs): each
+// country's ISO code and English name, each country's subdivisions at the
+// level its addresses use, nothing else. The database stores a country's
+// CODE and a state's NAME, which is why the files keep exactly that.
+// addressData.test.ts rebuilds them from the installed CLDR and fails if
+// they differ. CLDR's licence notice: LICENSE-CLDR.txt (see NOTICE).
 //
 // Vite turns an imported .json file into a JavaScript module at build
 // time, so this data is part of the bundle — a snapshot, never fetched.
@@ -48,8 +48,8 @@ export function findCountry(isoCode: string): Place | undefined {
   return COUNTRY_BY_CODE.get(isoCode)
 }
 
-// The country's states / provinces, in the library's order — empty when it
-// has none (the forms then show a plain text field). Object.hasOwn, not
+// The country's states / provinces, sorted by name — empty when it has
+// none (the forms then show a plain text field). Object.hasOwn, not
 // STATES[isoCode]: a "code" like 'constructor' must not find something
 // every JavaScript object inherits.
 export function statesOfCountry(isoCode: string): readonly Place[] {

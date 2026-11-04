@@ -446,9 +446,20 @@ data. Three passes followed:
 1. **Every page loaded on demand** (31 routes then, 64 now), with the shell —
    guards, layouts, the sign-in page — kept static so a signed-out visitor's
    first screen waits for no second file; `routes.test.ts` fails if a page is
-   added statically. **Address data generated** from `country-state-city`
-   into two JSON files (640 → 125 kB), with a test that fails when an upgraded
-   library would change them.
+   added statically. **Address data generated** into two JSON files (640 →
+   125 kB), with a test that fails when the source would change them. The
+   source was `country-state-city` until 2026-11, then **Unicode CLDR**
+   (129 → 80 kB built): the library is GPL-3.0, whose copyleft an Apache 2.0
+   repository that ships its data can't honour, while CLDR's Unicode License
+   v3 asks only that its notice travel with the data (`LICENSE-CLDR.txt`,
+   named in `NOTICE`). CLDR is also what browsers and ICU use, kept in step
+   with ISO 3166-2. The level of each country's list was chosen by what its
+   addresses name: CLDR's top level, except provinces or counties in Italy,
+   Spain, Ireland, the Philippines, Indonesia, Iraq and the Dominican
+   Republic, and no list (a free-text field) for France and the United
+   Kingdom, whose addresses have no such line. Stored addresses were
+   unaffected: the database keeps a country's code, the same in every
+   source, and a state's name as typed or picked.
 2. **A page file missing after a deploy** — the duty code splitting brings:
    an old tab asks for yesterday's names. One automatic reload, at most once
    per 10 seconds, and an error page instead of a loop.

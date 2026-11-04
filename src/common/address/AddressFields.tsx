@@ -149,7 +149,7 @@ export function AddressFields<
       <div className="space-y-1">
         <Label htmlFor="addressState">State/Province (if applicable)</Label>
         {/* Cascades on the selected country: a real dropdown when
-            country-state-city has a subdivision list for it, a plain
+            the address data has a subdivision list for it, a plain
             text input otherwise. Both cases write to the SAME
             addressState field — the backend stores whatever string
             ends up there either way, with no relationship to country

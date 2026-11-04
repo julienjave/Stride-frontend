@@ -200,7 +200,7 @@ computing in local time passes under UTC and fails under
 | `src/theme/themeScript.test.ts` | `index.html`'s pre-paint script disagrees with `theme.ts` / `font.ts` |
 | `src/theme/paletteContrast.test.ts` | a colour pair in `index.css` falls below WCAG AA, in either theme |
 | `src/theme/fontCss.test.ts` | the font setting's chain in `index.css` (class → variable → utilities) is broken |
-| `src/common/address/addressData.test.ts` | the generated address data no longer matches the library (run `npm run generate:address-data`) |
+| `src/common/address/addressData.test.ts` | the generated address data no longer matches the installed CLDR and the agreed per-country rules (run `npm run generate:address-data`) |
 
 A convention test that matched no file would pass while checking nothing,
 so each one that scans the tree also asserts that it sees known files and

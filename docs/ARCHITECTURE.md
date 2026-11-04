@@ -596,9 +596,18 @@ config, the browser suite), then `vite build` into `dist/`.
   `sessionStorage`, and not at all without it, so a reload can never loop).
   A second failure reaches `RouteErrorPage` ("Reload the page").
 - **Address data is generated**, not imported: `npm run
-  generate:address-data` copies the countries' codes and names and their
-  states from `country-state-city` into two JSON files (640 → 125 kB), and
-  `addressData.test.ts` fails when an upgraded library would change them.
+  generate:address-data` reads Unicode CLDR's packages (`cldr-core`,
+  `cldr-subdivisions-full`, `cldr-localenames-full`, devDependencies pinned
+  to one CLDR version) and writes each country's code and English name and
+  its subdivisions into two JSON files, built into one 80 kB file (34 kB
+  gzipped; 129 kB with the previous source) that only the pages showing or
+  editing an address load. A subdivision list is CLDR's top level, except
+  where addresses name another one — provinces or counties in DO, ES, ID, IE, IQ,
+  IT, PH; no list (a free-text field) in FR and GB — and the script's head
+  lists those rules and their reasons. `addressData.test.ts` rebuilds both
+  files from the installed CLDR and fails when they differ. CLDR's licence
+  notice ships in [`LICENSE-CLDR.txt`](../LICENSE-CLDR.txt), named in
+  [`NOTICE`](../NOTICE).
 - **Build-time settings** (`import.meta.env`, typed in `vite-env.d.ts` so a
   misspelt name is a compile error): `VITE_API_URL` and the three
   `VITE_SENTRY_…` (§10). Vite only exposes variables prefixed `VITE_`, and

@@ -189,7 +189,7 @@ code.
 - **A bundle measured, then designed.** The first build was one 1.6 MB
   file, 40 % of it a library's geographic data. Every page now loads on
   demand (64 routes), the address data is generated into two small JSON
-  files (640 → 125 kB), a missing file after a deploy reloads the app once,
+  files (640 → 80 kB), a missing file after a deploy reloads the app once,
   and an import map stops one changed page from renaming 129 of 224 files:
   a returning visitor after a one-page deploy downloads 21 kB instead of
   475.
@@ -324,3 +324,7 @@ security boundary — would be the server's.
 
 Licensed under the Apache License, Version 2.0 — see [`LICENSE`](./LICENSE)
 and [`NOTICE`](./NOTICE). Copyright 2026 Julien Javelaud.
+
+The country and subdivision lists in `src/common/address/` are generated
+from the Unicode CLDR, under the Unicode License v3 — see
+[`LICENSE-CLDR.txt`](./LICENSE-CLDR.txt).

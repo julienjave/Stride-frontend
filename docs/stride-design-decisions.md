@@ -3182,6 +3182,9 @@ with it, not patched before it.
   focus to Remove.
 
 **Bundle size — code splitting and slim address data, built 2026-10-15**
+*(Since 2026-11-04 the address data comes from Unicode CLDR, not
+`country-state-city`, and the library is gone: §48. What follows is the
+pass as built.)*
 (frontend only; confirmed green by the person 2026-10-15). The build warned
 of a 1.6 MB chunk; the person asked to deal with it before Phase 4 adds the
 patient side. Measured first (a source-map breakdown): ~40% was
@@ -4767,7 +4770,8 @@ Phase 6 dependency. Done first:
    and adopting it for Phase 6's auth screens (the conflict stays); writing the
    workaround into an `.npmrc` (the file stays unused). `shadcn` and
    `country-state-city` moved to `devDependencies` in the same commit — `npm
-   audit --omit=dev`: 0.
+   audit --omit=dev`: 0. (`country-state-city` was removed altogether on
+   2026-11-04: §48.)
 2. **Messaging leftovers:** a visually hidden `<h1>` "Messages" in the
    conversation pane on phones (not the name as `<h1>`: a level can't change
    with the width, and the loading / not-found states have no name);
@@ -10496,3 +10500,138 @@ signed-out room removed). Live in Chromium (Alex and Pat): 48 px under each
 page at 1280, 96 px at 375 (the tab bar + 32); Messages 0 px of page scroll at
 both widths, an open conversation's composer above the tab bar; the roster and
 home in light and dark.
+
+---
+
+## §48 — Address data from Unicode CLDR, one level per country (2026-11-04)
+
+**Why:** a licence, found preparing the repos to go public (the
+documentation roadmap's first "before going public" item). `country-state-city`
+is **GPL-3.0**. It was only a devDependency, but the generator copied its data
+into the two committed JSON files and the build shipped them — and GPL's
+copyleft asks that a work distributed with GPL material be distributed under
+the GPL. Apache 2.0 can go into GPL, not the reverse, so the repository's
+`LICENSE` would have misled about that part. (Not legal advice: names and
+codes may be unprotected facts in the US, the EU has a database right, and the
+data seems to come from a database labelled ODbL elsewhere. The clean answer
+was chosen over the arguable one.)
+
+### Decided (the person, 2026-11-03): keep a state list, from CLDR
+
+Candidates checked (2026-11-03): `iso3166-2-db` (MIT label over share-alike
+sources: OpenStreetMap, GeoNames, Wikipedia — refused); `country-region-data`
+(MIT, hand-curated, no stated source, mixed languages — doubtful);
+`i18n-iso-countries` (countries only); Wikidata (CC0, but 2–3 days of cleaning
+and no pinned version for the snapshot test to anchor on); **Unicode CLDR v49**
+— Unicode's own data, kept in step with ISO 3166-2, what browsers and ICU use,
+under the **Unicode License v3**: free to use, copy, modify and distribute
+provided its notice travels with the data. **Chosen.** Rejected too: dropping
+the state list (a free-text field everywhere).
+
+Measured against the old data first (`compare_states.py`): much of the
+difference was the OLD data's noise — mixed levels and abolished entries (FR
+123 = departments + today's regions + pre-2016 regions; GB 247, old and new
+councils side by side).
+
+### Decided (the person, 2026-11-04, "as proposed"): the level per country
+
+The assistant proposed, the person confirmed. **Default: CLDR's top level**
+(US states, Canadian provinces, German Länder…). Exceptions, each by the
+level an address in that country actually names:
+
+- **One level down** — a top-level entry with nothing under it kept as it is:
+  DO (10 planning regions of 2004 → the provinces + Distrito Nacional), ES
+  (autonomous communities → provinces, + Ceuta, Melilla), ID (7 geographic
+  island groups → the 38 provinces), IE (the 4 historic provinces → the 26
+  counties, "Co. Cork"), IQ ("Kurdistan" wraps three governorates → the 18
+  governorates, the same set as before), IT (regions → provinces, "00184 Roma
+  RM"; + Aosta Valley), PH (regions → provinces, + Metro Manila).
+- **No list** (the form's free-text field): FR (no region line in French
+  addresses; CLDR's top level also mixes the regions with places that are
+  countries of their own in the list — St. Barthélemy, New Caledonia), GB (UK
+  addresses name neither the 4 nations nor the 217 councils).
+- **Kept at the top level on purpose** although CLDR has a second: BD, BE, BF,
+  CV, CZ, EE, FJ, GN, GQ, GW, IS, KN, LK, LT, MA, MH, MW, UG (each one's main
+  division; the field is optional, "if applicable"); RS (one level down would
+  list Kosovo's districts under Serbia, while Kosovo is its own country in the
+  list); AZ (one level down would replace Nakhchivan by its 8 districts). BE as
+  "no list" was offered and not taken.
+- **CLDR's gaps:** 4 of China's 34 entries have no English name. Hong Kong,
+  Macao and Taiwan are left out (each is its own country in the list); **Inner
+  Mongolia** — CLDR lists `cnnm`, its alias table points to `cnmn`, neither is
+  named, a gap in CLDR itself — is named by hand. Any OTHER unnamed entry
+  stops the generator rather than dropping a place silently.
+- **CLDR's disambiguation markers** (`Île-de-France²`, `Lagunes²`) stripped;
+  the generator stops if that makes two names in one country equal (the
+  dropdown's value is the name).
+- **Countries:** read from CLDR by a rule — two letters, an ISO 3166-1 number
+  below 900 (900+ is private use: EU, ZZ), not deprecated (YU, SU), plus Kosovo
+  (XK, user-assigned) — giving exactly the previous 250 codes. CLDR's standard
+  English names, **not its short forms** (they include "UK" and "US"). 44 names
+  change (Czechia, Türkiye, Eswatini, "Congo - Brazzaville", "St. Lucia"…).
+- Kept as CLDR writes them: "Washington DC", "Madrid Province".
+- Sorted by English name (`Intl.Collator('en')`: "Åland Islands" beside
+  "Albania"), countries and subdivisions alike.
+
+Not checked against Google's address metadata (unreachable from the
+assistant's sandbox): the reasons come from the countries' postal formats as
+the assistant knows them.
+
+### Built (2026-11-04) — frontend only
+
+- **`scripts/generate-address-data.mjs`** rewritten: reads `cldr-core`
+  (`subdivisionContainment.json`, `codeMappings.json`, `aliases.json`),
+  `cldr-subdivisions-full` (`subdivisions/en/en.json`) and
+  `cldr-localenames-full` (`main/en/territories.json`) through
+  `createRequire(import.meta.url).resolve` (works from any folder); the rules
+  above as named sets at its head, each with its reason; same output as before
+  (`[code, name]` pairs, one per line, CRLF), so **the app's code is
+  unchanged**.
+- **Packages:** `country-state-city` removed; the three CLDR packages added as
+  devDependencies **pinned exactly to 49.0.0** (one CLDR version, so the
+  snapshot test has one anchor; `cldr-subdivisions-full` has a peer dependency
+  on `cldr-core`). The person updates and commits the lock.
+- **Licence:** CLDR's `LICENSE` copied unchanged to **`LICENSE-CLDR.txt`** at
+  the root (byte-identical in the three packages); a paragraph in `NOTICE`
+  names the data, the files it went into, the version and that file; the
+  README's License section says so.
+- **`addressData.test.ts`** rewritten (6 → 15 tests): still "exactly what the
+  installed source says", rebuilt in the test from CLDR's JSON with the rules
+  written out again — not imported from the script, so a generator bug can't
+  also be its own expectation; changing a rule means changing it in both
+  places, on purpose. Plus one test per rule (one level down, no list, top
+  level kept, markers, no repeated names, China, real countries only, standard
+  names, the collation).
+- Comments in `addressData.ts`, `AddressFields.tsx`, `test-setup.ts` (its
+  two-country fixture keeps the old spelling "Aland Islands"; no test compares
+  it with the real data). Frontend README, ARCHITECTURE, PROJECT, TESTING.
+
+**What changed for a user:** 198 countries with a list, 3,820 entries (was
+197 / 4,963). Lists lost: HK, BM, XK (CLDR has none), FR and GB (decided);
+gained: BQ, GL, PS, SH, UM, WF. US 66 → 57 (the 9 single outlying islands now
+under the country UM). A saved state no longer in its list (e.g. "Alsace")
+shows an empty dropdown when editing; the stored value stays unless changed.
+**No migration:** the database stores the country's CODE (ISO 3166-1, the same
+in every source) and the state's NAME; the seed stores no state; the backend's
+tests use "Illinois", unchanged.
+
+**Checked.** The built address file **129.23 → 79.86 kB** (gzip ~46 → 34 kB);
+not in the first download, which stays 12 files, 769.73 kB (235.55 kB gzipped)
+— `check:cache-names` passed, 1 of 225 files renamed. Old vs new, code by code:
+1,620 same, 1,858 renamed (mostly cleaner names: "Aichi", not "Aichi
+Prefecture"), 1,082 gone, 303 new. Vitest 3,630 (+9: 6 replaced by 15; 277
+files); tsc and lint clean (the same pre-existing warnings); build; browser
+suite 15 / 15 against the real backend; link check clean. Mutations: 10 planted
+in the generator — 9 caught by the test (the markers kept, Italy at the top
+level, a list for GB, a plain `<` sort, the short names, the childless regions
+dropped, Taiwan kept, Kosovo dropped, lower-case codes), the 10th (deprecated
+codes kept) stops the generator itself (no English name for YU).
+
+### Open
+
+- **Report the Inner Mongolia gap** to CLDR. When a later version names it,
+  the generator prints "remove it from MISSING_NAMES" and the test's "still a
+  gap" check fails — both on purpose.
+- **A CLDR upgrade** is `npm install -D -E` of the three packages at the new
+  version, then `npm run generate:address-data`; the test fails until both
+  are done.

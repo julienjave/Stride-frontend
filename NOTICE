@@ -1,2 +1,9 @@
 Stride
 Copyright 2026 Julien Javelaud
+
+This product includes data from the Unicode Common Locale Data Repository
+(CLDR), version 49: the country and subdivision codes and English names in
+src/common/address/countries.generated.json and states.generated.json,
+generated from it by scripts/generate-address-data.mjs.
+Copyright © 2001–2026 Unicode, Inc. Licensed under the Unicode License v3;
+its copyright and permission notice is in LICENSE-CLDR.txt.
