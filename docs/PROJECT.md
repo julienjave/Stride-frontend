@@ -480,12 +480,11 @@ self-hosted GlitchTip. Only real bugs report — a crash, an uncaught error —
 never an answer the server chose to give. The same server-made request id is
 on the screen ("Reference: 2dc325cf"), in the logs and in the report.
 
-**Not deployed yet.** The addresses are decided: `https://stridecare.app` on
-Cloudflare Pages for this app, `https://api.stridecare.app` for the API. What
-the host needs (unknown paths answered with `index.html`, `index.html` not
-cached) and the build settings are in [`DEPLOYMENT.md`](DEPLOYMENT.md);
-ARCHITECTURE's [§12](ARCHITECTURE.md#12-open-items-before-the-deployment)
-lists what is still open.
+**Deployed on 2026-11-03:** `https://stridecare.app` on Cloudflare Pages for
+this app, `https://api.stridecare.app` for the API. What the host needs
+(unknown paths answered with `index.html`, `index.html` not cached) and the
+build settings are in [`DEPLOYMENT.md`](DEPLOYMENT.md); ARCHITECTURE's
+[§12](ARCHITECTURE.md#12-open-items) lists what is still open.
 
 ---
 
@@ -525,23 +524,21 @@ lists what is still open.
   rather than guessed. The person reviewed, ran and confirmed each pass, and
   found several of the bugs the journal tells by using the app.
 
-### CI: built, and parked with `.gitignore`
+### CI: parked while private, on since going public
 
 The workflow ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)) has
 two jobs: `checks` (type check, lint, Vitest, build) and `browser` (the
 Playwright suite against the backend's `main`, the twin of the backend's own
-browser job). It was rehearsed in the sandbox from fresh clones, and has not
-run on GitHub yet.
+browser job). It was rehearsed in the sandbox from fresh clones, and runs on
+GitHub since the repositories went public.
 
-While the repositories are private, `.github/` is listed in this
-repository's **`.gitignore`**: no Actions minutes are spent and no token is
+While the repositories were private, `.github/` was listed in this
+repository's **`.gitignore`**: no Actions minutes were spent and no token was
 held. Decisions §38 records a different plan — `.git/info/exclude`, with
 `.gitignore` rejected because reviewers would see the line and it costs two
-commits — but the person chose `.gitignore` when applying it (2026-11-03),
-and that is what the repository does. The day the repositories go public:
-remove the line, commit `.github/`, then §38's remaining steps (check the
-other repository's name and the actions' pinned commits, and watch a first
-pull request go green).
+commits — but the person chose `.gitignore` when applying it (2026-11-03).
+When the repositories went public, the line was removed and `.github/`
+committed.
 
 ---
 
@@ -575,12 +572,10 @@ Postponed on purpose, each with its reason. None is an unknown.
   thumbnails**; avatars, logos and program photos are signed afresh, so a
   refetch downloads them again.
 
-**Still to check once deployed**
-- The host's settings (single-page fallback, caching), a Content-Security
-  Policy that allows the two inline scripts by their hashes, and the build's
-  `VITE_API_URL` and `VITE_SENTRY_DSN`
-  ([ARCHITECTURE §12](ARCHITECTURE.md#12-open-items-before-the-deployment)).
-- That a portrait photo from a real phone keeps its orientation through the
+**Still to do now that it's deployed**
+- A Content-Security-Policy that allows the two inline scripts by their
+  hashes ([ARCHITECTURE §12](ARCHITECTURE.md#12-open-items)).
+- To check that a portrait photo from a real phone keeps its orientation through the
   avatar crop (only tested with files on a computer).
 - One person's Chrome never sent file uploads from disk (Firefox, Edge and a
   Node script did, on the same machine). It wasn't Stride, and stays recorded

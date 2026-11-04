@@ -72,15 +72,13 @@ contains:
 Kept up to date here; the entries themselves are never edited. Last checked
 against the code and the documents on 2026-11-03.
 
-- **Nothing has been deployed yet.** The host's settings (single-page
-  fallback, caching of `index.html` and `/assets/*`), the build's
-  `VITE_API_URL` and `VITE_SENTRY_DSN`, and a Content-Security-Policy that
-  allows the two inline scripts are ARCHITECTURE's
-  [§12](../ARCHITECTURE.md#12-open-items-before-the-deployment).
-- **CI is written and parked** while the repositories are private:
-  `.github/` is in `.gitignore` (entry 06; PROJECT's
-  [CI](../PROJECT.md#ci-built-and-parked-with-gitignore)). The decisions
-  log's §38 still describes the earlier `.git/info/exclude` plan.
+- **A Content-Security-Policy** that allows the two inline scripts is still
+  to design: ARCHITECTURE's [§12](../ARCHITECTURE.md#12-open-items). The
+  rest of the deployment's checklist was done when the app was deployed, on
+  2026-11-03.
+- **The decisions log's §38 still describes the earlier `.git/info/exclude`
+  plan**; the repository used `.gitignore` while it was private (entry 06;
+  PROJECT's [CI](../PROJECT.md#ci-parked-while-private-on-since-going-public)).
 - **Still to check on a real phone**: that a portrait photo keeps its
   orientation through the avatar crop.
 - **Deferred, each with its reason** in PROJECT's

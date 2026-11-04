@@ -160,5 +160,5 @@ Phase 7's last item was built on 2026-11-03: the room under each page owned
 by the layout, and the avatars' three tints. The browser suite is 15 tests: 4
 sign-ins, then 11 in six files ([`TESTING.md`](../TESTING.md)); CI is written and
 parked until the repositories are public (PROJECT's
-[CI](../PROJECT.md#ci-built-and-parked-with-gitignore)); the delivery choices
+[CI](../PROJECT.md#ci-parked-while-private-on-since-going-public)); the delivery choices
 are ARCHITECTURE's [§11](../ARCHITECTURE.md#11-build-and-delivery).

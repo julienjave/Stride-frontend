@@ -621,31 +621,25 @@ config, the browser suite), then `vite build` into `dist/`.
   makes a missing asset a real `404` rather than `index.html`
   (DEPLOYMENT.md, part 3, says why).
 
-**Quality gates**, the same locally and in CI (§12): `tsc -b`, `npm run lint`
+**Quality gates**, the same locally and in CI: `tsc -b`, `npm run lint`
 (oxlint, then ESLint with `recommendedTypeChecked`, React hooks and
 react-refresh rules), `vitest run`, `vite build`, and the browser suite.
+**CI** ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml), decisions
+§38) runs them on GitHub since the repositories went public: a `checks` job
+and a `browser` job against the backend's `main`.
 
 ---
 
-## 12. Open items before the deployment
+## 12. Open items
 
-The app hasn't been deployed with the backend yet. Known before it is:
+The app was deployed with the backend on 2026-11-03: the build's settings
+(`VITE_API_URL`, `VITE_SENTRY_DSN`, `NODE_VERSION=24`;
+[`DEPLOYMENT.md`](DEPLOYMENT.md), part 4) and the host's caching and
+fallback (§11) are in place. Still open:
 
-- **`VITE_API_URL`** must be set to `https://api.stridecare.app` in the
-  build's environment, and **`VITE_SENTRY_DSN`** to the browser project's
-  DSN (§10), or reporting stays off; and **`NODE_VERSION=24`**, since Pages'
-  build image defaults to Node 22 ([`DEPLOYMENT.md`](DEPLOYMENT.md), part 4).
-  (The host's caching and fallback, open here until 2026-11-03, are settled
-  in the repository: §11.)
 - **A Content-Security-Policy**, if one is added, must allow the two inline
   scripts in `index.html`: the pre-paint script, and the import map Vite
   writes (each by its hash).
-- **CI is written and parked** until the repositories are public
-  ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml), decisions §38):
-  a `checks` job and a `browser` job against the backend's `main`.
-  `.github/` is listed in `.gitignore` while the repositories are private;
-  on that day the line is removed and the workflow committed, with the
-  other steps decisions §38 lists.
 
 ## 13. Deliberate limits
 
@@ -684,8 +678,7 @@ a story.
 | §8 Shared states and parts | §15, §24 (loading and error states), §33 (snackbars), §6 and §36 (the two charts) |
 | §9 Look | §39 (palette, logo, fonts), §47 (the avatars' tints) |
 | §10 Error reporting | §32 |
-| §11 Build and delivery | §45 (the framework file, the import map, socket.io on demand) |
-| §12 CI | §34 (the browser suite), §38 (CI; [`PROJECT.md`](PROJECT.md#ci-built-and-parked-with-gitignore) for how it is parked) |
+| §11 Build and delivery | §45 (the framework file, the import map, socket.io on demand); §34 (the browser suite), §38 (CI; [`PROJECT.md`](PROJECT.md#ci-parked-while-private-on-since-going-public) for how it was parked) |
 
 The journal's entries, one per build phase, tell where most of these parts
 came from:

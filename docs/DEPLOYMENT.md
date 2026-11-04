@@ -1,13 +1,12 @@
 # Stride frontend — building and deploying
 
-> **Status, 2026-11-03: written, not yet run end to end.** The frontend has
-> never been deployed. What was checked in a sandbox the same day: the
-> production build with `VITE_API_URL` set, and that build served by
-> Wrangler's local emulation of Cloudflare Pages (`wrangler pages dev`,
+> **Status, 2026-11-03: run end to end.** The frontend was deployed on
+> Cloudflare Pages by following this guide from start to finish, Part 5's
+> checks included, and serves `https://stridecare.app`. Before that, the
+> production build with `VITE_API_URL` set was checked in a sandbox, served
+> by Wrangler's local emulation of Cloudflare Pages (`wrangler pages dev`,
 > 4.152.0), which answered every request in
-> [What the host must do](#3-what-the-host-must-do) as described there. The
-> Cloudflare dashboard steps follow Cloudflare's documentation of the same
-> day, and the first real run will correct them.
+> [What the host must do](#3-what-the-host-must-do) as described there.
 
 The app is static files: `npm run build` writes them into `dist/`, and
 Cloudflare Pages serves them at `https://stridecare.app`. Everything it shows
@@ -268,6 +267,10 @@ reloads once onto the restored `index.html`.
 answers the old frontend as before, while a new frontend on the old API
 would call routes that aren't there yet.
 
+**CI** runs on GitHub since the repositories went public
+([`PROJECT.md`](PROJECT.md#ci-parked-while-private-on-since-going-public)).
+It checks every commit; it doesn't deploy. Pages builds on its own.
+
 **Not done yet:**
 
 - **A Content-Security-Policy.** If one is added (in `public/_headers`), it
@@ -276,6 +279,3 @@ would call routes that aren't there yet.
   hash, changes whenever a file is renamed), connections to `https://api.stridecare.app` and its
   socket (`wss://api.stridecare.app`), and images from
   `https://files.stridecare.app`. Not designed yet.
-- **CI** is written and parked until the repositories are public
-  ([`PROJECT.md`](PROJECT.md#ci-built-and-parked-with-gitignore)). It checks
-  every commit; it doesn't deploy. Pages builds on its own.

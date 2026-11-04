@@ -311,10 +311,10 @@ unchanged code: a command that fails anyway would report every mutant as
 
 A GitHub Actions workflow exists
 ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)) and was rehearsed
-in a sandbox from fresh clones. It is **parked** until the repositories are
-public (decisions §38): `.github/` is in `.gitignore` until then, so no
-Actions minutes are spent and no token is held while they are private. Two
-jobs, in parallel:
+in a sandbox from fresh clones while the repositories were private, when
+`.github/` was in `.gitignore` so that no Actions minutes were spent and no
+token was held (decisions §38). It runs on GitHub since they went public.
+Two jobs, in parallel:
 
 - **checks**: `npm ci`, `tsc -b`, `npm run lint`, `vitest run`, `vite build`;
 - **browser**: this commit and the backend's `main` checked out side by side

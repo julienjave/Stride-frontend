@@ -22,6 +22,7 @@
 
   <br />
 
+  [Live demo](https://stridecare.app) ·
   [Backend repository](https://github.com/julienjave/Stride-backend) ·
   [Architecture](./docs/ARCHITECTURE.md) ·
   [Design decisions](./docs/stride-design-decisions.md) ·
@@ -67,11 +68,11 @@ designed rather than accepted, and tests that are themselves tested by
 putting deliberate bugs into the code.
 
 > [!NOTE]
-> **Status.** Built and tested against the real backend; not deployed yet.
-> It will be served from `https://stridecare.app` on Cloudflare Pages
-> (TODO-LINK), with the API at `https://api.stridecare.app`. The deployment
-> guide is written, checked against Cloudflare's local emulation of Pages,
-> and says plainly what hasn't run for real.
+> **Status: live** at [stridecare.app](https://stridecare.app), served by
+> Cloudflare Pages, with the API at `https://api.stridecare.app`. The
+> reviewers' demo mode is on: the sign-in page lists four published
+> accounts, and the demo resets every night. The deployment was done by
+> following the deployment guide from start to finish.
 
 ---
 
@@ -432,7 +433,7 @@ gives each postponed item its reason.
 - **A React Native mobile client** — a project of its own, against the same
   API.
 - **The avatar's photo orientation (EXIF) checked with a real phone
-  photo** — it needs a deployed app to test from a phone; and a rotate
+  photo**, now that the app can be opened from a phone; and a rotate
   button in the crop dialog.
 
 ### 🔗 Across both repositories
