@@ -68,8 +68,8 @@ putting deliberate bugs into the code.
 
 > [!NOTE]
 > **Status.** Built and tested against the real backend; not deployed yet.
-> It will be served from `https://stridecare.app` on Cloudflare Pages
-> (TODO-LINK), with the API at `https://api.stridecare.app`. The deployment
+> It will be served from `https://stridecare.app` on Cloudflare Pages,
+> with the API at `https://api.stridecare.app`. The deployment
 > guide is written, checked against Cloudflare's local emulation of Pages,
 > and says plainly what hasn't run for real.
 
