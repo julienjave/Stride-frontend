@@ -89,9 +89,9 @@ export default defineConfig({
     {
       command: 'npm run db:prepare:e2e && npm run build && npm run start:e2e',
       // Found and checked before anything starts (support/backendDir.ts):
-      // e2e/local.json, STRIDE_BACKEND_DIR, or ../backend. import.meta.dirname
-      // is this file's folder — the frontend — whatever folder the command
-      // was typed in.
+      // STRIDE_BACKEND_DIR, e2e/local.json, or ../backend then
+      // ../Stride-backend. import.meta.dirname is this file's folder — the
+      // frontend — whatever folder the command was typed in.
       cwd: backendDir(import.meta.dirname),
       url: `${API_URL}/health`,
       reuseExistingServer: false,

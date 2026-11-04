@@ -6,9 +6,9 @@ to their patients, patients complete them session by session and message
 their practitioners in real time. This repository is the frontend — a
 React single-page app, phone-first for patients. The backend, a NestJS API
 over PostgreSQL with row-level security on every table, is its own
-repository, `Stride-backend` (TODO-LINK), which decides every permission and
-every rule; this app decides what to show, what to suggest, and how to say
-it.
+repository, [`Stride-backend`](https://github.com/julienjave/Stride-backend),
+which decides every permission and every rule; this app decides what to
+show, what to suggest, and how to say it.
 
 This is a bootcamp capstone, built specifically to demonstrate real
 frontend, backend and infrastructure understanding rather than CRUD. On
@@ -97,18 +97,19 @@ in favour of hand-written ones — in [`PROJECT.md`](./docs/PROJECT.md).
 | [`DEPLOYMENT.md`](./docs/DEPLOYMENT.md) | Running it locally, the build's settings, what the host must do, and the first deployment on Cloudflare Pages, with how to verify it. |
 | [`docs/journal/README.md`](./docs/journal/README.md) | One entry per build phase — the decisions and bugs worth telling as a story — with a "Start here" path of three. |
 | [`stride-design-decisions.md`](./docs/stride-design-decisions.md) | The design-decisions log: every feature designed with its options weighed and the rejected ones kept, §1–§47. The code's comments, in both repositories, cite it as "decisions §N". |
-| The backend repository (TODO-LINK) | The other half: the API reference, its architecture (data, row-level security, the audit trail), its tests, the server's deployment guide, and a 42-entry journal. |
-| The demo accounts (TODO-LINK) | The backend's `docs/demo-accounts.md`: the seeded accounts, their password, and what each one shows. |
+| [The backend repository](https://github.com/julienjave/Stride-backend) | The other half: the API reference, its architecture (data, row-level security, the audit trail), its tests, the server's deployment guide, and a 42-entry journal. |
+| [The demo accounts](https://github.com/julienjave/Stride-backend/blob/main/docs/demo-accounts.md) | The backend's `docs/demo-accounts.md`: the seeded accounts, their password, and what each one shows. |
 
 ## Getting Started
 
 **Prerequisites:** Node.js 24, and the backend running locally — its
-README's Getting Started, or its `DEPLOYMENT.md`, Part 1 (TODO-LINK) — with
-the API on `http://localhost:3000` and Mailpit's inbox on
+README's [Getting Started](https://github.com/julienjave/Stride-backend/blob/main/README.md#getting-started), or its
+[`DEPLOYMENT.md`, Part 1](https://github.com/julienjave/Stride-backend/blob/main/docs/DEPLOYMENT.md#part-1--local-development)
+— with the API on `http://localhost:3000` and Mailpit's inbox on
 `http://localhost:8025`.
 
 ```bash
-git clone TODO-LINK stride-frontend && cd stride-frontend
+git clone https://github.com/julienjave/Stride-frontend.git frontend && cd frontend
 npm ci
 npm run dev        # http://localhost:5173 — the origin the backend allows by default
 ```
@@ -128,7 +129,8 @@ npx tsc -b && npm run lint  # types, then oxlint and ESLint
 npm run test:e2e            # the browser suite: builds and starts the backend itself
 ```
 
-The browser suite needs the backend's folder and its services; see
+The browser suite needs the backend's folder (by default `../backend` or
+`../Stride-backend`, beside this one) and its services; see
 [`TESTING.md`](./docs/TESTING.md#the-browser-suite) for where it looks and
 what it starts.
 
@@ -234,8 +236,9 @@ more instructive moments:
 
 What's next for the screens. Items that are mostly server work — the audit
 purge, cacheable photo URLs, the records PDF's fonts, more than one API
-instance — and the full detail of each shared item are in the backend's
-README (TODO-LINK); [`PROJECT.md`'s "Known limits"](./docs/PROJECT.md#known-limits-and-whats-deferred)
+instance — and the full detail of each shared item are in the
+[backend's README](https://github.com/julienjave/Stride-backend/blob/main/README.md#future-improvements);
+[`PROJECT.md`'s "Known limits"](./docs/PROJECT.md#known-limits-and-whats-deferred)
 gives each postponed item its reason.
 
 **In this repository**
@@ -272,8 +275,9 @@ gives each postponed item its reason.
 
 ## Production Readiness — what would change for real patients
 
-The whole system's answer is in the backend's README (TODO-LINK): this
-project follows the HIPAA Security Rule's technical safeguards as a
+The whole system's answer is in the
+[backend's README](https://github.com/julienjave/Stride-backend/blob/main/README.md#production-readiness--what-would-change-for-real-patients):
+this project follows the HIPAA Security Rule's technical safeguards as a
 demonstration of understanding, not as a claim of compliance, and it names
 what real patient data would need — BAAs with every vendor in the chain,
 keys in a key-management service, backups off the server, a risk
@@ -311,9 +315,10 @@ Going multi-tenant would mean revisiting nearly every access-control
 decision in the backend — every query, and every row-security policy,
 scoped by organization, forever, with no exceptions — a categorically
 stricter security bar than the one this system was built to meet. The
-backend's README (TODO-LINK) states that line in full. On this side it
-would add an organization to every page's context and every query key, but
-the hard part — and the security boundary — would be the server's.
+[backend's README](https://github.com/julienjave/Stride-backend/blob/main/README.md#a-note-on-multi-tenancy)
+states that line in full. On this side it would add an organization to
+every page's context and every query key, but the hard part — and the
+security boundary — would be the server's.
 
 ## License
 

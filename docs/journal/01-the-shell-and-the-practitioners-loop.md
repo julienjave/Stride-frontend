@@ -12,7 +12,7 @@ Condensed to four stories; the full list of what was decided is in
 [`PROJECT.md`](../PROJECT.md), and how the parts work today is in
 [`ARCHITECTURE.md`](../ARCHITECTURE.md). The same period seen from the
 backend — the care team, invitations, schedules as history — is the backend
-journal's entry 36 (TODO-LINK).
+journal's [entry 36](https://github.com/julienjave/Stride-backend/blob/main/docs/journal/36-care-team-invitations-and-schedules-as-history.md).
 
 ## Who is signed in, asked once
 

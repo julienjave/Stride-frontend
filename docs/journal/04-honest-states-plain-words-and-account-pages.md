@@ -10,8 +10,7 @@ one for failures and one for loading.
 
 Condensed to four stories; [`PROJECT.md`](../PROJECT.md) has the rest. The
 backend's side — an audit trail worth reading, accounts that hold, record
-access instead of a back door — is the backend journal's entry 39
-(TODO-LINK).
+access instead of a back door — is the backend journal's [entry 39](https://github.com/julienjave/Stride-backend/blob/main/docs/journal/39-audit-review-account-security-and-record-access.md).
 
 ## The audit trail decides what a screen reads
 

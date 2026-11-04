@@ -10,7 +10,7 @@ that waits for the server, and two panes on a desktop.
 
 Condensed to four stories; [`PROJECT.md`](../PROJECT.md) has the rest. The
 backend's side — nine gaps closed before any screen, the database deciding
-"read-only" — is the backend journal's entry 38 (TODO-LINK).
+"read-only" — is the backend journal's [entry 38](https://github.com/julienjave/Stride-backend/blob/main/docs/journal/38-messaging-brought-up-to-standard.md).
 
 ## One connection, shaped like the app
 

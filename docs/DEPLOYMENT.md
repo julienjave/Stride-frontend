@@ -12,8 +12,9 @@
 The app is static files: `npm run build` writes them into `dist/`, and
 Cloudflare Pages serves them at `https://stridecare.app`. Everything it shows
 comes from the API at `https://api.stridecare.app`, whose deployment is the
-backend repository's `docs/DEPLOYMENT.md` (TODO-LINK). The two guides meet in
-three settings:
+backend repository's
+[`docs/DEPLOYMENT.md`](https://github.com/julienjave/Stride-backend/blob/main/docs/DEPLOYMENT.md).
+The two guides meet in three settings:
 
 | What | Here (the build) | In the backend |
 |---|---|---|
@@ -33,15 +34,22 @@ three settings:
 ## 1. Running it locally
 
 **Prerequisites:** Node.js 24, and the backend running locally (its
-`docs/DEPLOYMENT.md`, Part 1, TODO-LINK): the API on `http://localhost:3000`,
-Mailpit's inbox on `http://localhost:8025`.
+[`docs/DEPLOYMENT.md`, Part 1](https://github.com/julienjave/Stride-backend/blob/main/docs/DEPLOYMENT.md#part-1--local-development)):
+the API on `http://localhost:3000`, Mailpit's inbox on
+`http://localhost:8025`.
 
 ```bash
-git clone TODO-LINK stride-frontend
-cd stride-frontend
+git clone https://github.com/julienjave/Stride-frontend.git frontend
+cd frontend
 npm ci
 npm run dev
 ```
+
+Clone it beside the backend's folder: the browser suite looks for the
+backend at `../backend` (the backend's Part 1 clones it there), then
+`../Stride-backend` (a plain `git clone`);
+[`TESTING.md`](TESTING.md#the-browser-suite) says how to point it
+elsewhere.
 
 The app is at http://localhost:5173, which is the origin the backend's
 `.env.example` allows (`FRONTEND_URLS=http://localhost:5173`). It calls
@@ -53,7 +61,7 @@ VITE_API_URL=http://localhost:3000
 ```
 
 The accounts to sign in with are the backend seed's (the backend's
-`docs/demo-accounts.md`, TODO-LINK).
+[`docs/demo-accounts.md`](https://github.com/julienjave/Stride-backend/blob/main/docs/demo-accounts.md)).
 
 **The production build, locally:**
 

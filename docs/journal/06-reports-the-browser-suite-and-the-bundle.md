@@ -10,7 +10,7 @@ a React Native client were deferred.
 
 Condensed to four stories; [`PROJECT.md`](../PROJECT.md) has the rest. The
 backend's side — request ids, allow-list logs and reports, branded emails,
-demo mode, CI — is the backend journal's entry 41 (TODO-LINK).
+demo mode, CI — is the backend journal's [entry 41](https://github.com/julienjave/Stride-backend/blob/main/docs/journal/41-observability-without-patient-data.md).
 
 ## Error reports that name no patient, and a reference that led nowhere
 

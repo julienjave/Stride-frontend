@@ -11,8 +11,8 @@ as it happened.
 | Why a decision was made, what was rejected | [`PROJECT.md`](PROJECT.md) and the [decisions log](stride-design-decisions.md) |
 | The test suites: what they prove, how to run them | [`TESTING.md`](TESTING.md) |
 | Building and serving it | [`DEPLOYMENT.md`](DEPLOYMENT.md) |
-| The API it calls: routes, errors, who may call what | the backend's API reference (TODO-LINK) |
-| The server side: data, row-level security, the audit trail | the backend's `ARCHITECTURE.md` (TODO-LINK) |
+| The API it calls: routes, errors, who may call what | the backend's [API reference](https://github.com/julienjave/Stride-backend/blob/main/docs/api/README.md) |
+| The server side: data, row-level security, the audit trail | the backend's [`ARCHITECTURE.md`](https://github.com/julienjave/Stride-backend/blob/main/docs/ARCHITECTURE.md) |
 
 "Decisions §N" below means section N of
 [`stride-design-decisions.md`](stride-design-decisions.md), the log where

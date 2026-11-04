@@ -11,9 +11,10 @@ techniques is told in the [journal](journal/README.md) and the
 | **Browser** (Playwright) | `e2e/*.e2e.ts` | the production build in Chromium, the real backend on port 3100, its own database (`stride_e2e`), Mailpit | 15 tests (4 sign-ins + 11) |
 
 The backend has its own suites — unit, and API end-to-end against a real
-Postgres — described in its `TESTING.md` (TODO-LINK). The browser suite
-lives here but starts the backend from its folder, with two scripts of the
-backend's own.
+Postgres — described in its
+[`TESTING.md`](https://github.com/julienjave/Stride-backend/blob/main/docs/TESTING.md).
+The browser suite lives here but starts the backend from its folder, with
+two scripts of the backend's own.
 
 ---
 
@@ -52,7 +53,14 @@ npx tsc -b                  # type-check all three projects (app, Vite config, e
 npm run lint                # oxlint, then ESLint with type-checked rules
 npm run build               # tsc -b, then the production build into dist/
 npm run check:cache-names   # two builds, one page changed: did only its file get a new name?
+npm run docs:links          # every link in every .md file: does it lead somewhere?
 ```
+
+`docs:links` ([`scripts/check-doc-links.mjs`](../scripts/check-doc-links.mjs),
+the same file as the backend's) checks relative links, `#anchors` and the
+GitHub links to either repository, the backend's against its folder beside
+this one (`../backend`, `../Stride-backend` or `STRIDE_BACKEND_DIR`). It
+exits with 1 on a broken link, and tests itself before checking.
 
 `check:cache-names` tests the build, not the code (decisions §45): run it
 after upgrading Vite or touching `vite.config.ts`'s build options. It fails
@@ -68,7 +76,9 @@ What must be in place once:
   (its own `.env.example` says how). The suite looks for it, in order: the
   `STRIDE_BACKEND_DIR` variable, `backendDir` in `e2e/local.json` (a file of
   your own, git-ignored: `{ "backendDir": "C:/code/Stride-backend" }`), then
-  `../backend`. It checks the folder holds a `package.json` with the two
+  `../backend` and `../Stride-backend` (the first holding a `package.json`).
+  A path given in the variable or the file is used as given, with no
+  fallback. It checks the folder holds a `package.json` with the two
   scripts below before starting anything
   ([`e2e/support/backendDir.ts`](../e2e/support/backendDir.ts)).
 - **Chromium for Playwright**: `npx playwright install chromium`.
@@ -98,8 +108,8 @@ npx playwright show-trace test-results/<test>/trace.zip   # replay a failed test
 Neither server is reused from an earlier run (`reuseExistingServer: false`):
 every run starts from the same freshly seeded data, and your development
 database (`stride`) and servers (3000, 5173) are never touched. The tests
-sign in as the seeded accounts (the backend's `demo-accounts.md`,
-TODO-LINK).
+sign in as the seeded accounts (the backend's
+[`demo-accounts.md`](https://github.com/julienjave/Stride-backend/blob/main/docs/demo-accounts.md)).
 
 ---
 

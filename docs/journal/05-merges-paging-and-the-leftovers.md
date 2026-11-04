@@ -10,7 +10,7 @@ the deferred list.
 
 Condensed to four stories; [`PROJECT.md`](../PROJECT.md) has the rest. The
 backend's side — the first `SECURITY DEFINER` function, the guards, the
-new-message emails — is the backend journal's entry 40 (TODO-LINK).
+new-message emails — is the backend journal's [entry 40](https://github.com/julienjave/Stride-backend/blob/main/docs/journal/40-defence-in-depth-leftovers-and-merges.md).
 
 ## A merge page that reveals itself, and never flashes
 

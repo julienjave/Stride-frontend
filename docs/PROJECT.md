@@ -33,7 +33,7 @@ admins run clinics, practitioners build exercise programs and assign them to
 patients, patients complete sessions and message their practitioner. It is
 two repositories. This one is the frontend, a React single-page app; the
 backend (a NestJS API over PostgreSQL, with object storage, email and a
-WebSocket gateway) is the other (TODO-LINK).
+WebSocket gateway) is the other, [`Stride-backend`](https://github.com/julienjave/Stride-backend).
 
 It was built as a bootcamp capstone, specifically to show real frontend,
 backend and infrastructure understanding rather than CRUD. That goal shaped

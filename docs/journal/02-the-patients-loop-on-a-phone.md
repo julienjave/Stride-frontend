@@ -9,7 +9,7 @@ was built at 375 px first and checked live in Chromium.
 
 Condensed to four stories; [`PROJECT.md`](../PROJECT.md) has the rest. The
 backend's side — a session the database can vouch for — is the backend
-journal's entry 37 (TODO-LINK).
+journal's [entry 37](https://github.com/julienjave/Stride-backend/blob/main/docs/journal/37-the-session-as-a-state-machine.md).
 
 ## A page before the write, and fresh data for decisions
 
