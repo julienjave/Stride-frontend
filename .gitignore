@@ -39,5 +39,3 @@ devTools/
 /test-results/
 /e2e/.auth/
 /e2e/local.json
-
-.github/
