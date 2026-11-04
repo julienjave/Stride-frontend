@@ -44,7 +44,12 @@ const LEFT_OUT = ['cnhk', 'cnmo', 'cntw']
 const MISSING_NAMES: Record<string, string> = { cnnm: 'Inner Mongolia' }
 
 function expectedFromCldr() {
-  const byName = new Intl.Collator('en').compare
+  // An arrow around the collator, not `collator.compare` taken on its own: a
+  // method pulled off its object may lose its `this` (the lint's
+  // unbound-method rule). Intl.Collator happens to hand back a bound
+  // function, but its type doesn't say so.
+  const collator = new Intl.Collator('en')
+  const byName = (a: string, b: string) => collator.compare(a, b)
   const sorted = (entries: string[][]) => entries.sort((a, b) => byName(a[1], b[1]))
 
   const codes = Object.keys(codeMappings).filter(

@@ -223,7 +223,12 @@ function MakeDisclosureDialog({
   // Errors show only after a first try: an empty field the admin hasn't
   // reached yet is not a mistake.
   const [triedToSubmit, setTriedToSubmit] = useState(false)
-  // Each field that can be wrong, to move focus to the first one.
+  // Each field that can be wrong, to move focus to the first one. Each
+  // input registers itself with a callback ref written inline in its JSX:
+  // React calls it after drawing the input, never during render. (A helper
+  // called during render built those functions before; the React Compiler
+  // can't tell such a call from one that READS the ref while rendering, so
+  // its lint refused it.)
   const fields = useRef<Partial<Record<FormField, HTMLElement | null>>>({})
 
   const set = <K extends keyof DisclosureForm>(key: K, value: DisclosureForm[K]) =>
@@ -281,10 +286,6 @@ function MakeDisclosureDialog({
         {shown[field]}
       </p>
     )
-  const ref = (field: FormField) => (element: HTMLElement | null) => {
-    fields.current[field] = element
-  }
-
   function togglePart(part: DisclosurePart, checked: boolean) {
     set('parts', checked ? [...form.parts, part] : form.parts.filter((each) => each !== part))
   }
@@ -312,7 +313,7 @@ function MakeDisclosureDialog({
           <div className="space-y-1">
             <Label htmlFor={id('recipientName')}>Recipient's name</Label>
             <Input
-              ref={ref('recipientName')}
+              ref={(element) => { fields.current.recipientName = element }}
               id={id('recipientName')}
               value={form.recipientName}
               onChange={(e) => set('recipientName', e.target.value)}
@@ -337,7 +338,7 @@ function MakeDisclosureDialog({
           <div className="space-y-1">
             <Label htmlFor={id('legalBasis')}>Legal basis</Label>
             <NativeSelect
-              ref={ref('legalBasis')}
+              ref={(element) => { fields.current.legalBasis = element }}
               id={id('legalBasis')}
               value={form.legalBasis}
               onChange={(e) => set('legalBasis', e.target.value as LegalBasis | '')}
@@ -357,7 +358,7 @@ function MakeDisclosureDialog({
             <div className="space-y-1">
               <Label htmlFor={id('basisExplanation')}>Explain the legal basis</Label>
               <Textarea
-                ref={ref('basisExplanation')}
+                ref={(element) => { fields.current.basisExplanation = element }}
                 id={id('basisExplanation')}
                 value={form.basisExplanation}
                 onChange={(e) => set('basisExplanation', e.target.value)}
@@ -383,7 +384,7 @@ function MakeDisclosureDialog({
           <div className="space-y-1">
             <Label htmlFor={id('receivedOn')}>Request received on</Label>
             <Input
-              ref={ref('receivedOn')}
+              ref={(element) => { fields.current.receivedOn = element }}
               id={id('receivedOn')}
               type="date"
               value={form.receivedOn}
@@ -403,7 +404,7 @@ function MakeDisclosureDialog({
               <label key={part} className="flex items-center gap-2 text-sm">
                 <input
                   // Focus goes to the first box when no part is chosen.
-                  ref={index === 0 ? ref('parts') : undefined}
+                  ref={index === 0 ? (element) => { fields.current.parts = element } : undefined}
                   type="checkbox"
                   checked={form.parts.includes(part)}
                   onChange={(e) => togglePart(part, e.target.checked)}
@@ -434,7 +435,7 @@ function MakeDisclosureDialog({
               <div className="space-y-1">
                 <Label htmlFor={id('periodTo')}>To</Label>
                 <Input
-                  ref={ref('periodTo')}
+                  ref={(element) => { fields.current.periodTo = element }}
                   id={id('periodTo')}
                   type="date"
                   value={form.periodTo}
@@ -464,7 +465,7 @@ function MakeDisclosureDialog({
                 <div className="space-y-1">
                   <Label htmlFor={id('withheldUntil')}>{firstName} sees it from</Label>
                   <Input
-                    ref={ref('withheldUntil')}
+                    ref={(element) => { fields.current.withheldUntil = element }}
                     id={id('withheldUntil')}
                     type="date"
                     value={form.withheldUntil}
@@ -477,7 +478,7 @@ function MakeDisclosureDialog({
                 <div className="space-y-1">
                   <Label htmlFor={id('withholdingStatement')}>The agency's statement</Label>
                   <Textarea
-                    ref={ref('withholdingStatement')}
+                    ref={(element) => { fields.current.withholdingStatement = element }}
                     id={id('withholdingStatement')}
                     value={form.withholdingStatement}
                     onChange={(e) => set('withholdingStatement', e.target.value)}

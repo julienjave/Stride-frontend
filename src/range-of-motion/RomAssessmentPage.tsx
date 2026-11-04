@@ -233,12 +233,17 @@ function FormBody({
   // failed, found by this page's test). An effect runs after React has
   // drawn the page again — by then the request is over and the fields are
   // enabled.
-  const [focusTarget, setFocusTarget] = useState<string | null>(null)
+  //
+  // A REQUEST object, not the id itself: each request is a new object, so
+  // asking for the same field twice still changes the effect's dependency
+  // and runs it again. (It used to be the id, set back to null inside the
+  // effect for that reason — a state update in an effect, which costs a
+  // second render for nothing; React's lint refuses it.)
+  const [focusRequest, setFocusRequest] = useState<{ id: string } | null>(null)
   useEffect(() => {
-    if (focusTarget === null) return
-    document.getElementById(focusTarget)?.focus()
-    setFocusTarget(null)
-  }, [focusTarget])
+    if (focusRequest !== null) document.getElementById(focusRequest.id)?.focus()
+  }, [focusRequest])
+  const focusAfterRender = (id: string) => setFocusRequest({ id })
 
   function problemFor(field: string): string | undefined {
     return problems.find((problem) => problem.field === field)?.message
@@ -262,7 +267,7 @@ function FormBody({
   function addRow() {
     const key = nextRowKey(draft)
     setDraft((current) => ({ ...current, rows: [...current.rows, emptyRow(key)] }))
-    setFocusTarget(movementFieldId(key))
+    focusAfterRender(movementFieldId(key))
   }
 
   function removeRow(key: number) {
@@ -272,7 +277,7 @@ function FormBody({
     // Focus goes to the row that took its place (or the one before it, for
     // the last) — never lost to the page's top.
     const neighbour = rest[Math.min(position, rest.length - 1)]
-    if (neighbour) setFocusTarget(movementFieldId(neighbour.key))
+    if (neighbour) focusAfterRender(movementFieldId(neighbour.key))
   }
 
   function onSubmit(event: FormEvent) {
@@ -300,7 +305,7 @@ function FormBody({
         if (mapped.problems.length === 0) return
         setProblems(mapped.problems)
         setGeneral(mapped.general)
-        setFocusTarget(mapped.problems[0].field)
+        focusAfterRender(mapped.problems[0].field)
       },
     })
   }
