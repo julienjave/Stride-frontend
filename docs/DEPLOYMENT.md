@@ -21,12 +21,12 @@ The two guides meet in three settings:
 | This app's address | the Pages project's custom domain, `stridecare.app` | `FRONTEND_URL` (links in emails) and `FRONTEND_URLS` (CORS) |
 | The browser's error project | `VITE_SENTRY_DSN` | `SENTRY_BROWSER_DSN`: the same string, character for character |
 
-- **Part 1** — running it locally
-- **Part 2** — the build and its settings
-- **Part 3** — what the host must do, and how this repository makes Pages do it
-- **Part 4** — the first deployment on Cloudflare Pages
-- **Part 5** — verifying it
-- **Part 6** — redeploying, rolling back, and what's not done yet
+- [**Part 1** — running it locally](#1-running-it-locally)
+- [**Part 2** — the build and its settings](#2-the-build-and-its-settings)
+- [**Part 3** — what the host must do](#3-what-the-host-must-do), and how this repository makes Pages do it
+- [**Part 4** — the first deployment on Cloudflare Pages](#4-the-first-deployment-on-cloudflare-pages)
+- [**Part 5** — verifying it](#5-verifying-it)
+- [**Part 6** — redeploying, rolling back, and what's not done yet](#6-redeploying-rolling-back-and-whats-not-done-yet)
 
 ---
 

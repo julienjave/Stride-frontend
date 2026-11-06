@@ -25,6 +25,25 @@ checked.
 
 ---
 
+## Table of Content
+
+1. [What the frontend is](#1-what-the-frontend-is)
+2. [The source tree](#2-the-source-tree)
+3. [Start-up](#3-start-up)
+4. [Routes, guards and layouts](#4-routes-guards-and-layouts)
+5. [Talking to the API](#5-talking-to-the-api)
+6. [Server state](#6-server-state)
+7. [Real-time messaging](#7-real-time-messaging)
+8. [Screens: the shared states and parts](#8-screens-the-shared-states-and-parts)
+9. [Look: theme, palette, fonts](#9-look-theme-palette-fonts)
+10. [Error reporting](#10-error-reporting)
+11. [Build and delivery](#11-build-and-delivery)
+12. [Open items](#12-open-items)
+13. [Deliberate limits](#13-deliberate-limits)
+14. [Where to go for "why"](#where-to-go-for-why)
+
+---
+
 ## 1. What the frontend is
 
 Stride runs a physiotherapy practice. **Admins** run its clinics and

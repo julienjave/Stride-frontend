@@ -12,6 +12,18 @@ Condensed to four stories; [`PROJECT.md`](../PROJECT.md) has the rest. The
 backend's side — request ids, allow-list logs and reports, branded emails,
 demo mode, CI — is the backend journal's [entry 41](https://github.com/julienjave/Stride-backend/blob/main/docs/journal/41-observability-without-patient-data.md).
 
+---
+
+## Contents
+
+- [Error reports that name no patient, and a reference that led nowhere](#error-reports-that-name-no-patient-and-a-reference-that-led-nowhere)
+- [A browser suite, and the bug it found on its first run](#a-browser-suite-and-the-bug-it-found-on-its-first-run)
+- [A timer whose time is calculated, never counted down](#a-timer-whose-time-is-calculated-never-counted-down)
+- [One page changed, 129 files renamed](#one-page-changed-129-files-renamed)
+- [Current status](#current-status)
+
+---
+
 ## Error reports that name no patient, and a reference that led nowhere
 
 The rule, decided with the person: nothing that leaves the browser or the

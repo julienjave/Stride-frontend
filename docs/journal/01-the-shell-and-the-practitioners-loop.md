@@ -14,6 +14,18 @@ Condensed to four stories; the full list of what was decided is in
 backend — the care team, invitations, schedules as history — is the backend
 journal's [entry 36](https://github.com/julienjave/Stride-backend/blob/main/docs/journal/36-care-team-invitations-and-schedules-as-history.md).
 
+---
+
+## Contents
+
+- [Who is signed in, asked once](#who-is-signed-in-asked-once)
+- [The screen arranges and words; it never judges](#the-screen-arranges-and-words-it-never-judges)
+- [One editor, two resources](#one-editor-two-resources)
+- [What only another machine could show](#what-only-another-machine-could-show)
+- [Current status](#current-status)
+
+---
+
 ## Who is signed in, asked once
 
 The first version of the session was the obvious one: every component that

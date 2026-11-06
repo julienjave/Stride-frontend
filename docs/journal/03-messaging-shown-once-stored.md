@@ -12,6 +12,18 @@ Condensed to four stories; [`PROJECT.md`](../PROJECT.md) has the rest. The
 backend's side — nine gaps closed before any screen, the database deciding
 "read-only" — is the backend journal's [entry 38](https://github.com/julienjave/Stride-backend/blob/main/docs/journal/38-messaging-brought-up-to-standard.md).
 
+---
+
+## Contents
+
+- [One connection, shaped like the app](#one-connection-shaped-like-the-app)
+- [The cache is the only source of truth](#the-cache-is-the-only-source-of-truth)
+- [Waiting for the server, on purpose](#waiting-for-the-server-on-purpose)
+- [A timer that waited 1 millisecond](#a-timer-that-waited-1-millisecond)
+- [Current status](#current-status)
+
+---
+
 ## One connection, shaped like the app
 
 A live connection has a life: it must open only once someone is signed in,

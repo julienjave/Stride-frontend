@@ -12,6 +12,18 @@ Condensed to four stories; [`PROJECT.md`](../PROJECT.md) has the rest. The
 backend's side — an audit trail worth reading, accounts that hold, record
 access instead of a back door — is the backend journal's [entry 39](https://github.com/julienjave/Stride-backend/blob/main/docs/journal/39-audit-review-account-security-and-record-access.md).
 
+---
+
+## Contents
+
+- [The audit trail decides what a screen reads](#the-audit-trail-decides-what-a-screen-reads)
+- [Honest states, and a retry that unmounted itself](#honest-states-and-a-retry-that-unmounted-itself)
+- [One wording rule, and a header the browser hid](#one-wording-rule-and-a-header-the-browser-hid)
+- [The account pages: buttons, caches, and two navigations](#the-account-pages-buttons-caches-and-two-navigations)
+- [Current status](#current-status)
+
+---
+
 ## The audit trail decides what a screen reads
 
 From this phase on, every read of another person's clinical data writes an

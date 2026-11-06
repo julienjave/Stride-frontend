@@ -11,6 +11,18 @@ Condensed to four stories; [`PROJECT.md`](../PROJECT.md) has the rest. The
 backend's side — a session the database can vouch for — is the backend
 journal's [entry 37](https://github.com/julienjave/Stride-backend/blob/main/docs/journal/37-the-session-as-a-state-machine.md).
 
+---
+
+## Contents
+
+- [A page before the write, and fresh data for decisions](#a-page-before-the-write-and-fresh-data-for-decisions)
+- [Ticks that feel instant on a slow phone](#ticks-that-feel-instant-on-a-slow-phone)
+- [Charts drawn by hand](#charts-drawn-by-hand)
+- [What only a person's hands found](#what-only-a-persons-hands-found)
+- [Current status](#current-status)
+
+---
+
 ## A page before the write, and fresh data for decisions
 
 A session row is an *act*: the backend stores one only once the patient

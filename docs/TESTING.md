@@ -18,6 +18,21 @@ two scripts of the backend's own.
 
 ---
 
+## Table of Content
+
+- [Running them](#running-them)
+  - [Vitest](#vitest)
+  - [The other checks](#the-other-checks)
+  - [The browser suite](#the-browser-suite)
+- [What each layer proves](#what-each-layer-proves)
+- [Techniques](#techniques)
+- [Mutation testing](#mutation-testing)
+- [Rules learned the hard way](#rules-learned-the-hard-way)
+- [What the suites don't cover](#what-the-suites-dont-cover)
+- [CI](#ci)
+
+---
+
 ## Running them
 
 ### Vitest

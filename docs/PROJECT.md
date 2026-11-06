@@ -26,6 +26,23 @@ it and matters to a reader is under "Known limits and what's deferred".
 
 ---
 
+## Table of Content
+
+- [Project shape](#project-shape)
+- [Technology stack](#technology-stack)
+- [The layout and the three homes](#the-layout-and-the-three-homes)
+- [The screens and the backend's rules](#the-screens-and-the-backends-rules)
+- [Server state, writes and freshness](#server-state-writes-and-freshness)
+- [Messaging](#messaging)
+- [Accounts, sign-in and security screens](#accounts-sign-in-and-security-screens)
+- [States, words and feedback](#states-words-and-feedback)
+- [Look](#look)
+- [Delivery and performance](#delivery-and-performance)
+- [Development practices](#development-practices)
+- [Known limits and what's deferred](#known-limits-and-whats-deferred)
+
+---
+
 ## Project shape
 
 Stride is a multi-role physiotherapy practice management application:
@@ -416,8 +433,6 @@ themes, a 16 px gutter at 375 px.
 ---
 
 ## Look
-
-Decided in a design discussion with the person (decisions §39, §47).
 
 - **The logo's dark teal is the primary colour; coral is an accent only**,
   never a button or a text colour: it fails AA with white text, and darkened

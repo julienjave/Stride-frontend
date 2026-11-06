@@ -12,6 +12,18 @@ Condensed to four stories; [`PROJECT.md`](../PROJECT.md) has the rest. The
 backend's side — the first `SECURITY DEFINER` function, the guards, the
 new-message emails — is the backend journal's [entry 40](https://github.com/julienjave/Stride-backend/blob/main/docs/journal/40-defence-in-depth-leftovers-and-merges.md).
 
+---
+
+## Contents
+
+- [A merge page that reveals itself, and never flashes](#a-merge-page-that-reveals-itself-and-never-flashes)
+- [Searching as you type, without a request per letter](#searching-as-you-type-without-a-request-per-letter)
+- [Numbers that stay current, and an error that changed meaning](#numbers-that-stay-current-and-an-error-that-changed-meaning)
+- [The clinical leftovers](#the-clinical-leftovers)
+- [Current status](#current-status)
+
+---
+
 ## A merge page that reveals itself, and never flashes
 
 Two accounts for one person split their history in two. The backend now warns
