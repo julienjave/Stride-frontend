@@ -22,6 +22,10 @@
 
   <br />
 
+  ![Stride demo](docs/assets/stride-demo.gif)
+
+  <br />
+
   [Live demo](https://stridecare.app) ·
   [Backend repository](https://github.com/julienjave/Stride-backend) ·
   [Architecture](./docs/ARCHITECTURE.md) ·
